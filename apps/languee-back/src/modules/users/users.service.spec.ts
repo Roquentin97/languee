@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../core/prisma/prisma.service';
 import { UsersService } from './users.service';
 
 const mockUser = {
