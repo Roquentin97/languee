@@ -92,7 +92,6 @@ Branch name must match the conventional commit type of the change.
 ## Commit and PR conventions
 
 All commits must follow Conventional Commits format:
-
 ```
 <type>(<scope>): <description>
 ```
@@ -101,7 +100,6 @@ Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`
 Scope: the module or area affected e.g. `auth`, `users`, `docker`, `prisma`
 
 Examples:
-
 - `feat(auth): add JWT refresh token rotation`
 - `fix(users): handle null result from findByEmail`
 - `chore(docker): add healthcheck to postgres service`
@@ -116,13 +114,13 @@ PR body must include: spec description, affected modules, and QA summary.
 
 Before running any command that requires environment variables, load `.env` from the
 monorepo root:
-
 ```bash
 set -a && source .env && set +a
 ```
 
 Avoid using ${VAR} shell expansion in commands. Prefer `printenv VAR` or plain `$VAR`.
 Avoid using brace expansion {} in shell commands. List files explicitly or run separate commands instead.
+
 
 Do this at the start of every session and before every pipeline run — never assume
 environment variables are already exported.
@@ -140,18 +138,20 @@ environment variables are already exported.
 
 Two pipelines triggered from Claude Code slash commands:
 
-| Pipeline | Command        | Agent chain                                       |
-| -------- | -------------- | ------------------------------------------------- |
-| Feature  | `/forge`       | Lead → Architect → Implementer → Linter → QA → PR |
-| Infra    | `/forge-infra` | DevOps                                            |
+| Pipeline | Command | Agent chain |
+|---|---|---|
+| Feature | `/forge` | Lead → Architect → Implementer → Linter → QA → PR |
+| Infra | `/forge-infra` | DevOps |
+| Refactor | `/forge-refactor` | Restructurer → Decomposer → Linter → QA |
 
-Notion specs filtered by `Pipeline` (`feature` or `infra`) and `Status` = `ready-for-dev`.
+Notion specs filtered by `Pipeline` (`feature`, `infra`, or `refactor`) and `Status` = `ready-for-dev`.
 
 ### Agent roles
-
 - **Lead**: orchestrates the feature pipeline, reads Notion, persists outputs, opens PR
 - **Architect**: reviews spec, designs schema, writes implementation plan — no code
 - **Implementer**: executes Architect's plan, writes NestJS code and migrations — no tests, no lint
 - **Linter**: runs `yarn lint` and `yarn format`, fixes errors — no logic changes
 - **QA**: writes tests, verifies lint, validates migrations, reviews code — no fixes
+- **Restructurer**: renames, moves, import updates — Haiku, no logic changes
+- **Decomposer**: splits, extractions, encapsulation — Sonnet, no renames or moves
 - **DevOps**: owns `docker-compose.yml` and `Makefile` at root, each app's `Dockerfile` — no app code

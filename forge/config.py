@@ -20,9 +20,16 @@ class PipelineConfig:
     dry_run: bool = os.environ.get("FORGE_DRY_RUN", "false").lower() == "true"
 
 
+class PipelineType:
+    FEATURE = "feature"
+    INFRA = "infra"
+    REFACTOR = "refactor"
+
+
 class Config:
     notion = NotionConfig()
     pipeline = PipelineConfig()
+    pipeline_type = PipelineType()
 
     # Reference list used by the Lead agent when writing Affected modules back to Notion.
     # Extend this as new modules are added to the codebase.
