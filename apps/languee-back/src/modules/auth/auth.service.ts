@@ -1,15 +1,15 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
-import { randomUUID } from "crypto";
-import { RedisService } from "../redis/redis.service";
-import { UsersService } from "../users/users.service";
-import { LoginDto } from "./dto/login.dto";
-import { SessionData } from "./interfaces/session.interface";
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
+import { RedisService } from '../core/redis/redis.service';
+import { UsersService } from '../users/users.service';
+import { LoginDto } from './dto/login.dto';
+import { SessionData } from './interfaces/session.interface';
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 const DUMMY_HASH =
-  "$2b$10$XE0X1VUQCzOZ.SPxF4q/f.ieiRmHIeVDUaQVt9xbrCNq4h4cgoxf."; // bcrypt hash for timing-safe comparison
+  '$2b$10$XE0X1VUQCzOZ.SPxF4q/f.ieiRmHIeVDUaQVt9xbrCNq4h4cgoxf.'; // bcrypt hash for timing-safe comparison
 
 @Injectable()
 export class AuthService {
@@ -33,12 +33,12 @@ export class AuthService {
     if (!user) {
       // Compare against dummy hash to prevent timing attacks
       await bcrypt.compare(dto.password, DUMMY_HASH);
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const sessionId = randomUUID();
@@ -80,7 +80,7 @@ export class AuthService {
   ): Promise<{ accessToken: string; plainRefreshToken: string }> {
     const raw = await this.redisService.get(`session:${sessionId}`);
     if (!raw) {
-      throw new UnauthorizedException("Session not found");
+      throw new UnauthorizedException('Session not found');
     }
 
     const session: SessionData = JSON.parse(raw) as SessionData;
@@ -88,7 +88,7 @@ export class AuthService {
     if (session.revoked) {
       await this.revokeAllUserSessions(session.userId);
       throw new UnauthorizedException(
-        "Refresh token reuse detected — all sessions revoked",
+        'Refresh token reuse detected — all sessions revoked',
       );
     }
 
@@ -97,13 +97,13 @@ export class AuthService {
       session.hashedRefreshToken,
     );
     if (!tokenValid) {
-      throw new UnauthorizedException("Invalid refresh token");
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
     const now = new Date();
     const expiresAt = new Date(session.expiresAt);
     if (now >= expiresAt) {
-      throw new UnauthorizedException("Session expired");
+      throw new UnauthorizedException('Session expired');
     }
 
     const remainingTtl = Math.floor(
@@ -161,7 +161,7 @@ export class AuthService {
 
   async getSessions(
     userId: string,
-  ): Promise<Omit<SessionData, "hashedRefreshToken">[]> {
+  ): Promise<Omit<SessionData, 'hashedRefreshToken'>[]> {
     const sessionIds = await this.redisService.smembers(
       `user_sessions:${userId}`,
     );
@@ -179,7 +179,7 @@ export class AuthService {
     );
 
     return sessions.filter(
-      (s): s is Omit<SessionData, "hashedRefreshToken"> => s !== null,
+      (s): s is Omit<SessionData, 'hashedRefreshToken'> => s !== null,
     );
   }
 

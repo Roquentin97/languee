@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.*
+forge/runs
+coverage
+.nyc_output
+*.log
+.git
+.gitignore
+README.md
