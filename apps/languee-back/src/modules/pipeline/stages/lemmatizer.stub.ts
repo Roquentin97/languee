@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   ILemmatizer,
   PreLemmatizedOutput,
   LemmatizedOutput,
-} from '../interfaces/pipeline.interfaces';
+} from "../interfaces/pipeline.interfaces";
 
 @Injectable()
 export class LemmatizerStub implements ILemmatizer {

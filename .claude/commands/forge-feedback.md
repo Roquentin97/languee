@@ -1,0 +1,89 @@
+# /forge-feedback
+
+Process human feedback on rejected PRs and re-run the pipeline from the appropriate
+stage. Detects specs with status `needs-revision` in Notion, reads feedback, infers
+the restart stage, and pushes fixes to the existing PR branch.
+
+## Steps
+
+1. Read `forge/config.py` for pipeline configuration
+2. Check `NOTION_SPEC_DB_ID` is set — abort with a clear message if not
+3. Query Notion for entries where:
+   - `Status` = `needs-revision`
+   - `Pipeline` = `feature`
+4. If no specs found, print: "No specs with status needs-revision found. Nothing to run."
+   and stop
+5. For each spec, read the `Feedback` field and infer the restart stage
+6. Print the inferred restart stage and reasoning — ask for confirmation before proceeding
+7. Check out the existing feature branch in a new worktree:
+   ```bash
+   git worktree add ../<repo-name>-<spec-slug>-r<iteration> feature/<spec-slug>
+   ```
+8. Update Notion status to `in-progress`
+9. Increment `Iteration` field by 1
+10. Run the pipeline from the inferred stage, passing feedback as additional context
+11. On completion: push to existing branch, update Notion to `done`, append iteration
+    summary to `Agent output`
+12. On failure: update Notion to `failed`, append failure reason to `Agent output`
+13. Clean up worktree
+
+## Restart stage inference rules
+
+Lead reads the full `Feedback` field and applies these rules in order:
+
+- **Restart from Architect** if feedback mentions:
+  schema design, wrong data model, missing relations, architectural decisions,
+  fundamental approach is wrong, needs redesign
+- **Restart from Implementer** if feedback mentions:
+  wrong logic, missing endpoints, incorrect behaviour, missing feature, wrong response
+  shape, business logic issues — this is the safe default for ambiguous feedback
+- **Restart from Linter** if feedback mentions:
+  naming conventions, code style, formatting, import organisation
+- **Restart from QA** if feedback mentions:
+  missing tests, wrong assertions, test coverage, edge cases not tested
+
+Always write the inferred stage and a one-line reason to `Agent output` before
+proceeding so the human can verify the decision was correct.
+
+## Passing feedback to agents
+
+Append feedback as an additional field in the task object passed to each agent:
+
+```json
+{
+  "spec": { ... },
+  "feedback": {
+    "iteration": 2,
+    "content": "full text of the relevant feedback section",
+    "restart_stage": "implementer",
+    "reasoning": "feedback describes incorrect business logic in auth service"
+  },
+  "architect_output": { ... },
+  "implementer_output": { ... }
+}
+```
+
+Only pass previous agent outputs that are still valid given the restart stage.
+If restarting from Architect, do not pass any previous outputs — start fresh.
+If restarting from Implementer, pass `architect_output` only.
+If restarting from Linter, pass `architect_output` and `implementer_output`.
+If restarting from QA, pass all previous outputs.
+
+## Notion feedback format
+
+Human writes feedback in this format — each iteration appended, never overwritten:
+
+```
+[YYYY-MM-DD] Iteration N feedback:
+- specific issue 1
+- specific issue 2
+```
+
+## Rules
+
+- Never overwrite feedback
+- Never close the existing PR — push fixes to the same branch
+- Always confirm inferred restart stage before running
+- Always increment `Iteration` before running
+- Always clean up worktree on completion or failure
+- If FORGE_DRY_RUN is true, skip Notion writes and git pushes, log actions only

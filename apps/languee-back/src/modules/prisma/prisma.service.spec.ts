@@ -1,7 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from './prisma.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { PrismaService } from "./prisma.service";
 
-describe('PrismaService', () => {
+describe("PrismaService", () => {
   let service: PrismaService;
 
   beforeEach(async () => {
@@ -12,14 +12,14 @@ describe('PrismaService', () => {
     service = module.get<PrismaService>(PrismaService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('onModuleInit()', () => {
-    it('calls $connect on initialisation', async () => {
+  describe("onModuleInit()", () => {
+    it("calls $connect on initialisation", async () => {
       const connectSpy = jest
-        .spyOn(service, '$connect')
+        .spyOn(service, "$connect")
         .mockResolvedValue(undefined);
 
       await service.onModuleInit();

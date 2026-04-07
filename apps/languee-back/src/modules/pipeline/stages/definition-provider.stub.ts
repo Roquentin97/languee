@@ -1,18 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   IDefinitionProvider,
-  LemmatizedOutput,
+  DefinitionProviderInput,
   Definition,
-} from '../interfaces/pipeline.interfaces';
+} from "../interfaces/pipeline.interfaces";
 
 @Injectable()
 export class DefinitionProviderStub implements IDefinitionProvider {
-  provide(_input: LemmatizedOutput): Definition[] {
+  provide(_input: DefinitionProviderInput): Definition[] {
     return [
       {
-        term: 'stub-term',
-        definition: 'A stub definition for testing.',
-        examples: ['Stub example sentence.'],
+        term: "stub-term",
+        definition: "A stub definition for testing.",
+        examples: ["Stub example sentence."],
+        part_of_speech: "noun",
+        provider: "stub",
       },
     ];
   }

@@ -79,6 +79,40 @@ Other modules apply auth guards via `@UseGuards(JwtAuthGuard)` importing from
 - Every service method needs at least one happy path and one edge case test
 - Coverage threshold: 80% per service
 
+## Ambiguity policy
+
+The pipeline never makes assumptions about:
+
+- Future schemas or models not yet defined
+- Contracts with services or modules that do not exist yet
+- Business logic not explicitly stated in the spec
+- Integration points with external systems unless fully described
+
+If any of the above are required to complete a task and are not defined in the spec,
+the pipeline must stop immediately, set Notion status to `pending-more-info`, and write
+specific questions to `Agent output`. Never proceed on assumptions.
+
+The Architect is the primary gate — it must raise ambiguities before any code is written.
+If the Implementer encounters an assumption mid-task, it must also halt and return
+`needs_revision` with a clear explanation rather than guessing.
+
+## Parallel pipeline conventions
+
+The Lead agent manages one git worktree per spec at `../<repo-name>-<spec-slug>/`.
+Worktrees are created before the pipeline starts and removed after PR is opened or on failure.
+Never manually delete worktrees while a pipeline is running — use `git worktree list` to
+check active worktrees and `git worktree remove` to clean up orphans.
+
+`forge/migration.lock` serialises Prisma migrations across parallel pipelines.
+If a pipeline crashes without releasing the lock, delete it manually:
+
+```bash
+rm forge/migration.lock
+```
+
+If a machine goes down mid-pipeline, specs may be stuck in `in-progress` and worktrees
+may be left orphaned. Run `/forge-recovery` before resuming any pipeline work.
+
 ## Branch conventions
 
 Agents may only push to branches with these prefixes:
@@ -92,6 +126,7 @@ Branch name must match the conventional commit type of the change.
 ## Commit and PR conventions
 
 All commits must follow Conventional Commits format:
+
 ```
 <type>(<scope>): <description>
 ```
@@ -100,6 +135,7 @@ Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`
 Scope: the module or area affected e.g. `auth`, `users`, `docker`, `prisma`
 
 Examples:
+
 - `feat(auth): add JWT refresh token rotation`
 - `fix(users): handle null result from findByEmail`
 - `chore(docker): add healthcheck to postgres service`
@@ -112,18 +148,23 @@ PR body must include: spec description, affected modules, and QA summary.
 
 ## Environment
 
-Before running any command that requires environment variables, load `.env` from the
-monorepo root:
+Before running any command that requires environment variables, use the wrapper script
+from the monorepo root:
+
 ```bash
-set -a && source .env && set +a
+sh scripts/load-env.sh <your-command>
+```
+
+For example:
+
+```bash
+sh scripts/load-env.sh yarn prisma migrate dev
 ```
 
 Avoid using ${VAR} shell expansion in commands. Prefer `printenv VAR` or plain `$VAR`.
 Avoid using brace expansion {} in shell commands. List files explicitly or run separate commands instead.
 
-
-Do this at the start of every session and before every pipeline run — never assume
-environment variables are already exported.
+Never assume environment variables are already exported — always use the wrapper.
 
 ## Agent behaviour rules
 
@@ -136,17 +177,19 @@ environment variables are already exported.
 
 ## Forge pipeline
 
-Two pipelines triggered from Claude Code slash commands:
-
-| Pipeline | Command | Agent chain |
-|---|---|---|
-| Feature | `/forge` | Lead → Architect → Implementer → Linter → QA → PR |
-| Infra | `/forge-infra` | DevOps |
-| Refactor | `/forge-refactor` | Restructurer → Decomposer → Linter → QA |
+| Pipeline | Command           | Agent chain                                                   |
+| -------- | ----------------- | ------------------------------------------------------------- |
+| Feature  | `/forge`          | Lead → Architect → Implementer → Linter → QA → PR             |
+| Infra    | `/forge-infra`    | DevOps                                                        |
+| Refactor | `/forge-refactor` | Restructurer → Decomposer → Linter → QA → PR                  |
+| Feedback | `/forge-feedback` | Lead (infers stage) → relevant agents → push to existing PR   |
+| Recovery | `/forge-recovery` | Detects stuck specs, orphaned worktrees, held migration locks |
 
 Notion specs filtered by `Pipeline` (`feature`, `infra`, or `refactor`) and `Status` = `ready-for-dev`.
+Feedback pipeline additionally queries `needs-revision` and `pending-more-info` statuses.
 
 ### Agent roles
+
 - **Lead**: orchestrates the feature pipeline, reads Notion, persists outputs, opens PR
 - **Architect**: reviews spec, designs schema, writes implementation plan — no code
 - **Implementer**: executes Architect's plan, writes NestJS code and migrations — no tests, no lint

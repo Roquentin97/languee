@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { PipelineService } from './pipeline.service';
+import { Module } from "@nestjs/common";
+import { PipelineService } from "./pipeline.service";
 import {
   NORMALIZER,
   PRE_LEMMATIZER,
@@ -8,14 +8,14 @@ import {
   DEFINITION_PROVIDER,
   GAP_FILL_SERVICE,
   CARD_ASSEMBLER,
-} from './pipeline.tokens';
-import { NormalizerStub } from './stages/normalizer.stub';
-import { PreLemmatizerStub } from './stages/pre-lemmatizer.stub';
-import { LemmatizerStub } from './stages/lemmatizer.stub';
-import { DuplicateCheckerStub } from './stages/duplicate-checker.stub';
-import { DefinitionProviderStub } from './stages/definition-provider.stub';
-import { GapFillStub } from './stages/gap-fill.stub';
-import { CardAssemblerStub } from './stages/card-assembler.stub';
+} from "./pipeline.tokens";
+import { NormalizerStub } from "./stages/normalizer.stub";
+import { PreLemmatizerStub } from "./stages/pre-lemmatizer.stub";
+import { LemmatizerStub } from "./stages/lemmatizer.stub";
+import { DuplicateCheckerStub } from "./stages/duplicate-checker.stub";
+import { DefinitionProviderStub } from "./stages/definition-provider.stub";
+import { GapFillStub } from "./stages/gap-fill.stub";
+import { CardAssemblerStub } from "./stages/card-assembler.stub";
 
 @Module({
   providers: [

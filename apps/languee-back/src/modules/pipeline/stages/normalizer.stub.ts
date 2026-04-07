@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   INormalizer,
   RawInput,
   NormalizedOutput,
-} from '../interfaces/pipeline.interfaces';
+} from "../interfaces/pipeline.interfaces";
 
 @Injectable()
 export class NormalizerStub implements INormalizer {

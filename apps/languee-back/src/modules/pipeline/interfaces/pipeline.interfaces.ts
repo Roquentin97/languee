@@ -21,30 +21,52 @@ export interface Definition {
   term: string;
   definition: string;
   examples: string[];
+  part_of_speech: string;
+  provider: string;
 }
 
-export interface DuplicateCheckOutput {
-  duplicates: Definition[];
+export interface DuplicateCheckInput {
+  lemma: string;
+  deck_id: string;
+  definition_id?: string;
 }
 
-export interface GapFillMetadata {
-  [key: string]: unknown;
+export interface DefinitionProviderInput {
+  lemma: string;
+  language: string;
+}
+
+export interface GapFillInput {
+  definitions: Definition[];
+  hints_context: string;
 }
 
 export interface GapFilledOutput {
   definitions: Definition[];
-  gap_fill_metadata: GapFillMetadata;
+  hints: string;
+}
+
+export interface CardAssemblerInput {
+  deck_id: string;
+  user_id: string;
+  definition_id: string;
+  hints: string;
 }
 
 export interface CardOutput {
   id: string;
+  definition_id: string;
+  deck_id: string;
+  user_id: string;
   term: string;
   lemma: string;
   definition: string;
   examples: string[];
-  pos: string | null;
-  is_multi_word: boolean;
-  gap_fill_metadata: GapFillMetadata;
+  part_of_speech: string;
+  hints: string;
+  nuance: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface INormalizer {
@@ -60,19 +82,17 @@ export interface ILemmatizer {
 }
 
 export interface IDuplicateChecker {
-  check(input: LemmatizedOutput): Definition[];
+  check(input: DuplicateCheckInput): Definition[];
 }
 
 export interface IDefinitionProvider {
-  provide(input: LemmatizedOutput): Definition[];
+  provide(input: DefinitionProviderInput): Definition[];
 }
 
 export interface IGapFillService {
-  fill(definitions: Definition[]): GapFilledOutput;
+  fill(input: GapFillInput): GapFilledOutput;
 }
 
 export interface ICardAssembler {
-  assemble(
-    input: NormalizedOutput & LemmatizedOutput & GapFilledOutput,
-  ): CardOutput;
+  assemble(input: CardAssemblerInput): CardOutput;
 }

@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject } from "@nestjs/common";
 import {
   INormalizer,
   IPreLemmatizer,
@@ -8,7 +8,7 @@ import {
   IGapFillService,
   ICardAssembler,
   CardOutput,
-} from './interfaces/pipeline.interfaces';
+} from "./interfaces/pipeline.interfaces";
 import {
   NORMALIZER,
   PRE_LEMMATIZER,
@@ -17,7 +17,7 @@ import {
   DEFINITION_PROVIDER,
   GAP_FILL_SERVICE,
   CARD_ASSEMBLER,
-} from './pipeline.tokens';
+} from "./pipeline.tokens";
 
 @Injectable()
 export class PipelineService {
@@ -33,17 +33,32 @@ export class PipelineService {
     @Inject(CARD_ASSEMBLER) private readonly cardAssembler: ICardAssembler,
   ) {}
 
-  run(raw: string): CardOutput {
-    const normalized = this.normalizer.normalize({ raw });
+  run(input: {
+    raw: string;
+    deck_id: string;
+    user_id: string;
+    language: string;
+  }): CardOutput {
+    const normalized = this.normalizer.normalize({ raw: input.raw });
     const preLemmatized = this.preLemmatizer.preLemmatize(normalized);
     const lemmatized = this.lemmatizer.lemmatize(preLemmatized);
-    const _duplicates = this.duplicateChecker.check(lemmatized);
-    const definitions = this.definitionProvider.provide(lemmatized);
-    const gapFilled = this.gapFillService.fill(definitions);
+    const _duplicates = this.duplicateChecker.check({
+      lemma: lemmatized.lemma,
+      deck_id: input.deck_id,
+    });
+    const definitions = this.definitionProvider.provide({
+      lemma: lemmatized.lemma,
+      language: input.language,
+    });
+    const gapFilled = this.gapFillService.fill({
+      definitions,
+      hints_context: lemmatized.lemma,
+    });
     const card = this.cardAssembler.assemble({
-      ...normalized,
-      ...lemmatized,
-      ...gapFilled,
+      deck_id: input.deck_id,
+      user_id: input.user_id,
+      definition_id: "stub-definition-id",
+      hints: gapFilled.hints,
     });
     return card;
   }

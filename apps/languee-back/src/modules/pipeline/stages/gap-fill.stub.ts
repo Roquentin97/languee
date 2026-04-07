@@ -1,16 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   IGapFillService,
-  Definition,
+  GapFillInput,
   GapFilledOutput,
-} from '../interfaces/pipeline.interfaces';
+} from "../interfaces/pipeline.interfaces";
 
 @Injectable()
 export class GapFillStub implements IGapFillService {
-  fill(definitions: Definition[]): GapFilledOutput {
+  fill(input: GapFillInput): GapFilledOutput {
     return {
-      definitions,
-      gap_fill_metadata: {},
+      definitions: input.definitions,
+      hints: "stub-hint",
     };
   }
 }

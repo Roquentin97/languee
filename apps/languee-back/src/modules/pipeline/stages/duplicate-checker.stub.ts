@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   IDuplicateChecker,
-  LemmatizedOutput,
+  DuplicateCheckInput,
   Definition,
-} from '../interfaces/pipeline.interfaces';
+} from "../interfaces/pipeline.interfaces";
 
 @Injectable()
 export class DuplicateCheckerStub implements IDuplicateChecker {
-  check(_input: LemmatizedOutput): Definition[] {
+  check(_input: DuplicateCheckInput): Definition[] {
     return [];
   }
 }
