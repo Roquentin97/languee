@@ -4,10 +4,12 @@ Run the Languee refactor pipeline for all specs with status `ready-for-dev` AND
 pipeline `refactor` in Notion.
 
 ## What this command does
+
 Executes structural and logic refactoring in sequence, then verifies integrity via
 Linter and QA. Does not invoke Lead, Architect, or Implementer.
 
 ## Pipeline order
+
 Restructurer (Haiku) → Decomposer (Sonnet) → Linter → QA
 
 Each stage is conditional:
@@ -17,6 +19,7 @@ Each stage is conditional:
 - QA always runs
 
 ## Steps
+
 1. Read `forge/config.py` for pipeline configuration
 2. Check `NOTION_SPEC_DB_ID` is set — abort with a clear message if not
 3. Query Notion for entries where:
@@ -29,7 +32,7 @@ Each stage is conditional:
    b. Update Notion status to `in-progress`
    c. Dispatch Restructurer if spec requires it — persist to
       `forge/runs/<spec-title-kebab-case>/restructurer-output.json`
-   d. Dispatch Decomposer if spec requires it, passing `structural_output` — persist
+   d. Dispatch Decomposer if spec requires it, passing `restructurer_output` — persist
       to `forge/runs/<spec-title-kebab-case>/decomposer-output.json`
    e. Dispatch Linter — persist to `forge/runs/<spec-title-kebab-case>/linter-output.json`
    f. Dispatch QA — persist to `forge/runs/<spec-title-kebab-case>/qa-output.json`
@@ -38,17 +41,20 @@ Each stage is conditional:
       `Agent output`
 
 ## On completion
+
 Print a final summary listing:
 - Specs processed
 - Which succeeded (with PR URL)
 - Which failed (with stage and reason)
 
 ## Usage
+
 ```
 /forge-refactor
 ```
 
 Dry run:
+
 ```
 FORGE_DRY_RUN=true /forge-refactor
 ```

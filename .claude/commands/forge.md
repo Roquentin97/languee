@@ -17,7 +17,9 @@ Architect → Implementer → Linter → QA → PR
 5. Query Notion for entries where:
    - `Status` = `ready-for-dev`
    - `Pipeline` = `feature`
-6. Execute the Lead agent instructions for each matching spec
+6. If no specs found, print: "No specs with status ready-for-dev and pipeline feature
+   found in Notion. Nothing to run." and stop
+7. Otherwise execute the Lead agent instructions for each matching spec
 
 ## Subagent prompts
 

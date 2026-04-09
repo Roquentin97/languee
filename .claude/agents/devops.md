@@ -92,6 +92,5 @@ Return a JSON object:
 
 - Never hardcode credentials — always use environment variables
 - Never commit `.env` — only `.env.example`
--
 - When adding a new app to the monorepo, create its Dockerfile inside its own directory
   and add its service to docker-compose.yml
