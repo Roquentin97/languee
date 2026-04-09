@@ -1,9 +1,8 @@
 # compiled output
-dist/
-tsconfig.build.json
+/dist
+*/**/node_modules
+./node_modules
 node_modules/
-
-
 # Logs
 logs
 *.log
@@ -17,7 +16,12 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
+<<<<<<< HEAD
 coverage/
+=======
+/coverage
+**/coverage/
+>>>>>>> 39cd065 (chore: update .gitignore)
 /.nyc_output
 
 # IDEs and editors
