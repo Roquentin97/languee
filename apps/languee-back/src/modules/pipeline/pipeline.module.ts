@@ -28,7 +28,7 @@ import { DefinitionService } from "../definitions/definitions.service";
     { provide: PRE_LEMMATIZER, useClass: PreLemmatizerStub },
     { provide: LEMMATIZER, useClass: Lemmatizer },
     { provide: DUPLICATE_CHECKER, useClass: DuplicateCheckerStub },
-    { provide: DEFINITION_PROVIDER, useClass: DefinitionService },
+    { provide: DEFINITION_PROVIDER, useExisting: DefinitionService },
     { provide: GAP_FILL_SERVICE, useClass: GapFillStub },
     { provide: CARD_ASSEMBLER, useClass: CardAssemblerStub },
     IrregularTableMechanism,

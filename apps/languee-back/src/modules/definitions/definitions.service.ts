@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import {
   Definition,
@@ -6,28 +6,20 @@ import {
   IDefinitionProvider,
 } from "../pipeline/interfaces/pipeline.interfaces";
 import { PrismaService } from "../prisma/prisma.service";
-
-const DICTIONARY_API_PROVIDER = "dictionaryapi";
-
-interface DictionaryApiDefinition {
-  definition: string;
-  example?: string;
-}
-
-interface DictionaryApiMeaning {
-  partOfSpeech: string;
-  definitions: DictionaryApiDefinition[];
-}
-
-interface DictionaryApiEntry {
-  meanings: DictionaryApiMeaning[];
-}
+import {
+  DefinitionNotFoundError,
+  ProviderUnavailableError,
+} from "./definitions.errors";
+import { DEFINITION_API_ADAPTER } from "./definitions.tokens";
+import { IDefinitionApiAdapter } from "./interfaces/definition-api-adapter.interface";
 
 @Injectable()
 export class DefinitionService implements IDefinitionProvider {
-  private readonly logger = new Logger(DefinitionService.name);
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(DEFINITION_API_ADAPTER)
+    private readonly adapter: IDefinitionApiAdapter,
+  ) {}
 
   async provide(input: DefinitionProviderInput): Promise<Definition[]> {
     const { lemma, language } = input;
@@ -38,65 +30,53 @@ export class DefinitionService implements IDefinitionProvider {
       create: { lemma, language },
     });
 
-    let entries: DictionaryApiEntry[];
+    let rawEntries;
     try {
-      const response = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/${language}/${lemma}`,
-      );
-      if (!response.ok) {
-        this.logger.warn(
-          `DictionaryAPI returned ${response.status} for lemma="${lemma}" language="${language}"`,
-        );
-        return [];
-      }
-      entries = (await response.json()) as DictionaryApiEntry[];
+      rawEntries = await this.adapter.fetch(lemma, language);
     } catch (err: unknown) {
-      this.logger.error(
-        `DictionaryAPI fetch failed for lemma="${lemma}": ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return [];
+      if (err instanceof ProviderUnavailableError) throw err;
+      throw new ProviderUnavailableError(this.adapter.providerName, err);
     }
 
-    const upsertPromises = entries.flatMap((entry) =>
-      entry.meanings.flatMap((meaning) =>
-        meaning.definitions.map(async (def) => {
-          try {
-            await this.prisma.definition.upsert({
-              where: {
-                wordId_partOfSpeech_definition: {
-                  wordId: word.id,
-                  partOfSpeech: meaning.partOfSpeech,
-                  definition: def.definition,
-                },
-              },
-              update: {},
-              create: {
-                wordId: word.id,
-                partOfSpeech: meaning.partOfSpeech,
-                definition: def.definition,
-                example: def.example ?? null,
-                provider: DICTIONARY_API_PROVIDER,
-              },
+    if (rawEntries.length === 0) {
+      throw new DefinitionNotFoundError(lemma, language);
+    }
+
+    const rows = await Promise.all(
+      rawEntries.map(async (entry) => {
+        const key = {
+          wordId: word.id,
+          partOfSpeech: entry.partOfSpeech,
+          definition: entry.definition,
+        };
+
+        const existing = await this.prisma.definition.findUnique({
+          where: { wordId_partOfSpeech_definition: key },
+        });
+        if (existing) return existing;
+
+        try {
+          return await this.prisma.definition.create({
+            data: {
+              ...key,
+              example: entry.example ?? null,
+              provider: this.adapter.providerName,
+            },
+          });
+        } catch (err: unknown) {
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === "P2002"
+          ) {
+            // Race condition: another request created it concurrently
+            return this.prisma.definition.findUniqueOrThrow({
+              where: { wordId_partOfSpeech_definition: key },
             });
-          } catch (err: unknown) {
-            if (
-              err instanceof Prisma.PrismaClientKnownRequestError &&
-              err.code === "P2002"
-            ) {
-              // Acceptable race condition — row was inserted concurrently
-              return;
-            }
-            throw err;
           }
-        }),
-      ),
+          throw err;
+        }
+      }),
     );
-
-    await Promise.all(upsertPromises);
-
-    const rows = await this.prisma.definition.findMany({
-      where: { wordId: word.id },
-    });
 
     return rows.map((row) => ({
       term: lemma,
