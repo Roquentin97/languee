@@ -8,7 +8,7 @@ import {
 @Injectable()
 export class DefinitionProviderStub implements IDefinitionProvider {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  provide(_input: DefinitionProviderInput): Definition[] {
+  provide(_input: DefinitionProviderInput): Promise<Definition[]> {
     return [
       {
         term: "stub-term",
