@@ -79,8 +79,8 @@ describe("PipelineService", () => {
   });
 
   // Edge case 1: happy path with well-formed input returns a full CardOutput
-  it("EC1: run with valid input returns CardOutput with all required fields", () => {
-    const card = service.run(DEFAULT_INPUT);
+  it("EC1: run with valid input returns CardOutput with all required fields", async () => {
+    const card = await service.run(DEFAULT_INPUT);
 
     expect(card).toBeDefined();
     expect(card).toHaveProperty("id");
@@ -96,17 +96,17 @@ describe("PipelineService", () => {
   });
 
   // Edge case 2: empty string raw propagates through stubs without throwing
-  it("EC2: run with empty string raw does not throw and returns CardOutput", () => {
-    expect(() =>
+  it("EC2: run with empty string raw does not throw and returns CardOutput", async () => {
+    await expect(
       service.run({
         raw: "",
         deck_id: "deck-1",
         user_id: "user-1",
         language: "en",
       }),
-    ).not.toThrow();
+    ).resolves.not.toThrow();
 
-    const card = service.run({
+    const card = await service.run({
       raw: "",
       deck_id: "deck-1",
       user_id: "user-1",
@@ -117,17 +117,17 @@ describe("PipelineService", () => {
   });
 
   // Edge case 3: multi-word raw string does not throw; normalizer always returns is_multi_word: false
-  it("EC3: run with multi-word raw string does not throw and returns CardOutput", () => {
-    expect(() =>
+  it("EC3: run with multi-word raw string does not throw and returns CardOutput", async () => {
+    await expect(
       service.run({
         raw: "hello world foo",
         deck_id: "deck-1",
         user_id: "user-1",
         language: "en",
       }),
-    ).not.toThrow();
+    ).resolves.not.toThrow();
 
-    const card = service.run({
+    const card = await service.run({
       raw: "hello world foo",
       deck_id: "deck-1",
       user_id: "user-1",
@@ -179,7 +179,7 @@ describe("PipelineService", () => {
     const spyPreLemmatize = jest.fn().mockReturnValue(preLemmatizeResult);
     const spyLemmatize = jest.fn().mockReturnValue(lemmatizeResult);
     const spyCheck = jest.fn().mockReturnValue([]);
-    const spyProvide = jest.fn().mockReturnValue(definitions);
+    const spyProvide = jest.fn().mockResolvedValue(definitions);
     const spyFill = jest.fn().mockReturnValue(gapFilledResult);
     const spyAssemble = jest.fn().mockReturnValue(stubCard);
 
@@ -205,7 +205,7 @@ describe("PipelineService", () => {
     }).compile();
 
     const svc = testModule.get<PipelineService>(PipelineService);
-    svc.run(DEFAULT_INPUT);
+    await svc.run(DEFAULT_INPUT);
 
     // normalizer receives raw input
     expect(spyNormalize).toHaveBeenCalledWith({ raw: "run" });
@@ -262,9 +262,9 @@ describe("PipelineService", () => {
   });
 
   // Edge case 7: DefinitionProviderStub returns exactly one Definition with all five required fields non-empty
-  it("EC7: DefinitionProviderStub.provide returns one Definition with all five non-empty fields", () => {
+  it("EC7: DefinitionProviderStub.provide returns one Definition with all five non-empty fields", async () => {
     const provider = new DefinitionProviderStub();
-    const result = provider.provide({ lemma: "run", language: "en" });
+    const result = await provider.provide({ lemma: "run", language: "en" });
 
     expect(result).toHaveLength(1);
     const [def] = result;
@@ -317,14 +317,14 @@ describe("PipelineService", () => {
   });
 
   // Edge case 10: CardOutput.nuance must be null in stub output
-  it("EC10: CardOutput.nuance is null in stub output", () => {
-    const card = service.run(DEFAULT_INPUT);
+  it("EC10: CardOutput.nuance is null in stub output", async () => {
+    const card = await service.run(DEFAULT_INPUT);
     expect(card.nuance).toBeNull();
   });
 
   // Edge case 11: CardOutput.created_at and updated_at are ISO string, not Date instances
-  it("EC11: CardOutput.created_at and updated_at are ISO date strings (typeof string)", () => {
-    const card = service.run(DEFAULT_INPUT);
+  it("EC11: CardOutput.created_at and updated_at are ISO date strings (typeof string)", async () => {
+    const card = await service.run(DEFAULT_INPUT);
     expect(typeof card.created_at).toBe("string");
     expect(typeof card.updated_at).toBe("string");
     // Validate ISO format
@@ -357,7 +357,7 @@ describe("PipelineService", () => {
     });
     const svc = overrideModule.get<PipelineService>(PipelineService);
 
-    const result = svc.run(DEFAULT_INPUT);
+    const result = await svc.run(DEFAULT_INPUT);
     expect(result.id).toBe("override-id");
     expect(spyAssembleOverride).toHaveBeenCalledTimes(1);
 
@@ -378,7 +378,7 @@ describe("PipelineService", () => {
     const overrideModule = await buildModule({ [NORMALIZER]: normalizerMock });
     const svc = overrideModule.get<PipelineService>(PipelineService);
 
-    const result = svc.run(DEFAULT_INPUT);
+    const result = await svc.run(DEFAULT_INPUT);
     expect(result).toBeDefined();
     expect(spyNormalizeOverride).toHaveBeenCalledTimes(1);
     expect(spyNormalizeOverride).toHaveBeenCalledWith({
@@ -389,8 +389,8 @@ describe("PipelineService", () => {
   });
 
   // Happy path: PipelineService.run returns correct field values end-to-end
-  it("happy path: run returns card with deck_id, user_id, and stub-hint", () => {
-    const card = service.run(DEFAULT_INPUT);
+  it("happy path: run returns card with deck_id, user_id, and stub-hint", async () => {
+    const card = await service.run(DEFAULT_INPUT);
     expect(card.deck_id).toBe(DEFAULT_INPUT.deck_id);
     expect(card.user_id).toBe(DEFAULT_INPUT.user_id);
     expect(card.hints).toBe("stub-hint");
@@ -442,9 +442,9 @@ describe("DuplicateCheckerStub", () => {
 });
 
 describe("DefinitionProviderStub", () => {
-  it("provide returns one definition with all required fields", () => {
+  it("provide returns one definition with all required fields", async () => {
     const stub = new DefinitionProviderStub();
-    const result = stub.provide({ lemma: "word", language: "en" });
+    const result = await stub.provide({ lemma: "word", language: "en" });
     expect(result).toHaveLength(1);
     const [def] = result;
     expect(def.term).toBeTruthy();

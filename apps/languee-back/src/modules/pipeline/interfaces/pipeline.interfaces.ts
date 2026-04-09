@@ -87,7 +87,7 @@ export interface IDuplicateChecker {
 }
 
 export interface IDefinitionProvider {
-  provide(input: DefinitionProviderInput): Definition[];
+  provide(input: DefinitionProviderInput): Promise<Definition[]>;
 }
 
 export interface IGapFillService {

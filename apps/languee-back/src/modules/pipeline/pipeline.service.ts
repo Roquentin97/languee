@@ -33,12 +33,12 @@ export class PipelineService {
     @Inject(CARD_ASSEMBLER) private readonly cardAssembler: ICardAssembler,
   ) {}
 
-  run(input: {
+  async run(input: {
     raw: string;
     deck_id: string;
     user_id: string;
     language: string;
-  }): CardOutput {
+  }): Promise<CardOutput> {
     const normalized = this.normalizer.normalize({ raw: input.raw });
     const preLemmatized = this.preLemmatizer.preLemmatize(normalized);
     const lemmatized = this.lemmatizer.lemmatize(preLemmatized);
@@ -47,7 +47,7 @@ export class PipelineService {
       lemma: lemmatized.lemma,
       deck_id: input.deck_id,
     });
-    const definitions = this.definitionProvider.provide({
+    const definitions = await this.definitionProvider.provide({
       lemma: lemmatized.lemma,
       language: input.language,
     });

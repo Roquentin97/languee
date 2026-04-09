@@ -14,3 +14,32 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+model Word {
+  id          String       @id @default(uuid())
+  lemma       String
+  language    String       @default("en")
+  ipa         String?
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  definitions Definition[]
+
+  @@unique([lemma, language])
+  @@index([lemma, language])
+  @@map("words")
+}
+
+model Definition {
+  id              String   @id @default(uuid())
+  wordId          String   @map("word_id")
+  word            Word     @relation(fields: [wordId], references: [id])
+  partOfSpeech    String   @map("part_of_speech")
+  definition      String
+  example         String?
+  provider        String
+  gapFillMetadata Json?    @map("gap_fill_metadata") @db.JsonB
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([wordId, partOfSpeech, definition])
+  @@index([wordId])
+  @@map("definitions")
+}
