@@ -1,5 +1,6 @@
 # compiled output
 /dist
+**/dist/
 */**/node_modules
 ./node_modules
 node_modules/
@@ -16,18 +17,8 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
-<<<<<<< HEAD
-<<<<<<< HEAD
 coverage/
-=======
-/coverage
-**/coverage/
->>>>>>> 39cd065 (chore: update .gitignore)
-/.nyc_output
-=======
-coverage
 .nyc_output
->>>>>>> 2d35afe (chore(config): add .prettierrc and fix .gitignore patterns)
 
 # IDEs and editors
 /.idea
