@@ -10,12 +10,14 @@ def _required(key: str) -> str:
 
 class NotionConfig:
     spec_database_id: str = _required("NOTION_SPEC_DB_ID")
+    context_database_id: str = _required("NOTION_CONTEXT_DB_ID")
 
 
 class PipelineConfig:
     trigger_status: str = "ready-for-dev"
     in_progress_status: str = "in-progress"
     done_status: str = "done"
+    pending_more_info_status: str = "pending-more-info"
     failed_status: str = "failed"
     dry_run: bool = os.environ.get("FORGE_DRY_RUN", "false").lower() == "true"
 

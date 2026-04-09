@@ -18,10 +18,10 @@ Never skip a stage. Never dispatch the next agent if the current one returns `ne
 
 ## Notion status mapping
 
-| Agent output status | Notion status |
-|---|---|
-| `done` | `done` |
-| `needs_revision` | `failed` |
+| Agent output status | Notion status       |
+| ------------------- | ------------------- |
+| `done`              | `done`              |
+| `needs_revision`    | `failed`            |
 | `pending_more_info` | `pending-more-info` |
 
 Always translate agent JSON status to the correct Notion kebab-case status when writing back.
@@ -42,20 +42,22 @@ Before creating a new worktree for a spec, check if a partial run already exists
 2. Check if `Feedback` field in Notion is non-empty
 3. Decide how to proceed:
 
-| Partial outputs exist | Feedback exists | Action |
-|---|---|---|
-| No | No | Fresh run — proceed normally |
-| Yes | No | Resume from last completed stage — skip already-done agents |
-| No | Yes | Feedback run — start from inferred stage with feedback as context |
-| Yes | Yes | Feedback run — start from inferred stage, pass existing outputs for completed stages |
+| Partial outputs exist | Feedback exists | Action                                                                               |
+| --------------------- | --------------- | ------------------------------------------------------------------------------------ |
+| No                    | No              | Fresh run — proceed normally                                                         |
+| Yes                   | No              | Resume from last completed stage — skip already-done agents                          |
+| No                    | Yes             | Feedback run — start from inferred stage with feedback as context                    |
+| Yes                   | Yes             | Feedback run — start from inferred stage, pass existing outputs for completed stages |
 
 When resuming from partial outputs:
+
 - Read each existing output file to determine the last completed stage
 - Skip agents whose output files already exist and have `status: done`
 - Pass existing outputs as context to the next agent as if they had just completed
 - Print which stage is being resumed from and why
 
 When the worktree already exists (branch was preserved by recovery):
+
 - Check out the existing branch rather than creating a new one:
   ```bash
   git worktree add ../<repo-name>-<spec-slug> feature/<spec-slug>
@@ -79,9 +81,11 @@ For each spec, before dispatching any subagent:
 ## On pipeline completion (success or failure)
 
 Always clean up the worktree:
+
 ```bash
 git worktree remove ../<repo-name>-<spec-slug> --force
 ```
+
 Never leave orphaned worktrees. If cleanup fails, print a warning with the worktree
 path so the human can remove it manually with `git worktree remove`.
 
@@ -101,6 +105,7 @@ when schema changes are required:
 
 Each parallel pipeline gets offset ports to avoid Docker conflicts.
 Derive port offset from the spec's position in the run queue (0-indexed × 100):
+
 - Spec 1 (offset 0): default ports (5432, 6379, 3000)
 - Spec 2 (offset 100): 5532, 6479, 3100
 - Spec 3 (offset 200): 5632, 6579, 3200
@@ -129,11 +134,23 @@ Pass outputs as-is — do not collapse or paraphrase them.
 
 Only include keys for agents that have already run.
 
+## Capturing usage metadata
+
+When each subagent completes, capture the following from the Task tool response:
+
+- `model` — which model was used
+- `input_tokens` — tokens consumed in the prompt
+- `output_tokens` — tokens generated in the response
+- `total_tokens` — sum of both
+- `duration_seconds` — wall time from dispatch to completion
+
+Attach this as a `usage` field to the agent's persisted output file.
+
 ## Persisting and forwarding outputs
 
 After each agent completes:
 
-1. Write its full JSON output to the run directory inside the worktree:
+1. Write its full JSON output to the run directory inside the worktree, including usage metadata:
    - `forge/runs/<spec-slug>/architect-output.json`
    - `forge/runs/<spec-slug>/implementer-output.json`
    - `forge/runs/<spec-slug>/linter-output.json`
@@ -204,6 +221,63 @@ Use GitHub MCP to open a pull request from inside the worktree:
 - Update Notion status to `done`
 - Write PR URL and one-line summary to `Agent output`
 - Write current timestamp to `Last run`
+- Write `forge/runs/<spec-slug>/run-summary.json` with the full pipeline breakdown:
+
+```json
+{
+  "spec": "spec-title-kebab-case",
+  "status": "done",
+  "pr_url": "https://github.com/...",
+  "started_at": "2024-01-15T10:00:00Z",
+  "completed_at": "2024-01-15T10:08:32Z",
+  "duration_seconds": 512,
+  "stages": [
+    {
+      "agent": "architect",
+      "model": "claude-sonnet-4-6",
+      "status": "done",
+      "input_tokens": 4821,
+      "output_tokens": 1204,
+      "total_tokens": 6025,
+      "duration_seconds": 38
+    },
+    {
+      "agent": "implementer",
+      "model": "claude-sonnet-4-6",
+      "status": "done",
+      "input_tokens": 12043,
+      "output_tokens": 3891,
+      "total_tokens": 15934,
+      "duration_seconds": 187
+    },
+    {
+      "agent": "linter",
+      "model": "claude-haiku-4-5",
+      "status": "done",
+      "input_tokens": 3201,
+      "output_tokens": 412,
+      "total_tokens": 3613,
+      "duration_seconds": 22
+    },
+    {
+      "agent": "qa",
+      "model": "claude-sonnet-4-6",
+      "status": "done",
+      "input_tokens": 18204,
+      "output_tokens": 5103,
+      "total_tokens": 23307,
+      "duration_seconds": 265
+    }
+  ],
+  "totals": {
+    "input_tokens": 38269,
+    "output_tokens": 10610,
+    "total_tokens": 48879,
+    "duration_seconds": 512
+  }
+}
+```
+
 - Clean up worktree
 
 ## On failure
@@ -211,6 +285,9 @@ Use GitHub MCP to open a pull request from inside the worktree:
 - Update Notion status to `failed`
 - Write failure reason and the stage it failed at to `Agent output`
 - Write current timestamp to `Last run`
+- Write `forge/runs/<spec-slug>/run-summary.json` with the same structure as on
+  completion — include all stages that ran, mark the failed stage with its status,
+  and leave subsequent stages absent from the array
 - Release migration lock if held
 - Clean up worktree
 - Do not open a PR

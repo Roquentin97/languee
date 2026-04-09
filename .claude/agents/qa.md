@@ -82,6 +82,8 @@ can fix them.
 - Flag any of the following in `issues`:
   - Business logic in controllers
   - Prisma calls outside of services
+  - Prisma calls for another module's models inside a service (e.g. `prisma.user` called
+    from `AuthService` instead of delegating to `UsersService`)
   - Unhandled nullable Prisma results
   - Missing DTO validation decorators
   - `any` types

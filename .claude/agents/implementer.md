@@ -76,6 +76,8 @@ apps/languee-back/src/modules/<module>/
   and explain in `notes`
 - Never write business logic in controllers
 - Never call Prisma from controllers
+- Never call Prisma models belonging to another module — use that module's service instead
+  (e.g. call `UsersService.findByEmail()`, never `this.prisma.user.findUnique()` from AuthService)
 - Never use `any` — use `unknown` and narrow it
 - Never leave `TODO` comments
 - Always validate DTOs with `class-validator` decorators

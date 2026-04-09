@@ -43,6 +43,9 @@ Agent tooling lives in `.claude/` and `forge/` at the monorepo root — never in
 - Never import across domain modules directly — use shared modules or events
 - Controllers handle HTTP only — no business logic
 - Services own business logic — no Prisma calls in controllers
+- Services never call Prisma models belonging to another module — cross-module data
+  access must go through that module's service (e.g. `AuthService` calls
+  `UsersService.findByEmail()`, never `this.prisma.user.findUnique()` directly)
 
 ## core/ conventions
 
@@ -79,9 +82,29 @@ Other modules apply auth guards via `@UseGuards(JwtAuthGuard)` importing from
 - Every service method needs at least one happy path and one edge case test
 - Coverage threshold: 80% per service
 
+## Notion context hierarchy
+
+Specs can optionally reference a context page via the `Context` relation field.
+Context pages live in a dedicated `Contexts` database with fields:
+
+- `Title` — name of the stage, pipeline, or grouping
+- `Description` — free-form description of the broader goal and constraints
+- `Parent context` — self-referential relation to another context page (optional)
+
+This forms an unrestricted hierarchy. Examples:
+
+- Spec → Stage context → Pipeline context
+- Spec → Step context → Stage context → Pipeline context
+- Spec (no context — standalone task)
+
+The Architect walks the full chain from the spec's context up to the root before
+designing anything. Every decision must be consistent with the full chain.
+Add `NOTION_CONTEXT_DB_ID` to `.env` with the Contexts database ID.
+
 ## Ambiguity policy
 
 The pipeline never makes assumptions about:
+
 - Future schemas or models not yet defined
 - Contracts with services or modules that do not exist yet
 - Business logic not explicitly stated in the spec
@@ -155,6 +178,7 @@ sh scripts/load-env.sh <your-command>
 ```
 
 For example:
+
 ```bash
 sh scripts/load-env.sh yarn prisma migrate dev
 ```
@@ -175,12 +199,12 @@ Never assume environment variables are already exported — always use the wrapp
 
 ## Forge pipeline
 
-| Pipeline | Command | Agent chain |
-|---|---|---|
-| Feature | `/forge` | Lead → Architect → Implementer → Linter → QA → PR |
-| Infra | `/forge-infra` | DevOps |
-| Refactor | `/forge-refactor` | Restructurer → Decomposer → Linter → QA → PR |
-| Feedback | `/forge-feedback` | Lead (infers stage) → relevant agents → push to existing PR |
+| Pipeline | Command           | Agent chain                                                   |
+| -------- | ----------------- | ------------------------------------------------------------- |
+| Feature  | `/forge`          | Lead → Architect → Implementer → Linter → QA → PR             |
+| Infra    | `/forge-infra`    | DevOps                                                        |
+| Refactor | `/forge-refactor` | Restructurer → Decomposer → Linter → QA → PR                  |
+| Feedback | `/forge-feedback` | Lead (infers stage) → relevant agents → push to existing PR   |
 | Recovery | `/forge-recovery` | Detects stuck specs, orphaned worktrees, held migration locks |
 
 Notion specs filtered by `Pipeline` (`feature`, `infra`, or `refactor`) and `Status` = `ready-for-dev`.
