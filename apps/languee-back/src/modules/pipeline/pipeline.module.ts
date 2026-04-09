@@ -14,12 +14,12 @@ import { DefinitionProviderStub } from "./stages/definition-provider.stub";
 import { DuplicateCheckerStub } from "./stages/duplicate-checker.stub";
 import { GapFillStub } from "./stages/gap-fill.stub";
 import { LemmatizerStub } from "./stages/lemmatizer.stub";
-import { NormalizerStub } from "./stages/normalizer.stub";
+import { Normalizer } from "./stages/normalizer";
 import { PreLemmatizerStub } from "./stages/pre-lemmatizer.stub";
 
 @Module({
   providers: [
-    { provide: NORMALIZER, useClass: NormalizerStub },
+    { provide: NORMALIZER, useClass: Normalizer },
     { provide: PRE_LEMMATIZER, useClass: PreLemmatizerStub },
     { provide: LEMMATIZER, useClass: LemmatizerStub },
     { provide: DUPLICATE_CHECKER, useClass: DuplicateCheckerStub },
