@@ -18,17 +18,17 @@ import { RuleEngineMechanism } from "./stages/lemmatizer/rule-engine.mechanism";
 import { PassthroughMechanism } from "./stages/lemmatizer/passthrough.mechanism";
 import { Normalizer } from "./stages/normalizer";
 import { PreLemmatizerStub } from "./stages/pre-lemmatizer.stub";
-import { WordsModule } from "../words/words.module";
-import { WordsService } from "../words/words.service";
+import { DefinitionsModule } from "../definitions/definitions.module";
+import { DefinitionService } from "../definitions/definitions.service";
 
 @Module({
-  imports: [WordsModule],
+  imports: [DefinitionsModule],
   providers: [
     { provide: NORMALIZER, useClass: Normalizer },
     { provide: PRE_LEMMATIZER, useClass: PreLemmatizerStub },
     { provide: LEMMATIZER, useClass: Lemmatizer },
     { provide: DUPLICATE_CHECKER, useClass: DuplicateCheckerStub },
-    { provide: DEFINITION_PROVIDER, useClass: WordsService },
+    { provide: DEFINITION_PROVIDER, useClass: DefinitionService },
     { provide: GAP_FILL_SERVICE, useClass: GapFillStub },
     { provide: CARD_ASSEMBLER, useClass: CardAssemblerStub },
     IrregularTableMechanism,
