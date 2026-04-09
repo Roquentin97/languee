@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Prisma } from "@prisma/client";
 import { DefinitionService } from "./definitions.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { WordsService } from "../words/words.service";
 import { DEFINITION_API_ADAPTER } from "./definitions.tokens";
 import {
   DefinitionNotFoundError,
@@ -56,12 +57,15 @@ describe("DefinitionService", () => {
   let module: TestingModule;
 
   const prismaMock = {
-    word: { upsert: jest.fn() },
     definition: {
       findUnique: jest.fn(),
       create: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
+  };
+
+  const wordsServiceMock = {
+    findOrCreate: jest.fn(),
   };
 
   const adapterMock: jest.Mocked<IDefinitionApiAdapter> = {
@@ -76,6 +80,7 @@ describe("DefinitionService", () => {
       providers: [
         DefinitionService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: WordsService, useValue: wordsServiceMock },
         { provide: DEFINITION_API_ADAPTER, useValue: adapterMock },
       ],
     }).compile();
@@ -89,7 +94,7 @@ describe("DefinitionService", () => {
 
   it("happy path: creates definition when not found and returns mapped result", async () => {
     const word = makeWord();
-    prismaMock.word.upsert.mockResolvedValue(word);
+    wordsServiceMock.findOrCreate.mockResolvedValue(word);
     adapterMock.fetch.mockResolvedValue([
       {
         partOfSpeech: "verb",
@@ -111,14 +116,24 @@ describe("DefinitionService", () => {
     expect(result[0].examples).toEqual(["She runs every morning."]);
   });
 
-  it("returns existing definition without calling create", async () => {
-    const word = makeWord();
-    prismaMock.word.upsert.mockResolvedValue(word);
+  it("delegates word resolution to WordsService, not prisma.word directly", async () => {
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: "verb", definition: "move at a fast pace" },
     ]);
-    const existing = makeDefinitionRow();
-    prismaMock.definition.findUnique.mockResolvedValue(existing);
+    prismaMock.definition.findUnique.mockResolvedValue(makeDefinitionRow());
+
+    await service.provide({ lemma: "run", language: "en" });
+
+    expect(wordsServiceMock.findOrCreate).toHaveBeenCalledWith("run", "en");
+  });
+
+  it("returns existing definition without calling create", async () => {
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    adapterMock.fetch.mockResolvedValue([
+      { partOfSpeech: "verb", definition: "move at a fast pace" },
+    ]);
+    prismaMock.definition.findUnique.mockResolvedValue(makeDefinitionRow());
 
     const result = await service.provide({ lemma: "run", language: "en" });
 
@@ -127,7 +142,7 @@ describe("DefinitionService", () => {
   });
 
   it("throws DefinitionNotFoundError when adapter returns empty array", async () => {
-    prismaMock.word.upsert.mockResolvedValue(makeWord());
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([]);
 
     await expect(
@@ -136,7 +151,7 @@ describe("DefinitionService", () => {
   });
 
   it("DefinitionNotFoundError message includes lemma", async () => {
-    prismaMock.word.upsert.mockResolvedValue(makeWord());
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([]);
 
     const err = await service
@@ -147,7 +162,7 @@ describe("DefinitionService", () => {
   });
 
   it("propagates ProviderUnavailableError from adapter", async () => {
-    prismaMock.word.upsert.mockResolvedValue(makeWord());
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockRejectedValue(
       new ProviderUnavailableError("dictionaryapi", new Error("HTTP 500")),
     );
@@ -158,7 +173,7 @@ describe("DefinitionService", () => {
   });
 
   it("wraps unexpected adapter error in ProviderUnavailableError", async () => {
-    prismaMock.word.upsert.mockResolvedValue(makeWord());
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockRejectedValue(new Error("unexpected"));
 
     await expect(
@@ -167,8 +182,7 @@ describe("DefinitionService", () => {
   });
 
   it("EC: P2002 on create falls back to findUniqueOrThrow", async () => {
-    const word = makeWord();
-    prismaMock.word.upsert.mockResolvedValue(word);
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: "verb", definition: "move at a fast pace" },
     ]);
@@ -179,9 +193,9 @@ describe("DefinitionService", () => {
       clientVersion: "5.0.0",
     });
     prismaMock.definition.create.mockRejectedValue(p2002);
-
-    const existing = makeDefinitionRow();
-    prismaMock.definition.findUniqueOrThrow.mockResolvedValue(existing);
+    prismaMock.definition.findUniqueOrThrow.mockResolvedValue(
+      makeDefinitionRow(),
+    );
 
     const result = await service.provide({ lemma: "run", language: "en" });
     expect(result).toHaveLength(1);
@@ -189,8 +203,7 @@ describe("DefinitionService", () => {
   });
 
   it("EC: non-P2002 Prisma error on create is re-thrown", async () => {
-    const word = makeWord();
-    prismaMock.word.upsert.mockResolvedValue(word);
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: "verb", definition: "move at a fast pace" },
     ]);
@@ -208,8 +221,7 @@ describe("DefinitionService", () => {
   });
 
   it("row with null example maps to empty examples array", async () => {
-    const word = makeWord();
-    prismaMock.word.upsert.mockResolvedValue(word);
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: "verb", definition: "move at a fast pace" },
     ]);
@@ -223,8 +235,7 @@ describe("DefinitionService", () => {
   });
 
   it("handles multiple definitions from adapter", async () => {
-    const word = makeWord();
-    prismaMock.word.upsert.mockResolvedValue(word);
+    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: "verb", definition: "move fast" },
       { partOfSpeech: "noun", definition: "a run" },

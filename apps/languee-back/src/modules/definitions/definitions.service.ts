@@ -6,6 +6,7 @@ import {
   IDefinitionProvider,
 } from "../pipeline/interfaces/pipeline.interfaces";
 import { PrismaService } from "../prisma/prisma.service";
+import { WordsService } from "../words/words.service";
 import {
   DefinitionNotFoundError,
   ProviderUnavailableError,
@@ -17,6 +18,7 @@ import { IDefinitionApiAdapter } from "./interfaces/definition-api-adapter.inter
 export class DefinitionService implements IDefinitionProvider {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly wordsService: WordsService,
     @Inject(DEFINITION_API_ADAPTER)
     private readonly adapter: IDefinitionApiAdapter,
   ) {}
@@ -24,11 +26,7 @@ export class DefinitionService implements IDefinitionProvider {
   async provide(input: DefinitionProviderInput): Promise<Definition[]> {
     const { lemma, language } = input;
 
-    const word = await this.prisma.word.upsert({
-      where: { lemma_language: { lemma, language } },
-      update: {},
-      create: { lemma, language },
-    });
+    const word = await this.wordsService.findOrCreate(lemma, language);
 
     let rawEntries;
     try {
