@@ -8,6 +8,14 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -19,12 +27,17 @@ const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 
 type AuthUser = { userId: string; sessionId: string };
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiBody({ type: LoginDto })
+  @ApiOkResponse({ description: 'Returns a JWT access token', schema: { properties: { accessToken: { type: 'string' } } } })
+  @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
@@ -51,6 +64,9 @@ export class AuthController {
 
   @Post('refresh')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
+  @ApiOkResponse({ description: 'Returns a new JWT access token', schema: { properties: { accessToken: { type: 'string' } } } })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid refresh token' })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -80,6 +96,10 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout current session' })
+  @ApiOkResponse({ description: 'Session revoked', schema: { properties: { message: { type: 'string' } } } })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logout(
     @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
@@ -94,6 +114,10 @@ export class AuthController {
 
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout all sessions for the current user' })
+  @ApiOkResponse({ description: 'All sessions revoked', schema: { properties: { message: { type: 'string' } } } })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logoutAll(
     @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
@@ -108,6 +132,10 @@ export class AuthController {
 
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List all active sessions for the current user' })
+  @ApiOkResponse({ description: 'List of active sessions', type: [Object] })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async getSessions(@CurrentUser() user: AuthUser): Promise<object[]> {
     return this.authService.getSessions(user.userId);
   }
