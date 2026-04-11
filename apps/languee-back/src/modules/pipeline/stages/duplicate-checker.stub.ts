@@ -1,9 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import {
   Definition,
   DuplicateCheckInput,
   IDuplicateChecker,
-} from "../interfaces/pipeline.interfaces";
+} from '../interfaces/pipeline.interfaces';
 
 @Injectable()
 export class DuplicateCheckerStub implements IDuplicateChecker {

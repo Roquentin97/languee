@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable } from '@nestjs/common';
 import {
   CardOutput,
   ICardAssembler,
@@ -8,7 +8,7 @@ import {
   ILemmatizer,
   INormalizer,
   IPreLemmatizer,
-} from "./interfaces/pipeline.interfaces";
+} from './interfaces/pipeline.interfaces';
 import {
   CARD_ASSEMBLER,
   DEFINITION_PROVIDER,
@@ -17,7 +17,7 @@ import {
   LEMMATIZER,
   NORMALIZER,
   PRE_LEMMATIZER,
-} from "./pipeline.tokens";
+} from './pipeline.tokens';
 
 @Injectable()
 export class PipelineService {
@@ -58,7 +58,7 @@ export class PipelineService {
     const card = this.cardAssembler.assemble({
       deck_id: input.deck_id,
       user_id: input.user_id,
-      definition_id: "stub-definition-id",
+      definition_id: 'stub-definition-id',
       hints: gapFilled.hints,
     });
     return card;

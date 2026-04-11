@@ -1,18 +1,18 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Inject, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import {
   Definition,
   DefinitionProviderInput,
   IDefinitionProvider,
-} from "../pipeline/interfaces/pipeline.interfaces";
-import { PrismaService } from "../prisma/prisma.service";
-import { WordsService } from "../words/words.service";
+} from '../pipeline/interfaces/pipeline.interfaces';
+import { PrismaService } from '../prisma/prisma.service';
+import { WordsService } from '../words/words.service';
 import {
   DefinitionNotFoundError,
   ProviderUnavailableError,
-} from "./definitions.errors";
-import { DEFINITION_API_ADAPTER } from "./definitions.tokens";
-import { IDefinitionApiAdapter } from "./interfaces/definition-api-adapter.interface";
+} from './definitions.errors';
+import { DEFINITION_API_ADAPTER } from './definitions.tokens';
+import { IDefinitionApiAdapter } from './interfaces/definition-api-adapter.interface';
 
 @Injectable()
 export class DefinitionService implements IDefinitionProvider {
@@ -64,7 +64,7 @@ export class DefinitionService implements IDefinitionProvider {
         } catch (err: unknown) {
           if (
             err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === "P2002"
+            err.code === 'P2002'
           ) {
             // Race condition: another request created it concurrently
             return this.prisma.definition.findUniqueOrThrow({

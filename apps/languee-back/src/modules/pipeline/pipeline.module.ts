@@ -1,5 +1,5 @@
-import { Module } from "@nestjs/common";
-import { PipelineService } from "./pipeline.service";
+import { Module } from '@nestjs/common';
+import { PipelineService } from './pipeline.service';
 import {
   CARD_ASSEMBLER,
   DEFINITION_PROVIDER,
@@ -8,18 +8,18 @@ import {
   LEMMATIZER,
   NORMALIZER,
   PRE_LEMMATIZER,
-} from "./pipeline.tokens";
-import { CardAssemblerStub } from "./stages/card-assembler.stub";
-import { DuplicateCheckerStub } from "./stages/duplicate-checker.stub";
-import { GapFillStub } from "./stages/gap-fill.stub";
-import { Lemmatizer } from "./stages/lemmatizer/lemmatizer";
-import { IrregularTableMechanism } from "./stages/lemmatizer/irregular-table.mechanism";
-import { RuleEngineMechanism } from "./stages/lemmatizer/rule-engine.mechanism";
-import { PassthroughMechanism } from "./stages/lemmatizer/passthrough.mechanism";
-import { Normalizer } from "./stages/normalizer";
-import { PreLemmatizerStub } from "./stages/pre-lemmatizer.stub";
-import { DefinitionsModule } from "../definitions/definitions.module";
-import { DefinitionService } from "../definitions/definitions.service";
+} from './pipeline.tokens';
+import { CardAssemblerStub } from './stages/card-assembler.stub';
+import { DuplicateCheckerStub } from './stages/duplicate-checker.stub';
+import { GapFillStub } from './stages/gap-fill.stub';
+import { Lemmatizer } from './stages/lemmatizer/lemmatizer';
+import { IrregularTableMechanism } from './stages/lemmatizer/irregular-table.mechanism';
+import { RuleEngineMechanism } from './stages/lemmatizer/rule-engine.mechanism';
+import { PassthroughMechanism } from './stages/lemmatizer/passthrough.mechanism';
+import { Normalizer } from './stages/normalizer';
+import { PreLemmatizerStub } from './stages/pre-lemmatizer.stub';
+import { DefinitionsModule } from '../definitions/definitions.module';
+import { DefinitionService } from '../definitions/definitions.service';
 
 @Module({
   imports: [DefinitionsModule],

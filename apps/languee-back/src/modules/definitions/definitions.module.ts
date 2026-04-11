@@ -1,9 +1,9 @@
-import { Module } from "@nestjs/common";
-import { DictionaryApiAdapter } from "./adapters/dictionary-api.adapter";
-import { DEFINITION_API_ADAPTER } from "./definitions.tokens";
-import { DefinitionService } from "./definitions.service";
-import { PrismaModule } from "../prisma/prisma.module";
-import { WordsModule } from "../words/words.module";
+import { Module } from '@nestjs/common';
+import { DictionaryApiAdapter } from './adapters/dictionary-api.adapter';
+import { DEFINITION_API_ADAPTER } from './definitions.tokens';
+import { DefinitionService } from './definitions.service';
+import { PrismaModule } from '../prisma/prisma.module';
+import { WordsModule } from '../words/words.module';
 
 @Module({
   imports: [PrismaModule, WordsModule],

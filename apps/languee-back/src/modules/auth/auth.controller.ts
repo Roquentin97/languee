@@ -36,7 +36,10 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
-  @ApiOkResponse({ description: 'Returns a JWT access token', schema: { properties: { accessToken: { type: 'string' } } } })
+  @ApiOkResponse({
+    description: 'Returns a JWT access token',
+    schema: { properties: { accessToken: { type: 'string' } } },
+  })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   async login(
     @Body() dto: LoginDto,
@@ -65,7 +68,10 @@ export class AuthController {
   @Post('refresh')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
-  @ApiOkResponse({ description: 'Returns a new JWT access token', schema: { properties: { accessToken: { type: 'string' } } } })
+  @ApiOkResponse({
+    description: 'Returns a new JWT access token',
+    schema: { properties: { accessToken: { type: 'string' } } },
+  })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid refresh token' })
   async refresh(
     @Req() req: Request,
@@ -98,7 +104,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Logout current session' })
-  @ApiOkResponse({ description: 'Session revoked', schema: { properties: { message: { type: 'string' } } } })
+  @ApiOkResponse({
+    description: 'Session revoked',
+    schema: { properties: { message: { type: 'string' } } },
+  })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logout(
     @CurrentUser() user: AuthUser,
@@ -116,7 +125,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Logout all sessions for the current user' })
-  @ApiOkResponse({ description: 'All sessions revoked', schema: { properties: { message: { type: 'string' } } } })
+  @ApiOkResponse({
+    description: 'All sessions revoked',
+    schema: { properties: { message: { type: 'string' } } },
+  })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logoutAll(
     @CurrentUser() user: AuthUser,
