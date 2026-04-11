@@ -1,13 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import {
   DICTIONARY_API_BASE_URL,
   DICTIONARY_API_PROVIDER_NAME,
-} from "../constants";
-import { ProviderUnavailableError } from "../definitions.errors";
+} from '../constants';
+import { ProviderUnavailableError } from '../definitions.errors';
 import {
   IDefinitionApiAdapter,
   RawDefinitionEntry,
-} from "../interfaces/definition-api-adapter.interface";
+} from '../interfaces/definition-api-adapter.interface';
 
 interface DictionaryApiDefinition {
   definition: string;

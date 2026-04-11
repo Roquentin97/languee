@@ -1,9 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import {
   Definition,
   DefinitionProviderInput,
   IDefinitionProvider,
-} from "../interfaces/pipeline.interfaces";
+} from '../interfaces/pipeline.interfaces';
 
 @Injectable()
 export class DefinitionProviderStub implements IDefinitionProvider {
@@ -11,11 +11,11 @@ export class DefinitionProviderStub implements IDefinitionProvider {
   provide(_input: DefinitionProviderInput): Promise<Definition[]> {
     return [
       {
-        term: "stub-term",
-        definition: "A stub definition for testing.",
-        examples: ["Stub example sentence."],
-        part_of_speech: "noun",
-        provider: "stub",
+        term: 'stub-term',
+        definition: 'A stub definition for testing.',
+        examples: ['Stub example sentence.'],
+        part_of_speech: 'noun',
+        provider: 'stub',
       },
     ];
   }

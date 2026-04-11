@@ -1,12 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import {
   ILemmatizer,
   LemmatizedOutput,
   PreLemmatizedOutput,
-} from "../../interfaces/pipeline.interfaces";
-import { IrregularTableMechanism } from "./irregular-table.mechanism";
-import { RuleEngineMechanism } from "./rule-engine.mechanism";
-import { PassthroughMechanism } from "./passthrough.mechanism";
+} from '../../interfaces/pipeline.interfaces';
+import { IrregularTableMechanism } from './irregular-table.mechanism';
+import { RuleEngineMechanism } from './rule-engine.mechanism';
+import { PassthroughMechanism } from './passthrough.mechanism';
 
 @Injectable()
 export class Lemmatizer implements ILemmatizer {
