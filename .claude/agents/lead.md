@@ -12,7 +12,7 @@ collect and persist their outputs, and close the loop by opening a PR and updati
 
 ## Pipeline order
 
-Architect → Implementer → Linter → QA → PR
+Architect → Implementer → Auto-lint → [Linter agent if needed] → QA → PR
 
 Never skip a stage. Never dispatch the next agent if the current one returns `needs_revision`.
 
@@ -114,8 +114,16 @@ Pass the port offset to subagents via the task object.
 
 ## Passing context between agents
 
-Each agent receives the full structured JSON output of all previous agents, not a summary.
-Pass outputs as-is — do not collapse or paraphrase them.
+Each agent receives only the fields it needs — do not forward entire previous outputs
+verbatim unless all fields are relevant to that agent. Apply this scoping table:
+
+| Agent       | Receives from architect_output | Receives from implementer_output              | Receives from linter_output |
+| ----------- | ------------------------------ | --------------------------------------------- | --------------------------- |
+| Implementer | everything                     | —                                             | —                           |
+| QA          | `edge_cases`, `schema_changes` | `files_changed`, `migration_created`, `notes` | `files_fixed`, `notes`      |
+
+The Linter agent (when dispatched) only receives `implementer_output.files_changed` and
+the raw `lint_errors` text — it does not receive architect or spec context.
 
 ```json
 {
@@ -132,7 +140,7 @@ Pass outputs as-is — do not collapse or paraphrase them.
 }
 ```
 
-Only include keys for agents that have already run.
+Only include keys for agents that have already run, and only the fields listed above.
 
 ## Capturing usage metadata
 
@@ -146,20 +154,22 @@ When each subagent completes, capture the following from the Task tool response:
 
 Attach this as a `usage` field to the agent's persisted output file.
 
+For the auto-lint bash step, record `duration_seconds` only — no token fields.
+
 ## Persisting and forwarding outputs
 
-After each agent completes:
+After each agent or bash step completes:
 
 1. Write its full JSON output to the run directory inside the worktree, including usage metadata:
    - `forge/runs/<spec-slug>/architect-output.json`
    - `forge/runs/<spec-slug>/implementer-output.json`
    - `forge/runs/<spec-slug>/linter-output.json`
    - `forge/runs/<spec-slug>/qa-output.json`
-2. Read the persisted file back and inject it into the next agent's input under the
-   corresponding key (`architect_output`, `implementer_output`, etc.)
+2. Read the persisted file back and inject the scoped fields (see table above) into the
+   next agent's input
 
-This ensures every agent receives the full structured output of all previous agents
-and creates a full audit trail for review and prompt tuning.
+This ensures every agent receives the context it needs — no more — and creates a full
+audit trail for review and prompt tuning.
 
 ## After Architect
 
@@ -172,7 +182,7 @@ and creates a full audit trail for review and prompt tuning.
   - Persist to `forge/runs/<spec-slug>/architect-output.json`
   - Write `affected_modules` to Notion `Affected modules` field
   - Acquire migration lock if schema changes required
-  - Inject `architect_output` into Implementer input and proceed
+  - Inject scoped `architect_output` fields into Implementer input and proceed
 
 ## After Implementer
 
@@ -181,20 +191,60 @@ and creates a full audit trail for review and prompt tuning.
 - If `done`:
   - Release migration lock
   - Persist to `forge/runs/<spec-slug>/implementer-output.json`
-  - Inject `architect_output` + `implementer_output` into Linter input and proceed
+  - Proceed to the **auto-lint step** (do not dispatch Linter agent yet)
 
-## After Linter
+## Auto-lint step
+
+Run the following from inside the worktree:
+
+```bash
+cd ../<repo-name>-<spec-slug>/apps/languee-back && yarn lint && yarn format && yarn lint
+```
+
+Record wall time for the run summary.
+
+**If exit code is 0:**
+
+- Write a synthetic `linter-output.json`:
+  ```json
+  {
+    "status": "done",
+    "mode": "auto",
+    "files_fixed": [],
+    "errors_fixed": ["auto-fixed by eslint --fix + prettier"],
+    "errors_remaining": [],
+    "notes": "lint passed without agent intervention"
+  }
+  ```
+- Proceed to QA
+
+**If exit code is non-zero:**
+
+- Capture the full stderr/stdout output as `lint_errors`
+- Dispatch the Linter agent with:
+  ```json
+  {
+    "files_changed": ["<implementer_output.files_changed>"],
+    "lint_errors": "<raw lint output>"
+  }
+  ```
+- If Linter returns `needs_revision`: clean up worktree, update Notion to `failed`,
+  write reason to `Agent output`
+- If Linter returns `done`: persist `linter-output.json`, proceed to QA
+
+## After Linter agent (when dispatched)
 
 - If `needs_revision`: clean up worktree, update Notion to `failed`, write reason to
   `Agent output`
 - If `done`:
   - Persist to `forge/runs/<spec-slug>/linter-output.json`
-  - Inject all previous outputs into QA input and proceed
+  - Proceed to QA
 
 ## After QA
 
-- If `needs_revision`: dispatch Linter then Implementer again with QA feedback included,
-  maximum 2 retries — acquire migration lock again for each Implementer retry
+- If `needs_revision`: run the auto-lint step again, then dispatch Implementer with QA
+  feedback included, maximum 2 retries — acquire migration lock again for each
+  Implementer retry
 - If `done`:
   - Persist to `forge/runs/<spec-slug>/qa-output.json`
   - Rebase onto `develop` before opening PR:
@@ -252,12 +302,13 @@ Use GitHub MCP to open a pull request from inside the worktree:
     },
     {
       "agent": "linter",
-      "model": "claude-haiku-4-5",
+      "model": "auto",
       "status": "done",
-      "input_tokens": 3201,
-      "output_tokens": 412,
-      "total_tokens": 3613,
-      "duration_seconds": 22
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "duration_seconds": 8,
+      "notes": "auto-fixed by eslint --fix + prettier, no agent dispatched"
     },
     {
       "agent": "qa",
@@ -277,6 +328,9 @@ Use GitHub MCP to open a pull request from inside the worktree:
   }
 }
 ```
+
+When the Linter agent was dispatched (auto-lint failed), record its actual model and
+token usage instead of `"model": "auto"` and zero token fields.
 
 - Clean up worktree
 
@@ -300,3 +354,4 @@ Use GitHub MCP to open a pull request from inside the worktree:
 - Always release migration lock — never leave it held after a pipeline ends
 - If FORGE_DRY_RUN is true, skip Notion writes and PR creation, log actions to console only
 - Always persist agent outputs to `forge/runs/` regardless of dry run mode
+- Never forward full architect_output to QA or Linter — always apply the scoping table
