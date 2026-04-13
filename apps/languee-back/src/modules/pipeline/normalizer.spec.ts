@@ -3,6 +3,7 @@ import { Normalizer } from './stages/normalizer';
 import { PipelineModule } from './pipeline.module';
 import { NORMALIZER } from './pipeline.tokens';
 import type { RawInput } from './interfaces/pipeline.interfaces';
+import { PrismaService } from '../core/prisma/prisma.service';
 
 describe('Normalizer', () => {
   let normalizer: Normalizer;
@@ -141,7 +142,10 @@ describe('Normalizer', () => {
     it('resolves NORMALIZER token to an instance of Normalizer', async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [PipelineModule],
-      }).compile();
+      })
+        .overrideProvider(PrismaService)
+        .useValue({})
+        .compile();
 
       const resolved = moduleRef.get<Normalizer>(NORMALIZER);
       expect(resolved).toBeInstanceOf(Normalizer);

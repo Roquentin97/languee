@@ -6,6 +6,7 @@ import { PassthroughMechanism } from './passthrough.mechanism';
 import { PreLemmatizedOutput } from '../../interfaces/pipeline.interfaces';
 import { PipelineModule } from '../../pipeline.module';
 import { LEMMATIZER } from '../../pipeline.tokens';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 
 describe('Lemmatizer', () => {
   let lemmatizer: Lemmatizer;
@@ -174,7 +175,10 @@ describe('PipelineModule — LEMMATIZER token binding', () => {
   it('binds LEMMATIZER to a Lemmatizer instance (not a stub)', async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [PipelineModule],
-    }).compile();
+    })
+      .overrideProvider(PrismaService)
+      .useValue({})
+      .compile();
 
     const lemmatizerInstance = module.get<unknown>(LEMMATIZER);
     expect(lemmatizerInstance).toBeInstanceOf(Lemmatizer);

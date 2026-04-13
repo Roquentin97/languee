@@ -9,7 +9,7 @@ import {
 export class DefinitionProviderStub implements IDefinitionProvider {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   provide(_input: DefinitionProviderInput): Promise<Definition[]> {
-    return [
+    return Promise.resolve([
       {
         term: 'stub-term',
         definition: 'A stub definition for testing.',
@@ -17,6 +17,6 @@ export class DefinitionProviderStub implements IDefinitionProvider {
         part_of_speech: 'noun',
         provider: 'stub',
       },
-    ];
+    ]);
   }
 }

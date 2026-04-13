@@ -54,7 +54,7 @@ export class AuthController {
 
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'test',
+      secure: this.authService.isSecureCookies(),
       sameSite: 'strict' as const,
       maxAge: REFRESH_TOKEN_MAX_AGE,
     };
@@ -92,7 +92,7 @@ export class AuthController {
 
     res.cookie('refresh_token', plainRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'test',
+      secure: this.authService.isSecureCookies(),
       sameSite: 'strict' as const,
       maxAge: REFRESH_TOKEN_MAX_AGE,
     });

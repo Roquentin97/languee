@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { DefinitionService } from './definitions.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../core/prisma/prisma.service';
 import { WordsService } from '../words/words.service';
 import { DEFINITION_API_ADAPTER } from './definitions.tokens';
 import {

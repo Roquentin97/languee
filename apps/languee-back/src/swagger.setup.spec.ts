@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 
 // We need to mock @nestjs/swagger before importing swagger.setup
 jest.mock('@nestjs/swagger', () => ({
@@ -18,12 +19,24 @@ import { setupSwagger } from './swagger.setup';
 
 type MiddlewareFn = (req: unknown, res: unknown, next: unknown) => void;
 
-function buildApp(registeredMiddleware: { paths: string[]; fn: MiddlewareFn }[] = []): INestApplication {
+function buildApp(
+  registeredMiddleware: { paths: string[]; fn: MiddlewareFn }[] = [],
+): INestApplication {
   return {
     use: jest.fn().mockImplementation((paths: string[], fn: MiddlewareFn) => {
       registeredMiddleware.push({ paths, fn });
     }),
   } as unknown as INestApplication;
+}
+
+function buildConfigService(user: string, password: string): ConfigService {
+  return {
+    getOrThrow: jest.fn().mockImplementation((key: string) => {
+      if (key === 'system.basicAuthUser') return user;
+      if (key === 'system.basicAuthPassword') return password;
+      throw new Error(`Unexpected key: ${key}`);
+    }),
+  } as unknown as ConfigService;
 }
 
 function buildRequest(authHeader?: string): Record<string, unknown> {
@@ -40,7 +53,10 @@ function buildResponse(): {
 } {
   const res = {
     _statusCode: undefined as number | undefined,
-    status: jest.fn().mockImplementation(function (this: typeof res, code: number) {
+    status: jest.fn().mockImplementation(function (
+      this: typeof res,
+      code: number,
+    ) {
       this._statusCode = code;
       return this;
     }),
@@ -58,45 +74,8 @@ describe('setupSwagger', () => {
   const VALID_USER = 'admin';
   const VALID_PASSWORD = 'password';
 
-  beforeEach(() => {
-    process.env['BASIC_AUTH'] = VALID_USER;
-    process.env['BASIC_PASSWORD'] = VALID_PASSWORD;
-  });
-
   afterEach(() => {
-    delete process.env['BASIC_AUTH'];
-    delete process.env['BASIC_PASSWORD'];
     jest.clearAllMocks();
-  });
-
-  // Edge case 1: BASIC_AUTH is undefined or empty
-  describe('Edge case 1: missing BASIC_AUTH', () => {
-    it('throws an Error when BASIC_AUTH is not set', () => {
-      delete process.env['BASIC_AUTH'];
-      const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow('BASIC_AUTH environment variable is required but not set');
-    });
-
-    it('throws an Error when BASIC_AUTH is an empty string', () => {
-      process.env['BASIC_AUTH'] = '';
-      const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow(Error);
-    });
-  });
-
-  // Edge case 2: BASIC_PASSWORD is undefined or empty
-  describe('Edge case 2: missing BASIC_PASSWORD', () => {
-    it('throws an Error when BASIC_PASSWORD is not set', () => {
-      delete process.env['BASIC_PASSWORD'];
-      const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow('BASIC_PASSWORD environment variable is required but not set');
-    });
-
-    it('throws an Error when BASIC_PASSWORD is an empty string', () => {
-      process.env['BASIC_PASSWORD'] = '';
-      const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow(Error);
-    });
   });
 
   describe('Basic Auth middleware', () => {
@@ -106,7 +85,8 @@ describe('setupSwagger', () => {
     beforeEach(() => {
       registeredMiddleware = [];
       const app = buildApp(registeredMiddleware);
-      setupSwagger(app);
+      const configService = buildConfigService(VALID_USER, VALID_PASSWORD);
+      setupSwagger(app, configService);
       // The first registered middleware is the Basic Auth guard
       middleware = registeredMiddleware[0].fn;
     });
@@ -119,7 +99,10 @@ describe('setupSwagger', () => {
 
       middleware(req, res, next);
 
-      expect(res.setHeader).toHaveBeenCalledWith('WWW-Authenticate', 'Basic realm="Swagger"');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'WWW-Authenticate',
+        'Basic realm="Swagger"',
+      );
       expect(res._statusCode).toBe(401);
       expect(next).not.toHaveBeenCalled();
     });
@@ -214,7 +197,8 @@ describe('setupSwagger', () => {
         }),
       } as unknown as INestApplication;
 
-      setupSwagger(app);
+      const configService = buildConfigService(VALID_USER, VALID_PASSWORD);
+      setupSwagger(app, configService);
 
       // First call to app.use is the Basic Auth middleware
       const guardedPaths = registered[0].paths;
@@ -236,7 +220,8 @@ describe('setupSwagger', () => {
         }),
       } as unknown as INestApplication;
 
-      setupSwagger(app);
+      const configService = buildConfigService(VALID_USER, VALID_PASSWORD);
+      setupSwagger(app, configService);
 
       const guardedPaths = registered[0].paths;
       expect(guardedPaths).toContain('/api/v1/docs/*');
