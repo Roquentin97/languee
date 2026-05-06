@@ -2,6 +2,7 @@
   "name": "languee-monorepo",
   "version": "0.0.1",
   "private": true,
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "prepare": "husky"
   },
