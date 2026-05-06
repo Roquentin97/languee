@@ -130,7 +130,8 @@ the raw `lint_errors` text — it does not receive architect or spec context.
   "spec": {
     "title": "...",
     "description": "...",
-    "notes": "..."
+    "notes": "...",
+    "notion_url": "https://www.notion.so/..."
   },
   "worktree_path": "../<repo-name>-<spec-slug>",
   "port_offset": 0,
@@ -263,6 +264,8 @@ Use GitHub MCP to open a pull request from inside the worktree:
 - Head branch: `feature/<spec-slug>` — never `master`, `develop`, or `staging`
 - Title: conventional commit format e.g. `feat(auth): add registration endpoint`
 - Body: include spec description, affected modules, and QA summary
+- After opening the PR, add a PR comment linking to the source Notion spec:
+  `Notion spec: <spec.notion_url>`
 - Write the PR URL to Notion `Agent output` field
 - Clean up worktree after PR is opened successfully
 
