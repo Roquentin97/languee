@@ -62,12 +62,14 @@ describe('configuration()', () => {
   });
 
   describe('redis namespace', () => {
-    it('uses REDIS_HOST and REDIS_PORT env vars when set', () => {
+    it('uses REDIS_HOST, REDIS_PORT, and REDIS_PASSWORD env vars when set', () => {
       process.env['REDIS_HOST'] = 'redis.example.com';
       process.env['REDIS_PORT'] = '6380';
+      process.env['REDIS_PASSWORD'] = 'redis-secret';
       const result = configuration();
       expect(result.redis.host).toBe('redis.example.com');
       expect(result.redis.port).toBe(6380);
+      expect(result.redis.password).toBe('redis-secret');
     });
 
     it('coerces REDIS_PORT from string to number', () => {
@@ -81,6 +83,12 @@ describe('configuration()', () => {
       delete process.env['REDIS_PORT'];
       const result = configuration();
       expect(result.redis.port).toBe(6379);
+    });
+
+    it('defaults redis.password to empty string when REDIS_PASSWORD is not set', () => {
+      delete process.env['REDIS_PASSWORD'];
+      const result = configuration();
+      expect(result.redis.password).toBe('');
     });
   });
 

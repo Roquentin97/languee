@@ -11,7 +11,7 @@ RUN yarn install --frozen-lockfile
 
 # Copy source and build
 COPY --chown=node:node . .
-RUN yarn build
+RUN yarn prisma generate && yarn build
 
 # ─── Stage 2: production ─────────────────────────────────────────────────────
 FROM node:22-alpine AS production
@@ -24,10 +24,11 @@ RUN yarn install --frozen-lockfile --production && yarn cache clean
 
 # Copy compiled output from builder
 COPY --chown=node:node --from=builder /app/dist ./dist
+COPY --chown=node:node --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Run as non-root node user
 USER node
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

@@ -11,7 +11,8 @@ import { RedisService } from './redis.service';
       useFactory: (configService: ConfigService) => {
         const host = configService.getOrThrow<string>('redis.host');
         const port = configService.getOrThrow<number>('redis.port');
-        return new IORedis({ host, port });
+        const password = configService.get<string>('redis.password');
+        return new IORedis({ host, port, ...(password ? { password } : {}) });
       },
       inject: [ConfigService],
     },

@@ -11,11 +11,18 @@ APP_DIR = apps/languee-back
 CONTAINER ?=
 TAIL      ?= 200
 
-.PHONY: start down build restart clean logs cc
+.PHONY: start migrate down build restart clean logs cc
 
-# Start all services in detached mode
+# Start infrastructure, run database migrations, then start the API
 start:
-	$(COMPOSE) up -d
+	$(COMPOSE) up -d postgres redis
+	$(COMPOSE) run --rm migrate yarn prisma migrate deploy
+	$(COMPOSE) up -d api
+
+# Run pending database migrations against the Compose Postgres service
+migrate:
+	$(COMPOSE) up -d postgres
+	$(COMPOSE) run --rm migrate yarn prisma migrate deploy
 
 # Stop and remove containers
 down:

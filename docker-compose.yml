@@ -1,17 +1,21 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${LANGUEE_BACK_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${LANGUEE_BACK_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${LANGUEE_BACK_POSTGRES_DB}
+    ports:
+      - "${LANGUEE_BACK_POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${LANGUEE_BACK_POSTGRES_USER} -d ${LANGUEE_BACK_POSTGRES_DB}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,15 +24,28 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${LANGUEE_BACK_REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${LANGUEE_BACK_REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
+
+  migrate:
+    build:
+      context: ./apps/languee-back
+      dockerfile: Dockerfile
+      target: builder
+    profiles:
+      - tools
+    env_file:
+      - ./apps/languee-back/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   api:
     build:
@@ -37,16 +54,16 @@ services:
       target: production
     restart: unless-stopped
     env_file:
-      - .env
+      - ./apps/languee-back/.env
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "${LANGUEE_BACK_API_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

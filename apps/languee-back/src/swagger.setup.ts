@@ -33,7 +33,7 @@ export function setupSwagger(
   const docsPath = '/api/v1/docs';
 
   app.use(
-    [docsPath, `${docsPath}/*`],
+    docsPath,
     createBasicAuthMiddleware(basicAuthUser, basicAuthPassword, 'Swagger'),
   );
 
