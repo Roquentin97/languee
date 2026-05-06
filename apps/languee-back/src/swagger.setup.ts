@@ -3,15 +3,31 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { createBasicAuthMiddleware } from './modules/core/basic-auth/basic-auth.middleware.factory';
 
+function getRequiredConfigValue(
+  configService: ConfigService,
+  key: string,
+  envName: string,
+): string {
+  const value = configService.getOrThrow<string>(key);
+  if (value.length === 0) {
+    throw new Error(`${envName} environment variable is required but not set`);
+  }
+  return value;
+}
+
 export function setupSwagger(
   app: INestApplication,
   configService: ConfigService,
 ): void {
-  const basicAuthUser = configService.getOrThrow<string>(
+  const basicAuthUser = getRequiredConfigValue(
+    configService,
     'system.basicAuthUser',
+    'BASIC_AUTH',
   );
-  const basicAuthPassword = configService.getOrThrow<string>(
+  const basicAuthPassword = getRequiredConfigValue(
+    configService,
     'system.basicAuthPassword',
+    'BASIC_PASSWORD',
   );
 
   const docsPath = '/api/v1/docs';

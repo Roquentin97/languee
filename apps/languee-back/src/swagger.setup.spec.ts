@@ -81,34 +81,34 @@ describe('setupSwagger', () => {
   // Edge case 1: BASIC_AUTH is undefined or empty
   describe('Edge case 1: missing BASIC_AUTH', () => {
     it('throws an Error when BASIC_AUTH is not set', () => {
-      delete process.env['BASIC_AUTH'];
       const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow(
+      const configService = buildConfigService('', VALID_PASSWORD);
+      expect(() => setupSwagger(app, configService)).toThrow(
         'BASIC_AUTH environment variable is required but not set',
       );
     });
 
     it('throws an Error when BASIC_AUTH is an empty string', () => {
-      process.env['BASIC_AUTH'] = '';
       const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow(Error);
+      const configService = buildConfigService('', VALID_PASSWORD);
+      expect(() => setupSwagger(app, configService)).toThrow(Error);
     });
   });
 
   // Edge case 2: BASIC_PASSWORD is undefined or empty
   describe('Edge case 2: missing BASIC_PASSWORD', () => {
     it('throws an Error when BASIC_PASSWORD is not set', () => {
-      delete process.env['BASIC_PASSWORD'];
       const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow(
+      const configService = buildConfigService(VALID_USER, '');
+      expect(() => setupSwagger(app, configService)).toThrow(
         'BASIC_PASSWORD environment variable is required but not set',
       );
     });
 
     it('throws an Error when BASIC_PASSWORD is an empty string', () => {
-      process.env['BASIC_PASSWORD'] = '';
       const app = buildApp();
-      expect(() => setupSwagger(app)).toThrow(Error);
+      const configService = buildConfigService(VALID_USER, '');
+      expect(() => setupSwagger(app, configService)).toThrow(Error);
     });
   });
 
