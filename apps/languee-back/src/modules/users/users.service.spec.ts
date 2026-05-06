@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { UsersService } from './users.service';
 
@@ -61,7 +61,7 @@ describe('UsersService', () => {
     });
 
     it('edge case — duplicate email propagates Prisma P2002 unique constraint error', async () => {
-      const prismaError = new PrismaClientKnownRequestError(
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed on the fields: (`email`)',
         { code: 'P2002', clientVersion: '6.0.0' },
       );
@@ -69,7 +69,7 @@ describe('UsersService', () => {
 
       await expect(
         service.create('duplicate@example.com', 'hashed_password'),
-      ).rejects.toThrow(PrismaClientKnownRequestError);
+      ).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
 
       await expect(
         service.create('duplicate@example.com', 'hashed_password'),

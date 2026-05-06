@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -17,7 +18,12 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
+
+  isSecureCookies(): boolean {
+    return this.configService.get<string>('app.nodeEnv') !== 'test';
+  }
 
   async login(
     dto: LoginDto,

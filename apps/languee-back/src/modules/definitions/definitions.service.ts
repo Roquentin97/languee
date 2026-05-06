@@ -5,14 +5,15 @@ import {
   DefinitionProviderInput,
   IDefinitionProvider,
 } from '../pipeline/interfaces/pipeline.interfaces';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../core/prisma/prisma.service';
 import { WordsService } from '../words/words.service';
 import {
   DefinitionNotFoundError,
   ProviderUnavailableError,
 } from './definitions.errors';
 import { DEFINITION_API_ADAPTER } from './definitions.tokens';
-import { IDefinitionApiAdapter } from './interfaces/definition-api-adapter.interface';
+import type { IDefinitionApiAdapter } from './interfaces/definition-api-adapter.interface';
+import type { RawDefinitionEntry } from './interfaces/definition-api-adapter.interface';
 
 @Injectable()
 export class DefinitionService implements IDefinitionProvider {
@@ -28,7 +29,7 @@ export class DefinitionService implements IDefinitionProvider {
 
     const word = await this.wordsService.findOrCreate(lemma, language);
 
-    let rawEntries;
+    let rawEntries: RawDefinitionEntry[];
     try {
       rawEntries = await this.adapter.fetch(lemma, language);
     } catch (err: unknown) {

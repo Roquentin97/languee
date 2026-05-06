@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { WordsService } from './words.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../core/prisma/prisma.service';
 
 function makeWord(
   overrides: Partial<{ id: string; lemma: string; language: string }> = {},

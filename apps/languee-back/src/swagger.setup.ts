@@ -1,91 +1,24 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as crypto from 'crypto';
-import type { Request, Response, NextFunction } from 'express';
+import { createBasicAuthMiddleware } from './modules/core/basic-auth/basic-auth.middleware.factory';
 
-export function setupSwagger(app: INestApplication): void {
-  const basicAuthUser = process.env['BASIC_AUTH'];
-  const basicAuthPassword = process.env['BASIC_PASSWORD'];
-
-  if (!basicAuthUser) {
-    throw new Error('BASIC_AUTH environment variable is required but not set');
-  }
-  if (!basicAuthPassword) {
-    throw new Error(
-      'BASIC_PASSWORD environment variable is required but not set',
-    );
-  }
+export function setupSwagger(
+  app: INestApplication,
+  configService: ConfigService,
+): void {
+  const basicAuthUser = configService.getOrThrow<string>(
+    'system.basicAuthUser',
+  );
+  const basicAuthPassword = configService.getOrThrow<string>(
+    'system.basicAuthPassword',
+  );
 
   const docsPath = '/api/v1/docs';
 
   app.use(
     [docsPath, `${docsPath}/*`],
-    (req: Request, res: Response, next: NextFunction) => {
-      const authHeader = req.headers['authorization'];
-
-      if (!authHeader || !authHeader.startsWith('Basic ')) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger"');
-        res.status(401).send('Unauthorized');
-        return;
-      }
-
-      let decoded: string;
-      try {
-        decoded = Buffer.from(
-          authHeader.slice('Basic '.length),
-          'base64',
-        ).toString('utf8');
-      } catch {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger"');
-        res.status(401).send('Unauthorized');
-        return;
-      }
-
-      const separatorIndex = decoded.indexOf(':');
-      if (separatorIndex === -1) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger"');
-        res.status(401).send('Unauthorized');
-        return;
-      }
-
-      const incomingUser = decoded.slice(0, separatorIndex);
-      const incomingPassword = decoded.slice(separatorIndex + 1);
-
-      // Use hashing to normalise lengths before timingSafeEqual
-      const hashIncomingUser = crypto
-        .createHash('sha256')
-        .update(incomingUser)
-        .digest();
-      const hashExpectedUser = crypto
-        .createHash('sha256')
-        .update(basicAuthUser)
-        .digest();
-      const hashIncomingPassword = crypto
-        .createHash('sha256')
-        .update(incomingPassword)
-        .digest();
-      const hashExpectedPassword = crypto
-        .createHash('sha256')
-        .update(basicAuthPassword)
-        .digest();
-
-      const userMatch = crypto.timingSafeEqual(
-        hashIncomingUser,
-        hashExpectedUser,
-      );
-      const passwordMatch = crypto.timingSafeEqual(
-        hashIncomingPassword,
-        hashExpectedPassword,
-      );
-
-      if (!userMatch || !passwordMatch) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger"');
-        res.status(401).send('Unauthorized');
-        return;
-      }
-
-      next();
-    },
+    createBasicAuthMiddleware(basicAuthUser, basicAuthPassword, 'Swagger'),
   );
 
   const config = new DocumentBuilder()
