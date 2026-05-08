@@ -1,11 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { RedisService } from '../core/redis/redis.service';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { SessionData } from './interfaces/session.interface';
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
@@ -23,6 +25,18 @@ export class AuthService {
 
   isSecureCookies(): boolean {
     return this.configService.get<string>('app.nodeEnv') !== 'test';
+  }
+
+  async register(dto: RegisterDto): Promise<Omit<User, 'passwordHash'>> {
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const user = await this.usersService.create(dto.email, passwordHash);
+
+    return {
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   async login(
