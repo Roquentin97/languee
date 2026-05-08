@@ -1,0 +1,29 @@
+meta {
+  name: Register
+  type: http
+  seq: 3
+  tags: [
+    auth
+  ]
+}
+
+post {
+  url: {{base_url}}/auth/register
+}
+
+headers {
+  content-type: application/json
+}
+
+body {
+  {
+    "email": "{{email}}",
+    "password": "{{password}}"
+  }
+}
+
+tests {
+  test("registers a user", function() {
+    expect(res.status).to.be.oneOf([201, 409]);
+  });
+}
