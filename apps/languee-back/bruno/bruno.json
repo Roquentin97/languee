@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Languee API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
