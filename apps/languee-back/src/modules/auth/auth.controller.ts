@@ -11,6 +11,7 @@ import {
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -21,6 +22,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
@@ -31,6 +33,27 @@ type AuthUser = { userId: string; sessionId: string };
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('register')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @ApiOperation({ summary: 'Register with email and password' })
+  @ApiBody({ type: RegisterDto })
+  @ApiCreatedResponse({
+    description: 'User registered',
+    schema: {
+      properties: {
+        id: { type: 'string' },
+        email: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  async register(
+    @Body() dto: RegisterDto,
+  ): ReturnType<AuthService['register']> {
+    return this.authService.register(dto);
+  }
 
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 5 } })

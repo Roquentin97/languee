@@ -21,6 +21,7 @@ const mockRedisService = {
 };
 
 const mockUsersService = {
+  create: jest.fn(),
   findByEmail: jest.fn(),
 };
 
@@ -66,6 +67,52 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+  });
+
+  describe('register', () => {
+    const dto = { email: 'new@example.com', password: 'password123' };
+    const createdAt = new Date('2026-01-01T00:00:00.000Z');
+    const updatedAt = new Date('2026-01-01T00:00:00.000Z');
+
+    it('hashes password and creates user with email and hash', async () => {
+      bcryptMock.hash.mockResolvedValue('hashed-password' as never);
+      mockUsersService.create.mockResolvedValue({
+        id: 'user-123',
+        email: dto.email,
+        passwordHash: 'hashed-password',
+        createdAt,
+        updatedAt,
+      });
+
+      await service.register(dto);
+
+      expect(bcryptMock.hash).toHaveBeenCalledWith(dto.password, 10);
+      expect(mockUsersService.create).toHaveBeenCalledWith(
+        dto.email,
+        'hashed-password',
+      );
+    });
+
+    it('returns registered user without passwordHash', async () => {
+      bcryptMock.hash.mockResolvedValue('hashed-password' as never);
+      mockUsersService.create.mockResolvedValue({
+        id: 'user-123',
+        email: dto.email,
+        passwordHash: 'hashed-password',
+        createdAt,
+        updatedAt,
+      });
+
+      const result = await service.register(dto);
+
+      expect(result).toEqual({
+        id: 'user-123',
+        email: dto.email,
+        createdAt,
+        updatedAt,
+      });
+      expect(result).not.toHaveProperty('passwordHash');
+    });
   });
 
   // ─── login ───────────────────────────────────────────────────────────────
