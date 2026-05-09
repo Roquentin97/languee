@@ -9,17 +9,23 @@ meta {
 
 post {
   url: {{base_url}}/auth/register
+  body: json
+  auth: none
 }
 
 headers {
   content-type: application/json
 }
 
-body {
+body:json {
   {
     "email": "{{email}}",
     "password": "{{password}}"
   }
+}
+
+vars:pre-request {
+  email: 
 }
 
 tests {

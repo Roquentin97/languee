@@ -3,15 +3,17 @@
 #
 # Usage:
 #   make <target> [CONTAINER=api] [TAIL=100]
+#   make redis languee-back
 
 COMPOSE = docker compose
 APP_DIR = apps/languee-back
+REDIS_SERVICE = $(word 2,$(MAKECMDGOALS))
 
 # Optional flags for make logs
 CONTAINER ?=
 TAIL      ?= 200
 
-.PHONY: start migrate down build restart clean logs cc
+.PHONY: start migrate down build restart clean logs redis languee-back cc
 
 # Start infrastructure, run database migrations, then start the API
 start:
@@ -44,6 +46,18 @@ logs:
 	$(if $(CONTAINER), \
 		$(COMPOSE) logs -f --tail=$(TAIL) $(CONTAINER), \
 		$(COMPOSE) logs -f --tail=$(TAIL))
+
+# Open redis-cli for an app service. Usage: make redis languee-back
+redis:
+	@if [ "$(REDIS_SERVICE)" != "languee-back" ]; then \
+		echo "Usage: make redis languee-back"; \
+		exit 2; \
+	fi
+	$(COMPOSE) up -d redis
+	sh ./scripts/load-env.sh sh -c 'REDISCLI_AUTH="$$LANGUEE_BACK_REDIS_PASSWORD" exec docker compose exec -e REDISCLI_AUTH redis redis-cli'
+
+languee-back:
+	@:
 
 # Full CI check: format → lint → test → build → prisma validate → commitlint
 # Runs inside the app directory. Stops on first failure.
