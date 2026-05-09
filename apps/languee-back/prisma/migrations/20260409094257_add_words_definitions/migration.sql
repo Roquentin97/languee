@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "words" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT uuidv7(),
     "lemma" TEXT NOT NULL,
     "language" TEXT NOT NULL DEFAULT 'en',
     "ipa" TEXT,
@@ -11,8 +11,8 @@ CREATE TABLE "words" (
 
 -- CreateTable
 CREATE TABLE "definitions" (
-    "id" TEXT NOT NULL,
-    "word_id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "word_id" UUID NOT NULL,
     "part_of_speech" TEXT NOT NULL,
     "definition" TEXT NOT NULL,
     "example" TEXT,

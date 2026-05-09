@@ -7,7 +7,7 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
   email        String   @unique
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -17,7 +17,7 @@ model User {
 }
 
 model Word {
-  id          String       @id @default(uuid())
+  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
   lemma       String
   language    String       @default("en")
   ipa         String?
@@ -30,8 +30,8 @@ model Word {
 }
 
 model Definition {
-  id              String   @id @default(uuid())
-  wordId          String   @map("word_id")
+  id              String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  wordId          String   @map("word_id") @db.Uuid
   word            Word     @relation(fields: [wordId], references: [id])
   partOfSpeech    String   @map("part_of_speech")
   definition      String

@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "users" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT uuidv7(),
     "email" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
