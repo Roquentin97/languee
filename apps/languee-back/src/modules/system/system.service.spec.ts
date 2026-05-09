@@ -12,6 +12,7 @@ function buildConfigService(
     'redis.host': 'localhost',
     'redis.port': 6379,
     'auth.jwtSecret': 'supersecretkey1234',
+    'auth.jwtExpiresIn': '15m',
     'system.basicAuthUser': 'admin',
     'system.basicAuthPassword': 'password',
     ...overrides,
@@ -60,6 +61,11 @@ describe('SystemService', () => {
       expect(env['auth']['jwtSecret']).toBe('supersecretkey1234');
     });
 
+    it('returns jwtExpiresIn in development', () => {
+      const env = service.getEnv() as Record<string, Record<string, unknown>>;
+      expect(env['auth']['jwtExpiresIn']).toBe('15m');
+    });
+
     it('returns actual basicAuthUser in development', () => {
       const env = service.getEnv() as Record<string, Record<string, unknown>>;
       expect(env['system']['basicAuthUser']).toBe('admin');
@@ -96,6 +102,11 @@ describe('SystemService', () => {
     it('redacts jwtSecret in production', () => {
       const env = service.getEnv() as Record<string, Record<string, unknown>>;
       expect(env['auth']['jwtSecret']).toBe('[REDACTED]');
+    });
+
+    it('does NOT redact jwtExpiresIn in production', () => {
+      const env = service.getEnv() as Record<string, Record<string, unknown>>;
+      expect(env['auth']['jwtExpiresIn']).toBe('15m');
     });
 
     it('redacts basicAuthUser in production', () => {

@@ -19,6 +19,7 @@ interface RedisNamespace {
 
 interface AuthNamespace {
   jwtSecret: string;
+  jwtExpiresIn: string | undefined;
 }
 
 interface SystemNamespace {
@@ -60,6 +61,7 @@ export class SystemService {
         jwtSecret: isDevelopment
           ? (this.configService.get<string>('auth.jwtSecret') ?? '')
           : REDACTED,
+        jwtExpiresIn: this.configService.get<string>('auth.jwtExpiresIn'),
       },
       system: {
         basicAuthUser: isDevelopment

@@ -104,6 +104,18 @@ describe('configuration()', () => {
       const result = configuration();
       expect(result.auth.jwtSecret).toBe('');
     });
+
+    it('uses JWT_EXPIRES_IN env var when set', () => {
+      process.env['JWT_EXPIRES_IN'] = '30d';
+      const result = configuration();
+      expect(result.auth.jwtExpiresIn).toBe('30d');
+    });
+
+    it('defaults jwtExpiresIn to 15m when JWT_EXPIRES_IN is not set', () => {
+      delete process.env['JWT_EXPIRES_IN'];
+      const result = configuration();
+      expect(result.auth.jwtExpiresIn).toBe('15m');
+    });
   });
 
   describe('system namespace', () => {
