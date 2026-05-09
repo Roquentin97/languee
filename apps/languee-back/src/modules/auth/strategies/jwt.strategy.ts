@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { RedisService } from '../../core/redis/redis.service';
+import { SessionData } from '../interfaces/session.interface';
 
 interface JwtPayload {
   sub: string;
@@ -10,7 +12,10 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly redisService: RedisService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -18,7 +23,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload): { userId: string; sessionId: string } {
+  async validate(
+    payload: JwtPayload,
+  ): Promise<{ userId: string; sessionId: string }> {
+    const raw = await this.redisService.get(`session:${payload.session_id}`);
+    if (!raw) {
+      throw new UnauthorizedException('Session not found');
+    }
+
+    let session: SessionData;
+    try {
+      session = JSON.parse(raw) as SessionData;
+    } catch {
+      throw new UnauthorizedException('Invalid session');
+    }
+
+    if (
+      session.revoked ||
+      session.userId !== payload.sub ||
+      session.sessionId !== payload.session_id
+    ) {
+      throw new UnauthorizedException('Session revoked');
+    }
+
     return { userId: payload.sub, sessionId: payload.session_id };
   }
 }

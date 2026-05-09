@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -18,7 +19,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
@@ -32,7 +33,10 @@ type AuthUser = { userId: string; sessionId: string };
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('register')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
@@ -75,12 +79,7 @@ export class AuthController {
     const { accessToken, plainRefreshToken, sessionId } =
       await this.authService.login(dto, userAgent, ip);
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: this.authService.isSecureCookies(),
-      sameSite: 'strict' as const,
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-    };
+    const cookieOptions = this.getRefreshCookieOptions();
 
     res.cookie('refresh_token', plainRefreshToken, cookieOptions);
     res.cookie('session_id', sessionId, cookieOptions);
@@ -113,12 +112,11 @@ export class AuthController {
       sessionId,
     );
 
-    res.cookie('refresh_token', plainRefreshToken, {
-      httpOnly: true,
-      secure: this.authService.isSecureCookies(),
-      sameSite: 'strict' as const,
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-    });
+    res.cookie(
+      'refresh_token',
+      plainRefreshToken,
+      this.getRefreshCookieOptions(),
+    );
 
     return { accessToken };
   }
@@ -173,5 +171,25 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async getSessions(@CurrentUser() user: AuthUser): Promise<object[]> {
     return this.authService.getSessions(user.userId);
+  }
+
+  private getRefreshCookieOptions(): CookieOptions {
+    const isLocalEnvironment = this.isLocalEnvironment();
+
+    return {
+      httpOnly: true,
+      secure: !isLocalEnvironment,
+      sameSite: isLocalEnvironment ? 'lax' : 'strict',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    };
+  }
+
+  private isLocalEnvironment(): boolean {
+    const nodeEnv =
+      this.configService.get<string>('app.nodeEnv') ??
+      this.configService.get<string>('NODE_ENV') ??
+      'development';
+
+    return nodeEnv === 'development' || nodeEnv === 'test';
   }
 }
