@@ -1,12 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LookupWordUseCase } from './lookup-word.use-case';
-import { WORDS_REPOSITORY, DEFINITIONS_REPOSITORY } from '../dictionary.tokens';
 import { DEFINITION_API_ADAPTER } from '../../definitions/definitions.tokens';
-import {
-  NORMALIZER,
-  PRE_LEMMATIZER,
-  LEMMATIZER,
-} from '../../pipeline/pipeline.tokens';
 import { DefinitionsNotFoundException } from '../dictionary.errors';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import { WordsService } from '../../words/words.service';
@@ -35,48 +29,26 @@ const mockDefinitionRow: Definition = {
 describe('LookupWordUseCase', () => {
   let useCase: LookupWordUseCase;
 
-  const wordsRepository = { findByLemma: jest.fn() };
-  const definitionsRepository = { findByWordId: jest.fn() };
   const adapter = { providerName: 'free-dictionary', fetch: jest.fn() };
-  const wordsServiceMock = { findOrCreate: jest.fn() };
+  const wordsServiceMock = {
+    canonicalise: jest.fn(),
+    findByLemma: jest.fn(),
+    findOrCreate: jest.fn(),
+  };
   const definitionServiceMock = {
-    createMany: jest.fn(),
     findByWordId: jest.fn(),
+    createMany: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    wordsServiceMock.canonicalise.mockImplementation((raw: string) =>
+      raw.trim().toLowerCase(),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LookupWordUseCase,
-        {
-          provide: NORMALIZER,
-          useValue: {
-            normalize: (input: { raw: string }) => ({
-              normalized_form: input.raw.trim().toLowerCase(),
-              is_multi_word: false,
-              pos: null,
-            }),
-          },
-        },
-        {
-          provide: PRE_LEMMATIZER,
-          useValue: {
-            preLemmatize: (input: { normalized_form: string }) => ({
-              lemma: input.normalized_form,
-              short_circuited: false,
-            }),
-          },
-        },
-        {
-          provide: LEMMATIZER,
-          useValue: {
-            lemmatize: (input: { lemma: string }) => ({ lemma: input.lemma }),
-          },
-        },
-        { provide: WORDS_REPOSITORY, useValue: wordsRepository },
-        { provide: DEFINITIONS_REPOSITORY, useValue: definitionsRepository },
         { provide: DEFINITION_API_ADAPTER, useValue: adapter },
         { provide: WordsService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
@@ -88,8 +60,8 @@ describe('LookupWordUseCase', () => {
 
   describe('cache hit path', () => {
     it('returns cached definitions without calling the adapter', async () => {
-      wordsRepository.findByLemma.mockResolvedValue(mockWord);
-      definitionsRepository.findByWordId.mockResolvedValue([mockDefinitionRow]);
+      wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
+      definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
       const result = await useCase.execute({ word: 'despite', language: 'en' });
 
@@ -107,8 +79,8 @@ describe('LookupWordUseCase', () => {
     });
 
     it('throws DefinitionsNotFoundException when word exists but has no definitions in cache', async () => {
-      wordsRepository.findByLemma.mockResolvedValue(mockWord);
-      definitionsRepository.findByWordId.mockResolvedValue([]);
+      wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
+      definitionServiceMock.findByWordId.mockResolvedValue([]);
 
       await expect(
         useCase.execute({ word: 'despite', language: 'en' }),
@@ -120,7 +92,7 @@ describe('LookupWordUseCase', () => {
 
   describe('cache miss / provider path', () => {
     it('calls adapter, persists word and definitions, returns source=provider', async () => {
-      wordsRepository.findByLemma.mockResolvedValue(null);
+      wordsServiceMock.findByLemma.mockResolvedValue(null);
       adapter.fetch.mockResolvedValue([
         {
           partOfSpeech: 'preposition',
@@ -150,7 +122,7 @@ describe('LookupWordUseCase', () => {
     });
 
     it('propagates ProviderUnavailableError when adapter throws it', async () => {
-      wordsRepository.findByLemma.mockResolvedValue(null);
+      wordsServiceMock.findByLemma.mockResolvedValue(null);
       adapter.fetch.mockRejectedValue(
         new ProviderUnavailableError('free-dictionary'),
       );
@@ -163,7 +135,7 @@ describe('LookupWordUseCase', () => {
     });
 
     it('throws DefinitionsNotFoundException when provider returns empty array', async () => {
-      wordsRepository.findByLemma.mockResolvedValue(null);
+      wordsServiceMock.findByLemma.mockResolvedValue(null);
       adapter.fetch.mockResolvedValue([]);
 
       await expect(
@@ -174,14 +146,18 @@ describe('LookupWordUseCase', () => {
     });
   });
 
-  describe('normalization', () => {
-    it('normalizes input word (trim + lowercase) before querying the repository', async () => {
-      wordsRepository.findByLemma.mockResolvedValue(mockWord);
-      definitionsRepository.findByWordId.mockResolvedValue([mockDefinitionRow]);
+  describe('canonicalisation', () => {
+    it('canonicalises input word before querying the repository', async () => {
+      wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
+      definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
       await useCase.execute({ word: '  Despite  ', language: 'en' });
 
-      expect(wordsRepository.findByLemma).toHaveBeenCalledWith('despite', 'en');
+      expect(wordsServiceMock.canonicalise).toHaveBeenCalledWith('  Despite  ');
+      expect(wordsServiceMock.findByLemma).toHaveBeenCalledWith(
+        'despite',
+        'en',
+      );
     });
   });
 });

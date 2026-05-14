@@ -1,21 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  NORMALIZER,
-  PRE_LEMMATIZER,
-  LEMMATIZER,
-} from '../../pipeline/pipeline.tokens';
-import {
-  INormalizer,
-  IPreLemmatizer,
-  ILemmatizer,
-} from '../../pipeline/interfaces/pipeline.interfaces';
 import { DEFINITION_API_ADAPTER } from '../../definitions/definitions.tokens';
 import type { IDefinitionApiAdapter } from '../../definitions/interfaces/definition-api-adapter.interface';
 import { WordsService } from '../../words/words.service';
 import { DefinitionService } from '../../definitions/definitions.service';
-import { WORDS_REPOSITORY, DEFINITIONS_REPOSITORY } from '../dictionary.tokens';
-import type { IWordsRepository } from '../interfaces/words-repository.interface';
-import type { IDefinitionsRepository } from '../interfaces/definitions-repository.interface';
 import {
   LookupWordInput,
   LookupWordOutput,
@@ -26,16 +13,6 @@ import { DefinitionsNotFoundException } from '../dictionary.errors';
 @Injectable()
 export class LookupWordUseCase {
   constructor(
-    @Inject(NORMALIZER)
-    private readonly normalizer: INormalizer,
-    @Inject(PRE_LEMMATIZER)
-    private readonly preLemmatizer: IPreLemmatizer,
-    @Inject(LEMMATIZER)
-    private readonly lemmatizer: ILemmatizer,
-    @Inject(WORDS_REPOSITORY)
-    private readonly wordsRepository: IWordsRepository,
-    @Inject(DEFINITIONS_REPOSITORY)
-    private readonly definitionsRepository: IDefinitionsRepository,
     @Inject(DEFINITION_API_ADAPTER)
     private readonly adapter: IDefinitionApiAdapter,
     private readonly wordsService: WordsService,
@@ -43,14 +20,12 @@ export class LookupWordUseCase {
   ) {}
 
   async execute(input: LookupWordInput): Promise<LookupWordOutput> {
-    const normalized = this.normalizer.normalize({ raw: input.word });
-    const preLemmatized = this.preLemmatizer.preLemmatize(normalized);
-    const { lemma } = this.lemmatizer.lemmatize(preLemmatized);
+    const lemma = this.wordsService.canonicalise(input.word);
 
-    const word = await this.wordsRepository.findByLemma(lemma, input.language);
+    const word = await this.wordsService.findByLemma(lemma, input.language);
 
     if (word !== null) {
-      const rows = await this.definitionsRepository.findByWordId(word.id);
+      const rows = await this.definitionService.findByWordId(word.id);
       if (rows.length === 0) {
         throw new DefinitionsNotFoundException(lemma, input.language);
       }

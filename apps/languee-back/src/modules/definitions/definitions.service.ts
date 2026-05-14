@@ -5,7 +5,7 @@ import {
   Definition,
   DefinitionProviderInput,
   IDefinitionProvider,
-} from '../pipeline/interfaces/pipeline.interfaces';
+} from './interfaces/definition-provider.interface';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { WordsService } from '../words/words.service';
 import {

@@ -3,7 +3,7 @@ import {
   INormalizer,
   NormalizedOutput,
   RawInput,
-} from '../interfaces/pipeline.interfaces';
+} from '../interfaces/nlp.interfaces';
 
 @Injectable()
 export class Normalizer implements INormalizer {

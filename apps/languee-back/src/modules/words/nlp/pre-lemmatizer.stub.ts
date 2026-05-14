@@ -3,7 +3,7 @@ import {
   IPreLemmatizer,
   NormalizedOutput,
   PreLemmatizedOutput,
-} from '../interfaces/pipeline.interfaces';
+} from '../interfaces/nlp.interfaces';
 
 @Injectable()
 export class PreLemmatizerStub implements IPreLemmatizer {
