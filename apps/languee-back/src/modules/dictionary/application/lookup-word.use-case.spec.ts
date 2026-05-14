@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LookupWordUseCase } from './lookup-word.use-case';
-import { DEFINITION_API_ADAPTER } from '../../definitions/definitions.tokens';
 import { DefinitionsNotFoundException } from '../dictionary.errors';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import { WordsService } from '../../words/words.service';
@@ -29,15 +28,14 @@ const mockDefinitionRow: Definition = {
 describe('LookupWordUseCase', () => {
   let useCase: LookupWordUseCase;
 
-  const adapter = { providerName: 'free-dictionary', fetch: jest.fn() };
   const wordsServiceMock = {
     canonicalise: jest.fn(),
     findByLemma: jest.fn(),
-    ensureExistsAndReturn: jest.fn(),
+    findOrCreate: jest.fn(),
   };
   const definitionServiceMock = {
     findByWordId: jest.fn(),
-    createMany: jest.fn(),
+    fetchAndPersist: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -49,7 +47,6 @@ describe('LookupWordUseCase', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LookupWordUseCase,
-        { provide: DEFINITION_API_ADAPTER, useValue: adapter },
         { provide: WordsService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
       ],
@@ -59,13 +56,13 @@ describe('LookupWordUseCase', () => {
   });
 
   describe('cache hit path', () => {
-    it('returns cached definitions without calling the adapter', async () => {
+    it('returns cached definitions without calling the provider', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
       const result = await useCase.execute({ word: 'despite', language: 'en' });
 
-      expect(adapter.fetch).not.toHaveBeenCalled();
+      expect(definitionServiceMock.fetchAndPersist).not.toHaveBeenCalled();
       expect(result.source).toBe('cache');
       expect(result.lemma).toBe('despite');
       expect(result.definitions).toHaveLength(1);
@@ -81,77 +78,71 @@ describe('LookupWordUseCase', () => {
     it('falls through to provider when word exists but has no definitions', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([]);
-      adapter.fetch.mockResolvedValue([
-        { partOfSpeech: 'preposition', definition: 'in spite of', example: null },
+      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      definitionServiceMock.fetchAndPersist.mockResolvedValue([
+        mockDefinitionRow,
       ]);
-      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       const result = await useCase.execute({ word: 'despite', language: 'en' });
 
-      expect(adapter.fetch).toHaveBeenCalledWith('despite', 'en');
+      expect(definitionServiceMock.fetchAndPersist).toHaveBeenCalledWith(
+        'word-id-1',
+        'despite',
+        'en',
+      );
       expect(result.source).toBe('provider');
     });
   });
 
   describe('cache miss / provider path', () => {
-    it('calls adapter, persists word and definitions, returns source=provider', async () => {
+    it('persists word and definitions via services, returns source=provider', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
-      adapter.fetch.mockResolvedValue([
-        {
-          partOfSpeech: 'preposition',
-          definition: 'in spite of',
-          example: 'Despite the rain, we went out.',
-        },
+      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      definitionServiceMock.fetchAndPersist.mockResolvedValue([
+        mockDefinitionRow,
       ]);
-      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       const result = await useCase.execute({ word: 'despite', language: 'en' });
 
-      expect(adapter.fetch).toHaveBeenCalledWith('despite', 'en');
-      expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
+      expect(wordsServiceMock.findOrCreate).toHaveBeenCalledWith(
         'despite',
         'en',
       );
-      expect(definitionServiceMock.createMany).toHaveBeenCalledWith(
+      expect(definitionServiceMock.fetchAndPersist).toHaveBeenCalledWith(
         'word-id-1',
-        expect.arrayContaining([
-          expect.objectContaining({ partOfSpeech: 'preposition' }),
-        ]),
+        'despite',
+        'en',
       );
       expect(result.source).toBe('provider');
       expect(result.lemma).toBe('despite');
       expect(result.definitions).toHaveLength(1);
     });
 
-    it('propagates ProviderUnavailableError when adapter throws it', async () => {
+    it('propagates ProviderUnavailableError from DefinitionService', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
-      adapter.fetch.mockRejectedValue(
+      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      definitionServiceMock.fetchAndPersist.mockRejectedValue(
         new ProviderUnavailableError('free-dictionary'),
       );
 
       await expect(
         useCase.execute({ word: 'despite', language: 'en' }),
       ).rejects.toBeInstanceOf(ProviderUnavailableError);
-
-      expect(wordsServiceMock.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
 
-    it('throws DefinitionsNotFoundException when provider returns empty array', async () => {
+    it('throws DefinitionsNotFoundException when provider returns no definitions', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
-      adapter.fetch.mockResolvedValue([]);
+      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      definitionServiceMock.fetchAndPersist.mockResolvedValue([]);
 
       await expect(
         useCase.execute({ word: 'despite', language: 'en' }),
       ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
-
-      expect(wordsServiceMock.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
   });
 
   describe('canonicalisation', () => {
-    it('canonicalises input word before querying the repository', async () => {
+    it('canonicalises input word before querying', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 

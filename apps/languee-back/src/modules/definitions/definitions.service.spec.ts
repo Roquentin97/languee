@@ -399,4 +399,45 @@ describe('DefinitionService', () => {
       expect(prismaMock.definition.create).not.toHaveBeenCalled();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // fetchAndPersist
+  // -------------------------------------------------------------------------
+
+  describe('fetchAndPersist', () => {
+    it('happy path: fetches from adapter, persists, and returns rows', async () => {
+      const word = makeWord();
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: 'verb', definition: 'move fast', example: 'She runs.' },
+      ]);
+      prismaMock.definition.findUnique.mockResolvedValue(null);
+      const row = makeDefinitionRow({ example: 'She runs.' });
+      prismaMock.definition.create.mockResolvedValue(row);
+
+      const result = await service.fetchAndPersist('word-id-1', 'run', 'en');
+
+      expect(adapterMock.fetch).toHaveBeenCalledWith('run', 'en');
+      expect(result).toEqual([row]);
+    });
+
+    it('returns empty array without calling createMany when adapter returns nothing', async () => {
+      adapterMock.fetch.mockResolvedValue([]);
+
+      const result = await service.fetchAndPersist('word-id-1', 'zzz', 'en');
+
+      expect(result).toEqual([]);
+      expect(prismaMock.definition.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.definition.create).not.toHaveBeenCalled();
+    });
+
+    it('propagates ProviderUnavailableError from adapter', async () => {
+      adapterMock.fetch.mockRejectedValue(
+        new ProviderUnavailableError('dictionaryapi', new Error('HTTP 500')),
+      );
+
+      await expect(
+        service.fetchAndPersist('word-id-1', 'run', 'en'),
+      ).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+  });
 });

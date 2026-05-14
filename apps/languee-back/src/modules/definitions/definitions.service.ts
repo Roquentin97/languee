@@ -93,6 +93,16 @@ export class DefinitionService implements IDefinitionProvider {
     return this.prisma.definition.findMany({ where: { wordId } });
   }
 
+  async fetchAndPersist(
+    wordId: string,
+    lemma: string,
+    language: string,
+  ): Promise<DbDefinition[]> {
+    const rawEntries = await this.adapter.fetch(lemma, language);
+    if (rawEntries.length === 0) return [];
+    return this.createMany(wordId, rawEntries);
+  }
+
   async createMany(
     wordId: string,
     entries: RawDefinitionEntry[],

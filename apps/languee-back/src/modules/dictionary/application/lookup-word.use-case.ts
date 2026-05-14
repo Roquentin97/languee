@@ -1,6 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { DEFINITION_API_ADAPTER } from '../../definitions/definitions.tokens';
-import type { IDefinitionApiAdapter } from '../../definitions/interfaces/definition-api-adapter.interface';
+import { Injectable } from '@nestjs/common';
 import { WordsService } from '../../words/words.service';
 import { DefinitionService } from '../../definitions/definitions.service';
 import {
@@ -13,8 +11,6 @@ import { DefinitionsNotFoundException } from '../dictionary.errors';
 @Injectable()
 export class LookupWordUseCase {
   constructor(
-    @Inject(DEFINITION_API_ADAPTER)
-    private readonly adapter: IDefinitionApiAdapter,
     private readonly wordsService: WordsService,
     private readonly definitionService: DefinitionService,
   ) {}
@@ -38,19 +34,18 @@ export class LookupWordUseCase {
       }
     }
 
-    const rawEntries = await this.adapter.fetch(lemma, input.language);
-    if (rawEntries.length === 0) {
-      throw new DefinitionsNotFoundException(lemma, input.language);
-    }
-
-    const savedWord = await this.wordsService.ensureExistsAndReturn(
+    const savedWord = await this.wordsService.findOrCreate(
       lemma,
       input.language,
     );
-    const rows = await this.definitionService.createMany(
+    const rows = await this.definitionService.fetchAndPersist(
       savedWord.id,
-      rawEntries,
+      lemma,
+      input.language,
     );
+    if (rows.length === 0) {
+      throw new DefinitionsNotFoundException(lemma, input.language);
+    }
 
     const definitions: DefinitionResult[] = rows.map((row) => ({
       id: row.id,
