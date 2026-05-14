@@ -34,7 +34,7 @@ export class LookupWordUseCase {
       }
     }
 
-    const savedWord = await this.wordsService.findOrCreate(
+    const savedWord = await this.wordsService.ensureExistsAndReturn(
       lemma,
       input.language,
     );

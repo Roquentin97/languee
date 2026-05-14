@@ -30,7 +30,7 @@ export class DefinitionService implements IDefinitionProvider {
   async provide(input: DefinitionProviderInput): Promise<Definition[]> {
     const { lemma, language } = input;
 
-    const word = await this.wordsService.findOrCreate(lemma, language);
+    const word = await this.wordsService.ensureExistsAndReturn(lemma, language);
 
     let rawEntries: RawDefinitionEntry[];
     try {

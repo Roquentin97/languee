@@ -77,7 +77,7 @@ describe('WordsService', () => {
     const row = makeWord();
     prismaMock.word.findUnique.mockResolvedValue(row);
 
-    const result = await service.findOrCreate('run', 'en');
+    const result = await service.ensureExistsAndReturn('run', 'en');
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).not.toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe('WordsService', () => {
     prismaMock.word.findUnique.mockResolvedValue(null);
     prismaMock.word.create.mockResolvedValue(row);
 
-    const result = await service.findOrCreate('run', 'en');
+    const result = await service.ensureExistsAndReturn('run', 'en');
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).toHaveBeenCalledWith({
@@ -107,7 +107,7 @@ describe('WordsService', () => {
     prismaMock.word.create.mockRejectedValue(p2002);
     prismaMock.word.findUniqueOrThrow.mockResolvedValue(row);
 
-    const result = await service.findOrCreate('run', 'en');
+    const result = await service.ensureExistsAndReturn('run', 'en');
 
     expect(result).toEqual(row);
     expect(prismaMock.word.findUniqueOrThrow).toHaveBeenCalledWith({
@@ -124,7 +124,7 @@ describe('WordsService', () => {
     });
     prismaMock.word.create.mockRejectedValue(p2025);
 
-    await expect(service.findOrCreate('run', 'en')).rejects.toThrow();
+    await expect(service.ensureExistsAndReturn('run', 'en')).rejects.toThrow();
   });
 
   describe('canonicalise', () => {

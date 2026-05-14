@@ -66,7 +66,7 @@ describe('DefinitionService', () => {
   };
 
   const wordsServiceMock = {
-    findOrCreate: jest.fn(),
+    ensureExistsAndReturn: jest.fn(),
   };
 
   const adapterMock: jest.Mocked<IDefinitionApiAdapter> = {
@@ -75,7 +75,7 @@ describe('DefinitionService', () => {
   };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
 
     module = await Test.createTestingModule({
       providers: [
@@ -95,7 +95,7 @@ describe('DefinitionService', () => {
 
   it('happy path: creates definition when not found and returns mapped result', async () => {
     const word = makeWord();
-    wordsServiceMock.findOrCreate.mockResolvedValue(word);
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(word);
     adapterMock.fetch.mockResolvedValue([
       {
         partOfSpeech: 'verb',
@@ -118,7 +118,7 @@ describe('DefinitionService', () => {
   });
 
   it('delegates word resolution to WordsService, not prisma.word directly', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: 'verb', definition: 'move at a fast pace' },
     ]);
@@ -126,11 +126,14 @@ describe('DefinitionService', () => {
 
     await service.provide({ lemma: 'run', language: 'en' });
 
-    expect(wordsServiceMock.findOrCreate).toHaveBeenCalledWith('run', 'en');
+    expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
+      'run',
+      'en',
+    );
   });
 
   it('returns existing definition without calling create', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: 'verb', definition: 'move at a fast pace' },
     ]);
@@ -143,7 +146,7 @@ describe('DefinitionService', () => {
   });
 
   it('throws DefinitionNotFoundError when adapter returns empty array', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([]);
 
     await expect(
@@ -152,7 +155,7 @@ describe('DefinitionService', () => {
   });
 
   it('DefinitionNotFoundError message includes lemma', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([]);
 
     const err = await service
@@ -163,7 +166,7 @@ describe('DefinitionService', () => {
   });
 
   it('propagates ProviderUnavailableError from adapter', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockRejectedValue(
       new ProviderUnavailableError('dictionaryapi', new Error('HTTP 500')),
     );
@@ -174,7 +177,7 @@ describe('DefinitionService', () => {
   });
 
   it('wraps unexpected adapter error in ProviderUnavailableError', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockRejectedValue(new Error('unexpected'));
 
     await expect(
@@ -183,7 +186,7 @@ describe('DefinitionService', () => {
   });
 
   it('EC: P2002 on create falls back to findUniqueOrThrow', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: 'verb', definition: 'move at a fast pace' },
     ]);
@@ -204,7 +207,7 @@ describe('DefinitionService', () => {
   });
 
   it('EC: non-P2002 Prisma error on create is re-thrown', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: 'verb', definition: 'move at a fast pace' },
     ]);
@@ -222,7 +225,7 @@ describe('DefinitionService', () => {
   });
 
   it('row with null example maps to empty examples array', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: 'verb', definition: 'move at a fast pace' },
     ]);
@@ -236,7 +239,7 @@ describe('DefinitionService', () => {
   });
 
   it('handles multiple definitions from adapter', async () => {
-    wordsServiceMock.findOrCreate.mockResolvedValue(makeWord());
+    wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(makeWord());
     adapterMock.fetch.mockResolvedValue([
       { partOfSpeech: 'verb', definition: 'move fast' },
       { partOfSpeech: 'noun', definition: 'a run' },
@@ -406,7 +409,6 @@ describe('DefinitionService', () => {
 
   describe('fetchAndPersist', () => {
     it('happy path: fetches from adapter, persists, and returns rows', async () => {
-      const word = makeWord();
       adapterMock.fetch.mockResolvedValue([
         { partOfSpeech: 'verb', definition: 'move fast', example: 'She runs.' },
       ]);
@@ -416,7 +418,7 @@ describe('DefinitionService', () => {
 
       const result = await service.fetchAndPersist('word-id-1', 'run', 'en');
 
-      expect(adapterMock.fetch).toHaveBeenCalledWith('run', 'en');
+      expect(adapterMock.fetch.mock.calls).toContainEqual(['run', 'en']);
       expect(result).toEqual([row]);
     });
 

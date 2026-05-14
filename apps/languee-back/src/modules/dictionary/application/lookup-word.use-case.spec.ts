@@ -10,8 +10,8 @@ const mockWord: Word = {
   id: 'word-id-1',
   lemma: 'despite',
   language: 'en',
+  ipa: null,
   createdAt: new Date(),
-  updatedAt: new Date(),
 };
 
 const mockDefinitionRow: Definition = {
@@ -21,8 +21,8 @@ const mockDefinitionRow: Definition = {
   definition: 'in spite of',
   example: 'Despite the rain, we went out.',
   provider: 'free-dictionary',
+  gapFillMetadata: null,
   createdAt: new Date(),
-  updatedAt: new Date(),
 };
 
 describe('LookupWordUseCase', () => {
@@ -31,7 +31,7 @@ describe('LookupWordUseCase', () => {
   const wordsServiceMock = {
     canonicalise: jest.fn(),
     findByLemma: jest.fn(),
-    findOrCreate: jest.fn(),
+    ensureExistsAndReturn: jest.fn(),
   };
   const definitionServiceMock = {
     findByWordId: jest.fn(),
@@ -39,7 +39,7 @@ describe('LookupWordUseCase', () => {
   };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     wordsServiceMock.canonicalise.mockImplementation((raw: string) =>
       raw.trim().toLowerCase(),
     );
@@ -78,7 +78,7 @@ describe('LookupWordUseCase', () => {
     it('falls through to provider when word exists but has no definitions', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([]);
-      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       definitionServiceMock.fetchAndPersist.mockResolvedValue([
         mockDefinitionRow,
       ]);
@@ -97,14 +97,14 @@ describe('LookupWordUseCase', () => {
   describe('cache miss / provider path', () => {
     it('persists word and definitions via services, returns source=provider', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
-      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       definitionServiceMock.fetchAndPersist.mockResolvedValue([
         mockDefinitionRow,
       ]);
 
       const result = await useCase.execute({ word: 'despite', language: 'en' });
 
-      expect(wordsServiceMock.findOrCreate).toHaveBeenCalledWith(
+      expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
         'despite',
         'en',
       );
@@ -120,7 +120,7 @@ describe('LookupWordUseCase', () => {
 
     it('propagates ProviderUnavailableError from DefinitionService', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
-      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       definitionServiceMock.fetchAndPersist.mockRejectedValue(
         new ProviderUnavailableError('free-dictionary'),
       );
@@ -132,7 +132,7 @@ describe('LookupWordUseCase', () => {
 
     it('throws DefinitionsNotFoundException when provider returns no definitions', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
-      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       definitionServiceMock.fetchAndPersist.mockResolvedValue([]);
 
       await expect(

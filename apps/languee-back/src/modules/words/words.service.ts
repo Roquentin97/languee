@@ -28,7 +28,7 @@ export class WordsService {
     });
   }
 
-  async findOrCreate(lemma: string, language: string) {
+  async ensureExistsAndReturn(lemma: string, language: string) {
     const existing = await this.prisma.word.findUnique({
       where: { lemma_language: { lemma, language } },
     });
