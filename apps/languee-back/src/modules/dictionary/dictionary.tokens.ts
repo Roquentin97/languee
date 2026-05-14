@@ -1,0 +1,1 @@
+export const LOOKUP_WORD_USE_CASE = 'LOOKUP_WORD_USE_CASE';

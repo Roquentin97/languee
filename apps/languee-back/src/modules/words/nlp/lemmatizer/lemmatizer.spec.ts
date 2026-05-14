@@ -1,12 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { Lemmatizer } from './lemmatizer';
 import { IrregularTableMechanism } from './irregular-table.mechanism';
 import { RuleEngineMechanism } from './rule-engine.mechanism';
 import { PassthroughMechanism } from './passthrough.mechanism';
-import { PreLemmatizedOutput } from '../../interfaces/pipeline.interfaces';
-import { PipelineModule } from '../../pipeline.module';
-import { LEMMATIZER } from '../../pipeline.tokens';
-import { PrismaService } from '../../../core/prisma/prisma.service';
+import { PreLemmatizedOutput } from '../../interfaces/nlp.interfaces';
 
 describe('Lemmatizer', () => {
   let lemmatizer: Lemmatizer;
@@ -168,19 +164,5 @@ describe('Lemmatizer', () => {
     expect(ruleEngine.apply).toHaveBeenCalledTimes(1);
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(passthrough.resolve).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('PipelineModule — LEMMATIZER token binding', () => {
-  it('binds LEMMATIZER to a Lemmatizer instance (not a stub)', async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [PipelineModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue({})
-      .compile();
-
-    const lemmatizerInstance = module.get<unknown>(LEMMATIZER);
-    expect(lemmatizerInstance).toBeInstanceOf(Lemmatizer);
   });
 });

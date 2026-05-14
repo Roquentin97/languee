@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { WordsService } from './words.service';
 import { PrismaService } from '../core/prisma/prisma.service';
+import { Normalizer } from './nlp/normalizer';
+import { PreLemmatizerStub } from './nlp/pre-lemmatizer.stub';
+import { Lemmatizer } from './nlp/lemmatizer/lemmatizer';
 
 function makeWord(
   overrides: Partial<{ id: string; lemma: string; language: string }> = {},
@@ -27,6 +30,29 @@ describe('WordsService', () => {
     },
   };
 
+  const normalizerMock = {
+    normalize: jest.fn().mockImplementation((input: { raw: string }) => ({
+      normalized_form: input.raw.trim().toLowerCase(),
+      is_multi_word: false,
+      pos: null,
+    })),
+  };
+
+  const preLemmatizerMock = {
+    preLemmatize: jest
+      .fn()
+      .mockImplementation((input: { normalized_form: string }) => ({
+        lemma: input.normalized_form,
+        short_circuited: false,
+      })),
+  };
+
+  const lemmatizerMock = {
+    lemmatize: jest.fn().mockImplementation((input: { lemma: string }) => ({
+      lemma: input.lemma,
+    })),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -34,6 +60,9 @@ describe('WordsService', () => {
       providers: [
         WordsService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: Normalizer, useValue: normalizerMock },
+        { provide: PreLemmatizerStub, useValue: preLemmatizerMock },
+        { provide: Lemmatizer, useValue: lemmatizerMock },
       ],
     }).compile();
 
@@ -48,7 +77,7 @@ describe('WordsService', () => {
     const row = makeWord();
     prismaMock.word.findUnique.mockResolvedValue(row);
 
-    const result = await service.findOrCreate('run', 'en');
+    const result = await service.ensureExistsAndReturn('run', 'en');
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).not.toHaveBeenCalled();
@@ -59,7 +88,7 @@ describe('WordsService', () => {
     prismaMock.word.findUnique.mockResolvedValue(null);
     prismaMock.word.create.mockResolvedValue(row);
 
-    const result = await service.findOrCreate('run', 'en');
+    const result = await service.ensureExistsAndReturn('run', 'en');
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).toHaveBeenCalledWith({
@@ -78,7 +107,7 @@ describe('WordsService', () => {
     prismaMock.word.create.mockRejectedValue(p2002);
     prismaMock.word.findUniqueOrThrow.mockResolvedValue(row);
 
-    const result = await service.findOrCreate('run', 'en');
+    const result = await service.ensureExistsAndReturn('run', 'en');
 
     expect(result).toEqual(row);
     expect(prismaMock.word.findUniqueOrThrow).toHaveBeenCalledWith({
@@ -95,6 +124,47 @@ describe('WordsService', () => {
     });
     prismaMock.word.create.mockRejectedValue(p2025);
 
-    await expect(service.findOrCreate('run', 'en')).rejects.toThrow();
+    await expect(service.ensureExistsAndReturn('run', 'en')).rejects.toThrow();
+  });
+
+  describe('canonicalise', () => {
+    it('happy path: trims and lowercases via NLP pipeline', () => {
+      const result = service.canonicalise('  Running  ');
+      expect(result).toBe('running');
+    });
+
+    it('edge case: empty string returns empty string', () => {
+      const result = service.canonicalise('');
+      expect(result).toBe('');
+    });
+
+    it('delegates to normalizer, preLemmatizer, and lemmatizer in sequence', () => {
+      service.canonicalise('Test');
+      expect(normalizerMock.normalize).toHaveBeenCalledWith({ raw: 'Test' });
+      expect(preLemmatizerMock.preLemmatize).toHaveBeenCalled();
+      expect(lemmatizerMock.lemmatize).toHaveBeenCalled();
+    });
+  });
+
+  describe('findByLemma', () => {
+    it('happy path: returns word when found', async () => {
+      const row = makeWord();
+      prismaMock.word.findUnique.mockResolvedValue(row);
+
+      const result = await service.findByLemma('run', 'en');
+
+      expect(result).toEqual(row);
+      expect(prismaMock.word.findUnique).toHaveBeenCalledWith({
+        where: { lemma_language: { lemma: 'run', language: 'en' } },
+      });
+    });
+
+    it('edge case: returns null when word not found', async () => {
+      prismaMock.word.findUnique.mockResolvedValue(null);
+
+      const result = await service.findByLemma('unknown', 'en');
+
+      expect(result).toBeNull();
+    });
   });
 });

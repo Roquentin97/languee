@@ -1,10 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { Definition as DbDefinition } from '@prisma/client';
 import {
   Definition,
   DefinitionProviderInput,
   IDefinitionProvider,
-} from '../pipeline/interfaces/pipeline.interfaces';
+} from './interfaces/definition-provider.interface';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { WordsService } from '../words/words.service';
 import {
@@ -14,6 +15,8 @@ import {
 import { DEFINITION_API_ADAPTER } from './definitions.tokens';
 import type { IDefinitionApiAdapter } from './interfaces/definition-api-adapter.interface';
 import type { RawDefinitionEntry } from './interfaces/definition-api-adapter.interface';
+
+export type { DbDefinition };
 
 @Injectable()
 export class DefinitionService implements IDefinitionProvider {
@@ -27,7 +30,7 @@ export class DefinitionService implements IDefinitionProvider {
   async provide(input: DefinitionProviderInput): Promise<Definition[]> {
     const { lemma, language } = input;
 
-    const word = await this.wordsService.findOrCreate(lemma, language);
+    const word = await this.wordsService.ensureExistsAndReturn(lemma, language);
 
     let rawEntries: RawDefinitionEntry[];
     try {
@@ -84,5 +87,59 @@ export class DefinitionService implements IDefinitionProvider {
       part_of_speech: row.partOfSpeech,
       provider: row.provider,
     }));
+  }
+
+  async findByWordId(wordId: string): Promise<DbDefinition[]> {
+    return this.prisma.definition.findMany({ where: { wordId } });
+  }
+
+  async fetchAndPersist(
+    wordId: string,
+    lemma: string,
+    language: string,
+  ): Promise<DbDefinition[]> {
+    const rawEntries = await this.adapter.fetch(lemma, language);
+    if (rawEntries.length === 0) return [];
+    return this.createMany(wordId, rawEntries);
+  }
+
+  async createMany(
+    wordId: string,
+    entries: RawDefinitionEntry[],
+  ): Promise<DbDefinition[]> {
+    return Promise.all(
+      entries.map(async (entry) => {
+        const key = {
+          wordId,
+          partOfSpeech: entry.partOfSpeech,
+          definition: entry.definition,
+        };
+
+        const existing = await this.prisma.definition.findUnique({
+          where: { wordId_partOfSpeech_definition: key },
+        });
+        if (existing) return existing;
+
+        try {
+          return await this.prisma.definition.create({
+            data: {
+              ...key,
+              example: entry.example ?? null,
+              provider: this.adapter.providerName,
+            },
+          });
+        } catch (err: unknown) {
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === 'P2002'
+          ) {
+            return this.prisma.definition.findUniqueOrThrow({
+              where: { wordId_partOfSpeech_definition: key },
+            });
+          }
+          throw err;
+        }
+      }),
+    );
   }
 }

@@ -1,12 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { Word } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
+import { Normalizer } from './nlp/normalizer';
+import { PreLemmatizerStub } from './nlp/pre-lemmatizer.stub';
+import { Lemmatizer } from './nlp/lemmatizer/lemmatizer';
 
 @Injectable()
 export class WordsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly normalizer: Normalizer,
+    private readonly preLemmatizer: PreLemmatizerStub,
+    private readonly lemmatizer: Lemmatizer,
+  ) {}
 
-  async findOrCreate(lemma: string, language: string) {
+  canonicalise(raw: string): string {
+    const normalized = this.normalizer.normalize({ raw });
+    const preLemmatized = this.preLemmatizer.preLemmatize(normalized);
+    const { lemma } = this.lemmatizer.lemmatize(preLemmatized);
+    return lemma;
+  }
+
+  async findByLemma(lemma: string, language: string): Promise<Word | null> {
+    return this.prisma.word.findUnique({
+      where: { lemma_language: { lemma, language } },
+    });
+  }
+
+  async ensureExistsAndReturn(lemma: string, language: string) {
     const existing = await this.prisma.word.findUnique({
       where: { lemma_language: { lemma, language } },
     });

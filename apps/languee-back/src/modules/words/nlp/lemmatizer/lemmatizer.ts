@@ -3,7 +3,7 @@ import {
   ILemmatizer,
   LemmatizedOutput,
   PreLemmatizedOutput,
-} from '../../interfaces/pipeline.interfaces';
+} from '../../interfaces/nlp.interfaces';
 import { IrregularTableMechanism } from './irregular-table.mechanism';
 import { RuleEngineMechanism } from './rule-engine.mechanism';
 import { PassthroughMechanism } from './passthrough.mechanism';

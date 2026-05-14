@@ -1,9 +1,5 @@
-import { Test } from '@nestjs/testing';
-import { Normalizer } from './stages/normalizer';
-import { PipelineModule } from './pipeline.module';
-import { NORMALIZER } from './pipeline.tokens';
-import type { RawInput } from './interfaces/pipeline.interfaces';
-import { PrismaService } from '../core/prisma/prisma.service';
+import { Normalizer } from './normalizer';
+import type { RawInput } from '../interfaces/nlp.interfaces';
 
 describe('Normalizer', () => {
   let normalizer: Normalizer;
@@ -48,11 +44,11 @@ describe('Normalizer', () => {
   describe('EC3 — NFD input normalized to NFC', () => {
     it('converts NFD é (\\u0065\\u0301) to NFC é (\\u00E9)', () => {
       // "café" with NFD é: c-a-f-e + combining acute accent
-      const nfdInput = 'caf\u0065\u0301';
+      const nfdInput = 'café';
       const result = normalizer.normalize({ raw: nfdInput });
-      expect(result.normalized_form).toBe('caf\u00E9');
+      expect(result.normalized_form).toBe('café');
       expect(result).toEqual({
-        normalized_form: 'caf\u00E9',
+        normalized_form: 'café',
         is_multi_word: false,
         pos: null,
       });
@@ -132,23 +128,9 @@ describe('Normalizer', () => {
 
   describe('EC11 — already normalized input is unchanged', () => {
     it('returns the same string when input is already trimmed, lowercase, and NFC', () => {
-      const alreadyNormalized = 'caf\u00E9'; // NFC, lowercase, no surrounding whitespace
+      const alreadyNormalized = 'café'; // NFC, lowercase, no surrounding whitespace
       const result = normalizer.normalize({ raw: alreadyNormalized });
       expect(result.normalized_form).toBe(alreadyNormalized);
-    });
-  });
-
-  describe('EC12 — PipelineModule binds NORMALIZER token to Normalizer', () => {
-    it('resolves NORMALIZER token to an instance of Normalizer', async () => {
-      const moduleRef = await Test.createTestingModule({
-        imports: [PipelineModule],
-      })
-        .overrideProvider(PrismaService)
-        .useValue({})
-        .compile();
-
-      const resolved = moduleRef.get<Normalizer>(NORMALIZER);
-      expect(resolved).toBeInstanceOf(Normalizer);
     });
   });
 });

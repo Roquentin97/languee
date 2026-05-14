@@ -7,8 +7,8 @@ import { AppConfigModule } from './modules/config/config.module';
 import { PrismaModule } from './modules/core/prisma/prisma.module';
 import { RedisModule } from './modules/core/redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { SystemModule } from './modules/system/system.module';
+import { DictionaryModule } from './modules/dictionary/dictionary.module';
 
 @Module({
   imports: [
@@ -16,8 +16,8 @@ import { SystemModule } from './modules/system/system.module';
     PrismaModule,
     RedisModule,
     AuthModule,
-    PipelineModule,
     SystemModule,
+    DictionaryModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
   ],
   controllers: [AppController],
