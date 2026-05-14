@@ -33,7 +33,7 @@ describe('LookupWordUseCase', () => {
   const wordsServiceMock = {
     canonicalise: jest.fn(),
     findByLemma: jest.fn(),
-    findOrCreate: jest.fn(),
+    ensureExistsAndReturn: jest.fn(),
   };
   const definitionServiceMock = {
     findByWordId: jest.fn(),
@@ -78,15 +78,19 @@ describe('LookupWordUseCase', () => {
       });
     });
 
-    it('throws DefinitionsNotFoundException when word exists but has no definitions in cache', async () => {
+    it('falls through to provider when word exists but has no definitions', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([]);
+      adapter.fetch.mockResolvedValue([
+        { partOfSpeech: 'preposition', definition: 'in spite of', example: null },
+      ]);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
-      await expect(
-        useCase.execute({ word: 'despite', language: 'en' }),
-      ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
+      const result = await useCase.execute({ word: 'despite', language: 'en' });
 
-      expect(adapter.fetch).not.toHaveBeenCalled();
+      expect(adapter.fetch).toHaveBeenCalledWith('despite', 'en');
+      expect(result.source).toBe('provider');
     });
   });
 
@@ -100,13 +104,13 @@ describe('LookupWordUseCase', () => {
           example: 'Despite the rain, we went out.',
         },
       ]);
-      wordsServiceMock.findOrCreate.mockResolvedValue(mockWord);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       const result = await useCase.execute({ word: 'despite', language: 'en' });
 
       expect(adapter.fetch).toHaveBeenCalledWith('despite', 'en');
-      expect(wordsServiceMock.findOrCreate).toHaveBeenCalledWith(
+      expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
         'despite',
         'en',
       );
@@ -131,7 +135,7 @@ describe('LookupWordUseCase', () => {
         useCase.execute({ word: 'despite', language: 'en' }),
       ).rejects.toBeInstanceOf(ProviderUnavailableError);
 
-      expect(wordsServiceMock.findOrCreate).not.toHaveBeenCalled();
+      expect(wordsServiceMock.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
 
     it('throws DefinitionsNotFoundException when provider returns empty array', async () => {
@@ -142,7 +146,7 @@ describe('LookupWordUseCase', () => {
         useCase.execute({ word: 'despite', language: 'en' }),
       ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
 
-      expect(wordsServiceMock.findOrCreate).not.toHaveBeenCalled();
+      expect(wordsServiceMock.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
   });
 
