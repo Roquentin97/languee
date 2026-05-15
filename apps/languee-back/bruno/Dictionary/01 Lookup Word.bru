@@ -1,0 +1,24 @@
+meta {
+  name: Lookup Word
+  type: http
+  seq: 1
+  tags: [
+    dictionary
+    smoke
+  ]
+}
+
+get {
+  url: {{base_url}}/dictionary/lookup?word={{dictionary_word}}&language={{dictionary_language}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns definitions for the requested word", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.lemma).to.be.a("string");
+    expect(res.body.source).to.be.oneOf(["cache", "provider"]);
+    expect(res.body.definitions).to.be.an("array");
+  });
+}
