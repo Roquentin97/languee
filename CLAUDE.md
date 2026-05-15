@@ -47,6 +47,38 @@ Agent tooling lives in `.claude/` and `forge/` at the monorepo root — never in
   access must go through that module's service (e.g. `AuthService` calls
   `UsersService.findByEmail()`, never `this.prisma.user.findUnique()` directly)
 
+## Architecture conventions
+
+The backend follows a hybrid clean-light architecture built around use cases.
+
+- Domain modules expose use cases for application workflows
+- Controllers call use cases, not Prisma services directly
+- Use cases coordinate business rules and orchestration only
+- Keep use cases thin enough to read easily, but explicit enough that workflow intent is visible
+- Avoid introducing heavy Clean Architecture layers unless the module complexity justifies them
+
+### Domain services and Prisma services
+
+We do not use repositories. Prisma services are the persistence boundary used where a
+repository might otherwise exist.
+
+Do not mix domain services and Prisma services freely inside the same use case.
+
+Rule of thumb:
+
+- Domain services are used for writes and business operations
+- Prisma services are used for reads and query-oriented access
+- Use cases should not inject both a domain service and a Prisma service for the same
+  operation path unless there is a clear orchestration need
+- If a use case needs a write operation that is currently only available through a
+  Prisma service, add a thin method wrapper to the owning domain service
+- If a use case needs read-only access, prefer the Prisma service directly instead of
+  adding pass-through read methods to a domain service
+- Domain services may call Prisma services internally, but they should expose
+  business-oriented methods rather than raw persistence operations
+- Prisma calls remain behind module-owned Prisma services; never call Prisma directly
+  from controllers or use cases
+
 ## core/ conventions
 
 `core/` is for infrastructure with zero domain coupling.
