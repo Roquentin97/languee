@@ -1,33 +1,32 @@
 import { Injectable } from '@nestjs/common';
-import { LookupWordUseCase } from '../../dictionary/application/lookup-word.use-case';
-import { CardsPrismaService } from '../../cards/cards.prisma.service';
-import {
+import { DictionaryService } from '../dictionary/dictionary.service';
+import { CardsService } from '../cards/cards.service';
+import type {
   DeckRef,
   EnrichedDefinitionResult,
   LookupVocabularyInput,
   LookupVocabularyOutput,
-} from '../types/lookup-vocabulary.types';
+} from './types/lookup-vocabulary.types';
 
 @Injectable()
-export class LookupVocabularyUseCase {
+export class VocabularyService {
   constructor(
-    private readonly lookupWordUseCase: LookupWordUseCase,
-    private readonly cardsPrismaService: CardsPrismaService,
+    private readonly dictionaryService: DictionaryService,
+    private readonly cardsService: CardsService,
   ) {}
 
-  async execute(input: LookupVocabularyInput): Promise<LookupVocabularyOutput> {
-    const baseOutput = await this.lookupWordUseCase.execute({
+  async lookup(input: LookupVocabularyInput): Promise<LookupVocabularyOutput> {
+    const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
       language: input.language,
     });
 
     const definitionIds = baseOutput.definitions.map((d) => d.id);
 
-    const cards =
-      await this.cardsPrismaService.findCardsByDefinitionIdsAndUserId(
-        definitionIds,
-        input.userId,
-      );
+    const cards = await this.cardsService.findCardsByDefinitionIdsAndUserId(
+      definitionIds,
+      input.userId,
+    );
 
     const decksByDefinition = new Map<string, DeckRef[]>();
     for (const card of cards) {

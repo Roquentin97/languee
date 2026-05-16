@@ -1,1 +1,0 @@
-export const CREATE_CARD_USE_CASE = 'CREATE_CARD_USE_CASE';

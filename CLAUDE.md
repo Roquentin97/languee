@@ -49,35 +49,33 @@ Agent tooling lives in `.claude/` and `forge/` at the monorepo root — never in
 
 ## Architecture conventions
 
-The backend follows a hybrid clean-light architecture built around use cases.
+The backend follows a Controller → Service architecture by default.
 
-- Domain modules expose use cases for application workflows
-- Controllers call use cases, not Prisma services directly
-- Use cases coordinate business rules and orchestration only
-- Keep use cases thin enough to read easily, but explicit enough that workflow intent is visible
+- Controllers handle HTTP only — no business logic
+- Controllers call services, not use cases or Prisma directly
+- Controllers call serializers for response shaping
+- Services own business logic and coordinate persistence
+- For simple CRUD operations, controllers should call service methods directly
+- Service methods may be implemented by generated Prisma-backed services when appropriate
+- Do not introduce a separate service just to host read-only pass-through methods
+- If a service grows beyond 3 public methods that involve orchestration, the Architect
+  may suggest refactoring orchestration into use cases
 - Avoid introducing heavy Clean Architecture layers unless the module complexity justifies them
 
-### Domain services and Prisma services
+### Services, serializers, and persistence
 
-We do not use repositories. Prisma services are the persistence boundary used where a
-repository might otherwise exist.
+We do not use repositories. Services are the module boundary for business logic and
+persistence access.
 
-Do not mix domain services and Prisma services freely inside the same use case.
-
-Rule of thumb:
-
-- Domain services are used for writes and business operations
-- Prisma services are used for reads and query-oriented access
-- Use cases should not inject both a domain service and a Prisma service for the same
-  operation path unless there is a clear orchestration need
-- If a use case needs a write operation that is currently only available through a
-  Prisma service, add a thin method wrapper to the owning domain service
-- If a use case needs read-only access, prefer the Prisma service directly instead of
-  adding pass-through read methods to a domain service
-- Domain services may call Prisma services internally, but they should expose
-  business-oriented methods rather than raw persistence operations
-- Prisma calls remain behind module-owned Prisma services; never call Prisma directly
-  from controllers or use cases
+- Service classes follow the `<Entity>Service` naming convention
+- Do not create `<Entity>PrismaService` classes
+- Prisma calls remain behind module-owned services; never call Prisma directly from controllers
+- Services never call Prisma models belonging to another module — cross-module data
+  access must go through that module's service
+- Domain services may use Prisma internally, but they should expose business-oriented
+  methods rather than raw persistence operations
+- Controllers must not create response DTOs directly
+- Each module should use its `serializers/` folder for response shaping and DTO serialization
 
 ## core/ conventions
 

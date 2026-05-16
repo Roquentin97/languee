@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Card, Definition, Word } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
+import { DecksService } from '../decks/decks.service';
 import {
   CardAlreadyExistsError,
   DeckOwnershipError,
@@ -14,13 +15,19 @@ export type CardWithDefinitionAndWord = Card & {
 
 @Injectable()
 export class CardsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly decksService: DecksService,
+  ) {}
 
   async create(
     userId: string,
     deckId: string,
     definitionId: string,
   ): Promise<CardWithDefinitionAndWord> {
+    const deck = await this.decksService.findOneByIdAndUserId(deckId, userId);
+    if (deck === null) throw new DeckOwnershipError();
+
     try {
       return await this.prisma.card.create({
         data: { userId, deckId, definitionId },
@@ -44,5 +51,20 @@ export class CardsService {
       }
       throw err;
     }
+  }
+
+  findCardsByDefinitionIdsAndUserId(
+    definitionIds: string[],
+    userId: string,
+  ): Promise<
+    Array<{ definitionId: string; deck: { id: string; name: string } }>
+  > {
+    return this.prisma.card.findMany({
+      where: { definitionId: { in: definitionIds }, userId },
+      select: {
+        definitionId: true,
+        deck: { select: { id: true, name: true } },
+      },
+    });
   }
 }

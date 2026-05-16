@@ -2,7 +2,6 @@ import {
   Body,
   ConflictException,
   Controller,
-  Inject,
   NotFoundException,
   Post,
   UseGuards,
@@ -15,19 +14,15 @@ import {
   DeckOwnershipError,
   DefinitionNotFoundError,
 } from './cards.errors';
-import { CREATE_CARD_USE_CASE } from './cards.tokens';
 import { CreateCardDto } from './dto/create-card.dto';
-import { CardResponseDto } from './dto/card-response.dto';
-import type { CreateCardUseCase } from './application/create-card.use-case';
-import type { CardWithDefinitionAndWord } from './cards.service';
+import type { CardResponseDto } from './dto/card-response.dto';
+import { CardsService } from './cards.service';
+import { serializeCard } from './serializers/card.serializer';
 
 @Controller('cards')
 @UseGuards(JwtAuthGuard)
 export class CardsController {
-  constructor(
-    @Inject(CREATE_CARD_USE_CASE)
-    private readonly createCardUseCase: CreateCardUseCase,
-  ) {}
+  constructor(private readonly cardsService: CardsService) {}
 
   @Post()
   async create(
@@ -35,8 +30,12 @@ export class CardsController {
     @Body() dto: CreateCardDto,
   ): Promise<CardResponseDto> {
     try {
-      const card = await this.createCardUseCase.execute(user.userId, dto);
-      return this.toResponseDto(card);
+      const card = await this.cardsService.create(
+        user.userId,
+        dto.deckId,
+        dto.definitionId,
+      );
+      return serializeCard(card);
     } catch (err: unknown) {
       if (err instanceof DeckOwnershipError) {
         throw new NotFoundException('DECK_NOT_FOUND');
@@ -49,28 +48,5 @@ export class CardsController {
       }
       throw err;
     }
-  }
-
-  private toResponseDto(card: CardWithDefinitionAndWord): CardResponseDto {
-    return {
-      id: card.id,
-      deckId: card.deckId,
-      userId: card.userId,
-      definitionId: card.definitionId,
-      createdAt: card.createdAt,
-      updatedAt: card.updatedAt,
-      definition: {
-        id: card.definition.id,
-        partOfSpeech: card.definition.partOfSpeech,
-        definition: card.definition.definition,
-        example: card.definition.example ?? null,
-        provider: card.definition.provider,
-      },
-      word: {
-        id: card.definition.word.id,
-        lemma: card.definition.word.lemma,
-        language: card.definition.word.language,
-      },
-    };
   }
 }
