@@ -1,21 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { WordsService } from '../../words/words.service';
-import { DefinitionService } from '../../definitions/definitions.service';
-import {
+import { WordsService } from '../words/words.service';
+import { DefinitionService } from '../definitions/definitions.service';
+import type {
   LookupWordInput,
   LookupWordOutput,
   DefinitionResult,
-} from '../types/lookup-word.types';
-import { DefinitionsNotFoundException } from '../dictionary.errors';
+} from './types/lookup-word.types';
+import { DefinitionsNotFoundException } from './dictionary.errors';
 
 @Injectable()
-export class LookupWordUseCase {
+export class DictionaryService {
   constructor(
     private readonly wordsService: WordsService,
     private readonly definitionService: DefinitionService,
   ) {}
 
-  async execute(input: LookupWordInput): Promise<LookupWordOutput> {
+  async lookup(input: LookupWordInput): Promise<LookupWordOutput> {
     const lemma = this.wordsService.canonicalise(input.word);
 
     const word = await this.wordsService.findByLemma(lemma, input.language);

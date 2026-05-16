@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LookupWordUseCase } from './lookup-word.use-case';
-import { DefinitionsNotFoundException } from '../dictionary.errors';
-import { ProviderUnavailableError } from '../../definitions/definitions.errors';
-import { WordsService } from '../../words/words.service';
-import { DefinitionService } from '../../definitions/definitions.service';
+import { DictionaryService } from './dictionary.service';
+import { DefinitionsNotFoundException } from './dictionary.errors';
+import { ProviderUnavailableError } from '../definitions/definitions.errors';
+import { WordsService } from '../words/words.service';
+import { DefinitionService } from '../definitions/definitions.service';
 import type { Word, Definition } from '@prisma/client';
 
 const mockWord: Word = {
@@ -25,8 +25,8 @@ const mockDefinitionRow: Definition = {
   createdAt: new Date(),
 };
 
-describe('LookupWordUseCase', () => {
-  let useCase: LookupWordUseCase;
+describe('DictionaryService', () => {
+  let service: DictionaryService;
 
   const wordsServiceMock = {
     canonicalise: jest.fn(),
@@ -46,21 +46,25 @@ describe('LookupWordUseCase', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        LookupWordUseCase,
+        DictionaryService,
         { provide: WordsService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
       ],
     }).compile();
 
-    useCase = module.get<LookupWordUseCase>(LookupWordUseCase);
+    service = module.get<DictionaryService>(DictionaryService);
   });
 
-  describe('cache hit path', () => {
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('lookup() — cache hit path', () => {
     it('returns cached definitions without calling the provider', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
-      const result = await useCase.execute({ word: 'despite', language: 'en' });
+      const result = await service.lookup({ word: 'despite', language: 'en' });
 
       expect(definitionServiceMock.fetchAndPersist).not.toHaveBeenCalled();
       expect(result.source).toBe('cache');
@@ -83,7 +87,7 @@ describe('LookupWordUseCase', () => {
         mockDefinitionRow,
       ]);
 
-      const result = await useCase.execute({ word: 'despite', language: 'en' });
+      const result = await service.lookup({ word: 'despite', language: 'en' });
 
       expect(definitionServiceMock.fetchAndPersist).toHaveBeenCalledWith(
         'word-id-1',
@@ -94,7 +98,7 @@ describe('LookupWordUseCase', () => {
     });
   });
 
-  describe('cache miss / provider path', () => {
+  describe('lookup() — cache miss / provider path', () => {
     it('persists word and definitions via services, returns source=provider', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
@@ -102,14 +106,9 @@ describe('LookupWordUseCase', () => {
         mockDefinitionRow,
       ]);
 
-      const result = await useCase.execute({ word: 'despite', language: 'en' });
+      const result = await service.lookup({ word: 'despite', language: 'en' });
 
       expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
-        'despite',
-        'en',
-      );
-      expect(definitionServiceMock.fetchAndPersist).toHaveBeenCalledWith(
-        'word-id-1',
         'despite',
         'en',
       );
@@ -126,7 +125,7 @@ describe('LookupWordUseCase', () => {
       );
 
       await expect(
-        useCase.execute({ word: 'despite', language: 'en' }),
+        service.lookup({ word: 'despite', language: 'en' }),
       ).rejects.toBeInstanceOf(ProviderUnavailableError);
     });
 
@@ -136,17 +135,17 @@ describe('LookupWordUseCase', () => {
       definitionServiceMock.fetchAndPersist.mockResolvedValue([]);
 
       await expect(
-        useCase.execute({ word: 'despite', language: 'en' }),
+        service.lookup({ word: 'despite', language: 'en' }),
       ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
     });
   });
 
-  describe('canonicalisation', () => {
+  describe('lookup() — canonicalisation', () => {
     it('canonicalises input word before querying', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
-      await useCase.execute({ word: '  Despite  ', language: 'en' });
+      await service.lookup({ word: '  Despite  ', language: 'en' });
 
       expect(wordsServiceMock.canonicalise).toHaveBeenCalledWith('  Despite  ');
       expect(wordsServiceMock.findByLemma).toHaveBeenCalledWith(

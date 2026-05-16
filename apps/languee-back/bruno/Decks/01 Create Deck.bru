@@ -1,0 +1,39 @@
+meta {
+  name: Create Deck
+  type: http
+  seq: 1
+  tags: [
+    decks
+  ]
+}
+
+post {
+  url: {{base_url}}/decks
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "name": "My English Deck",
+    "language": "en"
+  }
+}
+
+tests {
+  test("creates a deck", function() {
+    expect(res.status).to.be.oneOf([201, 409]);
+  });
+
+  test("returns deck shape on success", function() {
+    if (res.status === 201) {
+      expect(res.body.id).to.be.a("string");
+      expect(res.body.name).to.equal("My English Deck");
+      expect(res.body.language).to.equal("en");
+    }
+  });
+}

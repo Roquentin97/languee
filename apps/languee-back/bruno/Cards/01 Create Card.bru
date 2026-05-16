@@ -1,0 +1,40 @@
+meta {
+  name: Create Card
+  type: http
+  seq: 1
+  tags: [
+    cards
+  ]
+}
+
+post {
+  url: {{base_url}}/cards
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "deckId": "{{deck_id}}",
+    "definitionId": "{{definition_id}}"
+  }
+}
+
+tests {
+  test("creates a card", function() {
+    expect(res.status).to.be.oneOf([201, 404, 409]);
+  });
+
+  test("returns card shape on success", function() {
+    if (res.status === 201) {
+      expect(res.body.id).to.be.a("string");
+      expect(res.body.deckId).to.be.a("string");
+      expect(res.body.word).to.be.a("string");
+      expect(res.body.definition).to.be.a("string");
+    }
+  });
+}

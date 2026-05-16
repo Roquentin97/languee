@@ -47,6 +47,36 @@ Agent tooling lives in `.claude/` and `forge/` at the monorepo root — never in
   access must go through that module's service (e.g. `AuthService` calls
   `UsersService.findByEmail()`, never `this.prisma.user.findUnique()` directly)
 
+## Architecture conventions
+
+The backend follows a Controller → Service architecture by default.
+
+- Controllers handle HTTP only — no business logic
+- Controllers call services, not use cases or Prisma directly
+- Controllers call serializers for response shaping
+- Services own business logic and coordinate persistence
+- For simple CRUD operations, controllers should call service methods directly
+- Service methods may be implemented by generated Prisma-backed services when appropriate
+- Do not introduce a separate service just to host read-only pass-through methods
+- If a service grows beyond 3 public methods that involve orchestration, the Architect
+  may suggest refactoring orchestration into use cases
+- Avoid introducing heavy Clean Architecture layers unless the module complexity justifies them
+
+### Services, serializers, and persistence
+
+We do not use repositories. Services are the module boundary for business logic and
+persistence access.
+
+- Service classes follow the `<Entity>Service` naming convention
+- Do not create `<Entity>PrismaService` classes
+- Prisma calls remain behind module-owned services; never call Prisma directly from controllers
+- Services never call Prisma models belonging to another module — cross-module data
+  access must go through that module's service
+- Domain services may use Prisma internally, but they should expose business-oriented
+  methods rather than raw persistence operations
+- Controllers must not create response DTOs directly
+- Each module should use its `serializers/` folder for response shaping and DTO serialization
+
 ## core/ conventions
 
 `core/` is for infrastructure with zero domain coupling.
@@ -192,6 +222,7 @@ Never assume environment variables are already exported — always use the wrapp
 
 - Never install new packages without stating which package and why
 - Never modify `prisma/schema.prisma` without also generating a migration
+- Always update the Bruno collection in `apps/languee-back/bruno/` when adding new API requests or changing existing
 - Never skip tests — if a feature has no test file, create one
 - Never leave `TODO` comments in committed code
 - Always run lint before declaring a task done

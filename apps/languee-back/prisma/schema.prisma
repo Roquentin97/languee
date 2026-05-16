@@ -12,6 +12,8 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  decks        Deck[]
+  cards        Card[]
 
   @@map("users")
 }
@@ -39,8 +41,38 @@ model Definition {
   provider        String
   gapFillMetadata Json?    @map("gap_fill_metadata") @db.JsonB
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  cards           Card[]
 
   @@unique([wordId, partOfSpeech, definition])
   @@index([wordId])
   @@map("definitions")
+}
+
+model Deck {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  language  String
+  cards     Card[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, name])
+  @@map("decks")
+}
+
+model Card {
+  id           String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  deckId       String     @map("deck_id") @db.Uuid
+  deck         Deck       @relation(fields: [deckId], references: [id])
+  userId       String     @map("user_id") @db.Uuid
+  user         User       @relation(fields: [userId], references: [id])
+  definitionId String     @map("definition_id") @db.Uuid
+  definition   Definition @relation(fields: [definitionId], references: [id])
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([deckId, definitionId])
+  @@map("cards")
 }

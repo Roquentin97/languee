@@ -2,34 +2,28 @@ import {
   BadGatewayException,
   Controller,
   Get,
-  Inject,
   NotFoundException,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
-import { LOOKUP_WORD_USE_CASE } from './dictionary.tokens';
 import { DefinitionsNotFoundException } from './dictionary.errors';
 import { LookupWordDto } from './dto/lookup-word.dto';
 import type { LookupWordOutput } from './types/lookup-word.types';
-import type { LookupWordUseCase } from './application/lookup-word.use-case';
+import { DictionaryService } from './dictionary.service';
 
 @Controller('dictionary')
 @UseGuards(JwtAuthGuard)
 export class DictionaryController {
-  constructor(
-    @Inject(LOOKUP_WORD_USE_CASE)
-    private readonly lookupWordUseCase: LookupWordUseCase,
-  ) {}
+  constructor(private readonly dictionaryService: DictionaryService) {}
 
   @Get('lookup')
   async lookup(@Query() query: LookupWordDto): Promise<LookupWordOutput> {
-    const language = query.language ?? 'en';
     try {
-      return await this.lookupWordUseCase.execute({
+      return await this.dictionaryService.lookup({
         word: query.word,
-        language,
+        language: query.language ?? 'en',
       });
     } catch (e: unknown) {
       if (e instanceof DefinitionsNotFoundException) {
