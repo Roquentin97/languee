@@ -1,0 +1,21 @@
+meta {
+  name: List Decks
+  type: http
+  seq: 2
+  tags: [
+    decks
+  ]
+}
+
+get {
+  url: {{base_url}}/decks
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns decks array", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("array");
+  });
+}

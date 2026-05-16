@@ -222,6 +222,7 @@ Never assume environment variables are already exported — always use the wrapp
 
 - Never install new packages without stating which package and why
 - Never modify `prisma/schema.prisma` without also generating a migration
+- Always update the Bruno collection in `apps/languee-back/bruno/` when adding new API requests or changing existing
 - Never skip tests — if a feature has no test file, create one
 - Never leave `TODO` comments in committed code
 - Always run lint before declaring a task done
