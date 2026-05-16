@@ -1,9 +1,10 @@
 # Languee — Makefile
-# POSIX-compatible. Requires docker compose v2 and yarn.
+# POSIX-compatible. Requires docker compose v2, yarn, and uv.
 #
 # Usage:
 #   make <target> [CONTAINER=api] [TAIL=100]
 #   make redis languee-back
+#   make cc [languee-back|languee-nlp]
 
 COMPOSE = docker compose
 APP_DIR = apps/languee-back
@@ -13,7 +14,13 @@ REDIS_SERVICE = $(word 2,$(MAKECMDGOALS))
 CONTAINER ?=
 TAIL      ?= 200
 
-.PHONY: start migrate down build restart clean logs redis languee-back cc
+# uv binary — override if uv is not in PATH: UV=/path/to/uv make cc languee-nlp
+UV ?= uv
+
+# Service argument for cc — set by the second word in the make invocation
+_CC_SVC := $(word 2,$(MAKECMDGOALS))
+
+.PHONY: start migrate down build restart clean logs redis languee-back languee-nlp cc
 
 # Start infrastructure, run database migrations, then start the API
 start:
@@ -59,14 +66,31 @@ redis:
 languee-back:
 	@:
 
-# Full CI check: format → lint → test → build → prisma validate → commitlint
-# Runs inside the app directory. Stops on first failure.
+languee-nlp:
+	@:
+
+# Full CI check: format → lint → test → build/validate → commitlint
+# Runs for all services by default, or a single service when named:
+#   make cc                  — all services
+#   make cc languee-back     — NestJS checks only
+#   make cc languee-nlp      — FastAPI/uv checks only
 cc:
-	cd $(APP_DIR) && \
-	yarn format && \
-	yarn lint && \
-	yarn test && \
-	yarn build && \
-	yarn prisma validate && \
-	cd ../.. && \
-	npx --no -- commitlint --from HEAD~1 --to HEAD
+	@[ -z "$(_CC_SVC)" ] || [ "$(_CC_SVC)" = "languee-back" ] || [ "$(_CC_SVC)" = "languee-nlp" ] || \
+		{ echo "Unknown service '$(_CC_SVC)'. Valid: languee-back, languee-nlp"; exit 1; }
+	@if [ -z "$(_CC_SVC)" ] || [ "$(_CC_SVC)" = "languee-back" ]; then \
+		echo "==> cc languee-back"; \
+		cd apps/languee-back && \
+		yarn format && \
+		yarn lint && \
+		yarn test && \
+		yarn build && \
+		yarn prisma validate; \
+	fi
+	@if [ -z "$(_CC_SVC)" ] || [ "$(_CC_SVC)" = "languee-nlp" ]; then \
+		echo "==> cc languee-nlp"; \
+		cd apps/languee-nlp && \
+		$(UV) run --extra dev ruff format . && \
+		$(UV) run --extra dev ruff check . && \
+		$(UV) run --extra dev pytest; \
+	fi
+	@npx --no -- commitlint --from HEAD~1 --to HEAD
