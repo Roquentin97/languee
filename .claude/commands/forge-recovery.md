@@ -20,6 +20,7 @@ any other forge command.
 Query Notion for entries where:
 - `Status` = `in-progress`
 - `Last run` timestamp is more than 30 minutes ago
+- `Target` select is one of the known keys from `config.services`
 
 For each stuck spec:
 - Print spec title, last run timestamp, and how long it has been stuck

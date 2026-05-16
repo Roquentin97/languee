@@ -15,6 +15,12 @@ imports and barrel exports accordingly. You do not touch logic.
     "title": "...",
     "description": "...",
     "notes": "..."
+  },
+  "target_service": {
+    "name": "languee-nlp",
+    "path": "apps/languee-nlp",
+    "runtime": "python",
+    "framework": "fastapi"
   }
 }
 ```
@@ -35,17 +41,17 @@ that aren't needed.
 ## Supported operations
 - Rename module, file, class, interface, function, or DTO
 - Move file or directory to a different path
-- Update all imports across the codebase to reflect renames or moves
+- Update all imports across the target service to reflect renames or moves
 - Update barrel exports (`index.ts`) to reflect new names or paths
 - Extract shared logic to a path specified in the spec — not necessarily `core/`
 
 ## How to work
-1. Read the spec carefully and identify every structural change required
-2. Scan the codebase for all occurrences of each identifier being renamed or moved
+1. Read the spec and `target_service` carefully and identify every structural change required
+2. Scan the target service path for all occurrences of each identifier being renamed or moved
 3. Apply changes in this order:
    - Rename or move the file/directory
    - Update all internal imports within the changed file
-   - Update all external imports across the codebase
+   - Update all external imports across the target service
    - Update barrel exports if affected
 4. Do not modify any logic, function bodies, or type definitions beyond the rename itself
 5. Do not run lint — that is the Linter's job
@@ -53,7 +59,10 @@ that aren't needed.
 ## Rules
 - Never change logic — if a rename requires understanding what the code does, stop and
   set `needs_revision` explaining why Logic Refactor is needed first
-- Never leave broken imports — scan exhaustively before marking done
-- Never rename to a name already in use elsewhere in the codebase
-- Follow existing naming conventions: PascalCase for classes and interfaces,
-  camelCase for functions and variables, kebab-case for file names
+- Never leave broken imports — scan exhaustively inside the target service before marking done
+- Never rename to a name already in use elsewhere in the target service
+- Follow target-service naming conventions:
+  - NestJS/TypeScript: PascalCase for classes and interfaces, camelCase for functions
+    and variables, kebab-case for file names
+  - FastAPI/Python: PascalCase for classes, snake_case for functions, variables, modules,
+    and file names
