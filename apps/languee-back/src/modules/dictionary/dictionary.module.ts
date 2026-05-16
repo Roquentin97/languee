@@ -8,7 +8,11 @@ import { DictionaryController } from './dictionary.controller';
 
 @Module({
   imports: [WordsModule, DefinitionsModule, AuthModule],
-  providers: [{ provide: LOOKUP_WORD_USE_CASE, useClass: LookupWordUseCase }],
+  providers: [
+    LookupWordUseCase,
+    { provide: LOOKUP_WORD_USE_CASE, useExisting: LookupWordUseCase },
+  ],
   controllers: [DictionaryController],
+  exports: [LookupWordUseCase],
 })
 export class DictionaryModule {}
