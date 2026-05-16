@@ -59,12 +59,15 @@ def test_ready_503_detail_contains_overridden_model_name(
     """Edge case 4: env override to nonexistent model → /ready returns 503 with
     the overridden model name present in the detail string."""
     monkeypatch.setenv("LANGUEE_NLP_SPACY_MODEL", "xx_nonexistent_model")
-    with patch(
-        "languee_nlp.routers.health.get_nlp",
-        side_effect=OSError("model not found"),
-    ), patch(
-        "languee_nlp.routers.health.settings",
-        Settings(),
+    with (
+        patch(
+            "languee_nlp.routers.health.get_nlp",
+            side_effect=OSError("model not found"),
+        ),
+        patch(
+            "languee_nlp.routers.health.settings",
+            Settings(),
+        ),
     ):
         response = client.get("/ready")
     assert response.status_code == 503
