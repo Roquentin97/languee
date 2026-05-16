@@ -28,7 +28,9 @@ def test_ready_returns_200_with_model_info():
 
 
 def test_ready_returns_503_when_os_error():
-    with patch("languee_nlp.routers.health.get_nlp", side_effect=OSError("model not found")):
+    with patch(
+        "languee_nlp.routers.health.get_nlp", side_effect=OSError("model not found")
+    ):
         response = client.get("/ready")
     assert response.status_code == 503
     data = response.json()
@@ -49,3 +51,22 @@ def test_env_override_for_spacy_model(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LANGUEE_NLP_SPACY_MODEL", "en_core_web_sm")
     s = Settings()
     assert s.spacy_model == "en_core_web_sm"
+
+
+def test_ready_503_detail_contains_overridden_model_name(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Edge case 4: env override to nonexistent model → /ready returns 503 with
+    the overridden model name present in the detail string."""
+    monkeypatch.setenv("LANGUEE_NLP_SPACY_MODEL", "xx_nonexistent_model")
+    with patch(
+        "languee_nlp.routers.health.get_nlp",
+        side_effect=OSError("model not found"),
+    ), patch(
+        "languee_nlp.routers.health.settings",
+        Settings(),
+    ):
+        response = client.get("/ready")
+    assert response.status_code == 503
+    data = response.json()
+    assert "xx_nonexistent_model" in data["detail"]
