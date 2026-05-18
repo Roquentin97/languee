@@ -3,11 +3,16 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
 
 from languee_nlp.routers.health import router as health_router
+from languee_nlp.routers.words import router as words_router
 
 OPENAPI_TAGS = [
     {
         "name": "health",
         "description": "Service health and readiness probes.",
+    },
+    {
+        "name": "words",
+        "description": "Word-level NLP operations.",
     },
 ]
 
@@ -23,6 +28,7 @@ app = FastAPI(
 )
 
 app.include_router(health_router)
+app.include_router(words_router)
 
 
 @app.get("/swagger", include_in_schema=False)

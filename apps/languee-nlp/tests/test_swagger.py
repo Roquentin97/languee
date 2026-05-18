@@ -22,4 +22,6 @@ def test_openapi_schema_describes_health_routes():
     assert data["info"]["version"] == "0.1.0"
     assert "/health" in data["paths"]
     assert "/ready" in data["paths"]
+    assert "/words" in data["paths"]
     assert data["paths"]["/health"]["get"]["tags"] == ["health"]
+    assert data["paths"]["/words"]["get"]["tags"] == ["words"]

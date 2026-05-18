@@ -1,0 +1,27 @@
+meta {
+  name: Analyze Word
+  type: http
+  seq: 1
+  tags: [
+    words
+    smoke
+  ]
+}
+
+get {
+  url: {{base_url}}/words?word={{word}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns lemma, part of speech, and vocabulary diagnostics", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.word).to.equal("running");
+    expect(res.body.lemma).to.be.a("string");
+    expect(res.body.part_of_speech).to.be.a("string");
+    expect(res.body.is_out_of_vocabulary).to.be.a("boolean");
+    expect(res.body.has_vector).to.be.a("boolean");
+    expect(res.body.probability).to.be.a("number");
+  });
+}
