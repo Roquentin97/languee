@@ -112,8 +112,7 @@ export class DefinitionService implements IDefinitionProvider {
     const enrichedEntries: RawDefinitionEntry[] = rawEntries.map((entry) => ({
       ...entry,
       hasIrregularForms: nlpContext?.isIrregular ?? entry.hasIrregularForms,
-      inflectionForms:
-        nlpContext?.inflectionForms ?? entry.inflectionForms,
+      inflectionForms: nlpContext?.inflectionForms ?? entry.inflectionForms,
     }));
     return this.createMany(wordId, enrichedEntries);
   }

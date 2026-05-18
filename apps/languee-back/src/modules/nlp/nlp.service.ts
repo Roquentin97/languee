@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
-import type { NlpAnalysis, NlpTokenForms, NlpWordResponse } from './nlp.interfaces';
+import type {
+  NlpAnalysis,
+  NlpTokenForms,
+  NlpWordResponse,
+} from './nlp.interfaces';
 
 @Injectable()
 export class NlpService {

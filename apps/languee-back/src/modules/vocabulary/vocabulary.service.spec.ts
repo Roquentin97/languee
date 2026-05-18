@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { VocabularyService } from './vocabulary.service';
 import { DictionaryService } from '../dictionary/dictionary.service';
 import { CardsService } from '../cards/cards.service';
+import { NlpService } from '../nlp/nlp.service';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
+import { NlpMultiWordError, NlpUnavailableError } from '../nlp/nlp.errors';
+import type { NlpAnalysis } from '../nlp/nlp.interfaces';
 
 const mockDictionaryService = {
   lookup: jest.fn(),
@@ -12,12 +15,25 @@ const mockCardsService = {
   findCardsByDefinitionIdsAndUserId: jest.fn(),
 };
 
+const mockNlpService = {
+  analyzeWord: jest.fn(),
+};
+
+const defaultNlpAnalysis: NlpAnalysis = {
+  lemma: 'run',
+  pos: 'VERB',
+  isIrregular: true,
+  inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
+};
+
 const baseDefinition = {
   id: 'def-id-1',
   part_of_speech: 'verb',
   definition: 'to move fast',
   example: 'She ran quickly.',
   provider: 'free-dictionary',
+  hasIrregularForms: true,
+  inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
 };
 
 const baseOutput = {
@@ -31,12 +47,14 @@ describe('VocabularyService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockNlpService.analyzeWord.mockResolvedValue(defaultNlpAnalysis);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VocabularyService,
         { provide: DictionaryService, useValue: mockDictionaryService },
         { provide: CardsService, useValue: mockCardsService },
+        { provide: NlpService, useValue: mockNlpService },
       ],
     }).compile();
 
@@ -206,6 +224,75 @@ describe('VocabularyService', () => {
 
       expect(result.definitions[0].partOfSpeech).toBe('verb');
       expect(result.definitions[0]).not.toHaveProperty('part_of_speech');
+    });
+
+    // -------------------------------------------------------------------------
+    // NLP integration tests
+    // -------------------------------------------------------------------------
+
+    it('NLP analyzeWord() is called with input.word before dictionary lookup', async () => {
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      await service.lookup({
+        word: 'walked',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith('walked');
+    });
+
+    it('dictionaryService.lookup() is called with NLP lemma, pos, and inflection data', async () => {
+      const nlpResult: NlpAnalysis = {
+        lemma: 'walk',
+        pos: 'VERB',
+        isIrregular: false,
+        inflectionForms: { base: 'walk', past: 'walked' },
+      };
+      mockNlpService.analyzeWord.mockResolvedValue(nlpResult);
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      await service.lookup({
+        word: 'walked',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          word: 'walked',
+          lemma: 'walk',
+          pos: 'VERB',
+          isIrregular: false,
+          inflectionForms: { base: 'walk', past: 'walked' },
+        }),
+      );
+    });
+
+    it('NlpService throws NlpUnavailableError — propagates from service without calling dictionaryService', async () => {
+      mockNlpService.analyzeWord.mockRejectedValue(new NlpUnavailableError());
+
+      await expect(
+        service.lookup({ word: 'walk', language: 'en', userId: 'user-id-1' }),
+      ).rejects.toBeInstanceOf(NlpUnavailableError);
+
+      expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
+    });
+
+    it('NlpService throws NlpMultiWordError — propagates from service without calling dictionaryService', async () => {
+      mockNlpService.analyzeWord.mockRejectedValue(new NlpMultiWordError());
+
+      await expect(
+        service.lookup({
+          word: 'walk fast',
+          language: 'en',
+          userId: 'user-id-1',
+        }),
+      ).rejects.toBeInstanceOf(NlpMultiWordError);
+
+      expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
     });
   });
 });

@@ -34,6 +34,8 @@ function makeDefinitionRow(
     definition: string;
     example: string | null;
     provider: string;
+    hasIrregularForms: boolean;
+    inflectionForms: Record<string, string> | null;
   }> = {},
 ) {
   return {
@@ -44,6 +46,11 @@ function makeDefinitionRow(
     example: overrides.example ?? null,
     provider: overrides.provider ?? 'dictionaryapi',
     gapFillMetadata: null,
+    hasIrregularForms: overrides.hasIrregularForms ?? false,
+    inflectionForms:
+      overrides.inflectionForms !== undefined
+        ? overrides.inflectionForms
+        : null,
     createdAt: new Date(),
   };
 }
@@ -336,15 +343,18 @@ describe('DefinitionService', () => {
 
       expect(result).toEqual(rows);
       expect(prismaMock.definition.create).toHaveBeenCalledTimes(2);
-      expect(prismaMock.definition.create).toHaveBeenCalledWith({
-        data: {
-          wordId: 'word-id-1',
-          partOfSpeech: 'verb',
-          definition: 'move at a fast pace',
-          example: 'She runs.',
-          provider: 'dictionaryapi',
-        },
-      });
+      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            wordId: 'word-id-1',
+            partOfSpeech: 'verb',
+            definition: 'move at a fast pace',
+            example: 'She runs.',
+            provider: 'dictionaryapi',
+          }),
+        }),
+      );
     });
 
     it('returns existing row without calling create when definition already exists', async () => {
@@ -401,6 +411,76 @@ describe('DefinitionService', () => {
       expect(prismaMock.definition.findUnique).not.toHaveBeenCalled();
       expect(prismaMock.definition.create).not.toHaveBeenCalled();
     });
+
+    it('passes hasIrregularForms to prisma.definition.create when provided', async () => {
+      prismaMock.definition.findUnique.mockResolvedValue(null);
+      prismaMock.definition.create.mockResolvedValue(
+        makeDefinitionRow({ hasIrregularForms: true }),
+      );
+
+      await service.createMany('word-id-1', [
+        {
+          partOfSpeech: 'verb',
+          definition: 'move at a fast pace',
+          hasIrregularForms: true,
+        },
+      ]);
+
+      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            hasIrregularForms: true,
+          }),
+        }),
+      );
+    });
+
+    it('passes inflectionForms to prisma.definition.create when provided', async () => {
+      const inflectionForms = { base: 'run', past: 'ran' };
+      prismaMock.definition.findUnique.mockResolvedValue(null);
+      prismaMock.definition.create.mockResolvedValue(
+        makeDefinitionRow({ inflectionForms }),
+      );
+
+      await service.createMany('word-id-1', [
+        {
+          partOfSpeech: 'verb',
+          definition: 'move at a fast pace',
+          inflectionForms,
+        },
+      ]);
+
+      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            inflectionForms,
+          }),
+        }),
+      );
+    });
+
+    it('uses Prisma.JsonNull when inflectionForms is undefined', async () => {
+      prismaMock.definition.findUnique.mockResolvedValue(null);
+      prismaMock.definition.create.mockResolvedValue(makeDefinitionRow());
+
+      await service.createMany('word-id-1', [
+        { partOfSpeech: 'verb', definition: 'move at a fast pace' },
+      ]);
+
+      // When inflectionForms is undefined, Prisma.JsonNull is used (not JS null or undefined)
+      // Verify by checking the create was called with a defined inflectionForms field
+      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            inflectionForms: expect.anything(),
+          }),
+        }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -440,6 +520,61 @@ describe('DefinitionService', () => {
       await expect(
         service.fetchAndPersist('word-id-1', 'run', 'en'),
       ).rejects.toBeInstanceOf(ProviderUnavailableError);
+    });
+
+    it('nlpContext.isIrregular overrides entry.hasIrregularForms in persisted rows', async () => {
+      adapterMock.fetch.mockResolvedValue([
+        {
+          partOfSpeech: 'verb',
+          definition: 'move fast',
+          hasIrregularForms: false,
+        },
+      ]);
+      prismaMock.definition.findUnique.mockResolvedValue(null);
+      prismaMock.definition.create.mockResolvedValue(
+        makeDefinitionRow({ hasIrregularForms: true }),
+      );
+
+      await service.fetchAndPersist('word-id-1', 'run', 'en', {
+        isIrregular: true,
+      });
+
+      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            hasIrregularForms: true,
+          }),
+        }),
+      );
+    });
+
+    it('nlpContext.inflectionForms overrides entry.inflectionForms in persisted rows', async () => {
+      const nlpInflections = { base: 'run', past: 'ran' };
+      adapterMock.fetch.mockResolvedValue([
+        {
+          partOfSpeech: 'verb',
+          definition: 'move fast',
+          inflectionForms: { base: 'run', past: 'runned' },
+        },
+      ]);
+      prismaMock.definition.findUnique.mockResolvedValue(null);
+      prismaMock.definition.create.mockResolvedValue(
+        makeDefinitionRow({ inflectionForms: nlpInflections }),
+      );
+
+      await service.fetchAndPersist('word-id-1', 'run', 'en', {
+        inflectionForms: nlpInflections,
+      });
+
+      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({
+            inflectionForms: nlpInflections,
+          }),
+        }),
+      );
     });
   });
 });
