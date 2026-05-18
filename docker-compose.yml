@@ -34,6 +34,31 @@ services:
       retries: 5
       start_period: 5s
 
+  nlp:
+    build:
+      context: ./apps/languee-nlp
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    environment:
+      LANGUEE_NLP_SPACY_MODEL: ${LANGUEE_NLP_SPACY_MODEL:-en_core_web_md}
+      BASIC_LOGIN: ${BASIC_LOGIN:?BASIC_LOGIN is required}
+      BASIC_PASSWORD: ${BASIC_PASSWORD:?BASIC_PASSWORD is required}
+    ports:
+      - "${LANGUEE_NLP_PORT:-8000}:8000"
+    volumes:
+      - ./apps/languee-nlp/src:/app/src
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5).read()\"",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   migrate:
     build:
       context: ./apps/languee-back
@@ -74,6 +99,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      nlp:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]

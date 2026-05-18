@@ -11,5 +11,14 @@ class ReadyResponse(BaseModel):
     lang: str
 
 
+class WordResponse(BaseModel):
+    word: str
+    lemma: str
+    part_of_speech: str
+    is_out_of_vocabulary: bool
+    has_vector: bool
+    probability: float
+
+
 class ErrorResponse(BaseModel):
     detail: str
