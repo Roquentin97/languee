@@ -1,6 +1,10 @@
 export type LookupWordInput = {
   word: string;
   language: string;
+  lemma?: string;
+  pos?: string;
+  isIrregular?: boolean;
+  inflectionForms?: Record<string, string>;
 };
 
 export type DefinitionResult = {
@@ -9,6 +13,8 @@ export type DefinitionResult = {
   definition: string;
   example: string | null;
   provider: string;
+  hasIrregularForms: boolean;
+  inflectionForms: Record<string, string> | null;
 };
 
 export type LookupWordOutput = {

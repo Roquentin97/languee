@@ -15,6 +15,8 @@ export type EnrichedDefinitionResult = {
   definition: string;
   example: string | null;
   provider: string;
+  hasIrregularForms: boolean;
+  inflectionForms: Record<string, string> | null;
   decks: DeckRef[];
 };
 

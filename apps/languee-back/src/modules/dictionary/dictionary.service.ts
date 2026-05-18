@@ -16,7 +16,10 @@ export class DictionaryService {
   ) {}
 
   async lookup(input: LookupWordInput): Promise<LookupWordOutput> {
-    const lemma = this.wordsService.canonicalise(input.word);
+    const lemma =
+      input.lemma !== undefined
+        ? input.lemma
+        : this.wordsService.canonicalise(input.word);
 
     const word = await this.wordsService.findByLemma(lemma, input.language);
 
@@ -29,6 +32,11 @@ export class DictionaryService {
           definition: row.definition,
           example: row.example ?? null,
           provider: row.provider,
+          hasIrregularForms: row.hasIrregularForms,
+          inflectionForms:
+            row.inflectionForms !== null
+              ? (row.inflectionForms as Record<string, string>)
+              : null,
         }));
         return { lemma, source: 'cache', definitions };
       }
@@ -42,6 +50,10 @@ export class DictionaryService {
       savedWord.id,
       lemma,
       input.language,
+      {
+        isIrregular: input.isIrregular,
+        inflectionForms: input.inflectionForms,
+      },
     );
     if (rows.length === 0) {
       throw new DefinitionsNotFoundException(lemma, input.language);
@@ -53,6 +65,11 @@ export class DictionaryService {
       definition: row.definition,
       example: row.example ?? null,
       provider: row.provider,
+      hasIrregularForms: row.hasIrregularForms,
+      inflectionForms:
+        row.inflectionForms !== null
+          ? (row.inflectionForms as Record<string, string>)
+          : null,
     }));
 
     return { lemma, source: 'provider', definitions };

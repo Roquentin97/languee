@@ -12,6 +12,7 @@ import { DictionaryModule } from './modules/dictionary/dictionary.module';
 import { DecksModule } from './modules/decks/decks.module';
 import { CardsModule } from './modules/cards/cards.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
+import { NlpModule } from './modules/nlp/nlp.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
     DecksModule,
     CardsModule,
     VocabularyModule,
+    NlpModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
   ],
   controllers: [AppController],

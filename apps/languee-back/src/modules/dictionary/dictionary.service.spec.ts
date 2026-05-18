@@ -22,6 +22,8 @@ const mockDefinitionRow: Definition = {
   example: 'Despite the rain, we went out.',
   provider: 'free-dictionary',
   gapFillMetadata: null,
+  hasIrregularForms: false,
+  inflectionForms: null,
   createdAt: new Date(),
 };
 

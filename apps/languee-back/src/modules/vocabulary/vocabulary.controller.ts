@@ -4,6 +4,7 @@ import {
   Get,
   NotFoundException,
   Query,
+  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,6 +12,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
+import { NlpMultiWordError, NlpUnavailableError } from '../nlp/nlp.errors';
 import { LookupVocabularyDto } from './dto/lookup-vocabulary.dto';
 import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
 import { VocabularyService } from './vocabulary.service';
@@ -32,6 +34,14 @@ export class VocabularyController {
         userId: user.userId,
       });
     } catch (err: unknown) {
+      if (err instanceof NlpUnavailableError) {
+        throw new BadGatewayException('NLP_UNAVAILABLE');
+      }
+      if (err instanceof NlpMultiWordError) {
+        throw new UnprocessableEntityException(
+          'MULTI_WORD_INPUT_NOT_SUPPORTED',
+        );
+      }
       if (err instanceof DefinitionsNotFoundException) {
         throw new NotFoundException('DEFINITIONS_NOT_FOUND');
       }

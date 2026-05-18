@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DictionaryService } from '../dictionary/dictionary.service';
 import { CardsService } from '../cards/cards.service';
+import { NlpService } from '../nlp/nlp.service';
 import type {
   DeckRef,
   EnrichedDefinitionResult,
@@ -13,12 +14,19 @@ export class VocabularyService {
   constructor(
     private readonly dictionaryService: DictionaryService,
     private readonly cardsService: CardsService,
+    private readonly nlpService: NlpService,
   ) {}
 
   async lookup(input: LookupVocabularyInput): Promise<LookupVocabularyOutput> {
+    const nlpResult = await this.nlpService.analyzeWord(input.word);
+
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
+      lemma: nlpResult.lemma,
       language: input.language,
+      pos: nlpResult.pos,
+      isIrregular: nlpResult.isIrregular,
+      inflectionForms: nlpResult.inflectionForms,
     });
 
     const definitionIds = baseOutput.definitions.map((d) => d.id);
@@ -42,6 +50,8 @@ export class VocabularyService {
         definition: def.definition,
         example: def.example,
         provider: def.provider,
+        hasIrregularForms: def.hasIrregularForms,
+        inflectionForms: def.inflectionForms,
         decks: decksByDefinition.get(def.id) ?? [],
       }),
     );

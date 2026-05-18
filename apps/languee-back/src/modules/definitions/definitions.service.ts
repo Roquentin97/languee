@@ -63,6 +63,11 @@ export class DefinitionService implements IDefinitionProvider {
               ...key,
               example: entry.example ?? null,
               provider: this.adapter.providerName,
+              hasIrregularForms: entry.hasIrregularForms ?? false,
+              inflectionForms:
+                entry.inflectionForms !== undefined
+                  ? entry.inflectionForms
+                  : Prisma.JsonNull,
             },
           });
         } catch (err: unknown) {
@@ -97,10 +102,20 @@ export class DefinitionService implements IDefinitionProvider {
     wordId: string,
     lemma: string,
     language: string,
+    nlpContext?: {
+      isIrregular?: boolean;
+      inflectionForms?: Record<string, string>;
+    },
   ): Promise<DbDefinition[]> {
     const rawEntries = await this.adapter.fetch(lemma, language);
     if (rawEntries.length === 0) return [];
-    return this.createMany(wordId, rawEntries);
+    const enrichedEntries: RawDefinitionEntry[] = rawEntries.map((entry) => ({
+      ...entry,
+      hasIrregularForms: nlpContext?.isIrregular ?? entry.hasIrregularForms,
+      inflectionForms:
+        nlpContext?.inflectionForms ?? entry.inflectionForms,
+    }));
+    return this.createMany(wordId, enrichedEntries);
   }
 
   async createMany(
@@ -126,6 +141,11 @@ export class DefinitionService implements IDefinitionProvider {
               ...key,
               example: entry.example ?? null,
               provider: this.adapter.providerName,
+              hasIrregularForms: entry.hasIrregularForms ?? false,
+              inflectionForms:
+                entry.inflectionForms !== undefined
+                  ? entry.inflectionForms
+                  : Prisma.JsonNull,
             },
           });
         } catch (err: unknown) {
