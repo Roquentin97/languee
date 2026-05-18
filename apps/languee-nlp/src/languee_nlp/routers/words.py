@@ -1,11 +1,13 @@
 import secrets
+import unicodedata
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from languee_nlp.nlp.provider import get_nlp
-from languee_nlp.schemas import WordResponse
+from languee_nlp.nlp.word_service import analyze_single_token
+from languee_nlp.schemas import WordAnalysisResponse
 from languee_nlp.settings import settings
 
 router = APIRouter(prefix="/words", tags=["words"])
@@ -30,7 +32,7 @@ def require_basic_auth(
 
 @router.get(
     "",
-    response_model=WordResponse,
+    response_model=WordAnalysisResponse,
     summary="Analyze a word",
     dependencies=[Depends(require_basic_auth)],
 )
@@ -38,22 +40,35 @@ def analyze_word(
     word: Annotated[
         str,
         Query(
-            min_length=1,
             description="Single word to analyze.",
         ),
     ],
-) -> WordResponse:
-    normalized_word = word.strip()
-    if not normalized_word or len(normalized_word.split()) != 1:
-        raise HTTPException(status_code=422, detail="word must be a single word")
+) -> WordAnalysisResponse:
+    sanitized = unicodedata.normalize("NFC", word.strip().lower())
 
-    doc = get_nlp()(normalized_word)
-    token = doc[0]
-    return WordResponse(
-        word=normalized_word,
-        lemma=token.lemma_,
-        part_of_speech=token.pos_,
-        is_out_of_vocabulary=token.is_oov,
-        has_vector=token.has_vector,
-        probability=token.prob,
+    if not sanitized:
+        raise HTTPException(
+            status_code=400,
+            detail="word must be a single word; multi-word input is not supported",
+        )
+
+    if any(c.isspace() for c in sanitized):
+        raise HTTPException(
+            status_code=400,
+            detail="word must be a single word; multi-word input is not supported",
+        )
+
+    doc = get_nlp()(sanitized)
+
+    if len(doc) == 0 or len(doc) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="word must be a single word; multi-word input is not supported",
+        )
+
+    token_result = analyze_single_token(doc[0])
+    return WordAnalysisResponse(
+        input_text=sanitized,
+        is_multi_word=False,
+        tokens=[token_result],
     )
