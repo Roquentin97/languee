@@ -11,8 +11,9 @@ RUN uv run python -m spacy download en_core_web_md
 
 FROM spacy-model AS production
 COPY src/ ./src/
-ENV PYTHONPATH=/app/src
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app/src
 RUN useradd --create-home --shell /bin/bash nlp
 USER nlp
 EXPOSE 8000
-CMD ["uv", "run", "uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000"]
