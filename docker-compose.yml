@@ -38,12 +38,14 @@ services:
     build:
       context: ./apps/languee-nlp
       dockerfile: Dockerfile
-      target: production
+      target: development
     restart: unless-stopped
     environment:
       LANGUEE_NLP_SPACY_MODEL: ${LANGUEE_NLP_SPACY_MODEL:-en_core_web_md}
     ports:
       - "${LANGUEE_NLP_PORT:-8000}:8000"
+    volumes:
+      - ./apps/languee-nlp/src:/app/src
     healthcheck:
       test:
         [
