@@ -5,8 +5,8 @@ pipeline `refactor` in Notion.
 
 ## What this command does
 
-Executes structural and logic refactoring in sequence, then verifies integrity via
-Linter and QA. Does not invoke Lead, Architect, or Implementer.
+Executes structural and logic refactoring in sequence for the target service, then
+verifies integrity via Linter and QA. Does not invoke Lead, Architect, or Implementer.
 
 ## Pipeline order
 
@@ -25,9 +25,13 @@ Each stage is conditional:
 3. Query Notion for entries where:
    - `Status` = `ready-for-dev`
    - `Pipeline` = `refactor`
+   - `Target` select is one of the known keys from `config.services`
 4. If no specs found, print: "No specs with status ready-for-dev and pipeline refactor
    found in Notion. Nothing to run." and stop
-5. For each spec:
+5. For each spec, build `target_service` from `forge/config.py` and pass it to every agent
+6. If a spec is missing `Target` or references an unknown target, mark it
+   `pending-more-info` and ask for the target service
+7. For each valid spec:
    a. Create run directory at `forge/runs/<spec-title-kebab-case>/`
    b. Update Notion status to `in-progress`
    c. Dispatch Restructurer if spec requires it — persist to

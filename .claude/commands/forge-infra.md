@@ -1,7 +1,8 @@
 # /forge-infra
 
 Run the infrastructure pipeline for all specs with status `ready-for-dev` and pipeline
-`infra` in Notion. Uses the DevOps agent instead of the feature pipeline.
+`infra` in Notion. Uses the DevOps agent instead of the feature pipeline. Infra specs
+may add or update any service registered in `forge/config.py`, including uv/FastAPI apps.
 
 ## What this command does
 
@@ -16,12 +17,15 @@ No Architect, Implementer, Linter or QA involved — DevOps agent works autonomo
 4. Query Notion for entries where:
    - `Status` = `ready-for-dev`
    - `Pipeline` = `infra`
+   - `Target` select is one of the known keys from `config.services`
 5. If no specs found, print: "No specs with status ready-for-dev and pipeline infra
    found in Notion. Nothing to run." and stop
-6. Otherwise dispatch the DevOps agent for each matching spec
-7. Persist output to `forge/runs/<spec-title-kebab-case>/devops-output.json`
-8. On success: update Notion status to `done`, write summary to `Agent output`
-9. On failure: update Notion status to `failed`, write reason to `Agent output`
+6. If a spec is missing `Target` or references an unknown target, mark it
+   `pending-more-info` and ask for the target service
+7. Otherwise dispatch the DevOps agent for each matching spec
+8. Persist output to `forge/runs/<spec-title-kebab-case>/devops-output.json`
+9. On success: update Notion status to `done`, write summary to `Agent output`
+10. On failure: update Notion status to `failed`, write reason to `Agent output`
 
 ## Usage
 

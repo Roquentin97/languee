@@ -28,7 +28,7 @@ Useful for auditing what each agent decided and tuning prompts accordingly.
 
 7. Print a structured summary for each agent:
    - Status
-   - Key decisions (schema changes, affected modules, edge cases, issues)
+   - Key decisions (target service, persistence changes, affected components, edge cases, issues)
    - Any `needs_revision` reasons
 8. Highlight any stage that failed and explain why
 

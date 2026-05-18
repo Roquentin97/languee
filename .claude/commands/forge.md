@@ -5,7 +5,8 @@ pipeline `feature` in Notion.
 
 ## What this command does
 
-Reads the Lead agent from `.claude/agents/lead.md` and executes the full pipeline:
+Reads the Lead agent from `.claude/agents/lead.md`, resolves each spec's target service
+from the Notion `Target` select field and `forge/config.py`, then executes the full pipeline:
 Architect → Implementer → Linter → QA → PR
 
 ## Steps
@@ -17,9 +18,12 @@ Architect → Implementer → Linter → QA → PR
 5. Query Notion for entries where:
    - `Status` = `ready-for-dev`
    - `Pipeline` = `feature`
+   - `Target` select is one of the known keys from `config.services`
 6. If no specs found, print: "No specs with status ready-for-dev and pipeline feature
    found in Notion. Nothing to run." and stop
-7. Otherwise execute the Lead agent instructions for each matching spec
+7. If a spec is missing `Target` or references an unknown target, mark it
+   `pending-more-info` and ask for the target service
+8. Otherwise execute the Lead agent instructions for each matching spec
 
 ## Subagent prompts
 
@@ -29,6 +33,8 @@ Each subagent is spawned using the Task tool with its prompt loaded fresh from:
 - `.claude/agents/implementer.md`
 - `.claude/agents/linter.md`
 - `.claude/agents/qa.md`
+
+Each subagent receives a `target_service` object derived from `forge/config.py`.
 
 ## Run output
 

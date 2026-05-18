@@ -11,6 +11,7 @@ def _required(key: str) -> str:
 class NotionConfig:
     spec_database_id: str = _required("NOTION_SPEC_DB_ID")
     context_database_id: str = _required("NOTION_CONTEXT_DB_ID")
+    target_field: str = "Target"
 
 
 class PipelineConfig:
@@ -33,9 +34,42 @@ class Config:
     pipeline = PipelineConfig()
     pipeline_type = PipelineType()
 
-    # Reference list used by the Lead agent when writing Affected modules back to Notion.
-    # Extend this as new modules are added to the codebase.
-    modules: list[str] = ["auth", "users"]
+    # Service registry used by the Lead agent to route specs to the right app, commands,
+    # and framework-specific agent instructions.
+    services: dict[str, dict[str, object]] = {
+        "languee-back": {
+            "path": "apps/languee-back",
+            "runtime": "node",
+            "framework": "nestjs",
+            "package_manager": "yarn",
+            "install": "yarn install --frozen-lockfile",
+            "format": "yarn format",
+            "lint": "yarn lint",
+            "test": "yarn test",
+            "coverage": "yarn test:cov",
+            "build": "yarn build",
+            "persistence": "prisma",
+            "validate_persistence": "yarn prisma validate",
+            "dev_port": 3000,
+            "affected_components": ["auth", "users"],
+        },
+        "languee-nlp": {
+            "path": "apps/languee-nlp",
+            "runtime": "python",
+            "framework": "fastapi",
+            "package_manager": "uv",
+            "install": "uv sync",
+            "format": "uv run ruff format .",
+            "lint": "uv run ruff check .",
+            "test": "uv run pytest",
+            "coverage": "uv run pytest --cov=languee_nlp",
+            "build": None,
+            "persistence": None,
+            "validate_persistence": None,
+            "dev_port": 8000,
+            "affected_components": ["api", "nlp", "spacy"],
+        },
+    }
 
 
 config = Config()

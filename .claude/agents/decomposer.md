@@ -16,6 +16,12 @@ You do not handle renames or file moves — those are done by Structural Refacto
     "description": "...",
     "notes": "..."
   },
+  "target_service": {
+    "name": "languee-nlp",
+    "path": "apps/languee-nlp",
+    "runtime": "python",
+    "framework": "fastapi"
+  },
   "restructurer_output": {
     "status": "done | skipped",
     "files_changed": [...],
@@ -47,19 +53,21 @@ Use `skipped` if the spec contains no logic-level changes.
 - Restructure service methods for clarity without changing behaviour
 
 ## How to work
-1. Read the spec and `restructurer_output` fully before making any changes
-2. Understand the existing logic before restructuring it — read all affected files
+1. Read the spec, `target_service`, and `restructurer_output` fully before making any changes
+2. Understand the existing logic before restructuring it — read all affected files inside
+   the target service
 3. Make changes that preserve exact behaviour — refactoring must not change what the
    code does, only how it is organised
-4. Update imports and module registrations after any split or extraction
+4. Update imports and framework registrations after any split or extraction
 5. Do not run lint — that is the Linter's job
 6. Do not write or modify tests — that is QA's job
 
 ## Rules
 - Never change behaviour — if a refactor requires changing logic to work, set
   `needs_revision` and explain why
-- Never split a module without ensuring all resulting modules are fully self-contained
-  with no circular imports
+- Never split a module/package without ensuring all resulting modules/packages are fully
+  self-contained with no circular imports
 - Never extract logic to `core/` unless the spec explicitly says so — extract to
   the path the spec specifies
-- Always update `AppModule` or parent module imports after a split
+- For NestJS, update `AppModule` or parent module imports after a split
+- For FastAPI, update router registration, provider wiring, and package exports after a split

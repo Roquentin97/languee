@@ -17,7 +17,8 @@ convention changes require human judgement.
    - What the change is
    - The relevant section of `CLAUDE.md` it would affect
 4. Ask the human to confirm, reject, or modify each change before applying
-5. For confirmed changes, update the relevant section of `CLAUDE.md` with precise,
+5. For confirmed changes, update the relevant global or target-service section of
+   `CLAUDE.md` with precise,
    rule-based language — never add directory trees or lists of paths
 6. Print a summary of what was applied and what was skipped
 
