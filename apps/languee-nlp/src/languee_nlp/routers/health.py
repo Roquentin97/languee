@@ -5,10 +5,14 @@ from languee_nlp.nlp.provider import get_nlp
 from languee_nlp.schemas import ErrorResponse, HealthResponse, ReadyResponse
 from languee_nlp.settings import settings
 
-router = APIRouter()
+router = APIRouter(tags=["health"])
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
@@ -20,6 +24,7 @@ def health() -> HealthResponse:
         503: {"model": ErrorResponse},
         500: {"model": ErrorResponse},
     },
+    summary="Readiness check",
 )
 def ready() -> ReadyResponse | JSONResponse:
     try:

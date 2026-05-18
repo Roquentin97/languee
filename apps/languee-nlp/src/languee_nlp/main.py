@@ -1,7 +1,33 @@
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 
 from languee_nlp.routers.health import router as health_router
 
-app = FastAPI(title="Languee NLP", version="0.1.0")
+OPENAPI_TAGS = [
+    {
+        "name": "health",
+        "description": "Service health and readiness probes.",
+    },
+]
+
+app = FastAPI(
+    title="Languee NLP API",
+    summary="NLP support service for Languee.",
+    description=(
+        "Provides runtime health checks and spaCy model readiness information "
+        "for the Languee NLP service."
+    ),
+    version="0.1.0",
+    openapi_tags=OPENAPI_TAGS,
+)
 
 app.include_router(health_router)
+
+
+@app.get("/swagger", include_in_schema=False)
+def swagger() -> HTMLResponse:
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - Swagger UI",
+    )
