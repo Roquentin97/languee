@@ -15,3 +15,9 @@ def test_health_returns_200_ok():
 def test_default_spacy_model_is_en_core_web_md():
     s = Settings()
     assert s.spacy_model == "en_core_web_md"
+
+
+def test_basic_auth_settings_are_loaded_from_env():
+    s = Settings()
+    assert s.basic_login == "admin"
+    assert s.basic_password == "changeme"

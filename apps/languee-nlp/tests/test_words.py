@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from languee_nlp.main import app
 
 client = TestClient(app)
+AUTH = ("admin", "changeme")
 
 
 def _make_mock_nlp(
@@ -32,7 +33,7 @@ def test_words_returns_analysis_for_single_word():
     mock_nlp = _make_mock_nlp(lemma="run")
 
     with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
-        response = client.get("/words", params={"word": "running"})
+        response = client.get("/words", params={"word": "running"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -50,7 +51,7 @@ def test_words_trims_word_before_processing():
     mock_nlp = _make_mock_nlp(lemma="child")
 
     with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
-        response = client.get("/words", params={"word": " child "})
+        response = client.get("/words", params={"word": " child "}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -74,7 +75,7 @@ def test_words_returns_vocabulary_diagnostics():
     )
 
     with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
-        response = client.get("/words", params={"word": "sunnnynnn"})
+        response = client.get("/words", params={"word": "sunnnynnn"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -88,6 +89,23 @@ def test_words_returns_vocabulary_diagnostics():
 
 
 def test_words_rejects_multiple_words():
-    response = client.get("/words", params={"word": "look up"})
+    response = client.get("/words", params={"word": "look up"}, auth=AUTH)
 
     assert response.status_code == 422
+
+
+def test_words_requires_basic_auth():
+    response = client.get("/words", params={"word": "running"})
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Basic"
+
+
+def test_words_rejects_invalid_basic_auth():
+    response = client.get(
+        "/words",
+        params={"word": "running"},
+        auth=("admin", "wrong-password"),
+    )
+
+    assert response.status_code == 401
