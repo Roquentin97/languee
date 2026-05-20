@@ -2,6 +2,8 @@ export interface RawDefinitionEntry {
   partOfSpeech: string;
   definition: string;
   example?: string;
+  hasIrregularForms?: boolean;
+  inflectionForms?: Record<string, string>;
 }
 
 /**

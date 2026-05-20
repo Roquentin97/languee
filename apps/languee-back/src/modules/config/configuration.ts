@@ -19,4 +19,9 @@ export const configuration = () => ({
     basicAuthUser: process.env['BASIC_AUTH'] ?? '',
     basicAuthPassword: process.env['BASIC_PASSWORD'] ?? '',
   },
+  nlp: {
+    baseUrl: process.env['LANGUEE_NLP_BASE_URL'] ?? '',
+    basicAuthLogin: process.env['LANGUEE_NLP_BASIC_AUTH_LOGIN'] ?? '',
+    basicAuthPassword: process.env['LANGUEE_NLP_BASIC_AUTH_PASSWORD'] ?? '',
+  },
 });

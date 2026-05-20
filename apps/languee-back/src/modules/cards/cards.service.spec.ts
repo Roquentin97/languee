@@ -35,6 +35,8 @@ const mockDefinition: Definition = {
   example: 'She runs every morning.',
   provider: 'free-dictionary',
   gapFillMetadata: null,
+  hasIrregularForms: false,
+  inflectionForms: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 

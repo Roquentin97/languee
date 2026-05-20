@@ -32,19 +32,23 @@ model Word {
 }
 
 model Definition {
-  id              String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  wordId          String   @map("word_id") @db.Uuid
-  word            Word     @relation(fields: [wordId], references: [id])
-  partOfSpeech    String   @map("part_of_speech")
-  definition      String
-  example         String?
-  provider        String
-  gapFillMetadata Json?    @map("gap_fill_metadata") @db.JsonB
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  cards           Card[]
+  id                 String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  wordId             String   @map("word_id") @db.Uuid
+  word               Word     @relation(fields: [wordId], references: [id])
+  partOfSpeech       String   @map("part_of_speech")
+  definition         String
+  example            String?
+  provider           String
+  gapFillMetadata    Json?    @map("gap_fill_metadata") @db.JsonB
+  hasIrregularForms  Boolean  @default(false) @map("has_irregular_forms")
+  inflectionForms    Json?    @map("inflection_forms") @db.JsonB
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  cards              Card[]
 
   @@unique([wordId, partOfSpeech, definition])
   @@index([wordId])
+  @@index([partOfSpeech])
+  @@index([partOfSpeech, hasIrregularForms])
   @@map("definitions")
 }
 

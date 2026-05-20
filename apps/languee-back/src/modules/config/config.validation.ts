@@ -13,4 +13,7 @@ export const configValidationSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().min(1).default('15m'),
   BASIC_AUTH: Joi.string().min(1).required(),
   BASIC_PASSWORD: Joi.string().min(1).required(),
+  LANGUEE_NLP_BASE_URL: Joi.string().uri().required(),
+  LANGUEE_NLP_BASIC_AUTH_LOGIN: Joi.string().min(1).required(),
+  LANGUEE_NLP_BASIC_AUTH_PASSWORD: Joi.string().min(1).required(),
 });
