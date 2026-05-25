@@ -24,15 +24,11 @@ describe('mapDictionaryApiPos', () => {
     });
 
     it('maps "preposition" to PartOfSpeech.PREPOSITION', () => {
-      expect(mapDictionaryApiPos('preposition')).toBe(
-        PartOfSpeech.PREPOSITION,
-      );
+      expect(mapDictionaryApiPos('preposition')).toBe(PartOfSpeech.PREPOSITION);
     });
 
     it('maps "conjunction" to PartOfSpeech.CONJUNCTION', () => {
-      expect(mapDictionaryApiPos('conjunction')).toBe(
-        PartOfSpeech.CONJUNCTION,
-      );
+      expect(mapDictionaryApiPos('conjunction')).toBe(PartOfSpeech.CONJUNCTION);
     });
 
     it('maps "interjection" to PartOfSpeech.INTERJECTION', () => {
