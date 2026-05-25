@@ -8,6 +8,7 @@ import {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
 } from '../interfaces/dictionary-api-adapter.interface';
+import { mapDictionaryApiPos } from '../mappers/dictionary-api-pos.mapper';
 
 interface DictionaryApiDefinition {
   definition: string;
@@ -47,14 +48,22 @@ export class DictionaryApiAdapter implements IDictionaryApiAdapter {
 
     const entries = (await response.json()) as DictionaryApiEntry[];
 
-    return entries.flatMap((entry) =>
-      entry.meanings.flatMap((meaning) =>
-        meaning.definitions.map((def) => ({
-          partOfSpeech: meaning.partOfSpeech,
-          definition: def.definition,
-          ...(def.example !== undefined ? { example: def.example } : {}),
-        })),
-      ),
-    );
+    const results: RawDefinitionEntry[] = [];
+    for (const entry of entries) {
+      for (const meaning of entry.meanings) {
+        const mappedPos = mapDictionaryApiPos(meaning.partOfSpeech);
+        if (mappedPos === null) {
+          continue;
+        }
+        for (const def of meaning.definitions) {
+          results.push({
+            partOfSpeech: mappedPos,
+            definition: def.definition,
+            ...(def.example !== undefined ? { example: def.example } : {}),
+          });
+        }
+      }
+    }
+    return results;
   }
 }

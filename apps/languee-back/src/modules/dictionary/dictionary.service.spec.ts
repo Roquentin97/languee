@@ -7,6 +7,7 @@ import { DefinitionService } from '../definitions/definitions.service';
 import type { Word, Definition } from '@prisma/client';
 import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import type { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
+import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 const mockWord: Word = {
   id: 'word-id-1',
@@ -82,7 +83,7 @@ describe('DictionaryService', () => {
       expect(result.definitions).toHaveLength(1);
       expect(result.definitions[0]).toMatchObject({
         id: 'def-id-1',
-        part_of_speech: 'preposition',
+        part_of_speech: PartOfSpeech.PREPOSITION,
         definition: 'in spite of',
         example: 'Despite the rain, we went out.',
         provider: 'free-dictionary',
@@ -94,7 +95,7 @@ describe('DictionaryService', () => {
       definitionServiceMock.findByWordId.mockResolvedValue([]);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
-        { partOfSpeech: 'preposition', definition: 'in spite of' },
+        { partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' },
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
@@ -103,7 +104,7 @@ describe('DictionaryService', () => {
       expect(adapterMock.fetch.mock.calls).toContainEqual(['despite', 'en']);
       expect(definitionServiceMock.createMany).toHaveBeenCalledWith(
         'word-id-1',
-        [{ partOfSpeech: 'preposition', definition: 'in spite of' }],
+        [{ partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' }],
         'free-dictionary',
       );
       expect(result.source).toBe('provider');
@@ -115,7 +116,7 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
-        { partOfSpeech: 'preposition', definition: 'in spite of' },
+        { partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' },
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
@@ -173,7 +174,7 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
-        { partOfSpeech: 'preposition', definition: 'in spite of' },
+        { partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' },
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
@@ -187,7 +188,7 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
-        { partOfSpeech: 'preposition', definition: 'in spite of' },
+        { partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' },
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
@@ -202,7 +203,7 @@ describe('DictionaryService', () => {
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
         {
-          partOfSpeech: 'verb',
+          partOfSpeech: PartOfSpeech.VERB,
           definition: 'move by foot',
           hasIrregularForms: true,
         },
@@ -221,7 +222,7 @@ describe('DictionaryService', () => {
         mockWord.id,
         [
           {
-            partOfSpeech: 'verb',
+            partOfSpeech: PartOfSpeech.VERB,
             definition: 'move by foot',
             hasIrregularForms: false,
             inflectionForms,
@@ -242,7 +243,7 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
-        { partOfSpeech: 'preposition', definition: 'in spite of' },
+        { partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' },
       ]);
       definitionServiceMock.createMany.mockResolvedValue([enrichedRow]);
 

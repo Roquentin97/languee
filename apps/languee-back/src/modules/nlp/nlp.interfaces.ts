@@ -1,3 +1,5 @@
+import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
+
 export type NlpTokenMorphology = {
   tense: string | null;
   verb_form: string | null;
@@ -36,7 +38,7 @@ export type NlpWordResponse = {
 
 export type NlpAnalysis = {
   lemma: string;
-  pos: string;
+  pos: PartOfSpeech | null;
   isIrregular: boolean;
   inflectionForms: Record<string, string>;
 };

@@ -6,6 +6,7 @@ import type {
   NlpTokenForms,
   NlpWordResponse,
 } from './nlp.interfaces';
+import { mapSpacyPos } from './mappers/spacy-pos.mapper';
 
 @Injectable()
 export class NlpService {
@@ -47,7 +48,7 @@ export class NlpService {
 
     return {
       lemma: token.lemma,
-      pos: token.pos,
+      pos: mapSpacyPos(token.pos),
       isIrregular: token.is_irregular,
       inflectionForms,
     };

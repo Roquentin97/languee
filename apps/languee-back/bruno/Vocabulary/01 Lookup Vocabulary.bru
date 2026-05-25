@@ -15,12 +15,14 @@ get {
 }
 
 tests {
-  test("returns vocabulary with deck enrichment and inflection data", function() {
+  test("returns vocabulary with POS filtering metadata", function() {
     expect(res.status).to.equal(200);
+    expect(res.body.input).to.be.a("string");
     expect(res.body.lemma).to.be.a("string");
-    expect(res.body.source).to.be.oneOf(["cache", "provider"]);
+    expect(["string", "null"]).to.include(typeof res.body.partOfSpeech);
     expect(res.body.definitions).to.be.an("array");
-    expect(res.body.definitions[0].decks).to.be.an("array");
-    expect(res.body.definitions[0].hasIrregularForms).to.be.a("boolean");
+    expect(res.body.meta.filteredByPos).to.be.a("boolean");
+    expect(res.body.meta.unmatchedPos).to.be.a("boolean");
+    expect(res.body.meta.availablePartsOfSpeech).to.be.an("array");
   });
 }

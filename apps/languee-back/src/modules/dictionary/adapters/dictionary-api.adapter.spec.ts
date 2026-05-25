@@ -5,6 +5,7 @@ import {
   DICTIONARY_API_PROVIDER_NAME,
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
+import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
 
 function mockFetchOk(body: unknown) {
   return jest.fn().mockResolvedValue({
@@ -42,7 +43,7 @@ describe('DictionaryApiAdapter', () => {
     expect(adapter.providerName).toBe(DICTIONARY_API_PROVIDER_NAME);
   });
 
-  it('happy path: normalises DictionaryAPI response into RawDefinitionEntry[]', async () => {
+  it('happy path: normalises DictionaryAPI response into RawDefinitionEntry[] with canonical PartOfSpeech', async () => {
     global.fetch = mockFetchOk([
       {
         meanings: [
@@ -60,7 +61,7 @@ describe('DictionaryApiAdapter', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({
-      partOfSpeech: 'verb',
+      partOfSpeech: PartOfSpeech.VERB,
       definition: 'move fast',
       example: 'She runs every day.',
     });
@@ -97,7 +98,7 @@ describe('DictionaryApiAdapter', () => {
     );
   });
 
-  it('flattens multiple meanings and definitions', async () => {
+  it('flattens multiple meanings and definitions, producing canonical PartOfSpeech values', async () => {
     global.fetch = mockFetchOk([
       {
         meanings: [
@@ -118,7 +119,11 @@ describe('DictionaryApiAdapter', () => {
 
     const result = await adapter.fetch('run', 'en');
     expect(result).toHaveLength(3);
-    expect(result.map((r) => r.partOfSpeech)).toEqual(['verb', 'verb', 'noun']);
+    expect(result.map((r) => r.partOfSpeech)).toEqual([
+      PartOfSpeech.VERB,
+      PartOfSpeech.VERB,
+      PartOfSpeech.NOUN,
+    ]);
   });
 
   it('entry without example omits the example field', async () => {
@@ -135,5 +140,43 @@ describe('DictionaryApiAdapter', () => {
 
     const result = await adapter.fetch('run', 'en');
     expect(result[0]).not.toHaveProperty('example');
+  });
+
+  it('meanings with unrecognised DictionaryAPI POS are excluded from the result', async () => {
+    global.fetch = mockFetchOk([
+      {
+        meanings: [
+          {
+            partOfSpeech: 'unknownPos',
+            definitions: [{ definition: 'should be excluded' }],
+          },
+          {
+            partOfSpeech: 'verb',
+            definitions: [{ definition: 'move fast' }],
+          },
+        ],
+      },
+    ]);
+
+    const result = await adapter.fetch('run', 'en');
+    expect(result).toHaveLength(1);
+    expect(result[0].partOfSpeech).toBe(PartOfSpeech.VERB);
+  });
+
+  it('exclamation POS maps to INTERJECTION and is included in the result', async () => {
+    global.fetch = mockFetchOk([
+      {
+        meanings: [
+          {
+            partOfSpeech: 'exclamation',
+            definitions: [{ definition: 'an expression of surprise' }],
+          },
+        ],
+      },
+    ]);
+
+    const result = await adapter.fetch('wow', 'en');
+    expect(result).toHaveLength(1);
+    expect(result[0].partOfSpeech).toBe(PartOfSpeech.INTERJECTION);
   });
 });

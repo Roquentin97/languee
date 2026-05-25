@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
 import { NlpService } from './nlp.service';
 import type { NlpWordResponse } from './nlp.interfaces';
+import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -169,7 +170,7 @@ describe('NlpService', () => {
       const result = await service.analyzeWord('walked');
 
       expect(result.lemma).toBe('walk');
-      expect(result.pos).toBe('VERB');
+      expect(result.pos).toBe(PartOfSpeech.VERB);
       expect(result.isIrregular).toBe(false);
       expect(result.inflectionForms).toEqual({
         base: 'walk',
@@ -191,7 +192,7 @@ describe('NlpService', () => {
       const result = await service.analyzeWord('dog');
 
       expect(result.lemma).toBe('dog');
-      expect(result.pos).toBe('NOUN');
+      expect(result.pos).toBe(PartOfSpeech.NOUN);
       expect(result.inflectionForms).toEqual({
         singular: 'dog',
         plural: 'dogs',
@@ -208,7 +209,7 @@ describe('NlpService', () => {
       const result = await service.analyzeWord('fast');
 
       expect(result.lemma).toBe('fast');
-      expect(result.pos).toBe('ADJ');
+      expect(result.pos).toBe(PartOfSpeech.ADJECTIVE);
       expect(result.inflectionForms).toEqual({
         positive: 'fast',
         comparative: 'faster',

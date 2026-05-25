@@ -32,6 +32,7 @@ export class VocabularyController {
         word: query.word,
         language: query.language ?? 'en',
         userId: user.userId,
+        context: query.context,
       });
     } catch (err: unknown) {
       if (err instanceof NlpUnavailableError) {
