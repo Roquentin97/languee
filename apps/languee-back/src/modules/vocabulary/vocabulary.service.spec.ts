@@ -422,6 +422,129 @@ describe('VocabularyService', () => {
       ).toHaveBeenCalledWith(['def-id-1'], 'user-id-1');
     });
 
+    it('POS filtering — only adjective definitions returned when NLP maps to ADJ', async () => {
+      const adjNlp: NlpAnalysis = {
+        lemma: 'fast',
+        pos: PartOfSpeech.ADJECTIVE,
+        isIrregular: false,
+        inflectionForms: {},
+      };
+      mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
+      const adjDef = {
+        id: 'def-id-1',
+        part_of_speech: PartOfSpeech.ADJECTIVE,
+        definition: 'moving quickly',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const verbDef = {
+        id: 'def-id-2',
+        part_of_speech: PartOfSpeech.VERB,
+        definition: 'to fast (refrain from eating)',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'fast',
+        source: 'cache',
+        definitions: [adjDef, verbDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'fast',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      expect(result.definitions).toHaveLength(1);
+      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.ADJECTIVE);
+      expect(result.meta.filteredByPos).toBe(true);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('meta.unmatchedPos is false when filteredByPos is false', async () => {
+      const nullPosNlp: NlpAnalysis = {
+        lemma: 'run',
+        pos: null,
+        isIrregular: false,
+        inflectionForms: {},
+      };
+      mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('meta.availablePartsOfSpeech reflects the full pre-filter set when unmatchedPos is true', async () => {
+      const nounDef = {
+        id: 'def-id-1',
+        part_of_speech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      // NLP returns VERB but dictionary only has noun
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      expect(result.meta.unmatchedPos).toBe(true);
+      expect(result.meta.availablePartsOfSpeech).toEqual([PartOfSpeech.NOUN]);
+    });
+
+    it('context field is optional — omitting it does not affect lookup behaviour', async () => {
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        // no context field
+      });
+
+      expect(result.definitions).toHaveLength(1);
+      expect(result.context).toBeUndefined();
+    });
+
+    it('context field is preserved in the output when provided', async () => {
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      expect(result.context).toBe('She runs every morning.');
+    });
+
     // -------------------------------------------------------------------------
     // NLP integration tests
     // -------------------------------------------------------------------------
