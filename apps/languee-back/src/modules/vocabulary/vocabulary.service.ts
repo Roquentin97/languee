@@ -34,9 +34,7 @@ export class VocabularyService {
 
     // Collect available parts of speech from all definitions before filtering
     const availablePartsOfSpeech: PartOfSpeech[] = [
-      ...new Set(
-        baseOutput.definitions.map((d) => d.part_of_speech),
-      ),
+      ...new Set(baseOutput.definitions.map((d) => d.part_of_speech)),
     ];
 
     // Filter definitions by POS if we have a mapped POS
