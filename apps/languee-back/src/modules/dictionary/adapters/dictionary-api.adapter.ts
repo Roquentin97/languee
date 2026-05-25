@@ -3,11 +3,11 @@ import {
   DICTIONARY_API_BASE_URL,
   DICTIONARY_API_PROVIDER_NAME,
 } from '../constants';
-import { ProviderUnavailableError } from '../definitions.errors';
+import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import {
-  IDefinitionApiAdapter,
+  IDictionaryApiAdapter,
   RawDefinitionEntry,
-} from '../interfaces/definition-api-adapter.interface';
+} from '../interfaces/dictionary-api-adapter.interface';
 
 interface DictionaryApiDefinition {
   definition: string;
@@ -24,7 +24,7 @@ interface DictionaryApiEntry {
 }
 
 @Injectable()
-export class DictionaryApiAdapter implements IDefinitionApiAdapter {
+export class DictionaryApiAdapter implements IDictionaryApiAdapter {
   readonly providerName = DICTIONARY_API_PROVIDER_NAME;
 
   async fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]> {

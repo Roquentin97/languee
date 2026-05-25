@@ -1,125 +1,23 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Definition as DbDefinition } from '@prisma/client';
-import {
-  Definition,
-  DefinitionProviderInput,
-  IDefinitionProvider,
-} from './interfaces/definition-provider.interface';
 import { PrismaService } from '../core/prisma/prisma.service';
-import { WordsService } from '../words/words.service';
-import {
-  DefinitionNotFoundError,
-  ProviderUnavailableError,
-} from './definitions.errors';
-import { DEFINITION_API_ADAPTER } from './definitions.tokens';
-import type { IDefinitionApiAdapter } from './interfaces/definition-api-adapter.interface';
-import type { RawDefinitionEntry } from './interfaces/definition-api-adapter.interface';
+import type { RawDefinitionEntry } from '../dictionary/interfaces/dictionary-api-adapter.interface';
 
 export type { DbDefinition };
 
 @Injectable()
-export class DefinitionService implements IDefinitionProvider {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly wordsService: WordsService,
-    @Inject(DEFINITION_API_ADAPTER)
-    private readonly adapter: IDefinitionApiAdapter,
-  ) {}
-
-  async provide(input: DefinitionProviderInput): Promise<Definition[]> {
-    const { lemma, language } = input;
-
-    const word = await this.wordsService.ensureExistsAndReturn(lemma, language);
-
-    let rawEntries: RawDefinitionEntry[];
-    try {
-      rawEntries = await this.adapter.fetch(lemma, language);
-    } catch (err: unknown) {
-      if (err instanceof ProviderUnavailableError) throw err;
-      throw new ProviderUnavailableError(this.adapter.providerName, err);
-    }
-
-    if (rawEntries.length === 0) {
-      throw new DefinitionNotFoundError(lemma, language);
-    }
-
-    const rows = await Promise.all(
-      rawEntries.map(async (entry) => {
-        const key = {
-          wordId: word.id,
-          partOfSpeech: entry.partOfSpeech,
-          definition: entry.definition,
-        };
-
-        const existing = await this.prisma.definition.findUnique({
-          where: { wordId_partOfSpeech_definition: key },
-        });
-        if (existing) return existing;
-
-        try {
-          return await this.prisma.definition.create({
-            data: {
-              ...key,
-              example: entry.example ?? null,
-              provider: this.adapter.providerName,
-              hasIrregularForms: entry.hasIrregularForms ?? false,
-              inflectionForms:
-                entry.inflectionForms !== undefined
-                  ? entry.inflectionForms
-                  : Prisma.JsonNull,
-            },
-          });
-        } catch (err: unknown) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2002'
-          ) {
-            // Race condition: another request created it concurrently
-            return this.prisma.definition.findUniqueOrThrow({
-              where: { wordId_partOfSpeech_definition: key },
-            });
-          }
-          throw err;
-        }
-      }),
-    );
-
-    return rows.map((row) => ({
-      term: lemma,
-      definition: row.definition,
-      examples: row.example != null ? [row.example] : [],
-      part_of_speech: row.partOfSpeech,
-      provider: row.provider,
-    }));
-  }
+export class DefinitionService {
+  constructor(private readonly prisma: PrismaService) {}
 
   async findByWordId(wordId: string): Promise<DbDefinition[]> {
     return this.prisma.definition.findMany({ where: { wordId } });
   }
 
-  async fetchAndPersist(
-    wordId: string,
-    lemma: string,
-    language: string,
-    nlpContext?: {
-      isIrregular?: boolean;
-      inflectionForms?: Record<string, string>;
-    },
-  ): Promise<DbDefinition[]> {
-    const rawEntries = await this.adapter.fetch(lemma, language);
-    if (rawEntries.length === 0) return [];
-    const enrichedEntries: RawDefinitionEntry[] = rawEntries.map((entry) => ({
-      ...entry,
-      hasIrregularForms: nlpContext?.isIrregular ?? entry.hasIrregularForms,
-      inflectionForms: nlpContext?.inflectionForms ?? entry.inflectionForms,
-    }));
-    return this.createMany(wordId, enrichedEntries);
-  }
-
   async createMany(
     wordId: string,
     entries: RawDefinitionEntry[],
+    providerName: string,
   ): Promise<DbDefinition[]> {
     return Promise.all(
       entries.map(async (entry) => {
@@ -139,7 +37,7 @@ export class DefinitionService implements IDefinitionProvider {
             data: {
               ...key,
               example: entry.example ?? null,
-              provider: this.adapter.providerName,
+              provider: providerName,
               hasIrregularForms: entry.hasIrregularForms ?? false,
               inflectionForms:
                 entry.inflectionForms !== undefined

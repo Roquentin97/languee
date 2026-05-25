@@ -11,7 +11,7 @@ export interface RawDefinitionEntry {
  * Implementations must normalize responses into RawDefinitionEntry[].
  * Throws ProviderUnavailableError when the provider cannot be reached or returns an error.
  */
-export interface IDefinitionApiAdapter {
+export interface IDictionaryApiAdapter {
   readonly providerName: string;
   fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]>;
 }
