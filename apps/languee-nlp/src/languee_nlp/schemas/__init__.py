@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+import unicodedata
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class HealthResponse(BaseModel):
@@ -54,7 +57,39 @@ class TokenResult(BaseModel):
     forms: FormsResult
 
 
+class WordAnalysisRequest(BaseModel):
+    input_text: str
+    context: str | None = None
+    selection_start: int | None = None
+    selection_end: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_context_fields(self) -> "WordAnalysisRequest":
+        if self.context is not None:
+            if self.selection_start is None or self.selection_end is None:
+                raise ValueError("context requires selection_start and selection_end")
+            selected = self.context[self.selection_start : self.selection_end]
+            normalized = unicodedata.normalize("NFC", self.input_text.strip().lower())
+            if selected != normalized:
+                raise ValueError("SELECTION_DOES_NOT_MATCH_INPUT")
+        return self
+
+
+class ContextAnalysis(BaseModel):
+    input_found_in_context: bool
+    matched_text: str | None
+    matched_token_index: int | None
+    pos_source: Literal["context", "isolated_input"]
+    confidence: Literal["high", "low"]
+    detected_expression: str | None
+    warnings: list[str]
+
+
 class WordAnalysisResponse(BaseModel):
+    model_config = ConfigDict(exclude_none=True)
+
     input_text: str
     is_multi_word: bool
     tokens: list[TokenResult]
+    context: str | None = None
+    context_analysis: ContextAnalysis | None = None

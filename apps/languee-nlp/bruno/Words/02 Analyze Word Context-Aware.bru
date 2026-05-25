@@ -1,0 +1,36 @@
+meta {
+  name: Analyze Word Context-Aware
+  type: http
+  seq: 2
+  tags: [
+    words
+    context
+  ]
+}
+
+post {
+  url: {{base_url}}/words
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "input_text": "look",
+    "context": "She decided to look up the word in the dictionary.",
+    "selection_start": 17,
+    "selection_end": 21
+  }
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("context_analysis is present", function() {
+    expect(res.body.context_analysis).to.be.an("object");
+    expect(res.body.context_analysis.input_found_in_context).to.equal(true);
+    expect(res.body.context_analysis.pos_source).to.equal("context");
+  });
+}
