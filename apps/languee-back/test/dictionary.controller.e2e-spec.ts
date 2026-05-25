@@ -4,9 +4,9 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
-import { DEFINITION_API_ADAPTER } from '../src/modules/definitions/definitions.tokens';
+import { DICTIONARY_API_ADAPTER } from '../src/modules/dictionary/dictionary.tokens';
 import { ProviderUnavailableError } from '../src/modules/definitions/definitions.errors';
-import type { IDefinitionApiAdapter } from '../src/modules/definitions/interfaces/definition-api-adapter.interface';
+import type { IDictionaryApiAdapter } from '../src/modules/dictionary/interfaces/dictionary-api-adapter.interface';
 
 const MOCK_DEFINITIONS = [
   {
@@ -16,7 +16,7 @@ const MOCK_DEFINITIONS = [
   },
 ];
 
-const mockAdapter: jest.Mocked<IDefinitionApiAdapter> = {
+const mockAdapter: jest.Mocked<IDictionaryApiAdapter> = {
   providerName: 'test-provider',
   fetch: jest.fn(),
 };
@@ -25,7 +25,7 @@ async function createApp(): Promise<INestApplication<App>> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
-    .overrideProvider(DEFINITION_API_ADAPTER)
+    .overrideProvider(DICTIONARY_API_ADAPTER)
     .useValue(mockAdapter)
     .compile();
 

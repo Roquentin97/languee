@@ -4,7 +4,7 @@ import {
   DICTIONARY_API_BASE_URL,
   DICTIONARY_API_PROVIDER_NAME,
 } from '../constants';
-import { ProviderUnavailableError } from '../definitions.errors';
+import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 
 function mockFetchOk(body: unknown) {
   return jest.fn().mockResolvedValue({

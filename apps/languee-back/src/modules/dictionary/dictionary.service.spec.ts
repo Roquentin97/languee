@@ -5,6 +5,8 @@ import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import type { Word, Definition } from '@prisma/client';
+import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
+import type { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 
 const mockWord: Word = {
   id: 'word-id-1',
@@ -37,7 +39,11 @@ describe('DictionaryService', () => {
   };
   const definitionServiceMock = {
     findByWordId: jest.fn(),
-    fetchAndPersist: jest.fn(),
+    createMany: jest.fn(),
+  };
+  const adapterMock: jest.Mocked<IDictionaryApiAdapter> = {
+    providerName: 'free-dictionary',
+    fetch: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -51,6 +57,7 @@ describe('DictionaryService', () => {
         DictionaryService,
         { provide: WordsService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
+        { provide: DICTIONARY_API_ADAPTER, useValue: adapterMock },
       ],
     }).compile();
 
@@ -68,7 +75,8 @@ describe('DictionaryService', () => {
 
       const result = await service.lookup({ word: 'despite', language: 'en' });
 
-      expect(definitionServiceMock.fetchAndPersist).not.toHaveBeenCalled();
+      expect(adapterMock.fetch.mock.calls).toHaveLength(0);
+      expect(definitionServiceMock.createMany).not.toHaveBeenCalled();
       expect(result.source).toBe('cache');
       expect(result.lemma).toBe('despite');
       expect(result.definitions).toHaveLength(1);
@@ -85,17 +93,18 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([]);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([
-        mockDefinitionRow,
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: 'preposition', definition: 'in spite of' },
       ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       const result = await service.lookup({ word: 'despite', language: 'en' });
 
-      expect(definitionServiceMock.fetchAndPersist).toHaveBeenCalledWith(
+      expect(adapterMock.fetch.mock.calls).toContainEqual(['despite', 'en']);
+      expect(definitionServiceMock.createMany).toHaveBeenCalledWith(
         'word-id-1',
-        'despite',
-        'en',
-        { isIrregular: undefined, inflectionForms: undefined },
+        [{ partOfSpeech: 'preposition', definition: 'in spite of' }],
+        'free-dictionary',
       );
       expect(result.source).toBe('provider');
     });
@@ -105,9 +114,10 @@ describe('DictionaryService', () => {
     it('persists word and definitions via services, returns source=provider', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([
-        mockDefinitionRow,
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: 'preposition', definition: 'in spite of' },
       ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       const result = await service.lookup({ word: 'despite', language: 'en' });
 
@@ -120,10 +130,10 @@ describe('DictionaryService', () => {
       expect(result.definitions).toHaveLength(1);
     });
 
-    it('propagates ProviderUnavailableError from DefinitionService', async () => {
+    it('propagates ProviderUnavailableError from adapter', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockRejectedValue(
+      adapterMock.fetch.mockRejectedValue(
         new ProviderUnavailableError('free-dictionary'),
       );
 
@@ -135,7 +145,7 @@ describe('DictionaryService', () => {
     it('throws DefinitionsNotFoundException when provider returns no definitions', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([]);
+      adapterMock.fetch.mockResolvedValue([]);
 
       await expect(
         service.lookup({ word: 'despite', language: 'en' }),
@@ -162,9 +172,10 @@ describe('DictionaryService', () => {
     it('when input.lemma is provided, canonicalise() is NOT called and lemma is used directly', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([
-        mockDefinitionRow,
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: 'preposition', definition: 'in spite of' },
       ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       await service.lookup({ word: 'walked', lemma: 'walk', language: 'en' });
 
@@ -175,22 +186,28 @@ describe('DictionaryService', () => {
     it('when input.lemma is not provided, canonicalise() IS called on input.word', async () => {
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([
-        mockDefinitionRow,
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: 'preposition', definition: 'in spite of' },
       ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       await service.lookup({ word: 'Despite', language: 'en' });
 
       expect(wordsServiceMock.canonicalise).toHaveBeenCalledWith('Despite');
     });
 
-    it('inflectionForms and isIrregular are forwarded to fetchAndPersist', async () => {
+    it('inflectionForms and isIrregular are forwarded to createMany entries', async () => {
       const inflectionForms = { base: 'walk', past: 'walked' };
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([
-        mockDefinitionRow,
+      adapterMock.fetch.mockResolvedValue([
+        {
+          partOfSpeech: 'verb',
+          definition: 'move by foot',
+          hasIrregularForms: true,
+        },
       ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
       await service.lookup({
         word: 'walked',
@@ -200,11 +217,17 @@ describe('DictionaryService', () => {
         inflectionForms,
       });
 
-      expect(definitionServiceMock.fetchAndPersist).toHaveBeenCalledWith(
+      expect(definitionServiceMock.createMany).toHaveBeenCalledWith(
         mockWord.id,
-        'walk',
-        'en',
-        { isIrregular: false, inflectionForms },
+        [
+          {
+            partOfSpeech: 'verb',
+            definition: 'move by foot',
+            hasIrregularForms: false,
+            inflectionForms,
+          },
+        ],
+        'free-dictionary',
       );
     });
 
@@ -218,7 +241,10 @@ describe('DictionaryService', () => {
       };
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
-      definitionServiceMock.fetchAndPersist.mockResolvedValue([enrichedRow]);
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: 'preposition', definition: 'in spite of' },
+      ]);
+      definitionServiceMock.createMany.mockResolvedValue([enrichedRow]);
 
       const result = await service.lookup({
         word: 'walked',

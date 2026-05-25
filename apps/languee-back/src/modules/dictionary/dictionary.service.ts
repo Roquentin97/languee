@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import type {
@@ -7,12 +7,19 @@ import type {
   DefinitionResult,
 } from './types/lookup-word.types';
 import { DefinitionsNotFoundException } from './dictionary.errors';
+import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
+import type {
+  IDictionaryApiAdapter,
+  RawDefinitionEntry,
+} from './interfaces/dictionary-api-adapter.interface';
 
 @Injectable()
 export class DictionaryService {
   constructor(
     private readonly wordsService: WordsService,
     private readonly definitionService: DefinitionService,
+    @Inject(DICTIONARY_API_ADAPTER)
+    private readonly adapter: IDictionaryApiAdapter,
   ) {}
 
   async lookup(input: LookupWordInput): Promise<LookupWordOutput> {
@@ -46,18 +53,22 @@ export class DictionaryService {
       lemma,
       input.language,
     );
-    const rows = await this.definitionService.fetchAndPersist(
-      savedWord.id,
-      lemma,
-      input.language,
-      {
-        isIrregular: input.isIrregular,
-        inflectionForms: input.inflectionForms,
-      },
-    );
-    if (rows.length === 0) {
+    const rawEntries = await this.adapter.fetch(lemma, input.language);
+    if (rawEntries.length === 0) {
       throw new DefinitionsNotFoundException(lemma, input.language);
     }
+
+    const enrichedEntries: RawDefinitionEntry[] = rawEntries.map((entry) => ({
+      ...entry,
+      hasIrregularForms: input.isIrregular ?? entry.hasIrregularForms,
+      inflectionForms: input.inflectionForms ?? entry.inflectionForms,
+    }));
+
+    const rows = await this.definitionService.createMany(
+      savedWord.id,
+      enrichedEntries,
+      this.adapter.providerName,
+    );
 
     const definitions: DefinitionResult[] = rows.map((row) => ({
       id: row.id,
