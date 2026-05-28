@@ -16,4 +16,8 @@ export const configValidationSchema = Joi.object({
   LANGUEE_NLP_BASE_URL: Joi.string().uri().required(),
   LANGUEE_NLP_BASIC_AUTH_LOGIN: Joi.string().min(1).required(),
   LANGUEE_NLP_BASIC_AUTH_PASSWORD: Joi.string().min(1).required(),
+  LOG_FORMAT: Joi.string().valid('json', 'pretty').default('json'),
+  SERVICE_NAME: Joi.string().default('languee-back'),
+  PRINT_DEBUG_LOGS: Joi.string().valid('true', 'false').default('false'),
+  PRINT_PRETTY_JSON_LOGS: Joi.string().valid('true', 'false').default('false'),
 });
