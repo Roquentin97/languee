@@ -9,6 +9,7 @@
 COMPOSE = docker compose
 APP_DIR = apps/languee-back
 REDIS_SERVICE = $(word 2,$(MAKECMDGOALS))
+OBSERVABILITY_SERVICES = loki alloy grafana
 
 # Optional flags for make logs
 CONTAINER ?=
@@ -22,11 +23,12 @@ _CC_SVC := $(word 2,$(MAKECMDGOALS))
 
 .PHONY: start migrate down build restart clean logs redis languee-back languee-nlp cc
 
-# Start infrastructure, run database migrations, then start the API
+# Start infrastructure, run database migrations, then start the API and observability stack
 start:
 	$(COMPOSE) up -d postgres redis
 	$(COMPOSE) run --rm migrate yarn prisma migrate deploy
 	$(COMPOSE) up -d api
+	$(COMPOSE) up -d $(OBSERVABILITY_SERVICES)
 
 # Run pending database migrations against the Compose Postgres service
 migrate:

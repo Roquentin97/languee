@@ -100,12 +100,13 @@ describe('AppLogger', () => {
     ['warn', 'warn'],
   ] as const)(
     '%s() writes to stdout and not stderr',
-    (method: 'log' | 'warn') => {
+    (method: 'log' | 'warn', level: 'info' | 'warn') => {
       const logger = new AppLogger('TestContext');
       logger[method]('test message');
 
       expect(stdoutSpy).toHaveBeenCalled();
       expect(stderrSpy).not.toHaveBeenCalled();
+      expect(parseStdout()['level']).toBe(level);
     },
   );
 
