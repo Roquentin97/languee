@@ -24,6 +24,10 @@ interface DictionaryApiEntry {
   meanings: DictionaryApiMeaning[];
 }
 
+type DictionaryApiMappedMeaning = DictionaryApiMeaning & {
+  mappedPartOfSpeech: NonNullable<ReturnType<typeof mapDictionaryApiPos>>;
+};
+
 @Injectable()
 export class DictionaryApiAdapter implements IDictionaryApiAdapter {
   readonly providerName = DICTIONARY_API_PROVIDER_NAME;
@@ -48,22 +52,24 @@ export class DictionaryApiAdapter implements IDictionaryApiAdapter {
 
     const entries = (await response.json()) as DictionaryApiEntry[];
 
-    const results: RawDefinitionEntry[] = [];
-    for (const entry of entries) {
-      for (const meaning of entry.meanings) {
-        const mappedPos = mapDictionaryApiPos(meaning.partOfSpeech);
-        if (mappedPos === null) {
-          continue;
-        }
-        for (const def of meaning.definitions) {
-          results.push({
-            partOfSpeech: mappedPos,
+    return entries.flatMap((entry) =>
+      entry.meanings
+        .map((meaning): DictionaryApiMappedMeaning | null => {
+          const mappedPos = mapDictionaryApiPos(meaning.partOfSpeech);
+          return mappedPos === null
+            ? null
+            : { ...meaning, mappedPartOfSpeech: mappedPos };
+        })
+        .filter(
+          (meaning): meaning is DictionaryApiMappedMeaning => meaning !== null,
+        )
+        .flatMap((meaning) =>
+          meaning.definitions.map((def) => ({
+            partOfSpeech: meaning.mappedPartOfSpeech,
             definition: def.definition,
             ...(def.example !== undefined ? { example: def.example } : {}),
-          });
-        }
-      }
-    }
-    return results;
+          })),
+        ),
+    );
   }
 }
