@@ -7,6 +7,8 @@ WORKDIR /app
 
 # Install dependencies (leverage layer caching)
 COPY --chown=node:node package.json yarn.lock ./
+RUN chown node:node /app
+USER node
 RUN yarn install --frozen-lockfile
 
 # ─── Stage 2: development ────────────────────────────────────────────────────

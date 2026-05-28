@@ -88,6 +88,15 @@ services:
     environment:
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
+      LOG_FORMAT: json
+      PRINT_PRETTY_JSON_LOGS: "false"
+      PRINT_DEBUG_LOGS: "${PRINT_DEBUG_LOGS:-false}"
+      SERVICE_NAME: "languee-back"
+    labels:
+      logging: "alloy"
+      service: "languee-back"
+      app: "backend"
+      environment: "${NODE_ENV:-development}"
     user: "${UID:-1000}:${GID:-1000}"
     ports:
       - "${LANGUEE_BACK_API_PORT:-3000}:3000"
@@ -109,7 +118,49 @@ services:
       retries: 3
       start_period: 20s
 
+  loki:
+    image: grafana/loki:3.7.2
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.16.0
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./provision/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:13.0.1-security-01
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./provision/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - loki
+
 volumes:
   postgres_data:
   redis_data:
   languee_back_node_modules:
+  loki-data:
+  alloy-data:
+  grafana-data:

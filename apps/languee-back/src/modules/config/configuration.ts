@@ -24,4 +24,10 @@ export const configuration = () => ({
     basicAuthLogin: process.env['LANGUEE_NLP_BASIC_AUTH_LOGIN'] ?? '',
     basicAuthPassword: process.env['LANGUEE_NLP_BASIC_AUTH_PASSWORD'] ?? '',
   },
+  logging: {
+    format: process.env['LOG_FORMAT'] ?? 'json',
+    serviceName: process.env['SERVICE_NAME'] ?? 'languee-back',
+    printDebugLogs: process.env['PRINT_DEBUG_LOGS'] === 'true',
+    printPrettyJsonLogs: process.env['PRINT_PRETTY_JSON_LOGS'] === 'true',
+  },
 });
