@@ -34,15 +34,13 @@ export class VocabularyService {
 
     // Collect available parts of speech from all definitions before filtering
     const availablePartsOfSpeech: PartOfSpeech[] = [
-      ...new Set(baseOutput.definitions.map((d) => d.part_of_speech)),
+      ...new Set(baseOutput.definitions.map((d) => d.partOfSpeech)),
     ];
 
     // Filter definitions by POS if we have a mapped POS
     const filteredDefinitions =
       mappedPos !== null
-        ? baseOutput.definitions.filter(
-            (def) => def.part_of_speech === mappedPos,
-          )
+        ? baseOutput.definitions.filter((def) => def.partOfSpeech === mappedPos)
         : baseOutput.definitions;
 
     const filteredByPos = mappedPos !== null;
@@ -66,7 +64,7 @@ export class VocabularyService {
     const definitions: EnrichedDefinitionResult[] = filteredDefinitions.map(
       (def) => ({
         id: def.id,
-        partOfSpeech: def.part_of_speech,
+        partOfSpeech: def.partOfSpeech,
         definition: def.definition,
         example: def.example,
         provider: def.provider,

@@ -11,7 +11,7 @@ export type LookupWordInput = {
 
 export type DefinitionResult = {
   id: string;
-  part_of_speech: PartOfSpeech;
+  partOfSpeech: PartOfSpeech;
   definition: string;
   example: string | null;
   provider: string;

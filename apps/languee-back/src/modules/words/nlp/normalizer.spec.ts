@@ -12,8 +12,8 @@ describe('Normalizer', () => {
     it('normalizes a plain lowercase ASCII word', () => {
       const result = normalizer.normalize({ raw: 'hello' });
       expect(result).toEqual({
-        normalized_form: 'hello',
-        is_multi_word: false,
+        normalizedForm: 'hello',
+        isMultiWord: false,
         pos: null,
       });
     });
@@ -23,8 +23,8 @@ describe('Normalizer', () => {
     it('lowercases "Despite" to "despite"', () => {
       const result = normalizer.normalize({ raw: 'Despite' });
       expect(result).toEqual({
-        normalized_form: 'despite',
-        is_multi_word: false,
+        normalizedForm: 'despite',
+        isMultiWord: false,
         pos: null,
       });
     });
@@ -34,8 +34,8 @@ describe('Normalizer', () => {
     it('trims and lowercases "  although  "', () => {
       const result = normalizer.normalize({ raw: '  although  ' });
       expect(result).toEqual({
-        normalized_form: 'although',
-        is_multi_word: false,
+        normalizedForm: 'although',
+        isMultiWord: false,
         pos: null,
       });
     });
@@ -46,22 +46,22 @@ describe('Normalizer', () => {
       // "café" with NFD é: c-a-f-e + combining acute accent
       const nfdInput = 'café';
       const result = normalizer.normalize({ raw: nfdInput });
-      expect(result.normalized_form).toBe('café');
+      expect(result.normalizedForm).toBe('café');
       expect(result).toEqual({
-        normalized_form: 'café',
-        is_multi_word: false,
+        normalizedForm: 'café',
+        isMultiWord: false,
         pos: null,
       });
     });
   });
 
   describe('EC4 — empty string', () => {
-    it('returns empty normalized_form without throwing', () => {
+    it('returns empty normalizedForm without throwing', () => {
       expect(() => normalizer.normalize({ raw: '' })).not.toThrow();
       const result = normalizer.normalize({ raw: '' });
       expect(result).toEqual({
-        normalized_form: '',
-        is_multi_word: false,
+        normalizedForm: '',
+        isMultiWord: false,
         pos: null,
       });
     });
@@ -71,8 +71,8 @@ describe('Normalizer', () => {
     it('trims whitespace-only input to empty string', () => {
       const result = normalizer.normalize({ raw: '   ' });
       expect(result).toEqual({
-        normalized_form: '',
-        is_multi_word: false,
+        normalizedForm: '',
+        isMultiWord: false,
         pos: null,
       });
     });
@@ -82,8 +82,8 @@ describe('Normalizer', () => {
     it('preserves internal space in "hello world"', () => {
       const result = normalizer.normalize({ raw: 'hello world' });
       expect(result).toEqual({
-        normalized_form: 'hello world',
-        is_multi_word: false,
+        normalizedForm: 'hello world',
+        isMultiWord: false,
         pos: null,
       });
     });
@@ -93,18 +93,18 @@ describe('Normalizer', () => {
     it('lowercases "Café" (NFC) to "café"', () => {
       const result = normalizer.normalize({ raw: 'Café' });
       expect(result).toEqual({
-        normalized_form: 'café',
-        is_multi_word: false,
+        normalizedForm: 'café',
+        isMultiWord: false,
         pos: null,
       });
     });
   });
 
-  describe('EC8 — is_multi_word is exactly boolean false', () => {
-    it('returns is_multi_word as boolean false, not null/undefined/0', () => {
+  describe('EC8 — isMultiWord is exactly boolean false', () => {
+    it('returns isMultiWord as boolean false, not null/undefined/0', () => {
       const result = normalizer.normalize({ raw: 'test' });
-      expect(result.is_multi_word).toBe(false);
-      expect(typeof result.is_multi_word).toBe('boolean');
+      expect(result.isMultiWord).toBe(false);
+      expect(typeof result.isMultiWord).toBe('boolean');
     });
   });
 
@@ -130,7 +130,7 @@ describe('Normalizer', () => {
     it('returns the same string when input is already trimmed, lowercase, and NFC', () => {
       const alreadyNormalized = 'café'; // NFC, lowercase, no surrounding whitespace
       const result = normalizer.normalize({ raw: alreadyNormalized });
-      expect(result.normalized_form).toBe(alreadyNormalized);
+      expect(result.normalizedForm).toBe(alreadyNormalized);
     });
   });
 });

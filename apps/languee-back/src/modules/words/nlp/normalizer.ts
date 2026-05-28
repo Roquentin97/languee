@@ -12,8 +12,8 @@ export class Normalizer implements INormalizer {
     const lowercased = trimmed.toLowerCase();
     const normalized = lowercased.normalize('NFC');
     return {
-      normalized_form: normalized,
-      is_multi_word: false,
+      normalizedForm: normalized,
+      isMultiWord: false,
       pos: null,
     };
   }

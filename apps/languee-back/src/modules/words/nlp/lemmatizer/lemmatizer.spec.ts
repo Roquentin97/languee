@@ -31,7 +31,7 @@ describe('Lemmatizer', () => {
     it('returns "despite" unchanged', () => {
       const input: PreLemmatizedOutput = {
         lemma: 'despite',
-        short_circuited: false,
+        shortCircuited: false,
       };
       const result = lemmatizer.lemmatize(input);
       expect(result).toEqual({ lemma: 'despite' });
@@ -40,7 +40,7 @@ describe('Lemmatizer', () => {
     it('returns "although" unchanged', () => {
       const input: PreLemmatizedOutput = {
         lemma: 'although',
-        short_circuited: false,
+        shortCircuited: false,
       };
       const result = lemmatizer.lemmatize(input);
       expect(result).toEqual({ lemma: 'although' });
@@ -49,7 +49,7 @@ describe('Lemmatizer', () => {
     it('returns "already" unchanged', () => {
       const input: PreLemmatizedOutput = {
         lemma: 'already',
-        short_circuited: false,
+        shortCircuited: false,
       };
       const result = lemmatizer.lemmatize(input);
       expect(result).toEqual({ lemma: 'already' });
@@ -58,14 +58,14 @@ describe('Lemmatizer', () => {
 
   // EC1: empty string
   it('EC1: returns empty string when input lemma is empty string', () => {
-    const input: PreLemmatizedOutput = { lemma: '', short_circuited: false };
+    const input: PreLemmatizedOutput = { lemma: '', shortCircuited: false };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: '' });
   });
 
   // EC2: whitespace-only input
   it('EC2: returns whitespace-only lemma unchanged', () => {
-    const input: PreLemmatizedOutput = { lemma: '   ', short_circuited: false };
+    const input: PreLemmatizedOutput = { lemma: '   ', shortCircuited: false };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: '   ' });
   });
@@ -74,7 +74,7 @@ describe('Lemmatizer', () => {
   it('EC3: returns Unicode lemma unchanged', () => {
     const inputs = ['éléphant', '日本語', 'über'];
     for (const lemma of inputs) {
-      const input: PreLemmatizedOutput = { lemma, short_circuited: false };
+      const input: PreLemmatizedOutput = { lemma, shortCircuited: false };
       const result = lemmatizer.lemmatize(input);
       expect(result).toEqual({ lemma });
     }
@@ -83,7 +83,7 @@ describe('Lemmatizer', () => {
   // EC4: IrregularTable returns non-null — RuleEngine and Passthrough must NOT be called
   it('EC4: short-circuits after IrregularTable match — RuleEngine and Passthrough not called', () => {
     irregularTable.lookup.mockReturnValue('ran');
-    const input: PreLemmatizedOutput = { lemma: 'run', short_circuited: false };
+    const input: PreLemmatizedOutput = { lemma: 'run', shortCircuited: false };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: 'ran' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -100,7 +100,7 @@ describe('Lemmatizer', () => {
     ruleEngine.apply.mockReturnValue('walk');
     const input: PreLemmatizedOutput = {
       lemma: 'walking',
-      short_circuited: false,
+      shortCircuited: false,
     };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: 'walk' });
@@ -130,7 +130,7 @@ describe('Lemmatizer', () => {
 
     const input: PreLemmatizedOutput = {
       lemma: 'despite',
-      short_circuited: false,
+      shortCircuited: false,
     };
     lemmatizer.lemmatize(input);
 
@@ -141,20 +141,20 @@ describe('Lemmatizer', () => {
   it('EC7: does not mutate the input PreLemmatizedOutput', () => {
     const input: PreLemmatizedOutput = Object.freeze({
       lemma: 'running',
-      short_circuited: false,
+      shortCircuited: false,
     }) as PreLemmatizedOutput;
     // Should not throw when input is frozen
     expect(() => lemmatizer.lemmatize(input)).not.toThrow();
     // Reference check: input is unchanged
     expect(input.lemma).toBe('running');
-    expect(input.short_circuited).toBe(false);
+    expect(input.shortCircuited).toBe(false);
   });
 
-  // EC8: short_circuited: true — Lemmatizer ignores it, runs full hierarchy
-  it('EC8: runs full hierarchy regardless of short_circuited: true on input', () => {
+  // EC8: shortCircuited: true — Lemmatizer ignores it, runs full hierarchy
+  it('EC8: runs full hierarchy regardless of shortCircuited: true on input', () => {
     const input: PreLemmatizedOutput = {
       lemma: 'despite',
-      short_circuited: true,
+      shortCircuited: true,
     };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: 'despite' });

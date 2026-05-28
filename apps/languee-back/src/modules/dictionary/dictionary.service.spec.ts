@@ -83,7 +83,7 @@ describe('DictionaryService', () => {
       expect(result.definitions).toHaveLength(1);
       expect(result.definitions[0]).toMatchObject({
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.PREPOSITION,
+        partOfSpeech: PartOfSpeech.PREPOSITION,
         definition: 'in spite of',
         example: 'Despite the rain, we went out.',
         provider: 'free-dictionary',

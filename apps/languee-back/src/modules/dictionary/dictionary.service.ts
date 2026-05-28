@@ -36,7 +36,7 @@ export class DictionaryService {
       if (rows.length > 0) {
         const definitions: DefinitionResult[] = rows.map((row) => ({
           id: row.id,
-          part_of_speech: row.partOfSpeech as PartOfSpeech,
+          partOfSpeech: row.partOfSpeech as PartOfSpeech,
           definition: row.definition,
           example: row.example ?? null,
           provider: row.provider,
@@ -73,7 +73,7 @@ export class DictionaryService {
 
     const definitions: DefinitionResult[] = rows.map((row) => ({
       id: row.id,
-      part_of_speech: row.partOfSpeech as PartOfSpeech,
+      partOfSpeech: row.partOfSpeech as PartOfSpeech,
       definition: row.definition,
       example: row.example ?? null,
       provider: row.provider,

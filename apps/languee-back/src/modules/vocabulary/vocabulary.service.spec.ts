@@ -29,7 +29,7 @@ const defaultNlpAnalysis: NlpAnalysis = {
 
 const baseDefinition = {
   id: 'def-id-1',
-  part_of_speech: PartOfSpeech.VERB,
+  partOfSpeech: PartOfSpeech.VERB,
   definition: 'to move fast',
   example: 'She ran quickly.',
   provider: 'free-dictionary',
@@ -122,7 +122,7 @@ describe('VocabularyService', () => {
           baseDefinition,
           {
             id: 'def-id-2',
-            part_of_speech: PartOfSpeech.VERB,
+            partOfSpeech: PartOfSpeech.VERB,
             definition: 'a run',
             example: null,
             provider: 'free-dictionary',
@@ -214,7 +214,7 @@ describe('VocabularyService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('maps part_of_speech (snake_case) to partOfSpeech (camelCase) in the output', async () => {
+    it('returns definitions with camelCase partOfSpeech in the output', async () => {
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
@@ -235,7 +235,7 @@ describe('VocabularyService', () => {
     it('POS filtering — only verb definitions returned when NLP maps to VERB', async () => {
       const verbDef = {
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.VERB,
+        partOfSpeech: PartOfSpeech.VERB,
         definition: 'to move fast',
         example: null,
         provider: 'free-dictionary',
@@ -244,7 +244,7 @@ describe('VocabularyService', () => {
       };
       const nounDef = {
         id: 'def-id-2',
-        part_of_speech: PartOfSpeech.NOUN,
+        partOfSpeech: PartOfSpeech.NOUN,
         definition: 'a run',
         example: null,
         provider: 'free-dictionary',
@@ -275,7 +275,7 @@ describe('VocabularyService', () => {
     it('POS filtering — unmatchedPos is true when no definitions match the resolved POS', async () => {
       const nounDef = {
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.NOUN,
+        partOfSpeech: PartOfSpeech.NOUN,
         definition: 'a run',
         example: null,
         provider: 'free-dictionary',
@@ -311,7 +311,7 @@ describe('VocabularyService', () => {
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       const verbDef = {
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.VERB,
+        partOfSpeech: PartOfSpeech.VERB,
         definition: 'to move fast',
         example: null,
         provider: 'free-dictionary',
@@ -320,7 +320,7 @@ describe('VocabularyService', () => {
       };
       const nounDef = {
         id: 'def-id-2',
-        part_of_speech: PartOfSpeech.NOUN,
+        partOfSpeech: PartOfSpeech.NOUN,
         definition: 'a run',
         example: null,
         provider: 'free-dictionary',
@@ -352,7 +352,7 @@ describe('VocabularyService', () => {
         definitions: [
           {
             id: 'def-id-1',
-            part_of_speech: PartOfSpeech.VERB,
+            partOfSpeech: PartOfSpeech.VERB,
             definition: 'move fast',
             example: null,
             provider: 'free-dictionary',
@@ -361,7 +361,7 @@ describe('VocabularyService', () => {
           },
           {
             id: 'def-id-2',
-            part_of_speech: PartOfSpeech.VERB,
+            partOfSpeech: PartOfSpeech.VERB,
             definition: 'operate',
             example: null,
             provider: 'free-dictionary',
@@ -387,7 +387,7 @@ describe('VocabularyService', () => {
     it('deck enrichment runs on the filtered definitions set only', async () => {
       const verbDef = {
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.VERB,
+        partOfSpeech: PartOfSpeech.VERB,
         definition: 'to move fast',
         example: null,
         provider: 'free-dictionary',
@@ -396,7 +396,7 @@ describe('VocabularyService', () => {
       };
       const nounDef = {
         id: 'def-id-2',
-        part_of_speech: PartOfSpeech.NOUN,
+        partOfSpeech: PartOfSpeech.NOUN,
         definition: 'a run',
         example: null,
         provider: 'free-dictionary',
@@ -432,7 +432,7 @@ describe('VocabularyService', () => {
       mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
       const adjDef = {
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.ADJECTIVE,
+        partOfSpeech: PartOfSpeech.ADJECTIVE,
         definition: 'moving quickly',
         example: null,
         provider: 'free-dictionary',
@@ -441,7 +441,7 @@ describe('VocabularyService', () => {
       };
       const verbDef = {
         id: 'def-id-2',
-        part_of_speech: PartOfSpeech.VERB,
+        partOfSpeech: PartOfSpeech.VERB,
         definition: 'to fast (refrain from eating)',
         example: null,
         provider: 'free-dictionary',
@@ -491,7 +491,7 @@ describe('VocabularyService', () => {
     it('meta.availablePartsOfSpeech reflects the full pre-filter set when unmatchedPos is true', async () => {
       const nounDef = {
         id: 'def-id-1',
-        part_of_speech: PartOfSpeech.NOUN,
+        partOfSpeech: PartOfSpeech.NOUN,
         definition: 'a run',
         example: null,
         provider: 'free-dictionary',

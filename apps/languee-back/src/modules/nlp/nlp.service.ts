@@ -39,7 +39,7 @@ export class NlpService {
 
     const body = (await response.json()) as NlpWordResponse;
 
-    if (body.is_multi_word || body.tokens.length !== 1) {
+    if (body['is_multi_word'] || body.tokens.length !== 1) {
       throw new NlpMultiWordError();
     }
 
@@ -49,7 +49,7 @@ export class NlpService {
     return {
       lemma: token.lemma,
       pos: mapSpacyPos(token.pos),
-      isIrregular: token.is_irregular,
+      isIrregular: token['is_irregular'],
       inflectionForms,
     };
   }
@@ -60,27 +60,27 @@ export class NlpService {
   ): Record<string, string> {
     if (pos === 'VERB') {
       return this.compactRecord({
-        base: forms.verb_base,
-        past: forms.verb_past,
-        gerundParticiple: forms.verb_gerund_participle,
-        pastParticiple: forms.verb_past_participle,
-        presentNon3sg: forms.verb_present_non_3sg,
-        present3sg: forms.verb_present_3sg,
+        base: forms['verb_base'],
+        past: forms['verb_past'],
+        gerundParticiple: forms['verb_gerund_participle'],
+        pastParticiple: forms['verb_past_participle'],
+        presentNon3sg: forms['verb_present_non_3sg'],
+        present3sg: forms['verb_present_3sg'],
       });
     }
 
     if (pos === 'NOUN') {
       return this.compactRecord({
-        singular: forms.noun_singular,
-        plural: forms.noun_plural,
+        singular: forms['noun_singular'],
+        plural: forms['noun_plural'],
       });
     }
 
     if (pos === 'ADJ' || pos === 'ADV') {
       return this.compactRecord({
-        positive: forms.adj_positive,
-        comparative: forms.adj_comparative,
-        superlative: forms.adj_superlative,
+        positive: forms['adj_positive'],
+        comparative: forms['adj_comparative'],
+        superlative: forms['adj_superlative'],
       });
     }
 
