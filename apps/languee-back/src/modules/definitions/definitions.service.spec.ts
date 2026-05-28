@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { DefinitionService } from './definitions.service';
 import { PrismaService } from '../core/prisma/prisma.service';
+import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 function makeDefinitionRow(
   overrides: Partial<{
@@ -96,11 +97,15 @@ describe('DefinitionService', () => {
     it('persists each entry with the caller-provided provider name', async () => {
       const entries = [
         {
-          partOfSpeech: 'verb',
+          partOfSpeech: PartOfSpeech.VERB,
           definition: 'move at a fast pace',
           example: 'She runs.',
         },
-        { partOfSpeech: 'noun', definition: 'a run', example: undefined },
+        {
+          partOfSpeech: PartOfSpeech.NOUN,
+          definition: 'a run',
+          example: undefined,
+        },
       ];
       const rows = [
         makeDefinitionRow({ id: 'def-1', example: 'She runs.' }),
@@ -144,7 +149,12 @@ describe('DefinitionService', () => {
 
       const result = await service.createMany(
         'word-id-1',
-        [{ partOfSpeech: 'verb', definition: 'move at a fast pace' }],
+        [
+          {
+            partOfSpeech: PartOfSpeech.VERB,
+            definition: 'move at a fast pace',
+          },
+        ],
         'dictionaryapi',
       );
 
@@ -165,7 +175,12 @@ describe('DefinitionService', () => {
 
       const result = await service.createMany(
         'word-id-1',
-        [{ partOfSpeech: 'verb', definition: 'move at a fast pace' }],
+        [
+          {
+            partOfSpeech: PartOfSpeech.VERB,
+            definition: 'move at a fast pace',
+          },
+        ],
         'dictionaryapi',
       );
 
@@ -185,7 +200,12 @@ describe('DefinitionService', () => {
       await expect(
         service.createMany(
           'word-id-1',
-          [{ partOfSpeech: 'verb', definition: 'move at a fast pace' }],
+          [
+            {
+              partOfSpeech: PartOfSpeech.VERB,
+              definition: 'move at a fast pace',
+            },
+          ],
           'dictionaryapi',
         ),
       ).rejects.toThrow();
@@ -210,7 +230,7 @@ describe('DefinitionService', () => {
         'word-id-1',
         [
           {
-            partOfSpeech: 'verb',
+            partOfSpeech: PartOfSpeech.VERB,
             definition: 'move at a fast pace',
             hasIrregularForms: true,
             inflectionForms,
@@ -235,7 +255,12 @@ describe('DefinitionService', () => {
 
       await service.createMany(
         'word-id-1',
-        [{ partOfSpeech: 'verb', definition: 'move at a fast pace' }],
+        [
+          {
+            partOfSpeech: PartOfSpeech.VERB,
+            definition: 'move at a fast pace',
+          },
+        ],
         'dictionaryapi',
       );
 
