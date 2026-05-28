@@ -7,6 +7,9 @@ export class AppLogger implements LoggerService {
   constructor(context = 'App') {
     this.context = context;
 
+    // process.env is read directly here instead of ConfigService because this
+    // logger is instantiated before NestFactory.create() finishes — the DI
+    // container does not exist yet, so ConfigService is not available.
     const enabled: LogLevel[] = ['log', 'warn', 'error', 'fatal'];
     if (process.env['PRINT_DEBUG_LOGS'] === 'true') {
       enabled.push('debug', 'verbose');
@@ -90,7 +93,8 @@ export class AppLogger implements LoggerService {
       }
     }
 
-    // Top-level fields always win over spread object fields
+    // Top-level fields always win over spread object fields.
+    // process.env is read directly — see constructor comment.
     payload['timestamp'] = new Date().toISOString();
     payload['level'] = level;
     payload['service'] = process.env['SERVICE_NAME'] ?? 'languee-back';
