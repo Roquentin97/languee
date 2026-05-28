@@ -49,3 +49,6 @@ coverage/
 
 #forge artifacts
 forge/runs/
+
+#local
+.lab
