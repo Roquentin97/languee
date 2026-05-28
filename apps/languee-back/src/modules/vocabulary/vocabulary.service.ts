@@ -37,13 +37,16 @@ export class VocabularyService {
       ...new Set(baseOutput.definitions.map((d) => d.partOfSpeech)),
     ];
 
-    // Filter definitions by POS if we have a mapped POS
-    const filteredDefinitions =
-      mappedPos !== null
-        ? baseOutput.definitions.filter((def) => def.partOfSpeech === mappedPos)
-        : baseOutput.definitions;
+    const hasContext = Boolean(input.context?.trim());
+    const shouldFilterByPos =
+      hasContext && !input.disablePosFiltering && mappedPos !== null;
 
-    const filteredByPos = mappedPos !== null;
+    // Filter definitions by POS only for context-aware lookups.
+    const filteredDefinitions = shouldFilterByPos
+      ? baseOutput.definitions.filter((def) => def.partOfSpeech === mappedPos)
+      : baseOutput.definitions;
+
+    const filteredByPos = shouldFilterByPos;
     const unmatchedPos = filteredByPos && filteredDefinitions.length === 0;
 
     // Deck enrichment on filtered definitions

@@ -2,6 +2,7 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
+  IsIn,
   Length,
   Matches,
 } from 'class-validator';
@@ -21,4 +22,8 @@ export class LookupVocabularyDto {
   @IsString()
   @IsNotEmpty()
   context?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  disablePosFiltering?: 'true' | 'false';
 }

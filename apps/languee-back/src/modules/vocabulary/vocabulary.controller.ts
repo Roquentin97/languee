@@ -33,6 +33,7 @@ export class VocabularyController {
         language: query.language ?? 'en',
         userId: user.userId,
         context: query.context,
+        disablePosFiltering: query.disablePosFiltering === 'true',
       });
     } catch (err: unknown) {
       if (err instanceof NlpUnavailableError) {

@@ -84,6 +84,7 @@ describe('VocabularyController', () => {
         language: 'en',
         userId: 'user-id-1',
         context: undefined,
+        disablePosFiltering: false,
       });
     });
 
@@ -94,6 +95,27 @@ describe('VocabularyController', () => {
 
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
         expect.objectContaining({ language: 'en' }),
+      );
+    });
+
+    it('passes disablePosFiltering=true through as a boolean flag', async () => {
+      mockVocabularyService.lookup.mockResolvedValue(successOutput);
+
+      await controller.lookup(
+        {
+          word: 'run',
+          language: 'en',
+          context: 'She runs every morning.',
+          disablePosFiltering: 'true',
+        },
+        mockUser,
+      );
+
+      expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: 'She runs every morning.',
+          disablePosFiltering: true,
+        }),
       );
     });
 

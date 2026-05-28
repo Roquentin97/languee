@@ -262,6 +262,7 @@ describe('VocabularyService', () => {
         word: 'run',
         language: 'en',
         userId: 'user-id-1',
+        context: 'She runs every morning.',
       });
 
       expect(result.definitions).toHaveLength(1);
@@ -294,6 +295,7 @@ describe('VocabularyService', () => {
         word: 'run',
         language: 'en',
         userId: 'user-id-1',
+        context: 'She runs every morning.',
       });
 
       expect(result.definitions).toHaveLength(0);
@@ -414,6 +416,7 @@ describe('VocabularyService', () => {
         word: 'run',
         language: 'en',
         userId: 'user-id-1',
+        context: 'She runs every morning.',
       });
 
       // Only the verb def id should be passed (noun filtered out by POS=VERB)
@@ -459,6 +462,7 @@ describe('VocabularyService', () => {
         word: 'fast',
         language: 'en',
         userId: 'user-id-1',
+        context: 'That was a fast train.',
       });
 
       expect(result.definitions).toHaveLength(1);
@@ -482,6 +486,7 @@ describe('VocabularyService', () => {
         word: 'run',
         language: 'en',
         userId: 'user-id-1',
+        context: 'She runs every morning.',
       });
 
       expect(result.meta.filteredByPos).toBe(false);
@@ -510,14 +515,37 @@ describe('VocabularyService', () => {
         word: 'run',
         language: 'en',
         userId: 'user-id-1',
+        context: 'She runs every morning.',
       });
 
       expect(result.meta.unmatchedPos).toBe(true);
       expect(result.meta.availablePartsOfSpeech).toEqual([PartOfSpeech.NOUN]);
     });
 
-    it('context field is optional — omitting it does not affect lookup behaviour', async () => {
-      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+    it('POS filtering — all definitions returned when context is omitted', async () => {
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
@@ -527,8 +555,49 @@ describe('VocabularyService', () => {
         // no context field
       });
 
-      expect(result.definitions).toHaveLength(1);
+      expect(result.definitions).toHaveLength(2);
       expect(result.context).toBeUndefined();
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('POS filtering — all definitions returned when disablePosFiltering is true', async () => {
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+        disablePosFiltering: true,
+      });
+
+      expect(result.definitions).toHaveLength(2);
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
     });
 
     it('context field is preserved in the output when provided', async () => {

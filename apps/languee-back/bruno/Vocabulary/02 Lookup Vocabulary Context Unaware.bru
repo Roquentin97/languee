@@ -20,6 +20,6 @@ tests {
     expect(res.body.context).to.be.undefined;
     expect(res.body.lemma).to.be.a("string");
     expect(res.body.definitions).to.be.an("array");
-    expect(res.body.meta.filteredByPos).to.be.a("boolean");
+    expect(res.body.meta.filteredByPos).to.equal(false);
   });
 }

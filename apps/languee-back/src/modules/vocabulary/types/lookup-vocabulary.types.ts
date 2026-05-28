@@ -5,6 +5,7 @@ export type LookupVocabularyInput = {
   language: string;
   userId: string;
   context?: string;
+  disablePosFiltering?: boolean;
 };
 
 export type DeckRef = {
