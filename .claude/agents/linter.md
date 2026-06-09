@@ -28,6 +28,9 @@ write tests, or make architectural decisions.
       "lint": "uv run ruff check ."
     }
   },
+  "context_artifacts": {
+    "agent_instructions": "forge/runs/<spec-slug>/context/agent-instructions.md"
+  },
   "files_changed": ["list of files the Implementer created or modified"],
   "lint_errors": "raw stdout/stderr from the failed lint run"
 }
@@ -54,22 +57,19 @@ If `errors_remaining` is non-empty, set `status` to `needs_revision`.
 
 1. Read `target_service` and `lint_errors` - understand exactly which errors remain
    and in which files.
-2. Cross-reference with `files_changed` - ignore any errors in files not in that list
+2. If `context_artifacts.agent_instructions` is present, read it for target-service lint,
+   typing, import, and package-manager rules.
+3. Cross-reference with `files_changed` - ignore any errors in files not in that list
    because they are pre-existing and out of scope.
-3. Fix only what cannot be auto-fixed:
-   - TypeScript/NestJS: missing type annotations, unsafe narrowing, import issues,
-     structural issues that require judgment
-   - Python/FastAPI: Ruff violations, import ordering, unused names, unsafe or missing
-     typing when reported by configured tools
-4. Run the target service lint command once after your fixes to confirm zero errors
+4. Fix only what cannot be auto-fixed according to the target-service rules.
+5. Run the target service lint command once after your fixes to confirm zero errors
    remain in changed files.
-5. List any errors you could not fix in `errors_remaining` with the file, line, and
+6. List any errors you could not fix in `errors_remaining` with the file, line, and
    rule name when available.
 
 ## Service commands
 
-- For `languee-back`, run lint from `apps/languee-back` with `yarn lint`.
-- For `languee-nlp`, run lint from `apps/languee-nlp` with `uv run ruff check .`.
+Run `target_service.commands.lint` from `target_service.path`.
 
 ## Rules
 

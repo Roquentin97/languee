@@ -24,9 +24,9 @@ the restart stage, and pushes fixes to the existing PR branch.
    ```bash
    git worktree add ../<repo-name>-<spec-slug>-r<iteration> feature/<spec-slug>
    ```
-10. Generate compact context artifacts inside the worktree at
-    `forge/runs/<spec-slug>/context/` using `forge/context_skeleton.py` and the
-    target service context config from `forge/config.py`
+10. Generate target-specific agent instructions and compact context artifacts inside the
+    worktree at `forge/runs/<spec-slug>/context/` using `forge/agent_instructions.py`,
+    `forge/context_skeleton.py`, and the target service config from `forge/config.py`
 11. Update Notion status to `in-progress`
 12. Increment `Iteration` field by 1
 13. Run the pipeline from the inferred stage, passing feedback and `context_artifacts`
@@ -60,8 +60,9 @@ proceeding so the human can verify the decision was correct.
 the same auto-lint step used in the main pipeline:
 
 1. Run the target service auto-lint sequence in the worktree:
-   - `languee-back`: `yarn lint && yarn format && yarn lint`
-   - `languee-nlp`: `uv run ruff check . && uv run ruff format . && uv run ruff check .`
+   - `<target_service.commands.lint>`
+   - `<target_service.commands.format>`
+   - `<target_service.commands.lint>`
 2. If exit code is 0: write synthetic `linter-output.json` with `"mode": "auto"`,
    proceed to QA
 3. If exit code is non-zero: capture `lint_errors`, dispatch the Linter agent with
@@ -82,6 +83,7 @@ Append feedback as an additional field in the task object passed to each agent:
     "commands": { ... }
   },
   "context_artifacts": {
+    "agent_instructions": "forge/runs/<spec-slug>/context/agent-instructions.md",
     "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
     "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
     "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"

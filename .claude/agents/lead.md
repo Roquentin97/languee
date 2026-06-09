@@ -61,8 +61,12 @@ Build this object from the selected `config.services` entry and pass it to every
     "test": "uv run pytest",
     "coverage": "uv run pytest --cov=languee_nlp",
     "build": null,
-    "validate_persistence": null
+    "validate_persistence": null,
+    "persistence_migrate": null,
+    "persistence_generate": null
   },
+  "rulesets": ["common", "boundary", "fastapi", "spacy", "pytest"],
+  "environment": ["LANGUEE_NLP_PORT", "LANGUEE_NLP_SPACY_MODEL"],
   "context": {
     "include": ["src/**/*.py", "tests/**/*.py", "pyproject.toml"],
     "exclude": [".venv/**", "__pycache__/**", ".pytest_cache/**", ".ruff_cache/**"],
@@ -112,7 +116,15 @@ For each spec, before dispatching any subagent:
 4. All subagents for this spec operate inside the worktree directory - never in the
    main repo.
 5. Create the run directory at `forge/runs/<spec-slug>/` inside the worktree.
-6. Generate compact context artifacts from inside the worktree:
+6. Generate target-specific agent instructions from inside the worktree:
+   ```bash
+   python3 forge/agent_instructions.py \
+     --service-name <target_service.name> \
+     --output-dir forge/runs/<spec-slug>/context
+   ```
+   This reads `forge/services.toml`, selects only `target_service.rulesets`, and writes
+   `forge/runs/<spec-slug>/context/agent-instructions.md`.
+7. Generate compact context artifacts from inside the worktree:
    ```bash
    python3 forge/context_skeleton.py \
      --service-name <target_service.name> \
@@ -122,15 +134,16 @@ For each spec, before dispatching any subagent:
    When `target_service.context.include`, `target_service.context.exclude`, or
    `target_service.context.always_full` are present, pass each item as repeated
    `--include`, `--exclude`, or `--always-full` flags.
-7. Build a `context_artifacts` object and pass it to Architect, Implementer, and QA:
+8. Build a `context_artifacts` object and pass it to every dispatched subagent:
    ```json
    {
+     "agent_instructions": "forge/runs/<spec-slug>/context/agent-instructions.md",
      "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
      "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
      "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
    }
    ```
-8. Update Notion status to `in-progress`.
+9. Update Notion status to `in-progress`.
 
 ## On pipeline completion
 
@@ -180,8 +193,9 @@ Each agent receives only the fields it needs. Always include `target_service`.
 | Implementer | everything                                                          | -                                                                     | -                           |
 | QA          | `edge_cases`, `persistence_changes`, `service_contracts`, `notes`   | `files_changed`, `persistence_change_applied`, `persistence_artifacts`, `notes` | `files_fixed`, `notes`      |
 
-The Linter agent only receives `target_service`, `implementer_output.files_changed`, and
-the raw `lint_errors` text - it does not receive architect or spec context.
+The Linter agent only receives `target_service`, `context_artifacts`,
+`implementer_output.files_changed`, and the raw `lint_errors` text - it does not receive
+architect or spec context.
 
 ```json
 {
@@ -194,6 +208,7 @@ the raw `lint_errors` text - it does not receive architect or spec context.
   },
   "target_service": { ... },
   "context_artifacts": {
+    "agent_instructions": "forge/runs/<spec-slug>/context/agent-instructions.md",
     "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
     "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
     "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
@@ -207,10 +222,10 @@ the raw `lint_errors` text - it does not receive architect or spec context.
 ```
 
 Only include keys for agents that have already run, and only the fields listed above.
-`context_artifacts` is not a substitute for source files. It is an architecture map used
-to reduce broad scanning. Agents must still read full source files before editing,
-reviewing behavior, writing tests, or making decisions that depend on implementation
-details.
+`context_artifacts.agent_instructions` is the target-specific rules source for the run.
+The skeleton artifacts are not a substitute for source files. Agents must still read full
+source files before editing, reviewing behavior, writing tests, or making decisions that
+depend on implementation details.
 
 ## Capturing usage metadata
 
@@ -271,13 +286,6 @@ cd ../<repo-name>-<spec-slug>/<target_service.path>
 <target_service.commands.lint>
 <target_service.commands.format>
 <target_service.commands.lint>
-```
-
-Examples:
-
-```bash
-cd ../anki-agent-some-spec/apps/languee-back && yarn lint && yarn format && yarn lint
-cd ../anki-agent-some-spec/apps/languee-nlp && uv run ruff check . && uv run ruff format . && uv run ruff check .
 ```
 
 Record wall time for the run summary.

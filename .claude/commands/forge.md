@@ -24,8 +24,8 @@ Architect → Implementer → Linter → QA → PR
 7. If a spec is missing `Target` or references an unknown target, mark it
    `pending-more-info` and ask for the target service
 8. Otherwise execute the Lead agent instructions for each matching spec. Lead generates
-   compact context artifacts in `forge/runs/<spec-title-kebab-case>/context/` before
-   dispatching Architect.
+   target-specific agent instructions and compact context artifacts in
+   `forge/runs/<spec-title-kebab-case>/context/` before dispatching Architect.
 
 ## Subagent prompts
 
@@ -37,9 +37,10 @@ Each subagent is spawned using the Task tool with its prompt loaded fresh from:
 - `.claude/agents/qa.md`
 
 Each subagent receives a `target_service` object derived from `forge/config.py`.
-Architect, Implementer, and QA also receive `context_artifacts` paths for the compact
-repository skeleton, manifest, and compaction stats. These artifacts are for broad
-orientation only; agents still read full source files before edits, reviews, or tests.
+Dispatched subagents also receive `context_artifacts` paths for generated
+`agent-instructions.md`, the compact repository skeleton, manifest, and compaction stats.
+`agent-instructions.md` contains only the target service's selected rulesets from
+`forge/services.toml`; skeleton artifacts are for broad orientation only.
 
 ## Run output
 
