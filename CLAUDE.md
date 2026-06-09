@@ -185,6 +185,8 @@ Never assume environment variables are already exported - always use the wrapper
 - Always run the target service lint command before declaring a task done
 - Run noisy local commands through `forge/command_summary.py`; persist raw logs under
   `forge/runs/<spec-slug>/logs/` and forward only compact summaries to agents
+- Validate agent handoff JSON with `forge/output_gateway.py` before persisting canonical
+  outputs or forwarding data to another agent
 - When a task touches the DB, validate migration runs cleanly on a fresh schema
 
 ## Forge pipeline

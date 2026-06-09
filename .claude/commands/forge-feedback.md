@@ -31,10 +31,12 @@ the restart stage, and pushes fixes to the existing PR branch.
 12. Increment `Iteration` field by 1
 13. Run the pipeline from the inferred stage, passing feedback and `context_artifacts`
     as additional context
-14. On completion: push to existing branch, update Notion to `done`, append iteration
+14. Validate every agent output with `forge/output_gateway.py` before persisting it as
+    canonical or passing it downstream
+15. On completion: push to existing branch, update Notion to `done`, append iteration
     summary to `Agent output`
-15. On failure: update Notion to `failed`, append failure reason to `Agent output`
-16. Clean up worktree
+16. On failure: update Notion to `failed`, append failure reason to `Agent output`
+17. Clean up worktree
 
 ## Restart stage inference rules
 

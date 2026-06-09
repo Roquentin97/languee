@@ -44,7 +44,8 @@ Dispatched subagents also receive `context_artifacts` paths for generated
 
 ## Run output
 
-All agent outputs are persisted to `forge/runs/<spec-title-kebab-case>/` as JSON files.
+All agent outputs are validated with `forge/output_gateway.py` before being persisted to
+`forge/runs/<spec-title-kebab-case>/` as canonical JSON files.
 Print a summary to the console after each agent completes.
 
 ## On completion

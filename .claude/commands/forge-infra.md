@@ -23,7 +23,8 @@ No Architect, Implementer, Linter or QA involved — DevOps agent works autonomo
 6. If a spec is missing `Target` or references an unknown target, mark it
    `pending-more-info` and ask for the target service
 7. Otherwise dispatch the DevOps agent for each matching spec
-8. Persist output to `forge/runs/<spec-title-kebab-case>/devops-output.json`
+8. Validate output with `forge/output_gateway.py --stage devops`, then persist it to
+   `forge/runs/<spec-title-kebab-case>/devops-output.json`
 9. On success: update Notion status to `done`, write summary to `Agent output`
 10. On failure: update Notion status to `failed`, write reason to `Agent output`
 

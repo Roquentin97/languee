@@ -44,6 +44,10 @@ Each stage is conditional:
    h. On any `needs_revision`: update Notion to `failed`, write stage and reason to
       `Agent output`
 
+Validate every agent output with `forge/output_gateway.py` before persisting it as the
+canonical output file or passing it to the next agent. If validation fails, run a
+localized repair turn with the same agent and do not forward the invalid output.
+
 ## On completion
 
 Print a final summary listing:

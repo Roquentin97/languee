@@ -93,7 +93,11 @@ Before creating a new worktree for a spec, check if a partial run already exists
 When resuming from partial outputs:
 
 - Read each existing output file to determine the last completed stage.
-- Skip agents whose output files already exist and have `status: done`.
+- Validate each existing output file with `forge/output_gateway.py` before trusting it.
+- Skip agents only when their output files already exist, have `status: done`, and pass
+  the gateway schema for that stage.
+- If an existing output is malformed or uses a legacy shape, do not forward it. Re-run
+  from that stage, or from the previous stage if the malformed output is required input.
 - Pass existing outputs as context to the next agent as if they had just completed.
 - Print which stage is being resumed from and why.
 
@@ -243,17 +247,47 @@ For the auto-lint bash step, record `duration_seconds` only - no token fields.
 
 ## Persisting and forwarding outputs
 
-After each agent or bash step completes:
+After each agent or bash step completes, validate its JSON before any downstream stage
+can consume it.
 
-1. Write its full JSON output to the run directory inside the worktree, including usage metadata:
+For agent outputs:
+
+1. Write the raw agent response to:
+   `forge/runs/<spec-slug>/validation/<stage>-raw-attempt-<n>.json`
+2. Run the schema gateway:
+   ```bash
+   python3 forge/output_gateway.py \
+     --stage <architect|implementer|linter|qa|devops|restructurer|decomposer> \
+     --input forge/runs/<spec-slug>/validation/<stage>-raw-attempt-<n>.json \
+     --summary-file forge/runs/<spec-slug>/validation/<stage>-validation-attempt-<n>.json
+   ```
+3. If validation passes, copy the raw attempt to the canonical output file, including
+   usage metadata:
    - `forge/runs/<spec-slug>/architect-output.json`
    - `forge/runs/<spec-slug>/implementer-output.json`
    - `forge/runs/<spec-slug>/linter-output.json`
    - `forge/runs/<spec-slug>/qa-output.json`
-2. Read the persisted file back and inject the scoped fields into the next agent's input.
+4. If validation fails, do not forward or persist the invalid output as canonical.
+   Dispatch a localized repair turn to the same agent with only:
+   - the original agent input
+   - the invalid raw JSON
+   - the validation summary errors
+   - instruction: repair the JSON shape only; do not change substantive decisions
+5. Allow at most two repair attempts. If validation still fails, mark the pipeline failed,
+   write the validation errors to `Agent output`, release locks, and clean up.
+6. Read only the validated canonical file back and inject the scoped fields into the next
+   agent's input.
 
-This ensures every agent receives the context it needs - no more - and creates a full
-audit trail for review and prompt tuning.
+For command summaries produced by `forge/command_summary.py`, validate each summary with:
+
+```bash
+python3 forge/output_gateway.py \
+  --stage command_summary \
+  --input forge/runs/<spec-slug>/logs/<label>.summary.json
+```
+
+This ensures every agent receives validated context - no more - and creates a full audit
+trail for review and prompt tuning.
 
 ## After Architect
 

@@ -64,6 +64,9 @@ Avoid brace expansion in shell commands.
   format, tests, coverage, migrations, builds, and Docker checks, use
   `forge/command_summary.py`. Raw stdout/stderr should be written to
   `forge/runs/<spec-slug>/logs/`; only compact summaries should be forwarded to agents.
+- Agent JSON outputs are validated by `forge/output_gateway.py` before downstream stages
+  consume them. Return exactly the schema requested by the agent prompt; malformed
+  handoffs trigger a localized repair turn instead of being forwarded.
 
 ## Branch, Commit, and PR Rules
 
