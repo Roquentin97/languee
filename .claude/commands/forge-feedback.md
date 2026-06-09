@@ -60,13 +60,14 @@ proceeding so the human can verify the decision was correct.
 the same auto-lint step used in the main pipeline:
 
 1. Run the target service auto-lint sequence in the worktree:
-   - `<target_service.commands.lint>`
-   - `<target_service.commands.format>`
-   - `<target_service.commands.lint>`
+   - `<target_service.commands.lint>` through `forge/command_summary.py`
+   - `<target_service.commands.format>` through `forge/command_summary.py`
+   - `<target_service.commands.lint>` through `forge/command_summary.py`
 2. If exit code is 0: write synthetic `linter-output.json` with `"mode": "auto"`,
    proceed to QA
-3. If exit code is non-zero: capture `lint_errors`, dispatch the Linter agent with
-   `target_service`, `files_changed`, and `lint_errors` only — no spec or architect context
+3. If exit code is non-zero: read only compact failed command summaries into
+   `lint_errors`, dispatch the Linter agent with `target_service`, `context_artifacts`,
+   `files_changed`, and `lint_errors` only — no spec or architect context
 
 ## Passing feedback to agents
 

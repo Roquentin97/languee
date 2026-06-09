@@ -183,6 +183,8 @@ Never assume environment variables are already exported - always use the wrapper
 - Never skip tests - if a feature has no test file, create one
 - Never leave `TODO` comments in committed code
 - Always run the target service lint command before declaring a task done
+- Run noisy local commands through `forge/command_summary.py`; persist raw logs under
+  `forge/runs/<spec-slug>/logs/` and forward only compact summaries to agents
 - When a task touches the DB, validate migration runs cleanly on a fresh schema
 
 ## Forge pipeline

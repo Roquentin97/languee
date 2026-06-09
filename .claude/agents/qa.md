@@ -78,8 +78,11 @@ relevant test files before reviewing behavior or writing tests.
 
 ### 1. Verify lint
 
-- Run the target service lint command from `target_service.path`.
-- If errors exist, add them to `issues` and set `lint_passed` to false.
+- Run the target service lint command from `target_service.path` through
+  `forge/command_summary.py`, writing raw logs under `forge/runs/<spec-slug>/logs/`.
+- If errors exist, add compact diagnostics from the summary to `issues` and set
+  `lint_passed` to false.
+- Do not paste raw stdout/stderr into `issues` or `notes`.
 
 ### 2. Write tests
 
@@ -89,16 +92,18 @@ relevant test files before reviewing behavior or writing tests.
 - If `context_artifacts` is present, use the manifest and skeleton to locate relevant
   existing tests and neighboring contracts before opening full files.
 - Write tests appropriate to the target service framework.
-- Run the target service test command - all tests must pass.
-- Run the target service coverage command when configured.
+- Run the target service test command through `forge/command_summary.py` - all tests must pass.
+- Run the target service coverage command through `forge/command_summary.py` when configured.
 - Flag any service-layer coverage below 80% in `issues` and set `coverage_passed` to false.
+  Use compact failing diagnostics and coverage summaries, not full raw command output.
 
 ### 3. Validate persistence
 
 - If `architect_output.persistence_changes.kind` is `prisma`:
   - Verify migration files listed by the Implementer exist in
     `apps/languee-back/prisma/migrations/`
-  - Run `target_service.commands.validate_persistence` from `target_service.path`
+  - Run `target_service.commands.validate_persistence` from `target_service.path` through
+    `forge/command_summary.py`
   - If invalid, add to `issues` and set `persistence_valid` to false
 - If `persistence_changes.required` is false or `kind` is `none`, set
   `persistence_valid` to true.

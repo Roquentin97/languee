@@ -60,6 +60,10 @@ Avoid brace expansion in shell commands.
 - Never leave `TODO` comments in committed code.
 - Always run the target service lint command before declaring a task done when the
   current agent is responsible for verification.
+- For local commands that can produce large output, especially package installs, lint,
+  format, tests, coverage, migrations, builds, and Docker checks, use
+  `forge/command_summary.py`. Raw stdout/stderr should be written to
+  `forge/runs/<spec-slug>/logs/`; only compact summaries should be forwarded to agents.
 
 ## Branch, Commit, and PR Rules
 

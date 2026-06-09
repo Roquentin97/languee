@@ -194,8 +194,8 @@ Each agent receives only the fields it needs. Always include `target_service`.
 | QA          | `edge_cases`, `persistence_changes`, `service_contracts`, `notes`   | `files_changed`, `persistence_change_applied`, `persistence_artifacts`, `notes` | `files_fixed`, `notes`      |
 
 The Linter agent only receives `target_service`, `context_artifacts`,
-`implementer_output.files_changed`, and the raw `lint_errors` text - it does not receive
-architect or spec context.
+`implementer_output.files_changed`, and compact failed command summaries in
+`lint_errors` - it does not receive architect or spec context.
 
 ```json
 {
@@ -279,18 +279,36 @@ audit trail for review and prompt tuning.
 
 ## Auto-lint step
 
-Run the target service format/lint sequence from inside the worktree:
+Run the target service format/lint sequence from inside the worktree through
+`forge/command_summary.py` so raw stdout/stderr is written to disk instead of injected
+into agent context:
 
 ```bash
-cd ../<repo-name>-<spec-slug>/<target_service.path>
-<target_service.commands.lint>
-<target_service.commands.format>
-<target_service.commands.lint>
+python3 forge/command_summary.py \
+  --label lint-before-format \
+  --cwd ../<repo-name>-<spec-slug>/<target_service.path> \
+  --log-dir forge/runs/<spec-slug>/logs \
+  --summary-file forge/runs/<spec-slug>/logs/lint-before-format.summary.json \
+  --command "<target_service.commands.lint>"
+
+python3 forge/command_summary.py \
+  --label format \
+  --cwd ../<repo-name>-<spec-slug>/<target_service.path> \
+  --log-dir forge/runs/<spec-slug>/logs \
+  --summary-file forge/runs/<spec-slug>/logs/format.summary.json \
+  --command "<target_service.commands.format>"
+
+python3 forge/command_summary.py \
+  --label lint-after-format \
+  --cwd ../<repo-name>-<spec-slug>/<target_service.path> \
+  --log-dir forge/runs/<spec-slug>/logs \
+  --summary-file forge/runs/<spec-slug>/logs/lint-after-format.summary.json \
+  --command "<target_service.commands.lint>"
 ```
 
 Record wall time for the run summary.
 
-If exit code is 0:
+If all exit codes are 0:
 
 - Write a synthetic `linter-output.json`:
   ```json
@@ -305,10 +323,12 @@ If exit code is 0:
   ```
 - Proceed to QA.
 
-If exit code is non-zero:
+If any exit code is non-zero:
 
-- Capture the full stderr/stdout output as `lint_errors`.
-- Dispatch the Linter agent with `target_service`, `files_changed`, and `lint_errors`.
+- Read the failed command summary JSON files only.
+- Do not forward raw stdout/stderr logs to the agent.
+- Dispatch the Linter agent with `target_service`, `context_artifacts`, `files_changed`,
+  and `lint_errors` containing the compact failed command summaries.
 - If Linter returns `needs_revision`: clean up worktree, update Notion to `failed`,
   write reason to `Agent output`.
 - If Linter returns `done`: persist `linter-output.json`, proceed to QA.
