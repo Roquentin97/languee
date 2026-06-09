@@ -52,6 +52,24 @@ class Config:
             "validate_persistence": "yarn prisma validate",
             "dev_port": 3000,
             "affected_components": ["auth", "users"],
+            "context": {
+                "include": [
+                    "src/**/*.ts",
+                    "test/**/*.ts",
+                    "prisma/schema.prisma",
+                    "package.json",
+                ],
+                "exclude": [
+                    "node_modules/**",
+                    "dist/**",
+                    "build/**",
+                    "coverage/**",
+                ],
+                "always_full": [
+                    "prisma/schema.prisma",
+                    "package.json",
+                ],
+            },
         },
         "languee-nlp": {
             "path": "apps/languee-nlp",
@@ -68,6 +86,25 @@ class Config:
             "validate_persistence": None,
             "dev_port": 8000,
             "affected_components": ["api", "nlp", "spacy"],
+            "context": {
+                "include": [
+                    "src/**/*.py",
+                    "tests/**/*.py",
+                    "pyproject.toml",
+                ],
+                "exclude": [
+                    ".venv/**",
+                    "__pycache__/**",
+                    ".pytest_cache/**",
+                    ".ruff_cache/**",
+                    "dist/**",
+                    "build/**",
+                    "coverage/**",
+                ],
+                "always_full": [
+                    "pyproject.toml",
+                ],
+            },
         },
     }
 

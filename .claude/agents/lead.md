@@ -62,6 +62,11 @@ Build this object from the selected `config.services` entry and pass it to every
     "coverage": "uv run pytest --cov=languee_nlp",
     "build": null,
     "validate_persistence": null
+  },
+  "context": {
+    "include": ["src/**/*.py", "tests/**/*.py", "pyproject.toml"],
+    "exclude": [".venv/**", "__pycache__/**", ".pytest_cache/**", ".ruff_cache/**"],
+    "always_full": ["pyproject.toml"]
   }
 }
 ```
@@ -107,7 +112,25 @@ For each spec, before dispatching any subagent:
 4. All subagents for this spec operate inside the worktree directory - never in the
    main repo.
 5. Create the run directory at `forge/runs/<spec-slug>/` inside the worktree.
-6. Update Notion status to `in-progress`.
+6. Generate compact context artifacts from inside the worktree:
+   ```bash
+   python3 forge/context_skeleton.py \
+     --service-name <target_service.name> \
+     --service-path <target_service.path> \
+     --output-dir forge/runs/<spec-slug>/context
+   ```
+   When `target_service.context.include`, `target_service.context.exclude`, or
+   `target_service.context.always_full` are present, pass each item as repeated
+   `--include`, `--exclude`, or `--always-full` flags.
+7. Build a `context_artifacts` object and pass it to Architect, Implementer, and QA:
+   ```json
+   {
+     "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
+     "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
+     "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
+   }
+   ```
+8. Update Notion status to `in-progress`.
 
 ## On pipeline completion
 
@@ -170,6 +193,11 @@ the raw `lint_errors` text - it does not receive architect or spec context.
     "notion_url": "https://www.notion.so/..."
   },
   "target_service": { ... },
+  "context_artifacts": {
+    "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
+    "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
+    "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
+  },
   "worktree_path": "../<repo-name>-<spec-slug>",
   "port_offset": 0,
   "architect_output": { ... },
@@ -179,6 +207,10 @@ the raw `lint_errors` text - it does not receive architect or spec context.
 ```
 
 Only include keys for agents that have already run, and only the fields listed above.
+`context_artifacts` is not a substitute for source files. It is an architecture map used
+to reduce broad scanning. Agents must still read full source files before editing,
+reviewing behavior, writing tests, or making decisions that depend on implementation
+details.
 
 ## Capturing usage metadata
 

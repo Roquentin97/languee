@@ -24,13 +24,17 @@ the restart stage, and pushes fixes to the existing PR branch.
    ```bash
    git worktree add ../<repo-name>-<spec-slug>-r<iteration> feature/<spec-slug>
    ```
-10. Update Notion status to `in-progress`
-11. Increment `Iteration` field by 1
-12. Run the pipeline from the inferred stage, passing feedback as additional context
-13. On completion: push to existing branch, update Notion to `done`, append iteration
+10. Generate compact context artifacts inside the worktree at
+    `forge/runs/<spec-slug>/context/` using `forge/context_skeleton.py` and the
+    target service context config from `forge/config.py`
+11. Update Notion status to `in-progress`
+12. Increment `Iteration` field by 1
+13. Run the pipeline from the inferred stage, passing feedback and `context_artifacts`
+    as additional context
+14. On completion: push to existing branch, update Notion to `done`, append iteration
     summary to `Agent output`
-14. On failure: update Notion to `failed`, append failure reason to `Agent output`
-15. Clean up worktree
+15. On failure: update Notion to `failed`, append failure reason to `Agent output`
+16. Clean up worktree
 
 ## Restart stage inference rules
 
@@ -76,6 +80,11 @@ Append feedback as an additional field in the task object passed to each agent:
     "runtime": "python",
     "framework": "fastapi",
     "commands": { ... }
+  },
+  "context_artifacts": {
+    "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
+    "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
+    "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
   },
   "feedback": {
     "iteration": 2,

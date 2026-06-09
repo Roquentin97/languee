@@ -226,6 +226,17 @@ Worktrees are created before the pipeline starts and removed after PR is opened 
 Never manually delete worktrees while a pipeline is running - use `git worktree list` to
 check active worktrees and `git worktree remove` to clean up orphans.
 
+Before dispatching feature agents, Lead generates compact context artifacts under
+`forge/runs/<spec-slug>/context/`:
+
+- `repo-skeleton.md` - compact architecture map with function and method bodies omitted
+- `context-manifest.json` - file list, compaction mode, and size metadata
+- `compaction-stats.json` - aggregate reduction statistics
+
+Use these artifacts for broad orientation only. Agents must read full source files before
+editing code, reviewing behavior, designing persistence changes, writing tests, or making
+decisions that depend on implementation details.
+
 `forge/migration.lock` serialises Prisma migrations for services that use Prisma.
 If a pipeline crashes without releasing the lock, delete it manually:
 

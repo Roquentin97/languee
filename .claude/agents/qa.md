@@ -45,11 +45,18 @@ implementation issues - you report them precisely so the Implementer can fix the
     "files_fixed": [...],
     "notes": "..."
   },
+  "context_artifacts": {
+    "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
+    "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
+    "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
+  },
   "feedback": { ... }
 }
 ```
 
 `feedback` is only present during a `/forge-feedback` run.
+`context_artifacts` is optional and is only for orientation. QA must read full changed
+files and relevant test files before reviewing behavior or writing tests.
 
 ## Output
 
@@ -75,6 +82,8 @@ implementation issues - you report them precisely so the Implementer can fix the
 ### 2. Write tests
 
 - Read `architect_output.edge_cases` - write a test for every item listed.
+- If `context_artifacts` is present, use the manifest and skeleton to locate relevant
+  existing tests and neighboring contracts before opening full files.
 - Write tests appropriate to the target service framework.
 - Run the target service test command - all tests must pass.
 - Run the target service coverage command when configured.
@@ -95,6 +104,8 @@ implementation issues - you report them precisely so the Implementer can fix the
 ### 4. Code review
 
 - Read every file in `implementer_output.files_changed`.
+- Read the full source from disk, not only the compact skeleton, for every file being
+  reviewed.
 - Apply target-service review rules from `CLAUDE.md`.
 - Flag any of the following in `issues`:
   - Business logic in HTTP handlers
