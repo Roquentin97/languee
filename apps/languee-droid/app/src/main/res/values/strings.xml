@@ -1,3 +1,25 @@
 <resources>
-    <string name="app_name">LangueeDroid</string>
+    <string name="app_name">Languee</string>
+
+    <!-- Button labels -->
+    <string name="btn_add_entry">Add entry</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_save_without_context">Save without context</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_keep_full_context">Keep full context</string>
+    <string name="btn_truncate_to_sentence">Truncate to sentence</string>
+    <string name="btn_edit_context">Edit context</string>
+    <string name="btn_add_context_manually">Add context manually</string>
+
+    <!-- Input labels -->
+    <string name="label_target_word">Target word</string>
+    <string name="label_context_optional">Context (optional)</string>
+    <string name="label_tap_word_to_learn">Tap the word you want to learn</string>
+
+    <!-- Validation messages -->
+    <string name="validation_context_must_contain_word">Context must contain the target word as a standalone token</string>
+    <string name="validation_word_cannot_be_empty">Target word cannot be empty</string>
+
+    <!-- Multi-sentence warning -->
+    <string name="warning_multi_sentence">This context may be too long or clumsy for learning. Do you want to truncate it to the sentence containing the target word?</string>
 </resources>
