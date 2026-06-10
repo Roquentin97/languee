@@ -15,11 +15,19 @@ DEFAULT_INCLUDE = [
     "src/**/*.py",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "app/src/**/*.kt",
+    "app/src/**/*.kts",
+    "app/src/**/*.java",
+    "app/src/**/*.xml",
+    "app/src/**/AndroidManifest.xml",
     "tests/**/*.py",
     "test/**/*.ts",
     "prisma/schema.prisma",
     "package.json",
     "pyproject.toml",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "gradle/libs.versions.toml",
 ]
 
 DEFAULT_EXCLUDE = [
@@ -27,7 +35,9 @@ DEFAULT_EXCLUDE = [
     "**/dist/**",
     "**/build/**",
     "**/coverage/**",
+    "**/.gradle/**",
     "**/.venv/**",
+    "**/generated/**",
     "**/__pycache__/**",
     "**/.pytest_cache/**",
     "**/.ruff_cache/**",
@@ -209,6 +219,12 @@ def language_for(path: Path) -> str:
         return "python"
     if suffix in {".ts", ".tsx"}:
         return "typescript"
+    if suffix in {".kt", ".kts"}:
+        return "kotlin"
+    if suffix == ".java":
+        return "java"
+    if suffix == ".xml":
+        return "xml"
     if suffix == ".prisma":
         return "prisma"
     if suffix == ".toml":
@@ -236,6 +252,8 @@ def fence_for(path: Path) -> str:
         return "ts"
     if language == "python":
         return "py"
+    if language == "kotlin":
+        return "kotlin"
     return language
 
 

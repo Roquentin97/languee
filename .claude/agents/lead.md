@@ -174,8 +174,8 @@ Before dispatching Implementer when `architect_output.persistence_changes.kind` 
 4. If lock is free, write the spec slug to `forge/migration.lock`.
 5. After Implementer completes, always delete `forge/migration.lock`.
 
-Do not acquire `forge/migration.lock` for `languee-nlp` specs unless the Architect
-explicitly planned a serialized persistence operation.
+Do not acquire `forge/migration.lock` for `languee-nlp` or `languee-droid` specs unless
+the Architect explicitly planned a serialized persistence operation.
 
 ## Port isolation
 

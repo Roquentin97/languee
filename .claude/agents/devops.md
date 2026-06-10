@@ -48,6 +48,7 @@ Return a JSON object:
 - Use node alpine base for Node.js apps.
 - Use Python slim base for Python apps.
 - Python FastAPI apps use uv for dependency installation.
+- Android apps use Gradle through the app-owned Gradle wrapper.
 - Each app has its own `.dockerignore` excluding runtime-specific generated files,
   `.env`, and `forge/runs`.
 - Node `.dockerignore` files exclude `node_modules` and `dist`.
@@ -73,6 +74,15 @@ Return a JSON object:
   configured as a startup prerequisite in the spec.
 - Do not use `node_modules` volumes for Python services.
 
+### Android / Kotlin
+
+- Android app projects live under `apps/languee-droid`.
+- Use the app-owned Gradle wrapper for all checks.
+- Do not put Android build outputs, `.gradle`, or local SDK configuration into images or
+  committed artifacts.
+- Android local development is not normally orchestrated as a long-running Compose
+  service unless the spec explicitly asks for emulator/device automation.
+
 ## Docker Compose conventions
 
 - Lives at monorepo root.
@@ -92,8 +102,8 @@ Return a JSON object:
 
 - Lives at monorepo root.
 - All targets operate from the monorepo root.
-- App-specific commands use explicit service paths, e.g. `cd apps/languee-back &&`
-  or `cd apps/languee-nlp &&`.
+- App-specific commands use explicit service paths, e.g. `cd apps/languee-back &&`,
+  `cd apps/languee-nlp &&`, or `cd apps/languee-droid &&`.
 - Optional args passed via environment variables e.g. `make logs CONTAINER=api TAIL=100`.
 - Each target has a brief comment explaining what it does.
 - Must be POSIX-compatible - no bash-specific syntax.
@@ -118,6 +128,11 @@ Return a JSON object:
   2. `uv run ruff check .`
   3. `uv run pytest`
   4. `uv run pytest --cov=languee_nlp`
+- `cc-droid` or equivalent - runs for `apps/languee-droid`:
+  1. `./gradlew ktlintFormat`
+  2. `./gradlew lintDebug`
+  3. `./gradlew testDebugUnitTest`
+  4. `./gradlew assembleDebug`
 
 ## Versioning
 

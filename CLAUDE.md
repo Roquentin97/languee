@@ -8,6 +8,7 @@ Current services:
 
 - `apps/languee-back/` - NestJS API service
 - `apps/languee-nlp/` - FastAPI spaCy wrapper service
+- `apps/languee-droid/` - Kotlin Android app
 
 All file operations, commands, and imports must be relative to the target service path
 for the current spec unless stated otherwise. The target service comes from the Notion
@@ -26,6 +27,7 @@ select field. Valid target values are defined in `forge/config.py`.
 
 - `languee-back` targets `apps/languee-back`
 - `languee-nlp` targets `apps/languee-nlp`
+- `languee-droid` targets `apps/languee-droid`
 
 If a feature crosses service boundaries, the spec must explicitly describe the contract
 between services. The Architect must halt with `pending_more_info` when the service
@@ -47,6 +49,7 @@ Human-readable stack rules live in `.claude/rules/`:
 - `fastapi.md` - FastAPI, Python, and uv conventions
 - `spacy.md` - spaCy model and provider conventions
 - `pytest.md` - pytest and FastAPI API-test conventions
+- `android-kotlin.md` - Android, Kotlin, Gradle, UI, and app testing conventions
 
 Lead assembles `forge/runs/<spec-slug>/context/agent-instructions.md` from the target
 service's `rulesets` before dispatching subagents. Agent prompts should read that generated
@@ -139,12 +142,13 @@ All commits must follow Conventional Commits format:
 
 Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`
 Scope: the service, module, or area affected e.g. `auth`, `users`, `languee-nlp`,
-`docker`, `prisma`
+`languee-droid`, `docker`, `prisma`
 
 Examples:
 
 - `feat(auth): add JWT refresh token rotation`
 - `feat(languee-nlp): add lemma endpoint`
+- `feat(languee-droid): add login screen state`
 - `fix(users): handle null result from findByEmail`
 - `chore(docker): add nlp service healthcheck`
 - `test(auth): add edge cases for expired access token`

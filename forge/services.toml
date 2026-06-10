@@ -63,3 +63,51 @@ exclude = [
   "coverage/**",
 ]
 always_full = ["pyproject.toml"]
+
+[services.languee-droid]
+path = "apps/languee-droid"
+runtime = "android"
+framework = "android-kotlin"
+package_manager = "gradle"
+persistence = ""
+dev_port = 0
+affected_components = ["app", "ui", "presentation", "data"]
+rulesets = ["common", "boundary", "android-kotlin"]
+environment = [
+  "ANDROID_HOME",
+  "JAVA_HOME",
+]
+
+[services.languee-droid.commands]
+install = "./gradlew --version"
+format = "./gradlew ktlintFormat"
+lint = "./gradlew lintDebug"
+test = "./gradlew testDebugUnitTest"
+build = "./gradlew assembleDebug"
+
+[services.languee-droid.context]
+include = [
+  "app/src/**/*.kt",
+  "app/src/**/*.java",
+  "app/src/**/*.xml",
+  "app/src/**/*.kts",
+  "app/src/**/AndroidManifest.xml",
+  "app/build.gradle.kts",
+  "build.gradle.kts",
+  "settings.gradle.kts",
+  "gradle/libs.versions.toml",
+]
+exclude = [
+  ".gradle/**",
+  "build/**",
+  "app/build/**",
+  "**/generated/**",
+  "**/.idea/**",
+]
+always_full = [
+  "app/src/main/AndroidManifest.xml",
+  "app/build.gradle.kts",
+  "build.gradle.kts",
+  "settings.gradle.kts",
+  "gradle/libs.versions.toml",
+]

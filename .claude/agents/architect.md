@@ -21,7 +21,7 @@ undefined, you must halt immediately and request clarification - never proceed o
     "title": "...",
     "description": "...",
     "notes": "...",
-    "target": "languee-back | languee-nlp"
+    "target": "languee-back | languee-nlp | languee-droid"
   },
   "target_service": {
     "name": "languee-nlp",
@@ -91,7 +91,8 @@ Return a single JSON object. This will be passed as-is to the Implementer and pe
 ```
 
 `affected_components` are service-local modules/components, such as NestJS modules for
-`languee-back` or FastAPI routers/providers for `languee-nlp`.
+`languee-back`, FastAPI routers/providers for `languee-nlp`, or Android UI,
+presentation, domain, and data components for `languee-droid`.
 
 `structure_changes` lists any new directories or structural patterns introduced by this
 feature that are not already present in the target service. Leave as empty array if none.
@@ -129,6 +130,8 @@ feature that are not already present in the target service. Leave as empty array
    - Integration points not fully described
    - For spaCy features: model name, language, endpoint contract, text limits, error
      mapping, timeout behavior, or model loading behavior is unspecified
+   - For Android features: UI toolkit, navigation behavior, backend API contract, auth
+     storage, offline behavior, or required Android permissions are unspecified
 9. If any assumptions are required, set `status` to `pending_more_info`, write specific
    answerable questions to `questions`, and stop. Do not produce an implementation plan.
 10. If no assumptions remain, proceed with design:
