@@ -22,4 +22,20 @@
 
     <!-- Multi-sentence warning -->
     <string name="warning_multi_sentence">This context may be too long or clumsy for learning. Do you want to truncate it to the sentence containing the target word?</string>
+
+    <!-- Auth screen -->
+    <string name="auth_screen_title">Sign in to Languee</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_login_button">Log in</string>
+    <string name="auth_register_button">Register</string>
+    <string name="auth_loading">Signing in…</string>
+    <string name="auth_error_generic">Something went wrong. Please try again.</string>
+
+    <!-- Home screen -->
+    <string name="home_greeting">Welcome, %1$s</string>
+    <string name="home_logout_button">Log out</string>
+
+    <!-- Session check -->
+    <string name="checking_session_label">Checking session…</string>
 </resources>
