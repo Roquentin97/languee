@@ -112,6 +112,15 @@ def write_log(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", errors="replace")
 
 
+def portable_path(path: Path, base_dir: Path) -> str:
+    resolved_path = path.resolve()
+    resolved_base = base_dir.resolve()
+    try:
+        return resolved_path.relative_to(resolved_base).as_posix()
+    except ValueError:
+        return resolved_path.as_posix()
+
+
 def run_command(argv: list[str], cwd: Path, timeout_seconds: int | None) -> tuple[int, str, str]:
     try:
         completed = subprocess.run(
@@ -146,6 +155,7 @@ def build_summary(
     duration_seconds: float,
     stdout_log: Path,
     stderr_log: Path,
+    path_base_dir: Path,
     max_tail_chars: int,
     max_diagnostics: int,
 ) -> dict[str, object]:
@@ -156,12 +166,12 @@ def build_summary(
         "label": label,
         "command": " ".join(shlex.quote(part) for part in argv),
         "argv": argv,
-        "cwd": cwd.as_posix(),
+        "cwd": portable_path(cwd, path_base_dir),
         "status": "passed" if exit_code == 0 else "failed",
         "exit_code": exit_code,
         "duration_seconds": round(duration_seconds, 3),
-        "stdout_log": stdout_log.as_posix(),
-        "stderr_log": stderr_log.as_posix(),
+        "stdout_log": portable_path(stdout_log, path_base_dir),
+        "stderr_log": portable_path(stderr_log, path_base_dir),
         "stdout_chars": len(stdout),
         "stderr_chars": len(stderr),
         "stdout_tail": "" if exit_code == 0 else tail_text(stdout, max_tail_chars),
@@ -199,13 +209,16 @@ def main() -> None:
         duration_seconds=duration_seconds,
         stdout_log=stdout_log,
         stderr_log=stderr_log,
+        path_base_dir=Path.cwd(),
         max_tail_chars=args.max_tail_chars,
         max_diagnostics=args.max_diagnostics,
     )
 
     summary_json = json.dumps(summary, indent=2) + "\n"
     if args.summary_file:
-        Path(args.summary_file).write_text(summary_json, encoding="utf-8")
+        summary_file = Path(args.summary_file)
+        summary_file.parent.mkdir(parents=True, exist_ok=True)
+        summary_file.write_text(summary_json, encoding="utf-8")
     print(summary_json, end="")
     raise SystemExit(exit_code)
 

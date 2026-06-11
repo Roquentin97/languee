@@ -32,8 +32,8 @@ describe('WordsService', () => {
 
   const normalizerMock = {
     normalize: jest.fn().mockImplementation((input: { raw: string }) => ({
-      normalized_form: input.raw.trim().toLowerCase(),
-      is_multi_word: false,
+      normalizedForm: input.raw.trim().toLowerCase(),
+      isMultiWord: false,
       pos: null,
     })),
   };
@@ -41,9 +41,9 @@ describe('WordsService', () => {
   const preLemmatizerMock = {
     preLemmatize: jest
       .fn()
-      .mockImplementation((input: { normalized_form: string }) => ({
-        lemma: input.normalized_form,
-        short_circuited: false,
+      .mockImplementation((input: { normalizedForm: string }) => ({
+        lemma: input.normalizedForm,
+        shortCircuited: false,
       })),
   };
 

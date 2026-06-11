@@ -1,5 +1,7 @@
+import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+
 export interface RawDefinitionEntry {
-  partOfSpeech: string;
+  partOfSpeech: PartOfSpeech;
   definition: string;
   example?: string;
   hasIrregularForms?: boolean;

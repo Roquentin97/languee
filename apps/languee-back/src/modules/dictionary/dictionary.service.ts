@@ -12,6 +12,7 @@ import type {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
 } from './interfaces/dictionary-api-adapter.interface';
+import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 @Injectable()
 export class DictionaryService {
@@ -35,7 +36,7 @@ export class DictionaryService {
       if (rows.length > 0) {
         const definitions: DefinitionResult[] = rows.map((row) => ({
           id: row.id,
-          part_of_speech: row.partOfSpeech,
+          partOfSpeech: row.partOfSpeech as PartOfSpeech,
           definition: row.definition,
           example: row.example ?? null,
           provider: row.provider,
@@ -72,7 +73,7 @@ export class DictionaryService {
 
     const definitions: DefinitionResult[] = rows.map((row) => ({
       id: row.id,
-      part_of_speech: row.partOfSpeech,
+      partOfSpeech: row.partOfSpeech as PartOfSpeech,
       definition: row.definition,
       example: row.example ?? null,
       provider: row.provider,
