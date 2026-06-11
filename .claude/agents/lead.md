@@ -61,7 +61,16 @@ Build this object from the selected `config.services` entry and pass it to every
     "test": "uv run pytest",
     "coverage": "uv run pytest --cov=languee_nlp",
     "build": null,
-    "validate_persistence": null
+    "validate_persistence": null,
+    "persistence_migrate": null,
+    "persistence_generate": null
+  },
+  "rulesets": ["common", "boundary", "fastapi", "spacy", "pytest"],
+  "environment": ["LANGUEE_NLP_PORT", "LANGUEE_NLP_SPACY_MODEL"],
+  "context": {
+    "include": ["src/**/*.py", "tests/**/*.py", "pyproject.toml"],
+    "exclude": [".venv/**", "__pycache__/**", ".pytest_cache/**", ".ruff_cache/**"],
+    "always_full": ["pyproject.toml"]
   }
 }
 ```
@@ -84,7 +93,11 @@ Before creating a new worktree for a spec, check if a partial run already exists
 When resuming from partial outputs:
 
 - Read each existing output file to determine the last completed stage.
-- Skip agents whose output files already exist and have `status: done`.
+- Validate each existing output file with `forge/output_gateway.py` before trusting it.
+- Skip agents only when their output files already exist, have `status: done`, and pass
+  the gateway schema for that stage.
+- If an existing output is malformed or uses a legacy shape, do not forward it. Re-run
+  from that stage, or from the previous stage if the malformed output is required input.
 - Pass existing outputs as context to the next agent as if they had just completed.
 - Print which stage is being resumed from and why.
 
@@ -107,7 +120,34 @@ For each spec, before dispatching any subagent:
 4. All subagents for this spec operate inside the worktree directory - never in the
    main repo.
 5. Create the run directory at `forge/runs/<spec-slug>/` inside the worktree.
-6. Update Notion status to `in-progress`.
+6. Generate target-specific agent instructions from inside the worktree:
+   ```bash
+   python3 forge/agent_instructions.py \
+     --service-name <target_service.name> \
+     --output-dir forge/runs/<spec-slug>/context
+   ```
+   This reads `forge/services.toml`, selects only `target_service.rulesets`, and writes
+   `forge/runs/<spec-slug>/context/agent-instructions.md`.
+7. Generate compact context artifacts from inside the worktree:
+   ```bash
+   python3 forge/context_skeleton.py \
+     --service-name <target_service.name> \
+     --service-path <target_service.path> \
+     --output-dir forge/runs/<spec-slug>/context
+   ```
+   When `target_service.context.include`, `target_service.context.exclude`, or
+   `target_service.context.always_full` are present, pass each item as repeated
+   `--include`, `--exclude`, or `--always-full` flags.
+8. Build a `context_artifacts` object and pass it to every dispatched subagent:
+   ```json
+   {
+     "agent_instructions": "forge/runs/<spec-slug>/context/agent-instructions.md",
+     "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
+     "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
+     "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
+   }
+   ```
+9. Update Notion status to `in-progress`.
 
 ## On pipeline completion
 
@@ -134,8 +174,8 @@ Before dispatching Implementer when `architect_output.persistence_changes.kind` 
 4. If lock is free, write the spec slug to `forge/migration.lock`.
 5. After Implementer completes, always delete `forge/migration.lock`.
 
-Do not acquire `forge/migration.lock` for `languee-nlp` specs unless the Architect
-explicitly planned a serialized persistence operation.
+Do not acquire `forge/migration.lock` for `languee-nlp` or `languee-droid` specs unless
+the Architect explicitly planned a serialized persistence operation.
 
 ## Port isolation
 
@@ -157,8 +197,9 @@ Each agent receives only the fields it needs. Always include `target_service`.
 | Implementer | everything                                                          | -                                                                     | -                           |
 | QA          | `edge_cases`, `persistence_changes`, `service_contracts`, `notes`   | `files_changed`, `persistence_change_applied`, `persistence_artifacts`, `notes` | `files_fixed`, `notes`      |
 
-The Linter agent only receives `target_service`, `implementer_output.files_changed`, and
-the raw `lint_errors` text - it does not receive architect or spec context.
+The Linter agent only receives `target_service`, `context_artifacts`,
+`implementer_output.files_changed`, and compact failed command summaries in
+`lint_errors` - it does not receive architect or spec context.
 
 ```json
 {
@@ -170,6 +211,12 @@ the raw `lint_errors` text - it does not receive architect or spec context.
     "notion_url": "https://www.notion.so/..."
   },
   "target_service": { ... },
+  "context_artifacts": {
+    "agent_instructions": "forge/runs/<spec-slug>/context/agent-instructions.md",
+    "repo_skeleton": "forge/runs/<spec-slug>/context/repo-skeleton.md",
+    "manifest": "forge/runs/<spec-slug>/context/context-manifest.json",
+    "stats": "forge/runs/<spec-slug>/context/compaction-stats.json"
+  },
   "worktree_path": "../<repo-name>-<spec-slug>",
   "port_offset": 0,
   "architect_output": { ... },
@@ -179,6 +226,10 @@ the raw `lint_errors` text - it does not receive architect or spec context.
 ```
 
 Only include keys for agents that have already run, and only the fields listed above.
+`context_artifacts.agent_instructions` is the target-specific rules source for the run.
+The skeleton artifacts are not a substitute for source files. Agents must still read full
+source files before editing, reviewing behavior, writing tests, or making decisions that
+depend on implementation details.
 
 ## Capturing usage metadata
 
@@ -196,17 +247,47 @@ For the auto-lint bash step, record `duration_seconds` only - no token fields.
 
 ## Persisting and forwarding outputs
 
-After each agent or bash step completes:
+After each agent or bash step completes, validate its JSON before any downstream stage
+can consume it.
 
-1. Write its full JSON output to the run directory inside the worktree, including usage metadata:
+For agent outputs:
+
+1. Write the raw agent response to:
+   `forge/runs/<spec-slug>/validation/<stage>-raw-attempt-<n>.json`
+2. Run the schema gateway:
+   ```bash
+   python3 forge/output_gateway.py \
+     --stage <architect|implementer|linter|qa|devops|restructurer|decomposer> \
+     --input forge/runs/<spec-slug>/validation/<stage>-raw-attempt-<n>.json \
+     --summary-file forge/runs/<spec-slug>/validation/<stage>-validation-attempt-<n>.json
+   ```
+3. If validation passes, copy the raw attempt to the canonical output file, including
+   usage metadata:
    - `forge/runs/<spec-slug>/architect-output.json`
    - `forge/runs/<spec-slug>/implementer-output.json`
    - `forge/runs/<spec-slug>/linter-output.json`
    - `forge/runs/<spec-slug>/qa-output.json`
-2. Read the persisted file back and inject the scoped fields into the next agent's input.
+4. If validation fails, do not forward or persist the invalid output as canonical.
+   Dispatch a localized repair turn to the same agent with only:
+   - the original agent input
+   - the invalid raw JSON
+   - the validation summary errors
+   - instruction: repair the JSON shape only; do not change substantive decisions
+5. Allow at most two repair attempts. If validation still fails, mark the pipeline failed,
+   write the validation errors to `Agent output`, release locks, and clean up.
+6. Read only the validated canonical file back and inject the scoped fields into the next
+   agent's input.
 
-This ensures every agent receives the context it needs - no more - and creates a full
-audit trail for review and prompt tuning.
+For command summaries produced by `forge/command_summary.py`, validate each summary with:
+
+```bash
+python3 forge/output_gateway.py \
+  --stage command_summary \
+  --input forge/runs/<spec-slug>/logs/<label>.summary.json
+```
+
+This ensures every agent receives validated context - no more - and creates a full audit
+trail for review and prompt tuning.
 
 ## After Architect
 
@@ -232,25 +313,36 @@ audit trail for review and prompt tuning.
 
 ## Auto-lint step
 
-Run the target service format/lint sequence from inside the worktree:
+Run the target service format/lint sequence from inside the worktree through
+`forge/command_summary.py` so raw stdout/stderr is written to disk instead of injected
+into agent context:
 
 ```bash
-cd ../<repo-name>-<spec-slug>/<target_service.path>
-<target_service.commands.lint>
-<target_service.commands.format>
-<target_service.commands.lint>
-```
+python3 forge/command_summary.py \
+  --label lint-before-format \
+  --cwd ../<repo-name>-<spec-slug>/<target_service.path> \
+  --log-dir forge/runs/<spec-slug>/logs \
+  --summary-file forge/runs/<spec-slug>/logs/lint-before-format.summary.json \
+  --command "<target_service.commands.lint>"
 
-Examples:
+python3 forge/command_summary.py \
+  --label format \
+  --cwd ../<repo-name>-<spec-slug>/<target_service.path> \
+  --log-dir forge/runs/<spec-slug>/logs \
+  --summary-file forge/runs/<spec-slug>/logs/format.summary.json \
+  --command "<target_service.commands.format>"
 
-```bash
-cd ../anki-agent-some-spec/apps/languee-back && yarn lint && yarn format && yarn lint
-cd ../anki-agent-some-spec/apps/languee-nlp && uv run ruff check . && uv run ruff format . && uv run ruff check .
+python3 forge/command_summary.py \
+  --label lint-after-format \
+  --cwd ../<repo-name>-<spec-slug>/<target_service.path> \
+  --log-dir forge/runs/<spec-slug>/logs \
+  --summary-file forge/runs/<spec-slug>/logs/lint-after-format.summary.json \
+  --command "<target_service.commands.lint>"
 ```
 
 Record wall time for the run summary.
 
-If exit code is 0:
+If all exit codes are 0:
 
 - Write a synthetic `linter-output.json`:
   ```json
@@ -265,10 +357,12 @@ If exit code is 0:
   ```
 - Proceed to QA.
 
-If exit code is non-zero:
+If any exit code is non-zero:
 
-- Capture the full stderr/stdout output as `lint_errors`.
-- Dispatch the Linter agent with `target_service`, `files_changed`, and `lint_errors`.
+- Read the failed command summary JSON files only.
+- Do not forward raw stdout/stderr logs to the agent.
+- Dispatch the Linter agent with `target_service`, `context_artifacts`, `files_changed`,
+  and `lint_errors` containing the compact failed command summaries.
 - If Linter returns `needs_revision`: clean up worktree, update Notion to `failed`,
   write reason to `Agent output`.
 - If Linter returns `done`: persist `linter-output.json`, proceed to QA.
