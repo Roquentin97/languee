@@ -40,10 +40,19 @@ services:
       dockerfile: Dockerfile
       target: development
     restart: unless-stopped
+    labels:
+      logging: alloy
+      service: languee-nlp
+      app: backend
+      environment: ${NODE_ENV:-development}
     environment:
       LANGUEE_NLP_SPACY_MODEL: ${LANGUEE_NLP_SPACY_MODEL:-en_core_web_md}
       BASIC_LOGIN: ${BASIC_LOGIN:?BASIC_LOGIN is required}
       BASIC_PASSWORD: ${BASIC_PASSWORD:?BASIC_PASSWORD is required}
+      LANGUEE_NLP_LOG_FORMAT: json
+      LANGUEE_NLP_LOG_LEVEL: ${LANGUEE_NLP_LOG_LEVEL:-info}
+      LANGUEE_NLP_SERVICE_NAME: languee-nlp
+      LANGUEE_NLP_ENVIRONMENT: ${NODE_ENV:-development}
     ports:
       - "${LANGUEE_NLP_PORT:-8000}:8000"
     volumes:

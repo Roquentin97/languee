@@ -19,7 +19,7 @@ USER nlp
 EXPOSE 8000
 
 FROM runtime AS development
-CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
+CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src", "--no-access-log"]
 
 FROM runtime AS production
-CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
