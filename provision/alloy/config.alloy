@@ -1,0 +1,78 @@
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "filtered" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_logging"]
+    regex         = "alloy"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_app"]
+    target_label  = "app"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_environment"]
+    target_label  = "environment"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "docker_logs" {
+  host    = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.filtered.output
+  forward_to = [loki.process.json_parser.receiver]
+}
+
+loki.process "json_parser" {
+  forward_to = [loki.write.loki_endpoint.receiver]
+
+  stage.json {
+    expressions = {
+      level   = "level",
+      context = "context",
+    }
+  }
+
+  stage.labels {
+    values = {
+      service         = null,
+      app             = null,
+      environment     = null,
+      compose_service = null,
+      level           = "level",
+      context         = "context",
+    }
+  }
+
+  stage.match {
+    selector = "{service=~\".+\"}"
+
+    stage.static_labels {
+      values = {
+        parsed = "json",
+      }
+    }
+  }
+}
+
+loki.write "loki_endpoint" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

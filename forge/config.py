@@ -1,4 +1,6 @@
 import os
+import tomllib
+from pathlib import Path
 
 
 def _required(key: str) -> str:
@@ -29,6 +31,46 @@ class PipelineType:
     REFACTOR = "refactor"
 
 
+COMMAND_KEYS = [
+    "install",
+    "format",
+    "lint",
+    "test",
+    "coverage",
+    "build",
+    "validate_persistence",
+    "persistence_migrate",
+    "persistence_generate",
+]
+
+
+def _load_services() -> dict[str, dict[str, object]]:
+    manifest_path = Path(__file__).with_name("services.toml")
+    data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    services: dict[str, dict[str, object]] = {}
+
+    for service_name, service_data in data["services"].items():
+        commands = service_data.get("commands", {})
+        persistence = service_data.get("persistence") or None
+        service: dict[str, object] = {
+            "path": service_data["path"],
+            "runtime": service_data["runtime"],
+            "framework": service_data["framework"],
+            "package_manager": service_data["package_manager"],
+            "persistence": persistence,
+            "dev_port": service_data["dev_port"],
+            "affected_components": service_data.get("affected_components", []),
+            "rulesets": service_data.get("rulesets", []),
+            "environment": service_data.get("environment", []),
+            "context": service_data.get("context", {}),
+        }
+        for key in COMMAND_KEYS:
+            service[key] = commands.get(key)
+        services[service_name] = service
+
+    return services
+
+
 class Config:
     notion = NotionConfig()
     pipeline = PipelineConfig()
@@ -36,40 +78,7 @@ class Config:
 
     # Service registry used by the Lead agent to route specs to the right app, commands,
     # and framework-specific agent instructions.
-    services: dict[str, dict[str, object]] = {
-        "languee-back": {
-            "path": "apps/languee-back",
-            "runtime": "node",
-            "framework": "nestjs",
-            "package_manager": "yarn",
-            "install": "yarn install --frozen-lockfile",
-            "format": "yarn format",
-            "lint": "yarn lint",
-            "test": "yarn test",
-            "coverage": "yarn test:cov",
-            "build": "yarn build",
-            "persistence": "prisma",
-            "validate_persistence": "yarn prisma validate",
-            "dev_port": 3000,
-            "affected_components": ["auth", "users"],
-        },
-        "languee-nlp": {
-            "path": "apps/languee-nlp",
-            "runtime": "python",
-            "framework": "fastapi",
-            "package_manager": "uv",
-            "install": "uv sync",
-            "format": "uv run ruff format .",
-            "lint": "uv run ruff check .",
-            "test": "uv run pytest",
-            "coverage": "uv run pytest --cov=languee_nlp",
-            "build": None,
-            "persistence": None,
-            "validate_persistence": None,
-            "dev_port": 8000,
-            "affected_components": ["api", "nlp", "spacy"],
-        },
-    }
+    services: dict[str, dict[str, object]] = _load_services()
 
 
 config = Config()
