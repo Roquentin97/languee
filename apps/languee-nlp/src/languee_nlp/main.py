@@ -2,8 +2,13 @@ from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
 
+from languee_nlp.logging import configure_logging
+from languee_nlp.middleware import RequestLoggingMiddleware
 from languee_nlp.routers.health import router as health_router
 from languee_nlp.routers.words import router as words_router
+from languee_nlp.settings import settings
+
+configure_logging(settings)
 
 OPENAPI_TAGS = [
     {
@@ -27,6 +32,7 @@ app = FastAPI(
     openapi_tags=OPENAPI_TAGS,
 )
 
+app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(words_router)
 
