@@ -232,6 +232,66 @@ describe('AuthService', () => {
     });
   });
 
+  // ─── loginMobile ─────────────────────────────────────────────────────────
+
+  describe('loginMobile', () => {
+    const dto = { email: 'user@example.com', password: 'password123' };
+
+    it('returns accessToken, plainRefreshToken, sessionId, userId, and email on valid credentials', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'user-123',
+        email: dto.email,
+        passwordHash: 'hashed-pw',
+      });
+      bcryptMock.compare.mockResolvedValue(true as never);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      mockRedisService.set.mockResolvedValue('OK');
+      mockRedisService.sadd.mockResolvedValue(1);
+      mockJwtService.sign.mockReturnValue('access-token');
+
+      const result = await service.loginMobile(dto, 'Mozilla/5.0', '127.0.0.1');
+
+      expect(result.accessToken).toBe('access-token');
+      expect(result.plainRefreshToken).toBeDefined();
+      expect(result.sessionId).toBeDefined();
+      expect(result.userId).toBe('user-123');
+      expect(result.email).toBe(dto.email);
+    });
+
+    it('throws 401 with "Invalid credentials" when email is not found — no email leak', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      bcryptMock.compare.mockResolvedValue(false as never);
+
+      await expect(
+        service.loginMobile(dto, 'agent', 'ip'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      await expect(
+        service.loginMobile(dto, 'agent', 'ip'),
+      ).rejects.toThrow('Invalid credentials');
+
+      // dummy hash compare must still be called for timing safety
+      expect(bcryptMock.compare).toHaveBeenCalled();
+    });
+
+    it('throws 401 with "Invalid credentials" when password is wrong', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'user-123',
+        email: dto.email,
+        passwordHash: 'hashed-pw',
+      });
+      bcryptMock.compare.mockResolvedValue(false as never);
+
+      await expect(
+        service.loginMobile(dto, 'agent', 'ip'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      await expect(
+        service.loginMobile(dto, 'agent', 'ip'),
+      ).rejects.toThrow('Invalid credentials');
+    });
+  });
+
   // ─── refresh ─────────────────────────────────────────────────────────────
 
   describe('refresh', () => {

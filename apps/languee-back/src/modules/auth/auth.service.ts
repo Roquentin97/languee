@@ -94,6 +94,69 @@ export class AuthService {
     return { accessToken, plainRefreshToken, sessionId };
   }
 
+  async loginMobile(
+    dto: LoginDto,
+    userAgent: string,
+    ip: string,
+  ): Promise<{
+    accessToken: string;
+    plainRefreshToken: string;
+    sessionId: string;
+    userId: string;
+    email: string;
+  }> {
+    const user = await this.usersService.findByEmail(dto.email);
+
+    if (!user) {
+      // Compare against dummy hash to prevent timing attacks
+      await bcrypt.compare(dto.password, DUMMY_HASH);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const sessionId = randomUUID();
+    const plainRefreshToken = randomUUID();
+    const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + THIRTY_DAYS_SECONDS * 1000);
+
+    const sessionData: SessionData = {
+      sessionId,
+      userId: user.id,
+      hashedRefreshToken,
+      userAgent,
+      ip,
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      revoked: false,
+    };
+
+    await this.redisService.set(
+      `session:${sessionId}`,
+      JSON.stringify(sessionData),
+      THIRTY_DAYS_SECONDS,
+    );
+    await this.redisService.sadd(`user_sessions:${user.id}`, sessionId);
+
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      session_id: sessionId,
+    });
+
+    return {
+      accessToken,
+      plainRefreshToken,
+      sessionId,
+      userId: user.id,
+      email: user.email,
+    };
+  }
+
   async refresh(
     refreshTokenFromCookie: string,
     sessionId: string,

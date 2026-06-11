@@ -6,6 +6,7 @@ import type { StringValue } from 'ms';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { MobileAuthController } from './mobile-auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -22,7 +23,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MobileAuthController],
   providers: [AuthService, JwtStrategy],
 })
 export class AuthModule {}
