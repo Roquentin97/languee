@@ -6,6 +6,7 @@ import { NlpService } from '../nlp/nlp.service';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
 import { NlpMultiWordError, NlpUnavailableError } from '../nlp/nlp.errors';
 import type { NlpAnalysis } from '../nlp/nlp.interfaces';
+import { PartOfSpeech } from './enums/part-of-speech.enum';
 
 const mockDictionaryService = {
   lookup: jest.fn(),
@@ -21,14 +22,14 @@ const mockNlpService = {
 
 const defaultNlpAnalysis: NlpAnalysis = {
   lemma: 'run',
-  pos: 'VERB',
+  pos: PartOfSpeech.VERB,
   isIrregular: true,
   inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
 };
 
 const baseDefinition = {
   id: 'def-id-1',
-  part_of_speech: 'verb',
+  partOfSpeech: PartOfSpeech.VERB,
   definition: 'to move fast',
   example: 'She ran quickly.',
   provider: 'free-dictionary',
@@ -84,7 +85,7 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.source).toBe('cache');
+      expect(result.input).toBe('run');
       expect(result.lemma).toBe('run');
       expect(result.definitions[0].decks).toHaveLength(1);
       expect(result.definitions[0].decks[0]).toEqual({
@@ -111,7 +112,6 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.source).toBe('provider');
       expect(result.definitions[0].decks).toHaveLength(1);
     });
 
@@ -122,10 +122,12 @@ describe('VocabularyService', () => {
           baseDefinition,
           {
             id: 'def-id-2',
-            part_of_speech: 'noun',
+            partOfSpeech: PartOfSpeech.VERB,
             definition: 'a run',
             example: null,
             provider: 'free-dictionary',
+            hasIrregularForms: false,
+            inflectionForms: null,
           },
         ],
       });
@@ -212,7 +214,7 @@ describe('VocabularyService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('maps part_of_speech (snake_case) to partOfSpeech (camelCase) in the output', async () => {
+    it('returns definitions with camelCase partOfSpeech in the output', async () => {
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
@@ -222,8 +224,394 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions[0].partOfSpeech).toBe('verb');
+      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.VERB);
       expect(result.definitions[0]).not.toHaveProperty('part_of_speech');
+    });
+
+    // -------------------------------------------------------------------------
+    // POS filtering tests
+    // -------------------------------------------------------------------------
+
+    it('POS filtering — only verb definitions returned when NLP maps to VERB', async () => {
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: true,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      expect(result.definitions).toHaveLength(1);
+      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.VERB);
+      expect(result.meta.filteredByPos).toBe(true);
+      expect(result.meta.unmatchedPos).toBe(false);
+      expect(result.meta.availablePartsOfSpeech).toContain(PartOfSpeech.VERB);
+      expect(result.meta.availablePartsOfSpeech).toContain(PartOfSpeech.NOUN);
+    });
+
+    it('POS filtering — unmatchedPos is true when no definitions match the resolved POS', async () => {
+      const nounDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      // NLP returns VERB but dictionary only has noun
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      expect(result.definitions).toHaveLength(0);
+      expect(result.meta.filteredByPos).toBe(true);
+      expect(result.meta.unmatchedPos).toBe(true);
+    });
+
+    it('POS filtering — all definitions returned when NLP pos is null', async () => {
+      const nullPosNlp: NlpAnalysis = {
+        lemma: 'run',
+        pos: null,
+        isIrregular: false,
+        inflectionForms: {},
+      };
+      mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      expect(result.definitions).toHaveLength(2);
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('meta.availablePartsOfSpeech has no duplicates', async () => {
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [
+          {
+            id: 'def-id-1',
+            partOfSpeech: PartOfSpeech.VERB,
+            definition: 'move fast',
+            example: null,
+            provider: 'free-dictionary',
+            hasIrregularForms: false,
+            inflectionForms: null,
+          },
+          {
+            id: 'def-id-2',
+            partOfSpeech: PartOfSpeech.VERB,
+            definition: 'operate',
+            example: null,
+            provider: 'free-dictionary',
+            hasIrregularForms: false,
+            inflectionForms: null,
+          },
+        ],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+      });
+
+      const verbCount = result.meta.availablePartsOfSpeech.filter(
+        (p) => p === PartOfSpeech.VERB,
+      ).length;
+      expect(verbCount).toBe(1);
+    });
+
+    it('deck enrichment runs on the filtered definitions set only', async () => {
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      // Only the verb def id should be passed (noun filtered out by POS=VERB)
+      expect(
+        mockCardsService.findCardsByDefinitionIdsAndUserId,
+      ).toHaveBeenCalledWith(['def-id-1'], 'user-id-1');
+    });
+
+    it('POS filtering — only adjective definitions returned when NLP maps to ADJ', async () => {
+      const adjNlp: NlpAnalysis = {
+        lemma: 'fast',
+        pos: PartOfSpeech.ADJECTIVE,
+        isIrregular: false,
+        inflectionForms: {},
+      };
+      mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
+      const adjDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.ADJECTIVE,
+        definition: 'moving quickly',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const verbDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to fast (refrain from eating)',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'fast',
+        source: 'cache',
+        definitions: [adjDef, verbDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'fast',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'That was a fast train.',
+      });
+
+      expect(result.definitions).toHaveLength(1);
+      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.ADJECTIVE);
+      expect(result.meta.filteredByPos).toBe(true);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('meta.unmatchedPos is false when filteredByPos is false', async () => {
+      const nullPosNlp: NlpAnalysis = {
+        lemma: 'run',
+        pos: null,
+        isIrregular: false,
+        inflectionForms: {},
+      };
+      mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('meta.availablePartsOfSpeech reflects the full pre-filter set when unmatchedPos is true', async () => {
+      const nounDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      // NLP returns VERB but dictionary only has noun
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      expect(result.meta.unmatchedPos).toBe(true);
+      expect(result.meta.availablePartsOfSpeech).toEqual([PartOfSpeech.NOUN]);
+    });
+
+    it('POS filtering — all definitions returned when context is omitted', async () => {
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        // no context field
+      });
+
+      expect(result.definitions).toHaveLength(2);
+      expect(result.context).toBeUndefined();
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('POS filtering — all definitions returned when disablePosFiltering is true', async () => {
+      const verbDef = {
+        id: 'def-id-1',
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'to move fast',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      const nounDef = {
+        id: 'def-id-2',
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'a run',
+        example: null,
+        provider: 'free-dictionary',
+        hasIrregularForms: false,
+        inflectionForms: null,
+      };
+      mockDictionaryService.lookup.mockResolvedValue({
+        lemma: 'run',
+        source: 'cache',
+        definitions: [verbDef, nounDef],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+        disablePosFiltering: true,
+      });
+
+      expect(result.definitions).toHaveLength(2);
+      expect(result.meta.filteredByPos).toBe(false);
+      expect(result.meta.unmatchedPos).toBe(false);
+    });
+
+    it('context field is preserved in the output when provided', async () => {
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      const result = await service.lookup({
+        word: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'She runs every morning.',
+      });
+
+      expect(result.context).toBe('She runs every morning.');
     });
 
     // -------------------------------------------------------------------------
@@ -246,7 +634,7 @@ describe('VocabularyService', () => {
     it('dictionaryService.lookup() is called with NLP lemma, pos, and inflection data', async () => {
       const nlpResult: NlpAnalysis = {
         lemma: 'walk',
-        pos: 'VERB',
+        pos: PartOfSpeech.VERB,
         isIrregular: false,
         inflectionForms: { base: 'walk', past: 'walked' },
       };
@@ -264,7 +652,7 @@ describe('VocabularyService', () => {
         expect.objectContaining({
           word: 'walked',
           lemma: 'walk',
-          pos: 'VERB',
+          pos: PartOfSpeech.VERB,
           isIrregular: false,
           inflectionForms: { base: 'walk', past: 'walked' },
         }),

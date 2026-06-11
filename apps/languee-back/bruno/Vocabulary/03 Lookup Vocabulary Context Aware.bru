@@ -1,0 +1,25 @@
+meta {
+  name: Lookup Vocabulary Context Aware
+  type: http
+  seq: 3
+  tags: [
+    vocabulary
+  ]
+}
+
+get {
+  url: {{base_url}}/vocabulary/lookup?word=saw&language=en&context=The%20saw%20was%20sharp%20enough%20to%20cut%20oak
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns vocabulary for saw with context", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.input).to.equal("saw");
+    expect(res.body.context).to.equal("The saw was sharp enough to cut oak");
+    expect(res.body.lemma).to.be.a("string");
+    expect(res.body.definitions).to.be.an("array");
+    expect(res.body.meta.availablePartsOfSpeech).to.be.an("array");
+  });
+}

@@ -1,3 +1,5 @@
+import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+
 export type LookupWordInput = {
   word: string;
   language: string;
@@ -9,7 +11,7 @@ export type LookupWordInput = {
 
 export type DefinitionResult = {
   id: string;
-  part_of_speech: string;
+  partOfSpeech: PartOfSpeech;
   definition: string;
   example: string | null;
   provider: string;

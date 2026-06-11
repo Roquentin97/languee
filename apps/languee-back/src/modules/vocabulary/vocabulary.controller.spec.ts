@@ -12,6 +12,7 @@ import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
+import { PartOfSpeech } from './enums/part-of-speech.enum';
 
 const mockVocabularyService = {
   lookup: jest.fn(),
@@ -23,12 +24,13 @@ const mockUser: CurrentUserPayload = {
 };
 
 const successOutput: LookupVocabularyOutput = {
+  input: 'run',
   lemma: 'run',
-  source: 'cache',
+  partOfSpeech: PartOfSpeech.VERB,
   definitions: [
     {
       id: 'def-id-1',
-      partOfSpeech: 'verb',
+      partOfSpeech: PartOfSpeech.VERB,
       definition: 'to move fast',
       example: 'She ran quickly.',
       provider: 'free-dictionary',
@@ -37,6 +39,11 @@ const successOutput: LookupVocabularyOutput = {
       decks: [],
     },
   ],
+  meta: {
+    filteredByPos: true,
+    unmatchedPos: false,
+    availablePartsOfSpeech: [PartOfSpeech.VERB],
+  },
 };
 
 describe('VocabularyController', () => {
@@ -76,6 +83,8 @@ describe('VocabularyController', () => {
         word: 'run',
         language: 'en',
         userId: 'user-id-1',
+        context: undefined,
+        disablePosFiltering: false,
       });
     });
 
@@ -86,6 +95,27 @@ describe('VocabularyController', () => {
 
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
         expect.objectContaining({ language: 'en' }),
+      );
+    });
+
+    it('passes disablePosFiltering=true through as a boolean flag', async () => {
+      mockVocabularyService.lookup.mockResolvedValue(successOutput);
+
+      await controller.lookup(
+        {
+          word: 'run',
+          language: 'en',
+          context: 'She runs every morning.',
+          disablePosFiltering: 'true',
+        },
+        mockUser,
+      );
+
+      expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: 'She runs every morning.',
+          disablePosFiltering: true,
+        }),
       );
     });
 

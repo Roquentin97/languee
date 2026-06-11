@@ -1,7 +1,11 @@
+import { PartOfSpeech } from '../enums/part-of-speech.enum';
+
 export type LookupVocabularyInput = {
   word: string;
   language: string;
   userId: string;
+  context?: string;
+  disablePosFiltering?: boolean;
 };
 
 export type DeckRef = {
@@ -11,7 +15,7 @@ export type DeckRef = {
 
 export type EnrichedDefinitionResult = {
   id: string;
-  partOfSpeech: string;
+  partOfSpeech: PartOfSpeech;
   definition: string;
   example: string | null;
   provider: string;
@@ -21,7 +25,14 @@ export type EnrichedDefinitionResult = {
 };
 
 export type LookupVocabularyOutput = {
+  input: string;
+  context?: string;
   lemma: string;
-  source: 'cache' | 'provider';
+  partOfSpeech: PartOfSpeech | null;
   definitions: EnrichedDefinitionResult[];
+  meta: {
+    filteredByPos: boolean;
+    unmatchedPos: boolean;
+    availablePartsOfSpeech: PartOfSpeech[];
+  };
 };

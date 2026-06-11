@@ -7,10 +7,11 @@ import { AppModule } from '../src/app.module';
 import { DICTIONARY_API_ADAPTER } from '../src/modules/dictionary/dictionary.tokens';
 import { ProviderUnavailableError } from '../src/modules/definitions/definitions.errors';
 import type { IDictionaryApiAdapter } from '../src/modules/dictionary/interfaces/dictionary-api-adapter.interface';
+import { PartOfSpeech } from '../src/modules/vocabulary/enums/part-of-speech.enum';
 
 const MOCK_DEFINITIONS = [
   {
-    partOfSpeech: 'preposition',
+    partOfSpeech: PartOfSpeech.PREPOSITION,
     definition: 'in spite of; without being affected by',
     example: 'He went out despite the rain.',
   },

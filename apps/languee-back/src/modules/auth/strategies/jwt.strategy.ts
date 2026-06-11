@@ -5,10 +5,9 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { RedisService } from '../../core/redis/redis.service';
 import { SessionData } from '../interfaces/session.interface';
 
-interface JwtPayload {
+type JwtPayload = {
   sub: string;
-  session_id: string;
-}
+} & Record<'session_id', string>;
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -26,7 +25,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(
     payload: JwtPayload,
   ): Promise<{ userId: string; sessionId: string }> {
-    const raw = await this.redisService.get(`session:${payload.session_id}`);
+    const sessionId = payload['session_id'];
+    const raw = await this.redisService.get(`session:${sessionId}`);
     if (!raw) {
       throw new UnauthorizedException('Session not found');
     }
@@ -41,11 +41,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (
       session.revoked ||
       session.userId !== payload.sub ||
-      session.sessionId !== payload.session_id
+      session.sessionId !== sessionId
     ) {
       throw new UnauthorizedException('Session revoked');
     }
 
-    return { userId: payload.sub, sessionId: payload.session_id };
+    return { userId: payload.sub, sessionId };
   }
 }

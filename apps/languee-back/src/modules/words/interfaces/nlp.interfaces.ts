@@ -3,14 +3,14 @@ export type RawInput = {
 };
 
 export type NormalizedOutput = {
-  normalized_form: string;
-  is_multi_word: boolean;
+  normalizedForm: string;
+  isMultiWord: boolean;
   pos: string | null;
 };
 
 export type PreLemmatizedOutput = {
   lemma: string;
-  short_circuited: boolean;
+  shortCircuited: boolean;
 };
 
 export type LemmatizedOutput = {

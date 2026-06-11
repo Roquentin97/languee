@@ -8,6 +8,7 @@ import {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
 } from '../interfaces/dictionary-api-adapter.interface';
+import { mapDictionaryApiPos } from '../mappers/dictionary-api-pos.mapper';
 
 interface DictionaryApiDefinition {
   definition: string;
@@ -22,6 +23,10 @@ interface DictionaryApiMeaning {
 interface DictionaryApiEntry {
   meanings: DictionaryApiMeaning[];
 }
+
+type DictionaryApiMappedMeaning = DictionaryApiMeaning & {
+  mappedPartOfSpeech: NonNullable<ReturnType<typeof mapDictionaryApiPos>>;
+};
 
 @Injectable()
 export class DictionaryApiAdapter implements IDictionaryApiAdapter {
@@ -48,13 +53,23 @@ export class DictionaryApiAdapter implements IDictionaryApiAdapter {
     const entries = (await response.json()) as DictionaryApiEntry[];
 
     return entries.flatMap((entry) =>
-      entry.meanings.flatMap((meaning) =>
-        meaning.definitions.map((def) => ({
-          partOfSpeech: meaning.partOfSpeech,
-          definition: def.definition,
-          ...(def.example !== undefined ? { example: def.example } : {}),
-        })),
-      ),
+      entry.meanings
+        .map((meaning): DictionaryApiMappedMeaning | null => {
+          const mappedPos = mapDictionaryApiPos(meaning.partOfSpeech);
+          return mappedPos === null
+            ? null
+            : { ...meaning, mappedPartOfSpeech: mappedPos };
+        })
+        .filter(
+          (meaning): meaning is DictionaryApiMappedMeaning => meaning !== null,
+        )
+        .flatMap((meaning) =>
+          meaning.definitions.map((def) => ({
+            partOfSpeech: meaning.mappedPartOfSpeech,
+            definition: def.definition,
+            ...(def.example !== undefined ? { example: def.example } : {}),
+          })),
+        ),
     );
   }
 }
