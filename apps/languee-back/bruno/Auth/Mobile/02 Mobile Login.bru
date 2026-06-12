@@ -1,0 +1,45 @@
+meta {
+  name: Mobile Login
+  type: http
+  seq: 2
+  tags: [
+    auth
+    mobile
+    smoke
+  ]
+}
+
+post {
+  url: {{base_url}}/auth/mobile/login
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "email": "{{jack_login}}",
+    "password": "{{jack_password}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 && res.body?.accessToken) {
+    bru.setVar("accessToken", res.body.accessToken);
+    bru.setVar("refreshToken", res.body.refreshToken);
+    bru.setVar("sessionId", res.body.sessionId);
+  }
+}
+
+tests {
+  test("returns access token, refresh token, session id, and user", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.accessToken).to.be.a("string");
+    expect(res.body.refreshToken).to.be.a("string");
+    expect(res.body.sessionId).to.be.a("string");
+    expect(res.body.user).to.be.an("object");
+  });
+}

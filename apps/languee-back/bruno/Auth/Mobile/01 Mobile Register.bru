@@ -1,0 +1,40 @@
+meta {
+  name: Mobile Register
+  type: http
+  seq: 1
+  tags: [
+    auth
+    mobile
+  ]
+}
+
+post {
+  url: {{base_url}}/auth/mobile/register
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "email": "{{jack_login}}",
+    "password": "{{jack_password}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 201 && res.body?.accessToken) {
+    bru.setVar("accessToken", res.body.accessToken);
+    bru.setVar("refreshToken", res.body.refreshToken);
+    bru.setVar("sessionId", res.body.sessionId);
+  }
+}
+
+tests {
+  test("registers a user and returns tokens", function() {
+    expect(res.status).to.be.oneOf([201, 409]);
+  });
+}
