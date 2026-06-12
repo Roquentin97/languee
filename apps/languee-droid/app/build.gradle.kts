@@ -11,7 +11,13 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
-val backendBaseUrl: String = localProperties.getProperty("LANGUEE_BACKEND_BASE_URL", "http://10.0.2.2:3000")
+val rawBackendBaseUrl: String = localProperties.getProperty("LANGUEE_BACKEND_BASE_URL", "http://10.0.2.2:3000/")
+val backendBaseUrl: String = rawBackendBaseUrl.trim().let { url ->
+    if (url.endsWith("/")) url else "$url/"
+}
+val escapedBackendBaseUrl = backendBaseUrl
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.example.langueedroid"
@@ -30,7 +36,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
     }
 
     buildTypes {
