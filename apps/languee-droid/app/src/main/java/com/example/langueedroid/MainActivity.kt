@@ -1,23 +1,23 @@
 package com.example.langueedroid
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.example.langueedroid.presentation.AppState
-import com.example.langueedroid.presentation.MainViewModel
-import com.example.langueedroid.ui.CaptureScreen
-import com.example.langueedroid.ui.ListScreen
+import com.example.langueedroid.data.AuthRepository
+import com.example.langueedroid.data.local.AuthSessionStore
+import com.example.langueedroid.data.remote.ApiClient
+import com.example.langueedroid.data.remote.AuthAuthenticator
+import com.example.langueedroid.presentation.AppSessionState
+import com.example.langueedroid.presentation.AppSessionViewModel
+import com.example.langueedroid.presentation.auth.AuthViewModel
+import com.example.langueedroid.ui.CheckingSessionScreen
+import com.example.langueedroid.ui.HomeScreen
+import com.example.langueedroid.ui.auth.AuthScreen
 import com.example.langueedroid.ui.theme.LangueeDroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,71 +25,86 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sharedText: String? = if (intent?.action == Intent.ACTION_SEND) {
-            intent.getStringExtra(Intent.EXTRA_TEXT)?.trim()?.takeIf { it.isNotBlank() }
-        } else {
-            null
-        }
+        // Build the manual dependency graph once per Activity lifecycle.
+        val sessionStore = AuthSessionStore(applicationContext)
+
+        // AuthAuthenticator needs a repository reference; use a mutable holder to break the
+        // circular dependency: ApiClient -> AuthAuthenticator -> AuthRepository -> ApiClient.
+        var authRepositoryHolder: AuthRepository? = null
+        val authAuthenticator = AuthAuthenticator(
+            sessionStore = sessionStore,
+            repositoryProvider = {
+                requireNotNull(authRepositoryHolder) { "AuthRepository not yet initialised" }
+            },
+        )
+        val apiClient = ApiClient(
+            sessionStore = sessionStore,
+            authAuthenticator = authAuthenticator,
+        )
+        val authApi = apiClient.createAuthApi()
+        val authRepository = AuthRepository(
+            authApi = authApi,
+            sessionStore = sessionStore,
+        )
+        authRepositoryHolder = authRepository
+
+        val appSessionViewModelFactory = AppSessionViewModel.Factory(
+            authRepository = authRepository,
+            sessionStore = sessionStore,
+        )
 
         setContent {
             LangueeDroidTheme {
-                LangueeApp(initialSharedText = sharedText)
+                LangueeApp(
+                    appSessionViewModelFactory = appSessionViewModelFactory,
+                    authRepository = authRepository,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LangueeApp(initialSharedText: String?) {
-    val navController = rememberNavController()
-    val viewModel: MainViewModel = viewModel()
-    val state by viewModel.state.collectAsState()
+private fun LangueeApp(
+    appSessionViewModelFactory: AppSessionViewModel.Factory,
+    authRepository: AuthRepository,
+) {
+    val appSessionViewModel: AppSessionViewModel = viewModel(factory = appSessionViewModelFactory)
+    val sessionState by appSessionViewModel.sessionState.collectAsState()
+    val logoutInProgress by appSessionViewModel.logoutInProgress.collectAsState()
 
-    // Drive navigation from ViewModel state.
-    LaunchedEffect(state) {
-        when (state) {
-            is AppState.Screen.List -> {
-                navController.popBackStack("list", inclusive = false)
-            }
-            else -> {
-                navController.navigate("capture") { launchSingleTop = true }
-            }
+    when (val state = sessionState) {
+        is AppSessionState.CheckingSession -> {
+            CheckingSessionScreen()
         }
-    }
 
-    // Forward any incoming shared text to the ViewModel once on launch.
-    LaunchedEffect(initialSharedText) {
-        if (initialSharedText != null) {
-            viewModel.startSharedTextCapture(initialSharedText)
-        }
-    }
+        is AppSessionState.Unauthorized -> {
+            val authViewModelFactory = AuthViewModel.Factory(
+                authRepository = authRepository,
+                onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
+            )
+            val authViewModel: AuthViewModel = viewModel(factory = authViewModelFactory)
+            val uiState by authViewModel.uiState.collectAsState()
+            val email by authViewModel.email.collectAsState()
+            val password by authViewModel.password.collectAsState()
 
-    NavHost(
-        navController = navController,
-        startDestination = "list",
-    ) {
-        composable("list") {
-            val listState = state as? AppState.Screen.List
-                ?: AppState.Screen.List()
-            ListScreen(
-                entries = listState.entries,
-                onAddEntry = { viewModel.startManualAdd() },
+            AuthScreen(
+                uiState = uiState,
+                email = email,
+                password = password,
+                onEmailChange = { authViewModel.onEmailChange(it) },
+                onPasswordChange = { authViewModel.onPasswordChange(it) },
+                onLoginClick = { authViewModel.onLoginClick() },
+                onRegisterClick = { authViewModel.onRegisterClick() },
             )
         }
-        composable("capture") {
-            BackHandler { viewModel.dismissCapture() }
-            val captureState = state as? AppState.Screen
-            if (captureState != null && captureState !is AppState.Screen.List) {
-                CaptureScreen(
-                    state = captureState,
-                    onAddEntry = { word, context -> viewModel.addEntry(word, context) },
-                    onStartManualAdd = { viewModel.startManualAdd() },
-                    onSelectTargetWord = { token -> viewModel.selectTargetWord(token) },
-                    onConfirmTruncation = { viewModel.confirmTruncation() },
-                    onKeepFullContext = { viewModel.keepFullContext() },
-                    onDismiss = { viewModel.dismissCapture() },
-                )
-            }
+
+        is AppSessionState.Authorized -> {
+            HomeScreen(
+                userEmail = state.userEmail,
+                onLogout = { appSessionViewModel.onLogout() },
+                logoutInProgress = logoutInProgress,
+            )
         }
     }
 }
