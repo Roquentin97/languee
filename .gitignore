@@ -42,7 +42,7 @@ coverage/
 .env.*
 !.env.example
 !.env.test
-
+.envrc
 
 #Documentation
 /documentation
