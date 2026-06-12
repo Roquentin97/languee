@@ -9,8 +9,18 @@ export class AppController {
 
   @Get()
   @ApiOperation({ summary: 'Health check' })
-  @ApiOkResponse({ type: String, description: 'Returns a hello message' })
-  getHello(): string {
+  @ApiOkResponse({
+    description: 'Returns service health status',
+    schema: {
+      example: { success: true },
+      properties: {
+        success: { type: 'boolean' },
+      },
+      required: ['success'],
+      type: 'object',
+    },
+  })
+  getHello(): { success: boolean } {
     return this.appService.getHello();
   }
 }
