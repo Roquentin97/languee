@@ -8,6 +8,10 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class VersionResponse(BaseModel):
+    version: str
+
+
 class ReadyResponse(BaseModel):
     model: str
     vocab_size: int

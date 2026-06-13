@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from languee_nlp.logging import configure_logging
 from languee_nlp.middleware import RequestLoggingMiddleware
 from languee_nlp.routers.health import router as health_router
+from languee_nlp.routers.version import router as version_router
 from languee_nlp.routers.words import router as words_router
 from languee_nlp.settings import settings
 
@@ -14,6 +15,10 @@ OPENAPI_TAGS = [
     {
         "name": "health",
         "description": "Service health and readiness probes.",
+    },
+    {
+        "name": "version",
+        "description": "Service version information.",
     },
     {
         "name": "words",
@@ -34,6 +39,7 @@ app = FastAPI(
 
 app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
+app.include_router(version_router)
 app.include_router(words_router)
 
 
