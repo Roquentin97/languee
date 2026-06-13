@@ -35,6 +35,7 @@ interface FreeDictionaryApiEntry {
 export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
   readonly providerName = FREE_DICTIONARY_API_PROVIDER_NAME;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async fetch(lemma: string, _language: string): Promise<RawDefinitionEntry[]> {
     let response: Response;
     try {
@@ -76,7 +77,9 @@ export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
           (
             meaning,
           ): meaning is {
-            partOfSpeech: NonNullable<ReturnType<typeof mapFreeDictionaryApiPos>>;
+            partOfSpeech: NonNullable<
+              ReturnType<typeof mapFreeDictionaryApiPos>
+            >;
             definitions: FreeDictionaryApiDefinition[];
           } => meaning !== null,
         )
