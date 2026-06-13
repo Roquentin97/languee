@@ -16,6 +16,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { API_V1_PREFIX } from '../../api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
@@ -31,7 +32,7 @@ import { serializeCard } from './serializers/card.serializer';
 
 @ApiTags('cards')
 @ApiBearerAuth('access-token')
-@Controller('cards')
+@Controller(`${API_V1_PREFIX}/cards`)
 @UseGuards(JwtAuthGuard)
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}

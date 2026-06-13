@@ -1,9 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { API_V1_PREFIX } from '../../api-prefix';
 import { SystemService } from './system.service';
 
 @ApiTags('system')
-@Controller('system')
+@Controller(`${API_V1_PREFIX}/system`)
 export class SystemController {
   constructor(private readonly systemService: SystemService) {}
 
