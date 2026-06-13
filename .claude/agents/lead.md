@@ -201,6 +201,25 @@ The Linter agent only receives `target_service`, `context_artifacts`,
 `implementer_output.files_changed`, and compact failed command summaries in
 `lint_errors` - it does not receive architect or spec context.
 
+QA receives only scoped architect, implementer, and linter fields. Do not pass raw
+Architect or Implementer prose beyond the table above. Do not pass raw command logs,
+full repo skeleton text, or unchanged agent outputs; pass artifact paths and compact
+summaries only.
+
+For QA after an Implementer retry, add a `qa_retry_context` object:
+
+```json
+{
+  "retry_number": 1,
+  "previous_issues": ["issues from the prior qa-output.json"],
+  "retry_files_changed": ["files_changed from the retry implementer output"]
+}
+```
+
+The retry QA input should prioritize prior issues and retry changed files. Keep the
+same scoped architect fields so edge-case coverage remains anchored, but do not add
+extra full-file content, prior raw QA prose, or broad repository context.
+
 ```json
 {
   "spec": {
@@ -369,9 +388,11 @@ If any exit code is non-zero:
 
 ## After QA
 
-- If `needs_revision`: run the auto-lint step again, then dispatch Implementer with QA
-  feedback included, maximum 2 retries. Acquire migration lock again for each Implementer
-  retry only when persistence changes require it.
+- If `needs_revision`: dispatch Implementer with QA feedback included, maximum 2
+  retries. Acquire migration lock again for each Implementer retry only when persistence
+  changes require it. After the Implementer retry, run the auto-lint step again, then
+  dispatch QA with scoped inputs plus `qa_retry_context` containing the prior QA issues
+  and the retry Implementer's `files_changed`.
 - If `done`:
   - Persist to `forge/runs/<spec-slug>/qa-output.json`.
   - Rebase onto `develop` before opening PR:
