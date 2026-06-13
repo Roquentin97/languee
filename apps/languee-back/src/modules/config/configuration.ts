@@ -37,4 +37,7 @@ export const configuration = () => ({
     sampler: process.env['OTEL_TRACES_SAMPLER'] ?? 'parentbased_always_on',
     samplerArg: parseFloat(process.env['OTEL_TRACES_SAMPLER_ARG'] ?? '1.0'),
   },
+  dictionary: {
+    provider: process.env['DICTIONARY_PROVIDER'] ?? 'freedictionaryapi',
+  },
 });

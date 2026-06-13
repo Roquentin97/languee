@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DictionaryApiAdapter } from './dictionary-api.adapter';
 import {
   DICTIONARY_API_BASE_URL,
-  DICTIONARY_API_PROVIDER_NAME,
+  DICTIONARYAPI_DEV_PROVIDER_NAME,
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
@@ -40,7 +40,7 @@ describe('DictionaryApiAdapter', () => {
   });
 
   it('providerName equals the constant', () => {
-    expect(adapter.providerName).toBe(DICTIONARY_API_PROVIDER_NAME);
+    expect(adapter.providerName).toBe(DICTIONARYAPI_DEV_PROVIDER_NAME);
   });
 
   it('happy path: normalises DictionaryAPI response into RawDefinitionEntry[] with canonical PartOfSpeech', async () => {

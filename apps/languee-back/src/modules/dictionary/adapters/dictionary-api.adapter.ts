@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import {
   DICTIONARY_API_BASE_URL,
-  DICTIONARY_API_PROVIDER_NAME,
+  DICTIONARYAPI_DEV_PROVIDER_NAME,
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import {
@@ -31,7 +31,7 @@ type DictionaryApiMappedMeaning = DictionaryApiMeaning & {
 
 @Injectable()
 export class DictionaryApiAdapter implements IDictionaryApiAdapter {
-  readonly providerName = DICTIONARY_API_PROVIDER_NAME;
+  readonly providerName = DICTIONARYAPI_DEV_PROVIDER_NAME;
 
   async fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]> {
     let response: Response;
