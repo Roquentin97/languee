@@ -44,8 +44,13 @@ export class DictionaryController {
   })
   @ApiOkResponse({ type: LookupWordResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
-  @ApiNotFoundResponse({ description: 'No dictionary definitions were found for this word.' })
-  @ApiBadGatewayResponse({ description: 'Dictionary lookup is temporarily unavailable. Please try again later.' })
+  @ApiNotFoundResponse({
+    description: 'No dictionary definitions were found for this word.',
+  })
+  @ApiBadGatewayResponse({
+    description:
+      'Dictionary lookup is temporarily unavailable. Please try again later.',
+  })
   async lookup(@Query() query: LookupWordDto): Promise<LookupWordOutput> {
     try {
       return await this.dictionaryService.lookup({

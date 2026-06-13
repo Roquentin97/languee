@@ -262,13 +262,13 @@ describe('AuthService', () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
       bcryptMock.compare.mockResolvedValue(false as never);
 
-      await expect(
-        service.loginMobile(dto, 'agent', 'ip'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
+        UnauthorizedException,
+      );
 
-      await expect(
-        service.loginMobile(dto, 'agent', 'ip'),
-      ).rejects.toThrow('Invalid credentials');
+      await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
+        'Invalid credentials',
+      );
 
       // dummy hash compare must still be called for timing safety
       expect(bcryptMock.compare).toHaveBeenCalled();
@@ -282,13 +282,13 @@ describe('AuthService', () => {
       });
       bcryptMock.compare.mockResolvedValue(false as never);
 
-      await expect(
-        service.loginMobile(dto, 'agent', 'ip'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
+        UnauthorizedException,
+      );
 
-      await expect(
-        service.loginMobile(dto, 'agent', 'ip'),
-      ).rejects.toThrow('Invalid credentials');
+      await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
+        'Invalid credentials',
+      );
     });
   });
 

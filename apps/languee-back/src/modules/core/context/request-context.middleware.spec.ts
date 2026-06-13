@@ -22,7 +22,10 @@ describe('RequestContextMiddleware', () => {
     const req = makeReq();
     const { res, setHeader } = makeRes();
     const next: NextFunction = () => {
-      expect(setHeader).toHaveBeenCalledWith('X-Request-ID', expect.any(String));
+      expect(setHeader).toHaveBeenCalledWith(
+        'X-Request-ID',
+        expect.any(String),
+      );
       const id = setHeader.mock.calls[0][1] as string;
       // UUID v4 pattern
       expect(id).toMatch(
