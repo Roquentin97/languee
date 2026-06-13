@@ -56,4 +56,32 @@
 
     <!-- Logout -->
     <string name="logout_description">Log out</string>
+
+    <!-- Decks screen -->
+    <string name="decks_screen_title">My Decks</string>
+    <string name="decks_empty_state">No decks yet. Tap + to create one.</string>
+    <string name="decks_create_deck_button">Create deck</string>
+
+    <!-- Deck create dialog -->
+    <string name="deck_create_dialog_title">Create a deck</string>
+    <string name="deck_create_name_label">Deck name</string>
+    <string name="deck_create_name_error">Name cannot be empty</string>
+    <string name="deck_create_language_label">Language code</string>
+    <string name="deck_create_language_hint">Two lowercase letters, e.g. en, fr, de</string>
+    <string name="deck_create_language_error">Must be exactly 2 lowercase letters</string>
+    <string name="deck_create_confirm_button">Create</string>
+
+    <!-- Card creation screen -->
+    <string name="card_creation_title">Add card: %1$s</string>
+    <string name="card_creation_deck_label">Deck</string>
+    <string name="card_creation_select_deck_placeholder">Select a deck</string>
+    <string name="card_creation_select_deck_hint">Select a deck to look up the word</string>
+    <string name="card_creation_no_decks_hint">Create a deck first to add cards</string>
+    <string name="card_creation_definitions_header">Definitions for %1$s</string>
+    <string name="card_creation_no_definitions">No definitions found for "%1$s"</string>
+    <string name="card_creation_add_button">Add to deck</string>
+    <string name="card_creation_already_in_deck">This definition is already in the selected deck</string>
+    <string name="card_creation_exists_in_another_deck">This definition already exists in another deck</string>
+    <string name="card_creation_success">Card added successfully!</string>
+    <string name="card_creation_retry">Retry</string>
 </resources>

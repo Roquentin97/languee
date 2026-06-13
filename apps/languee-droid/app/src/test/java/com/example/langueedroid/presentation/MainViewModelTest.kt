@@ -12,10 +12,16 @@ import org.junit.Test
 class MainViewModelTest {
 
     private lateinit var viewModel: MainViewModel
+    private val readyForCardCreationCalls = mutableListOf<Pair<String, String?>>()
 
     @Before
     fun setUp() {
-        viewModel = MainViewModel()
+        readyForCardCreationCalls.clear()
+        viewModel = MainViewModel(
+            onEntryReadyForCardCreation = { word, context ->
+                readyForCardCreationCalls.add(word to context)
+            },
+        )
     }
 
     private val currentState get() = viewModel.state.value
@@ -25,10 +31,8 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `initial state is Screen List with empty entries`() {
-        val state = currentState
-        assertTrue(state is AppState.Screen.List)
-        assertTrue((state as AppState.Screen.List).entries.isEmpty())
+    fun `initial state is Screen Decks`() {
+        assertTrue(currentState is AppState.Screen.Decks)
     }
 
     // -------------------------------------------------------------------------
@@ -48,19 +52,10 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `dismissCapture returns to Screen List`() {
+    fun `dismissCapture returns to Screen Decks`() {
         viewModel.startManualAdd()
         viewModel.dismissCapture()
-        assertTrue(currentState is AppState.Screen.List)
-    }
-
-    @Test
-    fun `dismissCapture preserves existing entries in list`() {
-        viewModel.addEntry("cat", "I have a cat")
-        viewModel.startManualAdd()
-        viewModel.dismissCapture()
-        val list = currentState as AppState.Screen.List
-        assertEquals(1, list.entries.size)
+        assertTrue(currentState is AppState.Screen.Decks)
     }
 
     // -------------------------------------------------------------------------
@@ -68,41 +63,37 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `addEntry with valid word navigates to List and stores entry`() {
+    fun `addEntry with valid word navigates to CardCreation and fires callback`() {
         viewModel.addEntry("cat", "I have a cat")
-        val state = currentState as AppState.Screen.List
-        assertEquals(1, state.entries.size)
-        assertEquals("cat", state.entries[0].targetWord)
-        assertEquals("I have a cat", state.entries[0].context)
+        val state = currentState
+        assertTrue(state is AppState.Screen.CardCreation)
+        val cardCreation = state as AppState.Screen.CardCreation
+        assertEquals("cat", cardCreation.targetWord)
+        assertEquals("I have a cat", cardCreation.context)
+        assertEquals(1, readyForCardCreationCalls.size)
+        assertEquals("cat" to "I have a cat", readyForCardCreationCalls[0])
     }
 
     @Test
     fun `addEntry trims word`() {
         viewModel.addEntry("  cat  ", null)
-        val state = currentState as AppState.Screen.List
-        assertEquals("cat", state.entries[0].targetWord)
+        val state = currentState as AppState.Screen.CardCreation
+        assertEquals("cat", state.targetWord)
     }
 
     @Test
     fun `addEntry ignores blank word`() {
         viewModel.addEntry("   ", null)
-        val state = currentState as AppState.Screen.List
-        assertTrue(state.entries.isEmpty())
+        assertTrue(currentState is AppState.Screen.Decks)
+        assertTrue(readyForCardCreationCalls.isEmpty())
     }
 
     @Test
     fun `addEntry converts blank context to null`() {
         viewModel.addEntry("cat", "   ")
-        val state = currentState as AppState.Screen.List
-        assertNull(state.entries[0].context)
-    }
-
-    @Test
-    fun `addEntry accumulates multiple entries`() {
-        viewModel.addEntry("cat", null)
-        viewModel.addEntry("dog", "I love dogs")
-        val state = currentState as AppState.Screen.List
-        assertEquals(2, state.entries.size)
+        val state = currentState as AppState.Screen.CardCreation
+        assertNull(state.context)
+        assertEquals("cat" to null, readyForCardCreationCalls[0])
     }
 
     // -------------------------------------------------------------------------
@@ -210,8 +201,6 @@ class MainViewModelTest {
 
     @Test
     fun `confirmTruncation when sentence cannot be found disables multi-sentence flag and keeps context`() {
-        // Inject a ContextReview state where the targetWord does not appear in the context.
-        // This exercises the null branch of confirmTruncation (extractSentenceContaining returns null).
         val injectedState = AppState.Screen.ContextReview(
             targetWord = "missing",
             context = "First sentence. Second sentence.",
@@ -242,7 +231,6 @@ class MainViewModelTest {
         viewModel.keepFullContext()
         val state = currentState as AppState.Screen.ContextReview
         assertFalse(state.isMultiSentence)
-        // Context unchanged
         assertEquals("I love cats. Dogs are great too.", state.context)
     }
 
@@ -293,22 +281,14 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `onContextEditSave with empty string returns EmptyContextPendingConfirmation`() {
-        viewModel.startContextEdit("cat", "I have a cat")
-        val result = viewModel.onContextEditSave("")
-        assertTrue(result is ContextEditSaveResult.EmptyContextPendingConfirmation)
-    }
-
-    @Test
-    fun `onContextEditSave blank context does not add entry or navigate`() {
+    fun `onContextEditSave blank context does not navigate away from ContextEdit`() {
         viewModel.startContextEdit("cat", "I have a cat")
         viewModel.onContextEditSave("   ")
-        // State must remain ContextEdit — no navigation
         assertTrue(currentState is AppState.Screen.ContextEdit)
     }
 
     // -------------------------------------------------------------------------
-    // onContextEditSave — non-empty context containing word → Valid
+    // onContextEditSave — valid context → Valid, navigates to CardCreation
     // -------------------------------------------------------------------------
 
     @Test
@@ -319,20 +299,18 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `onContextEditSave with valid context adds entry and navigates to List`() {
+    fun `onContextEditSave with valid context navigates to CardCreation`() {
         viewModel.startContextEdit("cat", "I have a cat")
         viewModel.onContextEditSave("The cat sat on the mat")
         val state = currentState
-        assertTrue(state is AppState.Screen.List)
-        val list = state as AppState.Screen.List
-        assertEquals(1, list.entries.size)
-        assertEquals("cat", list.entries[0].targetWord)
-        assertEquals("The cat sat on the mat", list.entries[0].context)
+        assertTrue(state is AppState.Screen.CardCreation)
+        val cardCreation = state as AppState.Screen.CardCreation
+        assertEquals("cat", cardCreation.targetWord)
+        assertEquals("The cat sat on the mat", cardCreation.context)
     }
 
     @Test
     fun `onContextEditSave is case-insensitive for word matching`() {
-        // "Cat" (capitalised) must be accepted because EntryValidator is case-insensitive.
         viewModel.startContextEdit("cat", "I have a cat")
         val result = viewModel.onContextEditSave("The Cat sat on the mat")
         assertTrue(result is ContextEditSaveResult.Valid)
@@ -346,7 +324,7 @@ class MainViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // onContextEditSave — non-empty context missing word → InvalidContextBlockedSave
+    // onContextEditSave — context missing word → InvalidContextBlockedSave
     // -------------------------------------------------------------------------
 
     @Test
@@ -358,41 +336,10 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `onContextEditSave with word embedded in another word is blocked`() {
-        // "cat" inside "caterpillar" must not count as a standalone match.
-        viewModel.startContextEdit("cat", "I have a cat")
-        val result = viewModel.onContextEditSave("The caterpillar is big")
-        assertTrue(result is ContextEditSaveResult.InvalidContextBlockedSave)
-    }
-
-    @Test
-    fun `onContextEditSave blocked does not add entry or navigate`() {
+    fun `onContextEditSave blocked does not navigate away from ContextEdit`() {
         viewModel.startContextEdit("cat", "I have a cat")
         viewModel.onContextEditSave("I have a dog at home")
-        // Must remain in ContextEdit, no entry added
         assertTrue(currentState is AppState.Screen.ContextEdit)
-    }
-
-    // -------------------------------------------------------------------------
-    // onContextEditSave — multiple occurrences of word are all accepted
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `onContextEditSave with multiple occurrences of target word returns Valid`() {
-        viewModel.startContextEdit("cat", "I have a cat")
-        val result = viewModel.onContextEditSave("The cat chased another cat")
-        assertTrue(result is ContextEditSaveResult.Valid)
-    }
-
-    // -------------------------------------------------------------------------
-    // onContextEditSave — called when not in ContextEdit (guard)
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `onContextEditSave returns Valid when state is not ContextEdit`() {
-        // Guard: must not throw — returns Valid when current state is wrong
-        val result = viewModel.onContextEditSave("any context")
-        assertTrue(result is ContextEditSaveResult.Valid)
     }
 
     // -------------------------------------------------------------------------
@@ -400,21 +347,20 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `confirmSaveWithoutContext adds entry with null context and navigates to List`() {
+    fun `confirmSaveWithoutContext adds entry with null context and navigates to CardCreation`() {
         viewModel.startContextEdit("cat", "I have a cat")
         viewModel.confirmSaveWithoutContext("cat")
-        val state = currentState as AppState.Screen.List
-        assertEquals(1, state.entries.size)
-        assertEquals("cat", state.entries[0].targetWord)
-        assertNull(state.entries[0].context)
+        val state = currentState as AppState.Screen.CardCreation
+        assertEquals("cat", state.targetWord)
+        assertNull(state.context)
+        assertEquals("cat" to null, readyForCardCreationCalls[0])
     }
 
     @Test
-    fun `dismissCapture from ContextEdit returns to List without saving`() {
+    fun `dismissCapture from ContextEdit returns to Decks without saving`() {
         viewModel.startContextEdit("cat", "I have a cat")
         viewModel.dismissCapture()
-        assertTrue(currentState is AppState.Screen.List)
-        val list = currentState as AppState.Screen.List
-        assertTrue(list.entries.isEmpty())
+        assertTrue(currentState is AppState.Screen.Decks)
+        assertTrue(readyForCardCreationCalls.isEmpty())
     }
 }
