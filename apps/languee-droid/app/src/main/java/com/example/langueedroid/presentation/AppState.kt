@@ -46,5 +46,15 @@ sealed class AppState {
             val isMultiSentence: Boolean,
             val highlightRanges: kotlin.collections.List<IntRange>,
         ) : Screen()
+
+        /**
+         * Context edit: the user edits the context for a given target word.
+         * Highlight ranges mark standalone occurrences of the target word in the context.
+         */
+        data class ContextEdit(
+            val targetWord: String,
+            val context: String,
+            val highlightRanges: kotlin.collections.List<IntRange>,
+        ) : Screen()
     }
 }

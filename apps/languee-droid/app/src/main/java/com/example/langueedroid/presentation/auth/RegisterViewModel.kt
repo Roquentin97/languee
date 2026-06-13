@@ -4,15 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.data.AuthRepository
-import com.example.langueedroid.data.local.AuthSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AuthViewModel(
+class RegisterViewModel(
     private val authRepository: AuthRepository,
-    private val onAuthSuccess: (AuthSession) -> Unit,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -24,6 +22,9 @@ class AuthViewModel(
     private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
 
+    private val _confirmPassword = MutableStateFlow("")
+    val confirmPassword: StateFlow<String> = _confirmPassword.asStateFlow()
+
     fun onEmailChange(value: String) {
         _email.value = value
     }
@@ -32,33 +33,21 @@ class AuthViewModel(
         _password.value = value
     }
 
-    fun onLoginClick() {
-        val email = _email.value.trim()
-        val password = _password.value
-        if (email.isBlank() || password.isBlank()) {
-            _uiState.value = AuthUiState.Error("Email and password must not be blank")
-            return
-        }
-        viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
-            val result = authRepository.login(email, password)
-            val session = result.getOrNull()
-            if (session != null) {
-                _uiState.value = AuthUiState.Idle
-                onAuthSuccess(session)
-            } else {
-                _uiState.value = AuthUiState.Error(
-                    result.exceptionOrNull()?.message ?: "Login failed",
-                )
-            }
-        }
+    fun onConfirmPasswordChange(value: String) {
+        _confirmPassword.value = value
     }
 
     fun onRegisterClick() {
+        if (_uiState.value is AuthUiState.Loading) return
         val email = _email.value.trim()
         val password = _password.value
-        if (email.isBlank() || password.isBlank()) {
-            _uiState.value = AuthUiState.Error("Email and password must not be blank")
+        val confirmPassword = _confirmPassword.value
+        if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+            _uiState.value = AuthUiState.Error("All fields must not be blank")
+            return
+        }
+        if (password != confirmPassword) {
+            _uiState.value = AuthUiState.Error("Passwords do not match")
             return
         }
         viewModelScope.launch {
@@ -66,8 +55,7 @@ class AuthViewModel(
             val result = authRepository.register(email, password)
             val session = result.getOrNull()
             if (session != null) {
-                _uiState.value = AuthUiState.Idle
-                onAuthSuccess(session)
+                _uiState.value = AuthUiState.Success(session)
             } else {
                 _uiState.value = AuthUiState.Error(
                     result.exceptionOrNull()?.message ?: "Registration failed",
@@ -78,12 +66,11 @@ class AuthViewModel(
 
     class Factory(
         private val authRepository: AuthRepository,
-        private val onAuthSuccess: (AuthSession) -> Unit,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
-                return AuthViewModel(authRepository, onAuthSuccess) as T
+            if (modelClass.isAssignableFrom(RegisterViewModel::class.java)) {
+                return RegisterViewModel(authRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

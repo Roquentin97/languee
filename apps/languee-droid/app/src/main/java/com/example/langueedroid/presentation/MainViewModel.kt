@@ -101,4 +101,39 @@ class MainViewModel : ViewModel() {
     fun dismissCapture() {
         _state.value = AppState.Screen.List(entries = _entries.toList())
     }
+
+    /** Navigate to the context edit screen for an existing targetWord and context. */
+    fun startContextEdit(targetWord: String, context: String) {
+        val highlightRanges = EntryValidator.findStandaloneMatches(targetWord, context)
+        _state.value = AppState.Screen.ContextEdit(
+            targetWord = targetWord,
+            context = context,
+            highlightRanges = highlightRanges,
+        )
+    }
+
+    /**
+     * Called when the user saves the edited context.
+     * - blank context → EmptyContextPendingConfirmation (ask for confirmation)
+     * - non-blank context containing targetWord → Valid (saves entry, returns to list)
+     * - non-blank context missing targetWord → InvalidContextBlockedSave (blocked)
+     * targetWord is read from the current ContextEdit state.
+     */
+    fun onContextEditSave(editedContext: String): ContextEditSaveResult {
+        val current = _state.value as? AppState.Screen.ContextEdit ?: return ContextEditSaveResult.Valid
+        val targetWord = current.targetWord
+        return if (editedContext.isBlank()) {
+            ContextEditSaveResult.EmptyContextPendingConfirmation
+        } else if (EntryValidator.isContextValid(targetWord, editedContext)) {
+            addEntry(targetWord, editedContext)
+            ContextEditSaveResult.Valid
+        } else {
+            ContextEditSaveResult.InvalidContextBlockedSave(targetWord)
+        }
+    }
+
+    /** Save entry without context after user confirms the empty-context dialog. */
+    fun confirmSaveWithoutContext(targetWord: String) {
+        addEntry(targetWord, null)
+    }
 }

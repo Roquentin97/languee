@@ -4,6 +4,7 @@ import com.example.langueedroid.data.AuthRepository
 import com.example.langueedroid.data.local.AuthSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -14,7 +15,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import kotlinx.coroutines.channels.Channel
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
@@ -23,7 +23,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class AuthViewModelTest {
+class LoginViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -43,7 +43,7 @@ class AuthViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = AuthViewModel(authRepository, onAuthSuccess)
+    private fun buildViewModel() = LoginViewModel(authRepository, onAuthSuccess)
 
     // -----------------------------------------------------------------------
     // Initial state
@@ -69,8 +69,8 @@ class AuthViewModelTest {
     @Test
     fun `onPasswordChange updates password flow`() {
         val vm = buildViewModel()
-        vm.onPasswordChange("secret")
-        assertEquals("secret", vm.password.value)
+        vm.onPasswordChange("secret123")
+        assertEquals("secret123", vm.password.value)
     }
 
     // -----------------------------------------------------------------------
@@ -80,31 +80,38 @@ class AuthViewModelTest {
     @Test
     fun `onLoginClick with blank email shows Error state`() = runTest {
         val vm = buildViewModel()
-        vm.onEmailChange("")
-        vm.onPasswordChange("password")
+        vm.onEmailChange("   ")
+        vm.onPasswordChange("secret")
         vm.onLoginClick()
         advanceUntilIdle()
-
-        val state = vm.uiState.value
-        assertTrue(state is AuthUiState.Error)
-        verify(authRepository, never()).login(any(), any())
+        assertTrue(vm.uiState.value is AuthUiState.Error)
     }
 
     @Test
     fun `onLoginClick with blank password shows Error state`() = runTest {
         val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
+        vm.onEmailChange("user@example.com")
         vm.onPasswordChange("")
         vm.onLoginClick()
         advanceUntilIdle()
-
         assertTrue(vm.uiState.value is AuthUiState.Error)
+    }
+
+    @Test
+    fun `onLoginClick with blank email never calls authRepository`() = runTest {
+        val vm = buildViewModel()
+        vm.onEmailChange("")
+        vm.onPasswordChange("secret")
+        vm.onLoginClick()
+        advanceUntilIdle()
         verify(authRepository, never()).login(any(), any())
     }
 
     @Test
-    fun `onLoginClick with blank fields never calls authRepository`() = runTest {
+    fun `onLoginClick with blank password never calls authRepository`() = runTest {
         val vm = buildViewModel()
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("   ")
         vm.onLoginClick()
         advanceUntilIdle()
         verify(authRepository, never()).login(any(), any())
@@ -116,58 +123,61 @@ class AuthViewModelTest {
 
     @Test
     fun `onLoginClick success calls onAuthSuccess and resets to Idle`() = runTest {
-        val session = fakeSession()
-        whenever(authRepository.login("a@b.com", "pw")).thenReturn(Result.success(session))
-
         val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
+        val session = fakeSession()
+        whenever(authRepository.login(any(), any())).thenReturn(Result.success(session))
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
         vm.onLoginClick()
         advanceUntilIdle()
-
         assertTrue(vm.uiState.value is AuthUiState.Idle)
         assertEquals(1, capturedSessions.size)
-        assertEquals(session, capturedSessions[0])
+        assertEquals(session, capturedSessions.first())
     }
 
     // -----------------------------------------------------------------------
-    // onLoginClick — network failure (edge case 3)
+    // onLoginClick — network failure (edge case: backend failure on login)
     // -----------------------------------------------------------------------
 
     @Test
     fun `onLoginClick network exception shows Error state with message`() = runTest {
-        whenever(authRepository.login(any(), any())).thenReturn(
-            Result.failure(RuntimeException("no connectivity")),
-        )
-
         val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
+        whenever(authRepository.login(any(), any()))
+            .thenReturn(Result.failure(RuntimeException("Network error")))
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
         vm.onLoginClick()
         advanceUntilIdle()
-
         val state = vm.uiState.value
         assertTrue(state is AuthUiState.Error)
-        assertTrue((state as AuthUiState.Error).message.isNotBlank())
+        assertEquals("Network error", (state as AuthUiState.Error).message)
+    }
+
+    @Test
+    fun `onLoginClick network exception does not call onAuthSuccess`() = runTest {
+        val vm = buildViewModel()
+        whenever(authRepository.login(any(), any()))
+            .thenReturn(Result.failure(RuntimeException("Network error")))
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
+        vm.onLoginClick()
+        advanceUntilIdle()
         assertTrue(capturedSessions.isEmpty())
     }
 
     // -----------------------------------------------------------------------
-    // onLoginClick — HTTP error (edge case 3)
+    // onLoginClick — HTTP error
     // -----------------------------------------------------------------------
 
     @Test
-    fun `onLoginClick HTTP error shows Error state and does not call onAuthSuccess`() = runTest {
-        whenever(authRepository.login(any(), any())).thenReturn(
-            Result.failure(RuntimeException("Login failed: HTTP 401")),
-        )
-
+    fun `onLoginClick repository failure shows Error state and does not call onAuthSuccess`() = runTest {
         val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
+        whenever(authRepository.login(any(), any()))
+            .thenReturn(Result.failure(RuntimeException("HTTP 401")))
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
         vm.onLoginClick()
         advanceUntilIdle()
-
         assertTrue(vm.uiState.value is AuthUiState.Error)
         assertTrue(capturedSessions.isEmpty())
     }
@@ -178,112 +188,67 @@ class AuthViewModelTest {
 
     @Test
     fun `onLoginClick sets Loading state then resolves to Idle on success`() = runTest {
-        val gate = Channel<Result<AuthSession>>(capacity = 0)
-        whenever(authRepository.login(any(), any())).doSuspendableAnswer { gate.receive() }
-
         val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
+        val gate = Channel<Unit>()
+        whenever(authRepository.login(any(), any())).doSuspendableAnswer {
+            gate.receive()
+            Result.success(fakeSession())
+        }
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
         vm.onLoginClick()
-
-        // Advance so the coroutine runs and sets Loading, then suspends at gate.receive().
-        testDispatcher.scheduler.runCurrent()
+        testScheduler.advanceUntilIdle()
+        // At this point login() is suspended — Loading must be set
         assertTrue(vm.uiState.value is AuthUiState.Loading)
-
-        gate.send(Result.success(fakeSession()))
+        gate.send(Unit)
         advanceUntilIdle()
         assertTrue(vm.uiState.value is AuthUiState.Idle)
     }
 
     // -----------------------------------------------------------------------
-    // onRegisterClick — blank validation
+    // onLoginClick — Loading guard: repeated tap while in-flight is ignored
+    // (edge case: repeated taps while Loading)
     // -----------------------------------------------------------------------
 
     @Test
-    fun `onRegisterClick with blank email shows Error state`() = runTest {
+    fun `second onLoginClick while Loading is ignored`() = runTest {
         val vm = buildViewModel()
-        vm.onEmailChange("  ")
-        vm.onPasswordChange("pw")
-        vm.onRegisterClick()
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value is AuthUiState.Error)
-        verify(authRepository, never()).register(any(), any())
-    }
-
-    @Test
-    fun `onRegisterClick with blank password shows Error state`() = runTest {
-        val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("")
-        vm.onRegisterClick()
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value is AuthUiState.Error)
-        verify(authRepository, never()).register(any(), any())
-    }
-
-    // -----------------------------------------------------------------------
-    // onRegisterClick — success
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun `onRegisterClick success calls onAuthSuccess and resets to Idle`() = runTest {
-        val session = fakeSession()
-        whenever(authRepository.register("a@b.com", "pw")).thenReturn(Result.success(session))
-
-        val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
-        vm.onRegisterClick()
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value is AuthUiState.Idle)
-        assertEquals(1, capturedSessions.size)
-        assertEquals(session, capturedSessions[0])
-    }
-
-    // -----------------------------------------------------------------------
-    // onRegisterClick — network failure (edge case 3)
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun `onRegisterClick network exception shows Error state and no partial session stored`() = runTest {
-        whenever(authRepository.register(any(), any())).thenReturn(
-            Result.failure(RuntimeException("no connectivity")),
-        )
-
-        val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
-        vm.onRegisterClick()
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value is AuthUiState.Error)
-        assertTrue(capturedSessions.isEmpty())
-    }
-
-    // -----------------------------------------------------------------------
-    // onRegisterClick — Loading state
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun `onRegisterClick sets Loading state then resolves to Idle on success`() = runTest {
-        val gate = Channel<Result<AuthSession>>(capacity = 0)
-        whenever(authRepository.register(any(), any())).doSuspendableAnswer { gate.receive() }
-
-        val vm = buildViewModel()
-        vm.onEmailChange("a@b.com")
-        vm.onPasswordChange("pw")
-        vm.onRegisterClick()
-
-        // Advance so the coroutine runs and sets Loading, then suspends at gate.receive().
-        testDispatcher.scheduler.runCurrent()
+        val gate = Channel<Unit>()
+        var callCount = 0
+        whenever(authRepository.login(any(), any())).doSuspendableAnswer {
+            callCount++
+            gate.receive()
+            Result.success(fakeSession())
+        }
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
+        vm.onLoginClick()
+        testScheduler.advanceUntilIdle()
+        // state is Loading now
         assertTrue(vm.uiState.value is AuthUiState.Loading)
-
-        gate.send(Result.success(fakeSession()))
+        // second tap should be ignored
+        vm.onLoginClick()
+        testScheduler.advanceUntilIdle()
+        gate.send(Unit)
         advanceUntilIdle()
-        assertTrue(vm.uiState.value is AuthUiState.Idle)
+        assertEquals(1, callCount)
+    }
+
+    // -----------------------------------------------------------------------
+    // onLoginClick — fallback error message when exception has no message
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `onLoginClick with null exception message shows fallback error`() = runTest {
+        val vm = buildViewModel()
+        whenever(authRepository.login(any(), any()))
+            .thenReturn(Result.failure(RuntimeException()))
+        vm.onEmailChange("user@example.com")
+        vm.onPasswordChange("secret")
+        vm.onLoginClick()
+        advanceUntilIdle()
+        val state = vm.uiState.value as AuthUiState.Error
+        assertEquals("Login failed", state.message)
     }
 
     // -----------------------------------------------------------------------
@@ -295,6 +260,6 @@ class AuthViewModelTest {
         refreshToken = "refresh",
         sessionId = "sid",
         userId = "uid1",
-        userEmail = "a@b.com",
+        userEmail = "user@example.com",
     )
 }

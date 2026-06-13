@@ -35,7 +35,25 @@
     <!-- Home screen -->
     <string name="home_greeting">Welcome, %1$s</string>
     <string name="home_logout_button">Log out</string>
+    <string name="home_empty_state">No entries yet. Tap + to add one.</string>
 
     <!-- Session check -->
     <string name="checking_session_label">Checking session…</string>
+
+    <!-- Auth landing / register -->
+    <string name="auth_landing_title">Welcome to Languee</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_confirm_password">Confirm password</string>
+    <string name="auth_passwords_do_not_match">Passwords do not match</string>
+    <string name="auth_account_created">Account created!</string>
+    <string name="auth_already_have_account">Already have an account? Log in</string>
+
+    <!-- Context edit -->
+    <string name="context_edit_title">Edit context</string>
+    <string name="context_edit_empty_warning">You removed all context. Save this word without context?</string>
+    <string name="context_edit_save_without_context">Save without context</string>
+    <string name="context_edit_word_missing">The context no longer contains \'%1$s\'. Add the word back or clear context completely to save without context.</string>
+
+    <!-- Logout -->
+    <string name="logout_description">Log out</string>
 </resources>
