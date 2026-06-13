@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SystemService } from './system.service';
 
 @ApiTags('system')
@@ -9,6 +9,14 @@ export class SystemController {
 
   @Get('env')
   @ApiOperation({ summary: 'Get current environment configuration' })
+  @ApiOkResponse({
+    description: 'Current environment configuration',
+    schema: {
+      type: 'object',
+      additionalProperties: true,
+      example: { nodeEnv: 'development' },
+    },
+  })
   getEnv(): Record<string, unknown> {
     return this.systemService.getEnv();
   }

@@ -20,9 +20,12 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import {
+  AuthSessionResponseDto,
+  MessageResponseDto,
+} from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileLoginResponseDto } from './dto/mobile-login-response.dto';
-import { MobileLogoutRequestDto } from './dto/mobile-logout-request.dto';
 import { MobileRefreshRequestDto } from './dto/mobile-refresh-request.dto';
 import { MobileRefreshResponseDto } from './dto/mobile-refresh-response.dto';
 import { MobileRegisterResponseDto } from './dto/mobile-register-response.dto';
@@ -108,8 +111,7 @@ export class MobileAuthController {
   @ApiBearerAuth('access-token')
   @HttpCode(200)
   @ApiOperation({ summary: 'Logout current session (mobile)' })
-  @ApiBody({ type: MobileLogoutRequestDto })
-  @ApiOkResponse({ schema: { properties: { message: { type: 'string' } } } })
+  @ApiOkResponse({ type: MessageResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logout(@CurrentUser() user: AuthUser): Promise<{ message: string }> {
     await this.authService.logout(user.sessionId);
@@ -121,7 +123,7 @@ export class MobileAuthController {
   @ApiBearerAuth('access-token')
   @HttpCode(200)
   @ApiOperation({ summary: 'Logout all sessions (mobile)' })
-  @ApiOkResponse({ schema: { properties: { message: { type: 'string' } } } })
+  @ApiOkResponse({ type: MessageResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logoutAll(@CurrentUser() user: AuthUser): Promise<{ message: string }> {
     await this.authService.logoutAll(user.userId);
@@ -133,7 +135,10 @@ export class MobileAuthController {
   @ApiBearerAuth('access-token')
   @HttpCode(200)
   @ApiOperation({ summary: 'List active sessions (mobile)' })
-  @ApiOkResponse({ description: 'List of active sessions', type: [Object] })
+  @ApiOkResponse({
+    description: 'List of active sessions',
+    type: [AuthSessionResponseDto],
+  })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async getSessions(@CurrentUser() user: AuthUser): Promise<object[]> {
     return this.authService.getSessions(user.userId);
