@@ -6,6 +6,7 @@ import argparse
 import ast
 import fnmatch
 import json
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -201,6 +202,99 @@ def compact_typescript(source: str) -> str:
     return "\n".join(output) + ("\n" if source.endswith("\n") else "")
 
 
+def starts_collapsible_kotlin_body(signature: str) -> bool:
+    signature_lines = [
+        line.strip()
+        for line in signature.splitlines()
+        if line.strip() and not line.strip().startswith("@")
+    ]
+    stripped = signature.strip()
+    head = signature_lines[-1] if signature_lines else stripped
+    if "{" not in head:
+        return False
+    if head.startswith("@"):
+        return False
+    if starts_kotlin_type_body(head):
+        return False
+    if head.startswith(("if ", "for ", "while ", "when ", "catch ", "try", "else")):
+        return False
+    if re.search(r"\bfun\b", stripped) and "(" in stripped and ")" in stripped:
+        return True
+    if re.search(r"\bconstructor\s*\(", stripped):
+        return True
+    if re.search(r"^\s*init\s*\{", head):
+        return True
+    if re.search(r"^\s*(?:public|private|protected|internal|override\s+)*[gs]et\s*\(", head):
+        return True
+    return False
+
+
+def starts_kotlin_type_body(stripped: str) -> bool:
+    type_prefixes = (
+        "class ",
+        "data class ",
+        "sealed class ",
+        "interface ",
+        "sealed interface ",
+        "object ",
+        "companion object",
+        "enum class ",
+        "annotation class ",
+        "value class ",
+    )
+    without_modifiers = re.sub(
+        r"^(?:public|private|protected|internal|open|abstract|final|sealed|data|"
+        r"enum|annotation|value|inner)\s+",
+        "",
+        stripped,
+    )
+    return stripped.startswith(type_prefixes) or without_modifiers.startswith(type_prefixes)
+
+
+def compact_kotlin(source: str) -> str:
+    lines = source.splitlines()
+    output: list[str] = []
+    signature: list[str] = []
+    skip_depth = 0
+    skip_indent = ""
+
+    for line in lines:
+        if skip_depth:
+            skip_depth += line.count("{") - line.count("}")
+            if skip_depth <= 0:
+                close_index = line.find("}")
+                suffix = line[close_index + 1 :] if close_index >= 0 else ""
+                output.append(f"{skip_indent}}}{suffix}")
+                skip_depth = 0
+                skip_indent = ""
+            continue
+
+        candidate = "\n".join([*signature, line])
+        output.append(line)
+        if starts_collapsible_kotlin_body(candidate):
+            indent = line[: len(line) - len(line.lstrip())]
+            depth = candidate.count("{") - candidate.count("}")
+            if depth <= 0:
+                signature = []
+                continue
+            output.append(f"{indent}    /* body omitted */")
+            skip_depth = depth
+            skip_indent = indent
+            signature = []
+            continue
+
+        stripped = line.strip()
+        if signature:
+            if not stripped or stripped.endswith(";"):
+                signature = []
+            else:
+                signature.append(line)
+        elif stripped.startswith("@") or is_kotlin_signature_start(stripped):
+            signature.append(line)
+
+    return "\n".join(output) + ("\n" if source.endswith("\n") else "")
+
+
 def is_typescript_signature_start(stripped: str) -> bool:
     if not stripped or "(" not in stripped:
         return False
@@ -211,6 +305,22 @@ def is_typescript_signature_start(stripped: str) -> bool:
     if stripped.endswith(";"):
         return False
     return True
+
+
+def is_kotlin_signature_start(stripped: str) -> bool:
+    if not stripped:
+        return False
+    if stripped.startswith(("if ", "for ", "while ", "when ", "catch ", "import ", "package ")):
+        return False
+    if stripped.startswith("@"):
+        return True
+    if re.search(r"\bfun\b", stripped):
+        return True
+    if re.search(r"\bconstructor\s*\(", stripped):
+        return True
+    if stripped.startswith(("init ", "init{", "init {", "get(", "set(")):
+        return True
+    return False
 
 
 def language_for(path: Path) -> str:
@@ -243,6 +353,8 @@ def compact_file(path: Path, rel_path: str, always_full: list[str]) -> tuple[str
         return "skeleton", compact_python(source, path)
     if suffix in {".ts", ".tsx"}:
         return "skeleton", compact_typescript(source)
+    if suffix in {".kt", ".kts"}:
+        return "skeleton", compact_kotlin(source)
     return "full", source
 
 
