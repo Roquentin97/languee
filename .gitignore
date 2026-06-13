@@ -48,8 +48,9 @@ coverage/
 #Documentation
 /documentation
 
-#forge artifacts
+#forge 
 forge/runs/
+.tasks
 
 #local
 .lab
