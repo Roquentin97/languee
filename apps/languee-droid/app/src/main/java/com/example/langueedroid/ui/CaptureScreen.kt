@@ -33,6 +33,7 @@ import com.example.langueedroid.R
 import com.example.langueedroid.domain.EntryValidator
 import com.example.langueedroid.domain.Token
 import com.example.langueedroid.presentation.AppState
+import com.example.langueedroid.presentation.ContextEditSaveResult
 
 @Composable
 fun CaptureScreen(
@@ -42,7 +43,10 @@ fun CaptureScreen(
     onSelectTargetWord: (token: String) -> Unit,
     onConfirmTruncation: () -> Unit,
     onKeepFullContext: () -> Unit,
+    onEditContext: () -> Unit,
     onDismiss: () -> Unit,
+    onContextEditSave: (String) -> ContextEditSaveResult,
+    onConfirmSaveWithoutContext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -72,6 +76,14 @@ fun CaptureScreen(
                 onSaveWithoutContext = { onAddEntry(state.targetWord, null) },
                 onConfirmTruncation = onConfirmTruncation,
                 onKeepFullContext = onKeepFullContext,
+                onEditContext = onEditContext,
+                onCancel = onDismiss,
+            )
+
+            is AppState.Screen.ContextEdit -> ContextEditScreen(
+                state = state,
+                onSave = onContextEditSave,
+                onConfirmSaveWithoutContext = onConfirmSaveWithoutContext,
                 onCancel = onDismiss,
             )
 
@@ -251,6 +263,7 @@ private fun ContextReviewContent(
     onSaveWithoutContext: () -> Unit,
     onConfirmTruncation: () -> Unit,
     onKeepFullContext: () -> Unit,
+    onEditContext: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -318,6 +331,12 @@ private fun ContextReviewContent(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(text = stringResource(R.string.btn_save))
+        }
+        OutlinedButton(
+            onClick = onEditContext,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = stringResource(R.string.btn_edit_context))
         }
         OutlinedButton(
             onClick = onSaveWithoutContext,

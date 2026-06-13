@@ -12,12 +12,14 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 val rawBackendBaseUrl: String = localProperties.getProperty("LANGUEE_BACKEND_BASE_URL", "http://10.0.2.2:3000/")
-val backendBaseUrl: String = rawBackendBaseUrl.trim().let { url ->
-    if (url.endsWith("/")) url else "$url/"
-}
-val escapedBackendBaseUrl = backendBaseUrl
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
+val backendBaseUrl: String =
+    rawBackendBaseUrl.trim().let { url ->
+        if (url.endsWith("/")) url else "$url/"
+    }
+val escapedBackendBaseUrl =
+    backendBaseUrl
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
 
 android {
     namespace = "com.example.langueedroid"

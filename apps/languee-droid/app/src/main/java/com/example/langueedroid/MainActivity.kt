@@ -14,10 +14,9 @@ import com.example.langueedroid.data.remote.ApiClient
 import com.example.langueedroid.data.remote.AuthAuthenticator
 import com.example.langueedroid.presentation.AppSessionState
 import com.example.langueedroid.presentation.AppSessionViewModel
-import com.example.langueedroid.presentation.auth.AuthViewModel
 import com.example.langueedroid.ui.CheckingSessionScreen
-import com.example.langueedroid.ui.HomeScreen
-import com.example.langueedroid.ui.auth.AuthScreen
+import com.example.langueedroid.ui.MainScreen
+import com.example.langueedroid.ui.auth.AuthNavGraph
 import com.example.langueedroid.ui.theme.LangueeDroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -79,28 +78,14 @@ private fun LangueeApp(
         }
 
         is AppSessionState.Unauthorized -> {
-            val authViewModelFactory = AuthViewModel.Factory(
+            AuthNavGraph(
                 authRepository = authRepository,
                 onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
-            )
-            val authViewModel: AuthViewModel = viewModel(factory = authViewModelFactory)
-            val uiState by authViewModel.uiState.collectAsState()
-            val email by authViewModel.email.collectAsState()
-            val password by authViewModel.password.collectAsState()
-
-            AuthScreen(
-                uiState = uiState,
-                email = email,
-                password = password,
-                onEmailChange = { authViewModel.onEmailChange(it) },
-                onPasswordChange = { authViewModel.onPasswordChange(it) },
-                onLoginClick = { authViewModel.onLoginClick() },
-                onRegisterClick = { authViewModel.onRegisterClick() },
             )
         }
 
         is AppSessionState.Authorized -> {
-            HomeScreen(
+            MainScreen(
                 userEmail = state.userEmail,
                 onLogout = { appSessionViewModel.onLogout() },
                 logoutInProgress = logoutInProgress,
