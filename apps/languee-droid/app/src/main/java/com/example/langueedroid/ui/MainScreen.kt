@@ -1,11 +1,17 @@
 package com.example.langueedroid.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.langueedroid.data.CardRepository
+import com.example.langueedroid.data.DeckRepository
+import com.example.langueedroid.data.VocabularyRepository
 import com.example.langueedroid.presentation.AppState
+import com.example.langueedroid.presentation.CardCreationViewModel
+import com.example.langueedroid.presentation.DecksViewModel
 import com.example.langueedroid.presentation.MainViewModel
 
 @Composable
@@ -13,19 +19,77 @@ fun MainScreen(
     userEmail: String,
     onLogout: () -> Unit,
     logoutInProgress: Boolean,
+    deckRepository: DeckRepository,
+    vocabularyRepository: VocabularyRepository,
+    cardRepository: CardRepository,
+    onUnauthorized: () -> Unit,
+    sharedText: String?,
     modifier: Modifier = Modifier,
 ) {
-    val mainViewModel: MainViewModel = viewModel()
+    val mainViewModel: MainViewModel = viewModel(
+        factory = MainViewModel.Factory(
+            onEntryReadyForCardCreation = { _, _ ->
+                // Navigation to CardCreation is driven by state change inside MainViewModel.addEntry.
+            },
+        ),
+    )
+
+    LaunchedEffect(sharedText) {
+        if (!sharedText.isNullOrBlank()) {
+            mainViewModel.startSharedTextCapture(sharedText)
+        }
+    }
+
     val state by mainViewModel.state.collectAsState()
 
     when (val currentState = state) {
-        is AppState.Screen.List -> ListScreen(
-            entries = currentState.entries,
-            onAddEntry = { mainViewModel.startManualAdd() },
-            onLogout = onLogout,
-            logoutInProgress = logoutInProgress,
-            modifier = modifier,
-        )
+        is AppState.Screen.Decks -> {
+            val decksViewModel: DecksViewModel = viewModel(
+                factory = DecksViewModel.Factory(
+                    deckRepository = deckRepository,
+                    onUnauthorized = onUnauthorized,
+                ),
+            )
+            val decksState by decksViewModel.decksState.collectAsState()
+            DecksScreen(
+                state = decksState,
+                onDeckClick = { deck ->
+                    // Deck click from decks screen navigates to capture (start manual add)
+                    mainViewModel.startManualAdd()
+                },
+                onCreateDeck = { name, language ->
+                    decksViewModel.createDeck(name, language, onCreated = {})
+                },
+                onLogout = onLogout,
+                logoutInProgress = logoutInProgress,
+                modifier = modifier,
+            )
+        }
+
+        is AppState.Screen.CardCreation -> {
+            val cardCreationViewModel: CardCreationViewModel = viewModel(
+                key = "${currentState.targetWord}:${currentState.context}",
+                factory = CardCreationViewModel.Factory(
+                    targetWord = currentState.targetWord,
+                    context = currentState.context,
+                    deckRepository = deckRepository,
+                    vocabularyRepository = vocabularyRepository,
+                    cardRepository = cardRepository,
+                    onUnauthorized = onUnauthorized,
+                    onCardCreated = { mainViewModel.dismissCapture() },
+                ),
+            )
+            val cardCreationState by cardCreationViewModel.state.collectAsState()
+            CardCreationScreen(
+                state = cardCreationState,
+                onDeckSelected = { deck -> cardCreationViewModel.onDeckSelected(deck) },
+                onDefinitionSelected = { def -> cardCreationViewModel.onDefinitionSelected(def) },
+                onCreateCard = { cardCreationViewModel.createCard() },
+                onRetryLookup = { cardCreationViewModel.retryLookup() },
+                onNavigateBack = { mainViewModel.dismissCapture() },
+                modifier = modifier,
+            )
+        }
 
         is AppState.Screen.ManualCapture,
         is AppState.Screen.SharedWordCapture,

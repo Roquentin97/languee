@@ -87,7 +87,7 @@ fun CaptureScreen(
                 onCancel = onDismiss,
             )
 
-            is AppState.Screen.List -> Unit // Should not be visible — navigation handles this.
+            else -> Unit // Decks and CardCreation screens are handled outside CaptureScreen.
         }
     }
 }

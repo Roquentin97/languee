@@ -1,14 +1,21 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.domain.Token
-import com.example.langueedroid.domain.VocabularyEntry
 
 sealed class AppState {
     sealed class Screen : AppState() {
 
-        /** The main list screen showing all saved vocabulary entries. */
-        data class List(
-            val entries: kotlin.collections.List<VocabularyEntry> = emptyList(),
+        /** The deck list screen showing all user decks. */
+        object Decks : Screen()
+
+        /**
+         * Card creation flow: vocabulary lookup and definition selection for the given word.
+         * [targetWord] is the word to look up.
+         * [context] is optional sentence context for the lookup.
+         */
+        data class CardCreation(
+            val targetWord: String,
+            val context: String?,
         ) : Screen()
 
         /**
@@ -37,7 +44,7 @@ sealed class AppState {
         ) : Screen()
 
         /**
-         * Context review: the user has selected a word; confirm before saving.
+         * Context review: the user has selected a word; confirm before card creation.
          * If [isMultiSentence] is true, offer truncation.
          */
         data class ContextReview(

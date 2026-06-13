@@ -1,31 +1,34 @@
 package com.example.langueedroid.presentation
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.example.langueedroid.domain.EntryValidator
-import com.example.langueedroid.domain.VocabularyEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class MainViewModel : ViewModel() {
+class MainViewModel(
+    private val onEntryReadyForCardCreation: (word: String, context: String?) -> Unit,
+) : ViewModel() {
 
-    private val _state = MutableStateFlow<AppState>(AppState.Screen.List())
+    private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
     val state: StateFlow<AppState> = _state.asStateFlow()
-
-    private val _entries = mutableListOf<VocabularyEntry>()
-
-    /** Add an entry directly (word + optional context) and navigate back to the list. */
-    fun addEntry(word: String, context: String?) {
-        val trimmedWord = word.trim()
-        if (trimmedWord.isEmpty()) return
-        val normalizedContext = context?.trim()?.ifBlank { null }
-        _entries.add(VocabularyEntry(targetWord = trimmedWord, context = normalizedContext))
-        _state.value = AppState.Screen.List(entries = _entries.toList())
-    }
 
     /** Navigate to the manual add screen with no pre-filled word. */
     fun startManualAdd() {
         _state.value = AppState.Screen.ManualCapture()
+    }
+
+    /**
+     * Called when a word and optional context are ready to proceed to card creation.
+     * Delegates to the provided callback and navigates to the CardCreation screen.
+     */
+    fun addEntry(word: String, context: String?) {
+        val trimmedWord = word.trim()
+        if (trimmedWord.isEmpty()) return
+        val normalizedContext = context?.trim()?.ifBlank { null }
+        onEntryReadyForCardCreation(trimmedWord, normalizedContext)
+        _state.value = AppState.Screen.CardCreation(targetWord = trimmedWord, context = normalizedContext)
     }
 
     /**
@@ -42,7 +45,6 @@ class MainViewModel : ViewModel() {
         }
 
         if (EntryValidator.isLikelySingleWord(trimmed)) {
-            // Strip leading/trailing non-letter characters (e.g. trailing punctuation).
             val cleanWord = trimmed.trimStart { !it.isLetter() }.trimEnd { !it.isLetter() }
             val wordToUse = cleanWord.ifEmpty { trimmed }
             _state.value = AppState.Screen.SharedWordCapture(word = wordToUse)
@@ -79,7 +81,6 @@ class MainViewModel : ViewModel() {
         val current = _state.value as? AppState.Screen.ContextReview ?: return
         val sentence = EntryValidator.extractSentenceContaining(current.targetWord, current.context)
         if (sentence == null) {
-            // Cannot truncate; remove multi-sentence warning but keep current context.
             _state.value = current.copy(isMultiSentence = false)
             return
         }
@@ -97,9 +98,9 @@ class MainViewModel : ViewModel() {
         _state.value = current.copy(isMultiSentence = false)
     }
 
-    /** Cancel any active capture flow and return to the list. */
+    /** Cancel any active capture flow and return to the decks screen. */
     fun dismissCapture() {
-        _state.value = AppState.Screen.List(entries = _entries.toList())
+        _state.value = AppState.Screen.Decks
     }
 
     /** Navigate to the context edit screen for an existing targetWord and context. */
@@ -115,7 +116,7 @@ class MainViewModel : ViewModel() {
     /**
      * Called when the user saves the edited context.
      * - blank context → EmptyContextPendingConfirmation (ask for confirmation)
-     * - non-blank context containing targetWord → Valid (saves entry, returns to list)
+     * - non-blank context containing targetWord → Valid (triggers card creation, returns to decks)
      * - non-blank context missing targetWord → InvalidContextBlockedSave (blocked)
      * targetWord is read from the current ContextEdit state.
      */
@@ -135,5 +136,13 @@ class MainViewModel : ViewModel() {
     /** Save entry without context after user confirms the empty-context dialog. */
     fun confirmSaveWithoutContext(targetWord: String) {
         addEntry(targetWord, null)
+    }
+
+    class Factory(
+        private val onEntryReadyForCardCreation: (word: String, context: String?) -> Unit,
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            MainViewModel(onEntryReadyForCardCreation = onEntryReadyForCardCreation) as T
     }
 }

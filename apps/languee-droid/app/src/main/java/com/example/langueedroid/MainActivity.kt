@@ -1,5 +1,6 @@
 package com.example.langueedroid
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,6 +10,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.langueedroid.data.AuthRepository
+import com.example.langueedroid.data.CardRepository
+import com.example.langueedroid.data.DeckRepository
+import com.example.langueedroid.data.VocabularyRepository
 import com.example.langueedroid.data.local.AuthSessionStore
 import com.example.langueedroid.data.remote.ApiClient
 import com.example.langueedroid.data.remote.AuthAuthenticator
@@ -23,6 +27,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val sharedText: String? = if (intent?.action == Intent.ACTION_SEND &&
+            intent.type == "text/plain"
+        ) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else {
+            null
+        }
 
         // Build the manual dependency graph once per Activity lifecycle.
         val sessionStore = AuthSessionStore(applicationContext)
@@ -47,6 +59,10 @@ class MainActivity : ComponentActivity() {
         )
         authRepositoryHolder = authRepository
 
+        val deckRepository = DeckRepository(decksApi = apiClient.createDecksApi())
+        val vocabularyRepository = VocabularyRepository(vocabularyApi = apiClient.createVocabularyApi())
+        val cardRepository = CardRepository(cardsApi = apiClient.createCardsApi())
+
         val appSessionViewModelFactory = AppSessionViewModel.Factory(
             authRepository = authRepository,
             sessionStore = sessionStore,
@@ -57,6 +73,10 @@ class MainActivity : ComponentActivity() {
                 LangueeApp(
                     appSessionViewModelFactory = appSessionViewModelFactory,
                     authRepository = authRepository,
+                    deckRepository = deckRepository,
+                    vocabularyRepository = vocabularyRepository,
+                    cardRepository = cardRepository,
+                    sharedText = sharedText,
                 )
             }
         }
@@ -67,6 +87,10 @@ class MainActivity : ComponentActivity() {
 private fun LangueeApp(
     appSessionViewModelFactory: AppSessionViewModel.Factory,
     authRepository: AuthRepository,
+    deckRepository: DeckRepository,
+    vocabularyRepository: VocabularyRepository,
+    cardRepository: CardRepository,
+    sharedText: String?,
 ) {
     val appSessionViewModel: AppSessionViewModel = viewModel(factory = appSessionViewModelFactory)
     val sessionState by appSessionViewModel.sessionState.collectAsState()
@@ -89,6 +113,11 @@ private fun LangueeApp(
                 userEmail = state.userEmail,
                 onLogout = { appSessionViewModel.onLogout() },
                 logoutInProgress = logoutInProgress,
+                deckRepository = deckRepository,
+                vocabularyRepository = vocabularyRepository,
+                cardRepository = cardRepository,
+                onUnauthorized = { appSessionViewModel.onLogout() },
+                sharedText = sharedText,
             )
         }
     }

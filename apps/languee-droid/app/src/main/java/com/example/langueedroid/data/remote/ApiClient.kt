@@ -45,4 +45,10 @@ class ApiClient(
         .build()
 
     fun createAuthApi(): AuthApi = retrofit.create(AuthApi::class.java)
+
+    fun createDecksApi(): DecksApi = retrofit.create(DecksApi::class.java)
+
+    fun createVocabularyApi(): VocabularyApi = retrofit.create(VocabularyApi::class.java)
+
+    fun createCardsApi(): CardsApi = retrofit.create(CardsApi::class.java)
 }
