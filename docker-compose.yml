@@ -107,6 +107,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318"
       OTEL_TRACES_SAMPLER: "${OTEL_TRACES_SAMPLER:-parentbased_always_on}"
       OTEL_TRACES_SAMPLER_ARG: "${OTEL_TRACES_SAMPLER_ARG:-1.0}"
+      OTEL_METRICS_EXPORTER: "otlp"
     labels:
       logging: "alloy"
       service: "languee-back"
@@ -143,6 +144,40 @@ services:
       - "3100:3100"
     restart: unless-stopped
 
+  tempo:
+    image: grafana/tempo:2.7.1
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./provision/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  prometheus:
+    image: prom/prometheus:v3.4.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./provision/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   alloy:
     image: grafana/alloy:v1.16.0
     command:
@@ -154,9 +189,14 @@ services:
       - ./provision/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy-data:/var/lib/alloy/data
+    ports:
+      - "4317:4317"
+      - "4318:4318"
     restart: unless-stopped
     depends_on:
       - loki
+      - tempo
+      - prometheus
 
   grafana:
     image: grafana/grafana:13.0.1-security-01
@@ -167,15 +207,20 @@ services:
       - "3001:3000"
     volumes:
       - ./provision/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./provision/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - grafana-data:/var/lib/grafana
     restart: unless-stopped
     depends_on:
       - loki
+      - tempo
+      - prometheus
 
 volumes:
   postgres_data:
   redis_data:
   languee_back_node_modules:
   loki-data:
+  tempo-data:
   alloy-data:
   grafana-data:
+  prometheus-data:

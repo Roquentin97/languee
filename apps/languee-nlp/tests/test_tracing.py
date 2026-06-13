@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -107,7 +108,9 @@ def test_configure_tracing_disabled_does_not_set_provider(nlp_settings):
 def test_configure_tracing_enabled_registers_sdk_tracer_provider(nlp_settings_enabled):
     with (
         patch("languee_nlp.tracing.OTLPSpanExporter") as mock_exp_cls,
+        patch("languee_nlp.tracing.OTLPMetricExporter"),
         patch("languee_nlp.tracing.trace") as mock_trace,
+        patch("languee_nlp.tracing.otel_metrics"),
     ):
         mock_exp_cls.return_value = MagicMock()
         configure_tracing(nlp_settings_enabled)
@@ -120,7 +123,9 @@ def test_configure_tracing_enabled_registers_sdk_tracer_provider(nlp_settings_en
 def test_configure_tracing_enabled_sets_correct_otlp_endpoint(nlp_settings_enabled):
     with (
         patch("languee_nlp.tracing.OTLPSpanExporter") as mock_exp_cls,
+        patch("languee_nlp.tracing.OTLPMetricExporter"),
         patch("languee_nlp.tracing.trace"),
+        patch("languee_nlp.tracing.otel_metrics"),
     ):
         mock_exp_cls.return_value = MagicMock()
         configure_tracing(nlp_settings_enabled)
@@ -135,7 +140,9 @@ def test_configure_tracing_enabled_resource_has_service_name(nlp_settings_enable
 
     with (
         patch("languee_nlp.tracing.OTLPSpanExporter") as mock_exp_cls,
+        patch("languee_nlp.tracing.OTLPMetricExporter"),
         patch("languee_nlp.tracing.trace") as mock_trace,
+        patch("languee_nlp.tracing.otel_metrics"),
     ):
         mock_exp_cls.return_value = MagicMock()
         mock_trace.set_tracer_provider.side_effect = captured.append
@@ -376,3 +383,40 @@ def test_otel_endpoint_read_from_env(monkeypatch: pytest.MonkeyPatch):
     )
     s = Settings()
     assert s.otel_exporter_otlp_endpoint == "http://custom-alloy:4318"
+
+
+# ---------------------------------------------------------------------------
+# configure_tracing: meter provider (RED metrics)
+# ---------------------------------------------------------------------------
+
+
+def test_configure_tracing_disabled_does_not_set_meter_provider(nlp_settings):
+    with patch("languee_nlp.tracing.otel_metrics") as mock_metrics:
+        configure_tracing(nlp_settings)
+    mock_metrics.set_meter_provider.assert_not_called()
+
+
+def test_configure_tracing_enabled_sets_meter_provider(nlp_settings_enabled):
+    with (
+        patch("languee_nlp.tracing.OTLPSpanExporter"),
+        patch("languee_nlp.tracing.OTLPMetricExporter") as mock_metric_exp,
+        patch("languee_nlp.tracing.trace"),
+        patch("languee_nlp.tracing.otel_metrics") as mock_metrics,
+    ):
+        mock_metric_exp.return_value = MagicMock()
+        configure_tracing(nlp_settings_enabled)
+    mock_metrics.set_meter_provider.assert_called_once()
+    provider_arg = mock_metrics.set_meter_provider.call_args[0][0]
+    assert isinstance(provider_arg, MeterProvider)
+
+
+def test_configure_tracing_enabled_sets_metric_otlp_endpoint(nlp_settings_enabled):
+    with (
+        patch("languee_nlp.tracing.OTLPSpanExporter"),
+        patch("languee_nlp.tracing.OTLPMetricExporter") as mock_metric_exp,
+        patch("languee_nlp.tracing.trace"),
+        patch("languee_nlp.tracing.otel_metrics"),
+    ):
+        configure_tracing(nlp_settings_enabled)
+    call_kwargs = mock_metric_exp.call_args[1]
+    assert call_kwargs["endpoint"] == "http://alloy:4318/v1/metrics"

@@ -76,3 +76,50 @@ loki.write "loki_endpoint" {
     url = "http://loki:3100/loki/api/v1/push"
   }
 }
+
+// ── OTel pipeline ─────────────────────────────────────────────────────────────
+// Receives OTLP traces and metrics from services, forwards traces to Tempo and
+// metrics to Prometheus via remote write.
+
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    traces  = [otelcol.processor.batch.default.input]
+    metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    traces  = [otelcol.exporter.otlp.tempo.input]
+    metrics = [otelcol.exporter.prometheus.default.input]
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
+
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.default.receiver]
+  add_metric_suffixes = true
+  resource_to_telemetry_conversion {
+    enabled = true
+  }
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}

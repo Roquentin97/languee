@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from opentelemetry import metrics as otel_metrics
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -50,10 +54,18 @@ def configure_tracing(settings: Settings) -> None:
         }
     )
 
-    exporter = OTLPSpanExporter(
+    span_exporter = OTLPSpanExporter(
         endpoint=f"{settings.otel_exporter_otlp_endpoint}/v1/traces",
     )
-
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(exporter))
+    provider.add_span_processor(BatchSpanProcessor(span_exporter))
     trace.set_tracer_provider(provider)
+
+    metric_exporter = OTLPMetricExporter(
+        endpoint=f"{settings.otel_exporter_otlp_endpoint}/v1/metrics",
+    )
+    reader = PeriodicExportingMetricReader(
+        metric_exporter, export_interval_millis=30_000
+    )
+    meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
+    otel_metrics.set_meter_provider(meter_provider)
