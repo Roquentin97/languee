@@ -22,6 +22,12 @@ import { Throttle } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import {
+  AccessTokenResponseDto,
+  AuthSessionResponseDto,
+  AuthUserResponseDto,
+  MessageResponseDto,
+} from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -44,14 +50,7 @@ export class AuthController {
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({
     description: 'User registered',
-    schema: {
-      properties: {
-        id: { type: 'string' },
-        email: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-      },
-    },
+    type: AuthUserResponseDto,
   })
   async register(
     @Body() dto: RegisterDto,
@@ -65,7 +64,7 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({
     description: 'Returns a JWT access token',
-    schema: { properties: { accessToken: { type: 'string' } } },
+    type: AccessTokenResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   async login(
@@ -92,7 +91,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
   @ApiOkResponse({
     description: 'Returns a new JWT access token',
-    schema: { properties: { accessToken: { type: 'string' } } },
+    type: AccessTokenResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid refresh token' })
   async refresh(
@@ -127,7 +126,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout current session' })
   @ApiOkResponse({
     description: 'Session revoked',
-    schema: { properties: { message: { type: 'string' } } },
+    type: MessageResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logout(
@@ -148,7 +147,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout all sessions for the current user' })
   @ApiOkResponse({
     description: 'All sessions revoked',
-    schema: { properties: { message: { type: 'string' } } },
+    type: MessageResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async logoutAll(
@@ -167,7 +166,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'List all active sessions for the current user' })
-  @ApiOkResponse({ description: 'List of active sessions', type: [Object] })
+  @ApiOkResponse({
+    description: 'List of active sessions',
+    type: [AuthSessionResponseDto],
+  })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async getSessions(@CurrentUser() user: AuthUser): Promise<object[]> {
     return this.authService.getSessions(user.userId);
