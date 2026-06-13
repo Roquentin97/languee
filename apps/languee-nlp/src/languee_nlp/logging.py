@@ -7,6 +7,8 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
+from opentelemetry import trace as _otel_trace
+
 if TYPE_CHECKING:
     from languee_nlp.settings import Settings
 
@@ -37,6 +39,12 @@ class JsonFormatter(logging.Formatter):
             "pid": os.getpid(),
             "environment": self._environment,
         }
+
+        span = _otel_trace.get_current_span()
+        ctx = span.get_span_context()
+        if ctx.is_valid:
+            payload["trace_id"] = f"{ctx.trace_id:032x}"
+            payload["span_id"] = f"{ctx.span_id:016x}"
 
         if record.exc_info:
             exc_type, exc_value, _ = record.exc_info

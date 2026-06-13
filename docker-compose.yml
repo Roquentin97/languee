@@ -53,6 +53,8 @@ services:
       LANGUEE_NLP_LOG_LEVEL: ${LANGUEE_NLP_LOG_LEVEL:-info}
       LANGUEE_NLP_SERVICE_NAME: languee-nlp
       LANGUEE_NLP_ENVIRONMENT: ${NODE_ENV:-development}
+      LANGUEE_NLP_TRACING_ENABLED: "${TRACING_ENABLED:-true}"
+      LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318"
     ports:
       - "${LANGUEE_NLP_PORT:-8000}:8000"
     volumes:
