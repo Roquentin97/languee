@@ -101,6 +101,10 @@ services:
       PRINT_PRETTY_JSON_LOGS: "false"
       PRINT_DEBUG_LOGS: "${PRINT_DEBUG_LOGS:-false}"
       SERVICE_NAME: "languee-back"
+      TRACING_ENABLED: "${TRACING_ENABLED:-true}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318"
+      OTEL_TRACES_SAMPLER: "${OTEL_TRACES_SAMPLER:-parentbased_always_on}"
+      OTEL_TRACES_SAMPLER_ARG: "${OTEL_TRACES_SAMPLER_ARG:-1.0}"
     labels:
       logging: "alloy"
       service: "languee-back"

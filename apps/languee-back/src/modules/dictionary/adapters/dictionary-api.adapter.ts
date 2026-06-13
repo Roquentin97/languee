@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import {
   DICTIONARY_API_BASE_URL,
   DICTIONARY_API_PROVIDER_NAME,
@@ -42,8 +43,16 @@ export class DictionaryApiAdapter implements IDictionaryApiAdapter {
 
     if (!response.ok) {
       if (response.status === 404) {
+        trace.getActiveSpan()?.addEvent('dictionary.not_found', {
+          lemma,
+          language,
+        });
         return [];
       }
+      trace.getActiveSpan()?.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: `Dictionary HTTP ${response.status}`,
+      });
       throw new ProviderUnavailableError(
         this.providerName,
         new Error(`HTTP ${response.status}`),

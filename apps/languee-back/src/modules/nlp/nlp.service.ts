@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
 import type {
   NlpAnalysis,
@@ -30,16 +31,32 @@ export class NlpService {
         },
       );
     } catch (err: unknown) {
+      const span = trace.getActiveSpan();
+      if (err instanceof Error) {
+        span?.recordException(err);
+      }
+      span?.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: 'NLP service unavailable',
+      });
       throw new NlpUnavailableError(err);
     }
 
     if (!response.ok) {
+      trace.getActiveSpan()?.addEvent('nlp.response_error', {
+        'http.status_code': response.status,
+      });
+      trace.getActiveSpan()?.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: `NLP HTTP ${response.status}`,
+      });
       throw new NlpUnavailableError();
     }
 
     const body = (await response.json()) as NlpWordResponse;
 
     if (body['is_multi_word'] || body.tokens.length !== 1) {
+      trace.getActiveSpan()?.addEvent('nlp.multi_word_rejected', { word });
       throw new NlpMultiWordError();
     }
 

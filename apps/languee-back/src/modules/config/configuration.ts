@@ -30,4 +30,11 @@ export const configuration = () => ({
     printDebugLogs: process.env['PRINT_DEBUG_LOGS'] === 'true',
     printPrettyJsonLogs: process.env['PRINT_PRETTY_JSON_LOGS'] === 'true',
   },
+  tracing: {
+    enabled: process.env['TRACING_ENABLED'] !== 'false',
+    otlpEndpoint:
+      process.env['OTEL_EXPORTER_OTLP_ENDPOINT'] ?? 'http://alloy:4318',
+    sampler: process.env['OTEL_TRACES_SAMPLER'] ?? 'parentbased_always_on',
+    samplerArg: parseFloat(process.env['OTEL_TRACES_SAMPLER_ARG'] ?? '1.0'),
+  },
 });

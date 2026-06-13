@@ -1,4 +1,7 @@
 import { LoggerService, LogLevel } from '@nestjs/common';
+import { isSpanContextValid, trace } from '@opentelemetry/api';
+import { requestContextStorage } from '../context/request-context';
+import { sanitizeLogPayload } from '../sanitization/log-sanitizer';
 
 export class AppLogger implements LoggerService {
   private readonly context: string;
@@ -102,7 +105,20 @@ export class AppLogger implements LoggerService {
     payload['pid'] = process.pid;
     payload['environment'] = process.env['NODE_ENV'] ?? 'development';
 
-    const line = JSON.stringify(payload) + '\n';
+    // Enrich with request context (requestId) and active OTel span ids.
+    const reqCtx = requestContextStorage.getStore();
+    if (reqCtx !== undefined) {
+      payload['requestId'] = reqCtx.requestId;
+    }
+
+    const activeSpan = trace.getActiveSpan();
+    const spanCtx = activeSpan?.spanContext();
+    if (spanCtx !== undefined && isSpanContextValid(spanCtx)) {
+      payload['trace_id'] = spanCtx.traceId;
+      payload['span_id'] = spanCtx.spanId;
+    }
+
+    const line = JSON.stringify(sanitizeLogPayload(payload)) + '\n';
 
     if (level === 'error' || level === 'fatal') {
       process.stderr.write(line);
