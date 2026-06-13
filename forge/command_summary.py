@@ -112,13 +112,28 @@ def write_log(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", errors="replace")
 
 
-def portable_path(path: Path, base_dir: Path) -> str:
+def run_artifact_root(path: Path) -> Path | None:
     resolved_path = path.resolve()
-    resolved_base = base_dir.resolve()
-    try:
-        return resolved_path.relative_to(resolved_base).as_posix()
-    except ValueError:
-        return resolved_path.as_posix()
+    parts = resolved_path.parts
+    for index in range(len(parts) - 1):
+        if parts[index] == "forge" and parts[index + 1] == "runs":
+            if index == 0:
+                return Path(".").resolve()
+            return Path(*parts[:index])
+    return None
+
+
+def portable_path(path: Path, base_dirs: list[Path | None]) -> str:
+    resolved_path = path.resolve()
+    for base_dir in base_dirs:
+        if base_dir is None:
+            continue
+        resolved_base = base_dir.resolve()
+        try:
+            return resolved_path.relative_to(resolved_base).as_posix()
+        except ValueError:
+            continue
+    return resolved_path.as_posix()
 
 
 def run_command(argv: list[str], cwd: Path, timeout_seconds: int | None) -> tuple[int, str, str]:
@@ -155,7 +170,7 @@ def build_summary(
     duration_seconds: float,
     stdout_log: Path,
     stderr_log: Path,
-    path_base_dir: Path,
+    path_base_dirs: list[Path | None],
     max_tail_chars: int,
     max_diagnostics: int,
 ) -> dict[str, object]:
@@ -166,12 +181,12 @@ def build_summary(
         "label": label,
         "command": " ".join(shlex.quote(part) for part in argv),
         "argv": argv,
-        "cwd": portable_path(cwd, path_base_dir),
+        "cwd": portable_path(cwd, path_base_dirs),
         "status": "passed" if exit_code == 0 else "failed",
         "exit_code": exit_code,
         "duration_seconds": round(duration_seconds, 3),
-        "stdout_log": portable_path(stdout_log, path_base_dir),
-        "stderr_log": portable_path(stderr_log, path_base_dir),
+        "stdout_log": portable_path(stdout_log, path_base_dirs),
+        "stderr_log": portable_path(stderr_log, path_base_dirs),
         "stdout_chars": len(stdout),
         "stderr_chars": len(stderr),
         "stdout_tail": "" if exit_code == 0 else tail_text(stdout, max_tail_chars),
@@ -198,6 +213,7 @@ def main() -> None:
     stderr_log = log_dir / f"{label}.stderr.log"
     write_log(stdout_log, stdout)
     write_log(stderr_log, stderr)
+    path_base_dirs = [Path.cwd(), run_artifact_root(stdout_log), run_artifact_root(stderr_log)]
 
     summary = build_summary(
         label=label,
@@ -209,7 +225,7 @@ def main() -> None:
         duration_seconds=duration_seconds,
         stdout_log=stdout_log,
         stderr_log=stderr_log,
-        path_base_dir=Path.cwd(),
+        path_base_dirs=path_base_dirs,
         max_tail_chars=args.max_tail_chars,
         max_diagnostics=args.max_diagnostics,
     )

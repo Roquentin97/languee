@@ -43,6 +43,30 @@ def load_json(path: Path, errors: ValidationErrors) -> Any:
     return None
 
 
+def run_artifact_root(path: Path) -> Path | None:
+    resolved_path = path.resolve()
+    parts = resolved_path.parts
+    for index in range(len(parts) - 1):
+        if parts[index] == "forge" and parts[index + 1] == "runs":
+            if index == 0:
+                return Path(".").resolve()
+            return Path(*parts[:index])
+    return None
+
+
+def portable_path(path: Path, base_dirs: list[Path | None]) -> str:
+    resolved_path = path.resolve()
+    for base_dir in base_dirs:
+        if base_dir is None:
+            continue
+        resolved_base = base_dir.resolve()
+        try:
+            return resolved_path.relative_to(resolved_base).as_posix()
+        except ValueError:
+            continue
+    return resolved_path.as_posix()
+
+
 def path_join(path: str, key: str | int) -> str:
     if isinstance(key, int):
         return f"{path}[{key}]"
@@ -285,9 +309,10 @@ VALIDATORS: dict[str, Validator] = {
 
 
 def build_summary(stage: str, input_path: Path, errors: ValidationErrors) -> dict[str, object]:
+    path_base_dirs = [Path.cwd(), run_artifact_root(input_path)]
     return {
         "stage": stage,
-        "input": input_path.as_posix(),
+        "input": portable_path(input_path, path_base_dirs),
         "valid": not errors,
         "errors": errors,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -305,7 +330,9 @@ def main() -> None:
     summary = build_summary(args.stage, input_path, errors)
     summary_json = json.dumps(summary, indent=2) + "\n"
     if args.summary_file:
-        Path(args.summary_file).write_text(summary_json, encoding="utf-8")
+        summary_file = Path(args.summary_file)
+        summary_file.parent.mkdir(parents=True, exist_ok=True)
+        summary_file.write_text(summary_json, encoding="utf-8")
     print(summary_json, end="")
     raise SystemExit(0 if not errors else 1)
 
