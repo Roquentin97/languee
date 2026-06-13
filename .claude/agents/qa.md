@@ -150,6 +150,14 @@ relevant test files before reviewing behavior or writing tests.
   - `TODO` comments
   - Cross-service calls whose request/response/error behavior does not match
     `architect_output.service_contracts`
+- When reviewing endpoint behavior or cross-service calls, consult the corresponding
+  provider service Swagger docs when available:
+  - `languee-nlp`: `http://localhost:8000/docs`
+  - `languee-back`: `http://localhost:3000/api/v1/docs`
+  If generated service instructions or environment variables indicate a different port,
+  use the environment-adjusted URL and mention that dependency in `notes`. If the service
+  or docs endpoint is unavailable, note that in `notes` and fall back to source analysis
+  of provider routers/controllers, DTOs, schemas, and tests.
 
 ## Target-Service QA
 

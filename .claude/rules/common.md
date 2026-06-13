@@ -41,6 +41,20 @@ The pipeline never makes assumptions about target service, future schemas, API
 contracts, undefined business logic, missing integration details, or ownership
 boundaries. If any assumption is required, halt and ask a specific answerable question.
 
+## Endpoint Documentation
+
+When a spec refers to HTTP endpoints or an agent needs a service contract, check the
+corresponding provider service's Swagger docs when the service is available:
+
+- `languee-nlp`: `http://localhost:8000/docs`
+- `languee-back`: `http://localhost:3000/api/v1/docs`
+
+These URLs use default local ports. Ports may be environment-dependent; check
+`forge/services.toml`, generated `agent-instructions.md`, and port environment variables
+such as `LANGUEE_NLP_PORT` or `LANGUEE_BACK_API_PORT`. If the service or docs endpoint is
+unavailable, note that explicitly in the agent output and fall back to analyzing
+routers/controllers, DTOs, schemas, and tests from source.
+
 ## Environment
 
 Before running commands that require environment variables, use the wrapper script from

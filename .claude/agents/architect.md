@@ -30,6 +30,8 @@ undefined, you must halt immediately and request clarification - never proceed o
     "framework": "fastapi",
     "package_manager": "uv",
     "persistence": null,
+    "api_docs_url": "http://localhost:8000/docs",
+    "api_docs_port_env": "LANGUEE_NLP_PORT",
     "commands": {
       "format": "uv run ruff format .",
       "lint": "uv run ruff check .",
@@ -119,10 +121,20 @@ feature that are not already present in the target service. Leave as empty array
 6. Scan the target service path from `target_service.path`, using the skeleton to avoid
    unnecessary full-file reads. The skeleton is only an architecture map: read full files
    before making any decision that depends on implementation behavior.
-7. Read full files for every affected module/component, persistence artifact, API
+7. If the spec refers to HTTP endpoints, or if a service contract is needed, consult the
+   corresponding provider service's Swagger/OpenAPI docs before designing the contract:
+   - `languee-nlp`: `http://localhost:8000/docs`
+   - `languee-back`: `http://localhost:3000/api/v1/docs`
+   These are default local ports. If generated service instructions or environment
+   variables define a port override (`LANGUEE_NLP_PORT`, `LANGUEE_BACK_API_PORT`, or a
+   service-specific equivalent), adjust the docs URL and mention the port dependency in
+   `notes`. If the provider service or docs endpoint is unavailable, say so in `notes`
+   and fall back to source analysis of the provider's routers/controllers, DTOs,
+   schemas, and tests. Do not invent endpoint request or response shapes.
+8. Read full files for every affected module/component, persistence artifact, API
    contract, and relevant test file identified by the generated instructions and
    skeleton.
-8. Before doing anything else, identify every assumption the spec requires:
+9. Before doing anything else, identify every assumption the spec requires:
    - Target service or ownership boundary is unclear
    - References to schemas, models, or API contracts not yet defined
    - Contracts with modules or services that do not exist yet
@@ -132,9 +144,9 @@ feature that are not already present in the target service. Leave as empty array
      mapping, timeout behavior, or model loading behavior is unspecified
    - For Android features: UI toolkit, navigation behavior, backend API contract, auth
      storage, offline behavior, or required Android permissions are unspecified
-9. If any assumptions are required, set `status` to `pending_more_info`, write specific
+10. If any assumptions are required, set `status` to `pending_more_info`, write specific
    answerable questions to `questions`, and stop. Do not produce an implementation plan.
-10. If no assumptions remain, proceed with design:
+11. If no assumptions remain, proceed with design:
    - Design persistence changes conservatively and only for the target service
    - Identify affected service-local components in `affected_components`
    - Note any new directories or structural patterns in `structure_changes`
@@ -143,8 +155,8 @@ feature that are not already present in the target service. Leave as empty array
    - Brainstorm edge cases systematically: invalid input, missing relations, race
      conditions, auth boundaries, empty states, duplicate entries, service timeouts,
      model-load failures, unsupported language/model behavior
-11. If anything non-blocking is risky or unclear, note it in `risks` but do not halt.
-12. If feedback is present, address every point before producing the plan.
+12. If anything non-blocking is risky or unclear, note it in `risks` but do not halt.
+13. If feedback is present, address every point before producing the plan.
 
 ## Target-Service Rules
 

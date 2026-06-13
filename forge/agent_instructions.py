@@ -78,12 +78,22 @@ def build_instructions(
         f"- `package_manager`: {service['package_manager']}",
         f"- `persistence`: {format_value(service.get('persistence'))}",
         f"- `dev_port`: {service['dev_port']}",
+        f"- `api_docs_url`: {format_value(service.get('api_docs_url'))}",
+        f"- `api_docs_port_env`: {format_value(service.get('api_docs_port_env'))}",
         f"- `affected_components`: {format_value(service.get('affected_components', []))}",
         f"- `rulesets`: {format_value(names)}",
         "",
     ]
 
     append_mapping_section(parts, "Commands", commands)
+    append_mapping_section(
+        parts,
+        "API Documentation",
+        {
+            "swagger_docs_url": service.get("api_docs_url"),
+            "port_env_override": service.get("api_docs_port_env"),
+        },
+    )
     append_mapping_section(
         parts,
         "Environment Variables",

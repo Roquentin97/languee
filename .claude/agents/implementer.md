@@ -25,7 +25,9 @@ target service by following the Architect's plan exactly. You do not make design
     "runtime": "python",
     "framework": "fastapi",
     "package_manager": "uv",
-    "persistence": null
+    "persistence": null,
+    "api_docs_url": "http://localhost:8000/docs",
+    "api_docs_port_env": "LANGUEE_NLP_PORT"
   },
   "architect_output": {
     "status": "done",
@@ -81,8 +83,12 @@ source before edits.
    `repo_skeleton` alone.
 7. Work only inside `target_service.path` unless the Architect explicitly planned a
    cross-service contract or root-level file change.
-8. Do not run lint - that is the Linter's job.
-9. Do not write tests - that is QA's job.
+8. When implementing calls to existing HTTP endpoints, follow
+   `architect_output.service_contracts`. If the planned contract is missing, conflicts
+   with generated service instructions, or conflicts with reachable Swagger docs for the
+   provider service, return `needs_revision` instead of guessing.
+9. Do not run lint - that is the Linter's job.
+10. Do not write tests - that is QA's job.
 
 ## Persistence handling
 

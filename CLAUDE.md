@@ -34,6 +34,18 @@ between services. The Architect must halt with `pending_more_info` when the serv
 contract, ownership boundary, request shape, response shape, timeout behavior, or error
 mapping is unspecified.
 
+When a spec refers to HTTP endpoints, or when a service contract is needed, agents must
+consult the corresponding provider service's Swagger docs when available:
+
+- `languee-nlp`: `http://localhost:8000/docs`
+- `languee-back`: `http://localhost:3000/api/v1/docs`
+
+These URLs use default local ports. Ports may be environment-dependent; check
+`forge/services.toml`, generated `agent-instructions.md`, and port environment variables
+such as `LANGUEE_NLP_PORT` or `LANGUEE_BACK_API_PORT`. If the service or docs endpoint is
+unavailable, note that explicitly in the output and fall back to analyzing endpoints from
+source routers/controllers, DTOs, schemas, and tests.
+
 ## Service Manifests and Rules
 
 Service facts, commands, context include/exclude patterns, ruleset selection, and
