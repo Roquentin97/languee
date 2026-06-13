@@ -144,6 +144,17 @@ When using `mcp__github__push_files` or `mcp__github__create_branch`, apply the 
 branch prefix rules. Never pass `master`, `develop`, or `staging` as the branch argument.
 Branch name must match the conventional commit type of the change.
 
+## GitHub remote operations
+
+Use GitHub MCP for remote repository operations. Agents must not use native `git` or
+`gh` for pulling remote changes, pushing branches or commits, creating remote branches,
+or opening pull requests unless the human explicitly overrides this rule for a specific
+task.
+
+Local repository operations such as `git status`, `git diff`, `git log`, `git add`, and
+`git commit` remain allowed. When a workflow needs remote state, branch publication, or a
+PR, use the GitHub MCP tools instead of `git pull`, `git push`, or `gh pr`.
+
 ## Commit and PR conventions
 
 All commits must follow Conventional Commits format:
