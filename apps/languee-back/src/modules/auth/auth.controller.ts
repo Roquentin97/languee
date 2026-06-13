@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Post,
   Req,
   Res,
@@ -60,6 +61,7 @@ export class AuthController {
 
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @HttpCode(200)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({
@@ -88,6 +90,7 @@ export class AuthController {
 
   @Post('refresh')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @HttpCode(200)
   @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
   @ApiOkResponse({
     description: 'Returns a new JWT access token',
