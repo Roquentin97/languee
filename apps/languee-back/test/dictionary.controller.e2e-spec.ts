@@ -77,16 +77,16 @@ describe('DictionaryController (e2e)', () => {
     mockAdapter.fetch.mockReset();
   });
 
-  describe('GET /dictionary/lookup', () => {
+  describe('GET /api/v1/dictionary/lookup', () => {
     it('returns 401 when no Authorization header is provided', async () => {
       await request(app.getHttpServer())
-        .get('/dictionary/lookup?word=despite')
+        .get('/api/v1/dictionary/lookup?word=despite')
         .expect(401);
     });
 
     it('returns 400 when word query param is missing', async () => {
       await request(app.getHttpServer())
-        .get('/dictionary/lookup')
+        .get('/api/v1/dictionary/lookup')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(400);
     });
@@ -95,7 +95,7 @@ describe('DictionaryController (e2e)', () => {
       mockAdapter.fetch.mockResolvedValue(MOCK_DEFINITIONS);
 
       const res = await request(app.getHttpServer())
-        .get('/dictionary/lookup?word=despite')
+        .get('/api/v1/dictionary/lookup?word=despite')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
@@ -116,7 +116,7 @@ describe('DictionaryController (e2e)', () => {
       mockAdapter.fetch.mockResolvedValue(MOCK_DEFINITIONS);
 
       const res = await request(app.getHttpServer())
-        .get('/dictionary/lookup?word=despite')
+        .get('/api/v1/dictionary/lookup?word=despite')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
@@ -135,7 +135,7 @@ describe('DictionaryController (e2e)', () => {
       );
 
       await request(app.getHttpServer())
-        .get(`/dictionary/lookup?word=${word}`)
+        .get(`/api/v1/dictionary/lookup?word=${word}`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(502);
     });

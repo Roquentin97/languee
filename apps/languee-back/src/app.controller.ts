@@ -1,9 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppService } from './app.service';
+import { API_V1_PREFIX } from './api-prefix';
 
 @ApiTags('health')
-@Controller()
+@Controller(API_V1_PREFIX)
 export class AppController {
   constructor(private readonly appService: AppService) {}
 

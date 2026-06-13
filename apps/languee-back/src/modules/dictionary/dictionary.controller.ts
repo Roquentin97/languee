@@ -16,6 +16,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { API_V1_PREFIX } from '../../api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import { DefinitionsNotFoundException } from './dictionary.errors';
@@ -26,7 +27,7 @@ import { DictionaryService } from './dictionary.service';
 
 @ApiTags('dictionary')
 @ApiBearerAuth('access-token')
-@Controller('dictionary')
+@Controller(`${API_V1_PREFIX}/dictionary`)
 @UseGuards(JwtAuthGuard)
 export class DictionaryController {
   constructor(private readonly dictionaryService: DictionaryService) {}

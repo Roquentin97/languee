@@ -68,8 +68,8 @@ type OperationExpectation = {
 };
 
 const expectations: OperationExpectation[] = [
-  { path: '/', method: 'get', responses: ['200'] },
-  { path: '/system/env', method: 'get', responses: ['200'] },
+  { path: '/api/v1', method: 'get', responses: ['200'] },
+  { path: '/api/v1/system/env', method: 'get', responses: ['200'] },
   {
     path: '/auth/register',
     method: 'post',
@@ -148,41 +148,41 @@ const expectations: OperationExpectation[] = [
     responseSchema: 'AuthSessionResponseDto',
   },
   {
-    path: '/dictionary/lookup',
+    path: '/api/v1/dictionary/lookup',
     method: 'get',
     parameters: ['word', 'language'],
     responses: ['200', '401', '404', '502'],
     responseSchema: 'LookupWordResponseDto',
   },
   {
-    path: '/vocabulary/lookup',
+    path: '/api/v1/vocabulary/lookup',
     method: 'get',
     parameters: ['word', 'language', 'context', 'disablePosFiltering'],
     responses: ['200', '401', '404', '422', '502'],
     responseSchema: 'LookupVocabularyResponseDto',
   },
   {
-    path: '/decks',
+    path: '/api/v1/decks',
     method: 'post',
     requestBodySchema: 'CreateDeckDto',
     responses: ['201', '401', '409'],
     responseSchema: 'DeckResponseDto',
   },
   {
-    path: '/decks',
+    path: '/api/v1/decks',
     method: 'get',
     responses: ['200', '401'],
     responseSchema: 'DeckResponseDto',
   },
   {
-    path: '/decks/{id}',
+    path: '/api/v1/decks/{id}',
     method: 'get',
     parameters: ['id'],
     responses: ['200', '401', '404'],
     responseSchema: 'DeckResponseDto',
   },
   {
-    path: '/cards',
+    path: '/api/v1/cards',
     method: 'post',
     requestBodySchema: 'CreateCardDto',
     responses: ['201', '401', '404', '409'],

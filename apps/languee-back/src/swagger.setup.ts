@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { API_V1_PATH, API_V1_PREFIX } from './api-prefix';
 import { createBasicAuthMiddleware } from './modules/core/basic-auth/basic-auth.middleware.factory';
 
 function getRequiredConfigValue(
@@ -30,7 +31,7 @@ export function setupSwagger(
     'BASIC_PASSWORD',
   );
 
-  const docsPath = '/api/v1/docs';
+  const docsPath = `${API_V1_PATH}/docs`;
 
   app.use(
     docsPath,
@@ -47,5 +48,5 @@ export function setupSwagger(
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/v1/docs', app, document);
+  SwaggerModule.setup(`${API_V1_PREFIX}/docs`, app, document);
 }

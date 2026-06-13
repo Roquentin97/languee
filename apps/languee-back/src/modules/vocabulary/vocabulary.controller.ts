@@ -18,6 +18,7 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { API_V1_PREFIX } from '../../api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
@@ -31,7 +32,7 @@ import { VocabularyService } from './vocabulary.service';
 
 @ApiTags('vocabulary')
 @ApiBearerAuth('access-token')
-@Controller('vocabulary')
+@Controller(`${API_V1_PREFIX}/vocabulary`)
 @UseGuards(JwtAuthGuard)
 export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
