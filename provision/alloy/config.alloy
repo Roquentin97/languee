@@ -113,9 +113,7 @@ otelcol.exporter.otlp "tempo" {
 otelcol.exporter.prometheus "default" {
   forward_to = [prometheus.remote_write.default.receiver]
   add_metric_suffixes = true
-  resource_to_telemetry_conversion {
-    enabled = true
-  }
+  resource_to_telemetry_conversion = true
 }
 
 prometheus.remote_write "default" {
