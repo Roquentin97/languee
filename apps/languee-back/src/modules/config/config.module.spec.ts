@@ -139,4 +139,24 @@ describe('configuration()', () => {
       expect(result.system.basicAuthPassword).toBe('');
     });
   });
+
+  describe('dictionary namespace', () => {
+    it('reads DICTIONARY_PROVIDER env var when set to "freedictionaryapi"', () => {
+      process.env['DICTIONARY_PROVIDER'] = 'freedictionaryapi';
+      const result = configuration();
+      expect(result.dictionary.provider).toBe('freedictionaryapi');
+    });
+
+    it('reads DICTIONARY_PROVIDER env var when set to "dictionaryapi_dev"', () => {
+      process.env['DICTIONARY_PROVIDER'] = 'dictionaryapi_dev';
+      const result = configuration();
+      expect(result.dictionary.provider).toBe('dictionaryapi_dev');
+    });
+
+    it('defaults dictionary.provider to "freedictionaryapi" when DICTIONARY_PROVIDER is not set', () => {
+      delete process.env['DICTIONARY_PROVIDER'];
+      const result = configuration();
+      expect(result.dictionary.provider).toBe('freedictionaryapi');
+    });
+  });
 });

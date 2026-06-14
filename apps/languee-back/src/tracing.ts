@@ -22,7 +22,9 @@ if (tracingEnabled) {
       'service.name': process.env['SERVICE_NAME'] ?? 'languee-back',
       'deployment.environment': process.env['NODE_ENV'] ?? 'development',
     }),
-    spanProcessor: new SanitizingSpanProcessor(new BatchSpanProcessor(exporter)),
+    spanProcessor: new SanitizingSpanProcessor(
+      new BatchSpanProcessor(exporter),
+    ),
     instrumentations: [
       getNodeAutoInstrumentations({
         // Do not capture any request/response headers as span attributes to

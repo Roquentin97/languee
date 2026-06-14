@@ -44,8 +44,13 @@ export class DictionaryController {
   })
   @ApiOkResponse({ type: LookupWordResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
-  @ApiNotFoundResponse({ description: 'Definitions not found' })
-  @ApiBadGatewayResponse({ description: 'Dictionary provider unavailable' })
+  @ApiNotFoundResponse({
+    description: 'No dictionary definitions were found for this word.',
+  })
+  @ApiBadGatewayResponse({
+    description:
+      'Dictionary lookup is temporarily unavailable. Please try again later.',
+  })
   async lookup(@Query() query: LookupWordDto): Promise<LookupWordOutput> {
     try {
       return await this.dictionaryService.lookup({
@@ -54,10 +59,17 @@ export class DictionaryController {
       });
     } catch (e: unknown) {
       if (e instanceof DefinitionsNotFoundException) {
-        throw new NotFoundException('DEFINITIONS_NOT_FOUND');
+        throw new NotFoundException({
+          message: 'No dictionary definitions were found for this word.',
+          error: 'DICTIONARY_DEFINITIONS_NOT_FOUND',
+        });
       }
       if (e instanceof ProviderUnavailableError) {
-        throw new BadGatewayException('PROVIDER_UNAVAILABLE');
+        throw new BadGatewayException({
+          message:
+            'Dictionary lookup is temporarily unavailable. Please try again later.',
+          error: 'DICTIONARY_PROVIDER_UNAVAILABLE',
+        });
       }
       throw e;
     }
