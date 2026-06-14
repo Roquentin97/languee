@@ -1,5 +1,6 @@
 import * as otelApi from '@opentelemetry/api';
 import { requestContextStorage } from '../context/request-context';
+import { REDACTED_VALUE } from '../sanitization/redaction';
 import { AppLogger } from './app-logger';
 
 describe('AppLogger', () => {
@@ -339,8 +340,8 @@ describe('AppLogger', () => {
   });
 
   // Log sanitization
-  describe('log sanitization deny-list', () => {
-    it('strips sensitive keys from the logged payload', () => {
+  describe('log sanitization redaction', () => {
+    it('redacts sensitive keys from the logged payload', () => {
       const logger = new AppLogger('TestContext');
       logger.log({
         message: 'login attempt',
@@ -350,18 +351,18 @@ describe('AppLogger', () => {
       });
 
       const entry = parseStdout();
-      expect(entry['password']).toBeUndefined();
-      expect(entry['token']).toBeUndefined();
+      expect(entry['password']).toBe(REDACTED_VALUE);
+      expect(entry['token']).toBe(REDACTED_VALUE);
       expect(entry['message']).toBe('login attempt');
       expect(entry['requestId']).toBe('safe-id');
     });
 
-    it('strips authorization key from the logged payload', () => {
+    it('redacts authorization key from the logged payload', () => {
       const logger = new AppLogger('TestContext');
       logger.log({ message: 'req', authorization: 'Basic abc' });
 
       const entry = parseStdout();
-      expect(entry['authorization']).toBeUndefined();
+      expect(entry['authorization']).toBe(REDACTED_VALUE);
     });
   });
 

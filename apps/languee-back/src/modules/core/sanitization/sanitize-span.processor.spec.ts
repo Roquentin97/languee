@@ -4,11 +4,10 @@ import type {
   Span,
   SpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
+import { REDACTED_VALUE } from './redaction';
 import { SanitizingSpanProcessor } from './sanitize-span.processor';
 
-function makeReadableSpan(
-  attributes: Record<string, unknown>,
-): ReadableSpan {
+function makeReadableSpan(attributes: Record<string, unknown>): ReadableSpan {
   return { attributes } as unknown as ReadableSpan;
 }
 
@@ -25,15 +24,21 @@ describe('SanitizingSpanProcessor', () => {
   it('passes non-sensitive attributes through to the delegate', () => {
     const delegate = makeDelegate();
     const processor = new SanitizingSpanProcessor(delegate);
-    const span = makeReadableSpan({ 'http.method': 'GET', 'http.status_code': 200 });
+    const span = makeReadableSpan({
+      'http.method': 'GET',
+      'http.status_code': 200,
+    });
 
     processor.onEnd(span);
 
-    expect(span.attributes).toEqual({ 'http.method': 'GET', 'http.status_code': 200 });
+    expect(span.attributes).toEqual({
+      'http.method': 'GET',
+      'http.status_code': 200,
+    });
     expect(delegate.onEnd).toHaveBeenCalledWith(span);
   });
 
-  it('strips http.request.header.authorization', () => {
+  it('redacts http.request.header.authorization', () => {
     const delegate = makeDelegate();
     const processor = new SanitizingSpanProcessor(delegate);
     const span = makeReadableSpan({
@@ -43,11 +48,13 @@ describe('SanitizingSpanProcessor', () => {
 
     processor.onEnd(span);
 
-    expect(span.attributes).not.toHaveProperty('http.request.header.authorization');
+    expect(span.attributes['http.request.header.authorization']).toBe(
+      REDACTED_VALUE,
+    );
     expect(span.attributes['http.method']).toBe('GET');
   });
 
-  it('strips all deny-list keys regardless of case', () => {
+  it('redacts all sensitive keys regardless of case', () => {
     const delegate = makeDelegate();
     const processor = new SanitizingSpanProcessor(delegate);
     const span = makeReadableSpan({
@@ -67,10 +74,13 @@ describe('SanitizingSpanProcessor', () => {
 
     processor.onEnd(span);
 
-    expect(Object.keys(span.attributes as object)).toHaveLength(0);
+    expect(Object.keys(span.attributes as object)).toHaveLength(12);
+    expect(Object.values(span.attributes as object)).toEqual(
+      Array(12).fill(REDACTED_VALUE),
+    );
   });
 
-  it('strips keys that contain deny-list terms in a larger key name', () => {
+  it('redacts keys that contain sensitive terms in a larger key name', () => {
     const delegate = makeDelegate();
     const processor = new SanitizingSpanProcessor(delegate);
     const span = makeReadableSpan({
@@ -81,8 +91,8 @@ describe('SanitizingSpanProcessor', () => {
 
     processor.onEnd(span);
 
-    expect(span.attributes).not.toHaveProperty('db.user.password');
-    expect(span.attributes).not.toHaveProperty('request.accessToken');
+    expect(span.attributes['db.user.password']).toBe(REDACTED_VALUE);
+    expect(span.attributes['request.accessToken']).toBe(REDACTED_VALUE);
     expect(span.attributes['safe.key']).toBe('keep-me');
   });
 

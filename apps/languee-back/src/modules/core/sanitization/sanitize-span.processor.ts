@@ -4,28 +4,7 @@ import type {
   Span,
   SpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
-
-const DENY_LIST_PATTERNS = [
-  'authorization',
-  'password',
-  'pass',
-  'token',
-  'accesstoken',
-  'refreshtoken',
-  'jwt',
-  'cookie',
-  'set-cookie',
-  'secret',
-  'apikey',
-  'x-api-key',
-];
-
-function isSensitiveKey(key: string): boolean {
-  const lower = key.toLowerCase();
-  return DENY_LIST_PATTERNS.some(
-    (denied) => lower === denied || lower.includes(denied),
-  );
-}
+import { isSensitiveKey, REDACTED_VALUE } from './redaction';
 
 export class SanitizingSpanProcessor implements SpanProcessor {
   constructor(private readonly delegate: SpanProcessor) {}
@@ -38,7 +17,7 @@ export class SanitizingSpanProcessor implements SpanProcessor {
     const attrs = span.attributes as Record<string, unknown>;
     for (const key of Object.keys(attrs)) {
       if (isSensitiveKey(key)) {
-        Reflect.deleteProperty(attrs, key);
+        attrs[key] = REDACTED_VALUE;
       }
     }
     this.delegate.onEnd(span);
