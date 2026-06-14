@@ -23,6 +23,33 @@ function mockFetchStatus(status: number) {
   } as unknown as Response);
 }
 
+function makeEntry(
+  partOfSpeech: string,
+  senses: { definition: string; examples?: string[] }[],
+) {
+  return {
+    language: { code: 'en', name: 'English' },
+    partOfSpeech,
+    pronunciations: [] as { type: string; text: string; tags: string[] }[],
+    forms: [] as { word: string; tags: string[] }[],
+    senses: senses.map((s) => ({
+      definition: s.definition,
+      tags: [] as string[],
+      examples: s.examples ?? ([] as string[]),
+      quotes: [] as unknown[],
+      synonyms: [] as string[],
+      antonyms: [] as string[],
+      subsenses: [] as unknown[],
+    })),
+    synonyms: [] as string[],
+    antonyms: [] as string[],
+  };
+}
+
+function makeResponse(word: string, entries: ReturnType<typeof makeEntry>[]) {
+  return { word, entries, source: {} };
+}
+
 describe('FreeDictionaryApiAdapter', () => {
   let adapter: FreeDictionaryApiAdapter;
   let module: TestingModule;
@@ -49,20 +76,13 @@ describe('FreeDictionaryApiAdapter', () => {
 
   describe('happy path', () => {
     it('maps a valid response to RawDefinitionEntry[] with canonical PartOfSpeech', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [{ text: '/rʌn/' }],
-          meanings: [
-            {
-              partOfSpeech: 'verb',
-              definitions: [
-                { definition: 'move fast', example: 'She runs every day.' },
-              ],
-            },
-          ],
-        },
-      ]);
+      global.fetch = mockFetchOk(
+        makeResponse('run', [
+          makeEntry('verb', [
+            { definition: 'move fast', examples: ['She runs every day.'] },
+          ]),
+        ]),
+      );
 
       const result = await adapter.fetch('run', 'en');
 
@@ -74,26 +94,16 @@ describe('FreeDictionaryApiAdapter', () => {
       });
     });
 
-    it('flattens multiple meanings and definitions into flat RawDefinitionEntry[]', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [],
-          meanings: [
-            {
-              partOfSpeech: 'verb',
-              definitions: [
-                { definition: 'move fast' },
-                { definition: 'operate' },
-              ],
-            },
-            {
-              partOfSpeech: 'noun',
-              definitions: [{ definition: 'a sprint' }],
-            },
-          ],
-        },
-      ]);
+    it('flattens multiple entries and senses into flat RawDefinitionEntry[]', async () => {
+      global.fetch = mockFetchOk(
+        makeResponse('run', [
+          makeEntry('verb', [
+            { definition: 'move fast' },
+            { definition: 'operate' },
+          ]),
+          makeEntry('noun', [{ definition: 'a sprint' }]),
+        ]),
+      );
 
       const result = await adapter.fetch('run', 'en');
 
@@ -105,77 +115,55 @@ describe('FreeDictionaryApiAdapter', () => {
       ]);
     });
 
-    it('entry without example omits the example field', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [],
-          meanings: [
-            {
-              partOfSpeech: 'noun',
-              definitions: [{ definition: 'a sprint' }],
-            },
-          ],
-        },
-      ]);
+    it('sense without examples omits the example field', async () => {
+      global.fetch = mockFetchOk(
+        makeResponse('run', [makeEntry('noun', [{ definition: 'a sprint' }])]),
+      );
 
       const result = await adapter.fetch('run', 'en');
 
       expect(result[0]).not.toHaveProperty('example');
     });
 
-    it('phonetics / IPA field is silently dropped — not present in RawDefinitionEntry output', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [{ text: '/rʌn/' }],
-          meanings: [
+    it('uses the first example string when multiple examples are present', async () => {
+      global.fetch = mockFetchOk(
+        makeResponse('run', [
+          makeEntry('verb', [
             {
-              partOfSpeech: 'noun',
-              definitions: [{ definition: 'a sprint' }],
+              definition: 'move fast',
+              examples: ['She runs every day.', 'He ran away.'],
             },
-          ],
-        },
-      ]);
+          ]),
+        ]),
+      );
+
+      const result = await adapter.fetch('run', 'en');
+
+      expect(result[0].example).toBe('She runs every day.');
+    });
+
+    it('pronunciations are silently dropped — not present in RawDefinitionEntry output', async () => {
+      global.fetch = mockFetchOk(
+        makeResponse('run', [
+          {
+            ...makeEntry('noun', [{ definition: 'a sprint' }]),
+            pronunciations: [{ type: 'ipa', text: '/rʌn/', tags: [] }],
+          },
+        ]),
+      );
 
       const result = await adapter.fetch('run', 'en');
 
       expect(result).toHaveLength(1);
       expect(result[0]).not.toHaveProperty('ipa');
-      expect(result[0]).not.toHaveProperty('phonetics');
+      expect(result[0]).not.toHaveProperty('pronunciations');
       expect(result[0]).not.toHaveProperty('text');
     });
 
-    it('phonetics array may be empty without throwing', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [],
-          meanings: [
-            {
-              partOfSpeech: 'verb',
-              definitions: [{ definition: 'move fast' }],
-            },
-          ],
-        },
-      ]);
-
-      await expect(adapter.fetch('run', 'en')).resolves.toHaveLength(1);
-    });
-
-    it('phonetic entry missing text property does not throw', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [{ audio: 'some-url.mp3' }],
-          meanings: [
-            {
-              partOfSpeech: 'verb',
-              definitions: [{ definition: 'move fast' }],
-            },
-          ],
-        },
-      ]);
+    it('empty pronunciations array does not throw', async () => {
+      global.fetch = mockFetchOk(
+        makeResponse('run', [makeEntry('verb', [{ definition: 'move fast' }])]),
+      );
 
       await expect(adapter.fetch('run', 'en')).resolves.toHaveLength(1);
     });
@@ -183,58 +171,38 @@ describe('FreeDictionaryApiAdapter', () => {
 
   describe('URL construction', () => {
     it('uses FREE_DICTIONARY_API_BASE_URL in the request URL', async () => {
-      global.fetch = mockFetchOk([
-        { word: 'hello', phonetics: [], meanings: [] },
-      ]);
+      global.fetch = mockFetchOk(makeResponse('hello', []));
       await adapter.fetch('hello', 'en');
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining(FREE_DICTIONARY_API_BASE_URL),
       );
     });
 
-    it('does NOT forward the language parameter in the URL — URL only uses lemma', async () => {
-      global.fetch = mockFetchOk([
-        { word: 'hello', phonetics: [], meanings: [] },
-      ]);
+    it('forwards the language and lemma in the URL path as /entries/{language}/{word}', async () => {
+      global.fetch = mockFetchOk(makeResponse('hello', []));
       await adapter.fetch('hello', 'en');
-      // Exact URL must be base + lemma only, no language segment
       expect(global.fetch).toHaveBeenCalledWith(
-        `${FREE_DICTIONARY_API_BASE_URL}/hello`,
-      );
-      expect(global.fetch).not.toHaveBeenCalledWith(
-        expect.stringContaining('/en/'),
+        `${FREE_DICTIONARY_API_BASE_URL}/entries/en/hello`,
       );
     });
 
-    it('language parameter accepted but not forwarded in the URL regardless of value', async () => {
-      global.fetch = mockFetchOk([
-        { word: 'bonjour', phonetics: [], meanings: [] },
-      ]);
-      await adapter.fetch('bonjour', 'de');
+    it('uses the provided language code in the URL path', async () => {
+      global.fetch = mockFetchOk(makeResponse('bonjour', []));
+      await adapter.fetch('bonjour', 'fr');
       expect(global.fetch).toHaveBeenCalledWith(
-        `${FREE_DICTIONARY_API_BASE_URL}/bonjour`,
+        `${FREE_DICTIONARY_API_BASE_URL}/entries/fr/bonjour`,
       );
     });
   });
 
   describe('POS filtering', () => {
-    it('meanings with unrecognised POS strings are excluded from the result', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'run',
-          phonetics: [],
-          meanings: [
-            {
-              partOfSpeech: 'unknownPos',
-              definitions: [{ definition: 'should be excluded' }],
-            },
-            {
-              partOfSpeech: 'verb',
-              definitions: [{ definition: 'move fast' }],
-            },
-          ],
-        },
-      ]);
+    it('entries with unrecognised POS strings are excluded from the result', async () => {
+      global.fetch = mockFetchOk(
+        makeResponse('run', [
+          makeEntry('unknownPos', [{ definition: 'should be excluded' }]),
+          makeEntry('verb', [{ definition: 'move fast' }]),
+        ]),
+      );
 
       const result = await adapter.fetch('run', 'en');
       expect(result).toHaveLength(1);
@@ -242,38 +210,26 @@ describe('FreeDictionaryApiAdapter', () => {
     });
 
     it('all unknown POS strings in response → returns empty array', async () => {
-      global.fetch = mockFetchOk([
-        {
-          word: 'foo',
-          phonetics: [],
-          meanings: [
-            {
-              partOfSpeech: 'unknownPosA',
-              definitions: [{ definition: 'def a' }],
-            },
-            {
-              partOfSpeech: 'unknownPosB',
-              definitions: [{ definition: 'def b' }],
-            },
-          ],
-        },
-      ]);
+      global.fetch = mockFetchOk(
+        makeResponse('foo', [
+          makeEntry('unknownPosA', [{ definition: 'def a' }]),
+          makeEntry('unknownPosB', [{ definition: 'def b' }]),
+        ]),
+      );
 
       const result = await adapter.fetch('foo', 'en');
       expect(result).toEqual([]);
     });
 
-    it('empty meanings array → returns empty array', async () => {
-      global.fetch = mockFetchOk([
-        { word: 'foo', phonetics: [], meanings: [] },
-      ]);
+    it('empty senses array on an entry → that entry contributes no results', async () => {
+      global.fetch = mockFetchOk(makeResponse('foo', [makeEntry('noun', [])]));
 
       const result = await adapter.fetch('foo', 'en');
       expect(result).toEqual([]);
     });
 
     it('empty entries array → returns empty array', async () => {
-      global.fetch = mockFetchOk([]);
+      global.fetch = mockFetchOk(makeResponse('foo', []));
 
       const result = await adapter.fetch('foo', 'en');
       expect(result).toEqual([]);

@@ -11,35 +11,43 @@ import {
 } from '../interfaces/dictionary-api-adapter.interface';
 import { mapFreeDictionaryApiPos } from '../mappers/free-dictionary-api-pos.mapper';
 
-interface FreeDictionaryApiDefinition {
+interface FreeDictionaryApiSense {
   definition: string;
-  example?: string;
-}
-
-interface FreeDictionaryApiMeaning {
-  partOfSpeech: string;
-  definitions: FreeDictionaryApiDefinition[];
-}
-
-interface FreeDictionaryApiPhonetic {
-  text?: string;
+  tags: string[];
+  examples: string[];
+  quotes: unknown[];
+  synonyms: string[];
+  antonyms: string[];
+  translations?: unknown[];
+  subsenses: FreeDictionaryApiSense[];
 }
 
 interface FreeDictionaryApiEntry {
+  language: { code: string; name: string };
+  partOfSpeech: string;
+  pronunciations: { type: string; text: string; tags: string[] }[];
+  forms: { word: string; tags: string[] }[];
+  senses: FreeDictionaryApiSense[];
+  synonyms: string[];
+  antonyms: string[];
+}
+
+interface FreeDictionaryApiResponse {
   word: string;
-  phonetics: FreeDictionaryApiPhonetic[];
-  meanings: FreeDictionaryApiMeaning[];
+  entries: FreeDictionaryApiEntry[];
+  source: unknown;
 }
 
 @Injectable()
 export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
   readonly providerName = FREE_DICTIONARY_API_PROVIDER_NAME;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async fetch(lemma: string, _language: string): Promise<RawDefinitionEntry[]> {
+  async fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]> {
     let response: Response;
     try {
-      response = await fetch(`${FREE_DICTIONARY_API_BASE_URL}/${lemma}`);
+      response = await fetch(
+        `${FREE_DICTIONARY_API_BASE_URL}/entries/${language}/${lemma}`,
+      );
     } catch (err: unknown) {
       throw new ProviderUnavailableError(this.providerName, err);
     }
@@ -59,37 +67,21 @@ export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
       );
     }
 
-    const entries = (await response.json()) as FreeDictionaryApiEntry[];
+    const data = (await response.json()) as FreeDictionaryApiResponse;
 
-    if (entries.length === 0) {
+    if (!data.entries || data.entries.length === 0) {
       return [];
     }
 
-    return entries.flatMap((entry) =>
-      entry.meanings
-        .map((meaning) => {
-          const mappedPos = mapFreeDictionaryApiPos(meaning.partOfSpeech);
-          return mappedPos === null
-            ? null
-            : { partOfSpeech: mappedPos, definitions: meaning.definitions };
-        })
-        .filter(
-          (
-            meaning,
-          ): meaning is {
-            partOfSpeech: NonNullable<
-              ReturnType<typeof mapFreeDictionaryApiPos>
-            >;
-            definitions: FreeDictionaryApiDefinition[];
-          } => meaning !== null,
-        )
-        .flatMap((meaning) =>
-          meaning.definitions.map((def) => ({
-            partOfSpeech: meaning.partOfSpeech,
-            definition: def.definition,
-            ...(def.example !== undefined ? { example: def.example } : {}),
-          })),
-        ),
-    );
+    return data.entries.flatMap((entry) => {
+      const mappedPos = mapFreeDictionaryApiPos(entry.partOfSpeech);
+      if (mappedPos === null) return [];
+
+      return entry.senses.map((sense) => ({
+        partOfSpeech: mappedPos,
+        definition: sense.definition,
+        ...(sense.examples.length > 0 ? { example: sense.examples[0] } : {}),
+      }));
+    });
   }
 }
