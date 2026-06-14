@@ -6,13 +6,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.langueedroid.ankidroid.AnkiDroidApi
+import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.data.AnkiDroidExportRepository
+import com.example.langueedroid.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.data.CardRepository
 import com.example.langueedroid.data.DeckRepository
 import com.example.langueedroid.data.VocabularyRepository
+import com.example.langueedroid.presentation.AnkiDroidExportViewModel
 import com.example.langueedroid.presentation.AppState
 import com.example.langueedroid.presentation.CardCreationViewModel
 import com.example.langueedroid.presentation.DecksViewModel
 import com.example.langueedroid.presentation.MainViewModel
+import com.example.langueedroid.ui.ankidroid.AnkiDroidExportRetryScreen
 
 @Composable
 fun MainScreen(
@@ -24,6 +30,10 @@ fun MainScreen(
     cardRepository: CardRepository,
     onUnauthorized: () -> Unit,
     sharedText: String?,
+    ankiDroidPreferencesStore: AnkiDroidPreferencesStore? = null,
+    ankiDroidExportService: AnkiDroidExportService? = null,
+    ankiDroidExportRepository: AnkiDroidExportRepository? = null,
+    ankiDroidApi: AnkiDroidApi? = null,
     modifier: Modifier = Modifier,
 ) {
     val mainViewModel: MainViewModel = viewModel(
@@ -48,9 +58,11 @@ fun MainScreen(
                 factory = DecksViewModel.Factory(
                     deckRepository = deckRepository,
                     onUnauthorized = onUnauthorized,
+                    ankiDroidExportRepository = ankiDroidExportRepository,
                 ),
             )
             val decksState by decksViewModel.decksState.collectAsState()
+            val hasIncompleteExports by decksViewModel.hasIncompleteAnkiExports.collectAsState()
             DecksScreen(
                 state = decksState,
                 onDeckClick = { deck ->
@@ -62,8 +74,30 @@ fun MainScreen(
                 },
                 onLogout = onLogout,
                 logoutInProgress = logoutInProgress,
+                hasIncompleteExports = hasIncompleteExports,
+                onAnkiDroidWarningClick = { mainViewModel.goToAnkiDroidExportRetry() },
                 modifier = modifier,
             )
+        }
+
+        is AppState.Screen.AnkiDroidExportRetry -> {
+            if (ankiDroidExportRepository != null && ankiDroidExportService != null && ankiDroidPreferencesStore != null) {
+                val exportViewModel: AnkiDroidExportViewModel = viewModel(
+                    factory = AnkiDroidExportViewModel.Factory(
+                        exportRepository = ankiDroidExportRepository,
+                        exportService = ankiDroidExportService,
+                        prefsStore = ankiDroidPreferencesStore,
+                    ),
+                )
+                val exportUiState by exportViewModel.uiState.collectAsState()
+                AnkiDroidExportRetryScreen(
+                    uiState = exportUiState,
+                    onRetryExport = { cardId -> exportViewModel.retryExport(cardId) },
+                    modifier = modifier,
+                )
+            } else {
+                mainViewModel.exitAnkiDroidRetry()
+            }
         }
 
         is AppState.Screen.CardCreation -> {
@@ -77,6 +111,9 @@ fun MainScreen(
                     cardRepository = cardRepository,
                     onUnauthorized = onUnauthorized,
                     onCardCreated = { mainViewModel.dismissCapture() },
+                    ankiDroidExportRepository = ankiDroidExportRepository,
+                    ankiDroidExportService = ankiDroidExportService,
+                    prefsStore = ankiDroidPreferencesStore,
                 ),
             )
             val cardCreationState by cardCreationViewModel.state.collectAsState()
@@ -119,5 +156,7 @@ fun MainScreen(
             },
             modifier = modifier,
         )
+
+        else -> mainViewModel.dismissCapture()
     }
 }

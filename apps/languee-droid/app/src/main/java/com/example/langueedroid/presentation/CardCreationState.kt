@@ -4,6 +4,13 @@ import com.example.langueedroid.domain.Deck
 import com.example.langueedroid.domain.DefinitionResult
 import com.example.langueedroid.domain.DefinitionState
 
+sealed class AnkiExportTriggerStatus {
+    object NotTriggered : AnkiExportTriggerStatus()
+    object InProgress : AnkiExportTriggerStatus()
+    object Success : AnkiExportTriggerStatus()
+    data class Failed(val message: String) : AnkiExportTriggerStatus()
+}
+
 /**
  * Represents the full state of the card creation screen.
  *
@@ -50,7 +57,9 @@ sealed class CardCreationFlowState {
     object CreatingCard : CardCreationFlowState()
 
     /** Card was created successfully. */
-    object CardCreated : CardCreationFlowState()
+    data class CardCreated(
+        val ankiExportStatus: AnkiExportTriggerStatus = AnkiExportTriggerStatus.NotTriggered,
+    ) : CardCreationFlowState()
 
     /** Card creation failed with an error message. */
     data class CreateCardError(val message: String) : CardCreationFlowState()

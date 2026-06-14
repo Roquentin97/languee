@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.otel.sdk)
     implementation(libs.otel.exporter.otlp)
     implementation(libs.otel.okhttp.instrumentation)

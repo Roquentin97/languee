@@ -1,0 +1,115 @@
+package com.example.langueedroid.data
+
+import com.example.langueedroid.data.remote.AnkiDroidExportApi
+import com.example.langueedroid.data.remote.dto.AnkiDroidExportResponseDto
+import com.example.langueedroid.data.remote.dto.RecordAttemptRequest
+import com.example.langueedroid.domain.AnkiDroidExport
+import com.example.langueedroid.domain.AnkiExportStatus
+import com.example.langueedroid.domain.StaleReferenceException
+import com.example.langueedroid.domain.UnauthorizedException
+
+class AnkiDroidExportRepository(
+    private val ankiDroidExportApi: AnkiDroidExportApi,
+) {
+
+    private fun mapStatus(dto: AnkiDroidExportResponseDto): AnkiExportStatus =
+        when (dto.status) {
+            "completed" -> AnkiExportStatus.Completed
+            "failed" -> AnkiExportStatus.Failed(
+                reason = dto.failureReason ?: "unknown",
+                message = dto.failureMessage ?: "",
+            )
+            else -> AnkiExportStatus.Pending
+        }
+
+    private fun dtoToDomain(dto: AnkiDroidExportResponseDto): AnkiDroidExport = AnkiDroidExport(
+        id = dto.id,
+        cardId = dto.cardId,
+        status = mapStatus(dto),
+        ankiNoteId = dto.ankiNoteId?.toLongOrNull(),
+        ankiDeckId = dto.ankiDeckId?.toLongOrNull(),
+        ankiModelId = dto.ankiModelId?.toLongOrNull(),
+        templateVersion = dto.templateVersion,
+    )
+
+    suspend fun createOrGetExportRecord(cardId: String): Result<AnkiDroidExport> = runCatching {
+        val response = ankiDroidExportApi.createOrGetExport(cardId)
+        when {
+            response.isSuccessful -> {
+                val body = response.body()
+                    ?: throw Exception("Empty response body from createOrGetExport")
+                dtoToDomain(body)
+            }
+            response.code() == 401 -> throw UnauthorizedException()
+            response.code() == 404 -> throw StaleReferenceException()
+            else -> throw Exception("Failed to create or get export record: HTTP ${response.code()}")
+        }
+    }
+
+    suspend fun recordAttemptCompleted(
+        exportId: String,
+        ankiNoteId: Long,
+        ankiDeckId: Long,
+        ankiDeckNameSnapshot: String,
+        ankiModelId: Long,
+        ankiModelNameSnapshot: String,
+        templateVersion: String,
+    ): Result<Unit> = runCatching {
+        val response = ankiDroidExportApi.recordAttempt(
+            exportId = exportId,
+            body = RecordAttemptRequest(
+                status = "completed",
+                ankiNoteId = ankiNoteId.toString(),
+                ankiDeckId = ankiDeckId.toString(),
+                ankiDeckNameSnapshot = ankiDeckNameSnapshot,
+                ankiModelId = ankiModelId.toString(),
+                ankiModelNameSnapshot = ankiModelNameSnapshot,
+                templateVersion = templateVersion,
+            ),
+        )
+        when {
+            response.isSuccessful -> Unit
+            response.code() == 401 -> throw UnauthorizedException()
+            else -> throw Exception("Failed to record completed attempt: HTTP ${response.code()}")
+        }
+    }
+
+    suspend fun recordAttemptFailed(
+        exportId: String,
+        failureReason: String,
+        failureMessage: String,
+    ): Result<Unit> = runCatching {
+        val response = ankiDroidExportApi.recordAttempt(
+            exportId = exportId,
+            body = RecordAttemptRequest(
+                status = "failed",
+                failureReason = failureReason,
+                failureMessage = failureMessage,
+            ),
+        )
+        when {
+            response.isSuccessful -> Unit
+            response.code() == 401 -> throw UnauthorizedException()
+            else -> throw Exception("Failed to record failed attempt: HTTP ${response.code()}")
+        }
+    }
+
+    suspend fun getCardsWithPendingExport(): Result<List<String>> = runCatching {
+        val pendingResponse = ankiDroidExportApi.getCardsWithExportStatus(status = "pending")
+        val failedResponse = ankiDroidExportApi.getCardsWithExportStatus(status = "failed")
+
+        val pendingIds = when {
+            pendingResponse.isSuccessful -> pendingResponse.body()?.map { it.id } ?: emptyList()
+            pendingResponse.code() == 401 -> throw UnauthorizedException()
+            else -> throw Exception("Failed to get pending exports: HTTP ${pendingResponse.code()}")
+        }
+
+        val failedIds = when {
+            failedResponse.isSuccessful -> failedResponse.body()?.map { it.id } ?: emptyList()
+            failedResponse.code() == 401 -> throw UnauthorizedException()
+            else -> throw Exception("Failed to get failed exports: HTTP ${failedResponse.code()}")
+        }
+
+        (pendingIds + failedIds).distinct()
+    }
+}

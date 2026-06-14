@@ -12,4 +12,5 @@ data class DefinitionResult(
     val example: String?,
     val provider: String,
     val decks: List<DeckRef>,
+    val inflectionForms: Map<String, String>? = null,
 )

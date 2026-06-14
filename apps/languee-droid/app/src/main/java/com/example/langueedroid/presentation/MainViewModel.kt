@@ -138,6 +138,16 @@ class MainViewModel(
         addEntry(targetWord, null)
     }
 
+    /** Navigate to the AnkiDroid export retry screen. */
+    fun goToAnkiDroidExportRetry() {
+        _state.value = AppState.Screen.AnkiDroidExportRetry
+    }
+
+    /** Return from AnkiDroid export retry screen to decks. */
+    fun exitAnkiDroidRetry() {
+        _state.value = AppState.Screen.Decks
+    }
+
     class Factory(
         private val onEntryReadyForCardCreation: (word: String, context: String?) -> Unit,
     ) : ViewModelProvider.Factory {

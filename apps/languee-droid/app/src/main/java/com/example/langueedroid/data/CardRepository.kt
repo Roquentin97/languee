@@ -10,12 +10,16 @@ class CardRepository(
     private val cardsApi: CardsApi,
 ) {
 
-    suspend fun createCard(deckId: String, definitionId: String): Result<Unit> = runCatching {
+    suspend fun createCard(deckId: String, definitionId: String): Result<String> = runCatching {
         val response = cardsApi.createCard(
             CreateCardRequest(deckId = deckId, definitionId = definitionId),
         )
         when {
-            response.isSuccessful -> Unit
+            response.isSuccessful -> {
+                val body = response.body()
+                    ?: throw Exception("Empty response body from createCard")
+                body.id
+            }
             response.code() == 401 -> throw UnauthorizedException()
             response.code() == 404 -> throw StaleReferenceException()
             response.code() == 409 -> throw CardAlreadyExistsException()

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +44,8 @@ fun DecksScreen(
     onCreateDeck: (name: String, language: String) -> Unit,
     onLogout: () -> Unit,
     logoutInProgress: Boolean,
+    hasIncompleteExports: Boolean = false,
+    onAnkiDroidWarningClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
@@ -52,6 +55,14 @@ fun DecksScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.decks_screen_title)) },
                 actions = {
+                    if (hasIncompleteExports) {
+                        IconButton(onClick = onAnkiDroidWarningClick) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = stringResource(R.string.ankidroid_export_warning_description),
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = onLogout,
                         enabled = !logoutInProgress,

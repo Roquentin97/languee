@@ -17,10 +17,12 @@ fun EnrichedDefinitionDto.toDomain(): DefinitionResult = DefinitionResult(
     example = example,
     provider = provider,
     decks = decks.map { DeckRef(id = it.id, name = it.name) },
+    inflectionForms = inflectionForms,
 )
 
 fun LookupVocabularyResponseDto.toLookupResult(): LookupResult = LookupResult(
     input = input,
     lemma = lemma,
     definitions = definitions.map { it.toDomain() },
+    context = context,
 )
