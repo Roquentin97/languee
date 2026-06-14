@@ -404,7 +404,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success(Unit))
+        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success("card-id"))
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -432,7 +432,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success(Unit))
+        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success("card-id"))
 
         val vm = buildViewModel()
         advanceUntilIdle()

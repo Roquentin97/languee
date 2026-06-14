@@ -140,6 +140,7 @@ class AppSessionViewModelTest {
 
         val session = storedSession()
         vm.onAuthSuccess(session)
+        advanceUntilIdle()
 
         val state = vm.sessionState.value
         assertTrue(state is AppSessionState.Authorized)
