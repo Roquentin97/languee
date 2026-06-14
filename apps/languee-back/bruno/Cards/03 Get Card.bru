@@ -1,0 +1,28 @@
+meta {
+  name: Get Card
+  type: http
+  seq: 3
+  tags: [
+    cards
+  ]
+}
+
+get {
+  url: {{base_url}}/api/v1/cards/{{card_id}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns card or 404", function() {
+    expect(res.status).to.be.oneOf([200, 404]);
+  });
+
+  test("returns card shape on success", function() {
+    if (res.status === 200) {
+      expect(res.body.id).to.be.a("string");
+      expect(res.body.deckId).to.be.a("string");
+      expect(res.body.definition).to.be.an("object");
+    }
+  });
+}

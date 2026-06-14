@@ -2,8 +2,11 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   NotFoundException,
+  Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -12,6 +15,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -26,9 +30,18 @@ import {
   DefinitionNotFoundError,
 } from './cards.errors';
 import { CreateCardDto } from './dto/create-card.dto';
-import { CardResponseDto } from './dto/card-response.dto';
+import {
+  CardDetailResponseDto,
+  CardListItemResponseDto,
+  CardResponseDto,
+} from './dto/card-response.dto';
+import { ListCardsQueryDto } from './dto/list-cards-query.dto';
 import { CardsService } from './cards.service';
-import { serializeCard } from './serializers/card.serializer';
+import {
+  serializeCard,
+  serializeCardDetail,
+  serializeCardListItem,
+} from './serializers/card.serializer';
 
 @ApiTags('cards')
 @ApiBearerAuth('access-token')
@@ -36,6 +49,38 @@ import { serializeCard } from './serializers/card.serializer';
 @UseGuards(JwtAuthGuard)
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List cards for the current user' })
+  @ApiOkResponse({ type: [CardListItemResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  async findAll(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() query: ListCardsQueryDto,
+  ): Promise<CardListItemResponseDto[]> {
+    const cards = await this.cardsService.findManyByUserId(user.userId, {
+      deckId: query.deckId,
+      ankiDroidExportStatus: query.ankiDroidExportStatus,
+      failureReason: query.failureReason,
+    });
+    return cards.map(serializeCardListItem);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a card by id' })
+  @ApiOkResponse({ type: CardDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'Card not found' })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<CardDetailResponseDto> {
+    const card = await this.cardsService.findOneByIdAndUserId(id, user.userId);
+    if (card === null) {
+      throw new NotFoundException('CARD_NOT_FOUND');
+    }
+    return serializeCardDetail(card);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a card from a deck and definition' })
