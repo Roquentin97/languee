@@ -1,5 +1,9 @@
-import type { Context, Span } from '@opentelemetry/api';
-import type { ReadableSpan, SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import type { Context } from '@opentelemetry/api';
+import type {
+  ReadableSpan,
+  Span,
+  SpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 import { SanitizingSpanProcessor } from './sanitize-span.processor';
 
 function makeReadableSpan(
@@ -40,7 +44,7 @@ describe('SanitizingSpanProcessor', () => {
     processor.onEnd(span);
 
     expect(span.attributes).not.toHaveProperty('http.request.header.authorization');
-    expect(span.attributes).toHaveProperty('http.method', 'GET');
+    expect(span.attributes['http.method']).toBe('GET');
   });
 
   it('strips all deny-list keys regardless of case', () => {
@@ -79,7 +83,7 @@ describe('SanitizingSpanProcessor', () => {
 
     expect(span.attributes).not.toHaveProperty('db.user.password');
     expect(span.attributes).not.toHaveProperty('request.accessToken');
-    expect(span.attributes).toHaveProperty('safe.key', 'keep-me');
+    expect(span.attributes['safe.key']).toBe('keep-me');
   });
 
   it('delegates onStart to the wrapped processor', () => {

@@ -29,8 +29,14 @@ if (tracingEnabled) {
         // prevent auth header (Basic, Bearer) and cookie leakage.
         '@opentelemetry/instrumentation-http': {
           headersToSpanAttributes: {
-            requestHeaders: [],
-            responseHeaders: [],
+            client: {
+              requestHeaders: [],
+              responseHeaders: [],
+            },
+            server: {
+              requestHeaders: [],
+              responseHeaders: [],
+            },
           },
         },
         '@opentelemetry/instrumentation-undici': {

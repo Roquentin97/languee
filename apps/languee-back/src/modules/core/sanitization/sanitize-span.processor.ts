@@ -1,5 +1,9 @@
-import type { Context, Span } from '@opentelemetry/api';
-import type { ReadableSpan, SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import type { Context } from '@opentelemetry/api';
+import type {
+  ReadableSpan,
+  Span,
+  SpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 
 const DENY_LIST_PATTERNS = [
   'authorization',
