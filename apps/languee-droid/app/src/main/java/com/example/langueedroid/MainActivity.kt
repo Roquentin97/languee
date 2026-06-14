@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         val apiClient = ApiClient(
             sessionStore = sessionStore,
             authAuthenticator = authAuthenticator,
+            openTelemetry = (applicationContext as LangueeDroidApp).openTelemetry,
         )
         val authApi = apiClient.createAuthApi()
         val authRepository = AuthRepository(

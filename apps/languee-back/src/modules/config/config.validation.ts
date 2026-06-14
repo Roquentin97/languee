@@ -20,4 +20,8 @@ export const configValidationSchema = Joi.object({
   SERVICE_NAME: Joi.string().default('languee-back'),
   PRINT_DEBUG_LOGS: Joi.string().valid('true', 'false').default('false'),
   PRINT_PRETTY_JSON_LOGS: Joi.string().valid('true', 'false').default('false'),
+  OTEL_EXPORTER_OTLP_ENDPOINT: Joi.string().uri().default('http://alloy:4318'),
+  TRACING_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  OTEL_TRACES_SAMPLER: Joi.string().default('parentbased_always_on'),
+  OTEL_TRACES_SAMPLER_ARG: Joi.number().min(0).max(1).default(1.0),
 });

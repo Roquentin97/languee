@@ -8,8 +8,10 @@ from languee_nlp.routers.health import router as health_router
 from languee_nlp.routers.version import router as version_router
 from languee_nlp.routers.words import router as words_router
 from languee_nlp.settings import settings
+from languee_nlp.tracing import configure_tracing, sanitize_server_request_span
 
 configure_logging(settings)
+configure_tracing(settings)
 
 OPENAPI_TAGS = [
     {
@@ -41,6 +43,17 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(version_router)
 app.include_router(words_router)
+
+if settings.tracing_enabled:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor().instrument_app(
+        app,
+        excluded_urls="/health,/ready",
+        server_request_hook=sanitize_server_request_span,
+        http_capture_headers_server_request=[],
+        http_capture_headers_server_response=[],
+    )
 
 
 @app.get("/swagger", include_in_schema=False)

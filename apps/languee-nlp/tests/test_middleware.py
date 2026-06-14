@@ -81,8 +81,7 @@ def test_health_endpoint_is_not_logged(
     completion_records = [
         r
         for r in caplog.records
-        if r.name == "languee_nlp.http"
-        and "Request completed" in r.getMessage()
+        if r.name == "languee_nlp.http" and "Request completed" in r.getMessage()
     ]
     assert len(completion_records) == 0
 
@@ -101,8 +100,7 @@ def test_ready_endpoint_is_not_logged(
     completion_records = [
         r
         for r in caplog.records
-        if r.name == "languee_nlp.http"
-        and "Request completed" in r.getMessage()
+        if r.name == "languee_nlp.http" and "Request completed" in r.getMessage()
     ]
     assert len(completion_records) == 0
 

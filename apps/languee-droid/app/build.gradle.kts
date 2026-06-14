@@ -20,6 +20,9 @@ val escapedBackendBaseUrl =
     backendBaseUrl
         .replace("\\", "\\\\")
         .replace("\"", "\\\"")
+val rawOtelEndpoint: String = localProperties.getProperty("OTEL_EXPORTER_ENDPOINT", "http://10.0.2.2:4318")
+val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("\"", "\\\"")
+val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
 
 android {
     namespace = "com.example.langueedroid"
@@ -39,6 +42,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
+        buildConfigField("String", "OTEL_EXPORTER_ENDPOINT", "\"$escapedOtelEndpoint\"")
+        buildConfigField("boolean", "TRACING_ENABLED", tracingEnabled)
     }
 
     buildTypes {
@@ -78,10 +83,15 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.otel.sdk)
+    implementation(libs.otel.exporter.otlp)
+    implementation(libs.otel.okhttp.instrumentation)
     debugImplementation(libs.okhttp.logging.interceptor)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.otel.sdk.testing)
+    testImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

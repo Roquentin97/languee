@@ -1,3 +1,6 @@
+import * as otelApi from '@opentelemetry/api';
+import { requestContextStorage } from '../context/request-context';
+import { REDACTED_VALUE } from '../sanitization/redaction';
 import { AppLogger } from './app-logger';
 
 describe('AppLogger', () => {
@@ -249,6 +252,118 @@ describe('AppLogger', () => {
 
     const entry = parseStdout();
     expect(entry['level']).toBe('verbose');
+  });
+
+  // OTel enrichment: trace_id / span_id
+  describe('OTel span context enrichment', () => {
+    let getActiveSpanSpy: jest.SpyInstance;
+    let isSpanContextValidSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      getActiveSpanSpy = jest.spyOn(otelApi.trace, 'getActiveSpan');
+      isSpanContextValidSpy = jest.spyOn(otelApi, 'isSpanContextValid');
+    });
+
+    afterEach(() => {
+      getActiveSpanSpy.mockRestore();
+      isSpanContextValidSpy.mockRestore();
+    });
+
+    it('adds trace_id and span_id when a valid OTel span context is active', () => {
+      const spanCtx = {
+        traceId: 'aabbccddeeff00112233445566778899',
+        spanId: '0011223344556677',
+        traceFlags: 1,
+        isRemote: false,
+      };
+      getActiveSpanSpy.mockReturnValue({ spanContext: () => spanCtx });
+      isSpanContextValidSpy.mockReturnValue(true);
+
+      const logger = new AppLogger('TestContext');
+      logger.log('otel enrichment test');
+
+      const entry = parseStdout();
+      expect(entry['trace_id']).toBe('aabbccddeeff00112233445566778899');
+      expect(entry['span_id']).toBe('0011223344556677');
+    });
+
+    it('omits trace_id and span_id when no span is active', () => {
+      getActiveSpanSpy.mockReturnValue(undefined);
+
+      const logger = new AppLogger('TestContext');
+      logger.log('no span test');
+
+      const entry = parseStdout();
+      expect(entry['trace_id']).toBeUndefined();
+      expect(entry['span_id']).toBeUndefined();
+    });
+
+    it('omits trace_id and span_id when span context is invalid', () => {
+      const invalidCtx = {
+        traceId: '00000000000000000000000000000000',
+        spanId: '0000000000000000',
+        traceFlags: 0,
+        isRemote: false,
+      };
+      getActiveSpanSpy.mockReturnValue({ spanContext: () => invalidCtx });
+      isSpanContextValidSpy.mockReturnValue(false);
+
+      const logger = new AppLogger('TestContext');
+      logger.log('invalid span test');
+
+      const entry = parseStdout();
+      expect(entry['trace_id']).toBeUndefined();
+      expect(entry['span_id']).toBeUndefined();
+    });
+  });
+
+  // Request context enrichment: requestId
+  describe('request context enrichment', () => {
+    it('adds requestId from AsyncLocalStorage when context is active', (done) => {
+      requestContextStorage.run({ requestId: 'req-id-123' }, () => {
+        const logger = new AppLogger('TestContext');
+        logger.log('with request context');
+
+        const entry = parseStdout();
+        expect(entry['requestId']).toBe('req-id-123');
+        done();
+      });
+    });
+
+    it('omits requestId when no request context is active', () => {
+      const logger = new AppLogger('TestContext');
+      logger.log('no request context');
+
+      const entry = parseStdout();
+      expect(entry['requestId']).toBeUndefined();
+    });
+  });
+
+  // Log sanitization
+  describe('log sanitization redaction', () => {
+    it('redacts sensitive keys from the logged payload', () => {
+      const logger = new AppLogger('TestContext');
+      logger.log({
+        message: 'login attempt',
+        password: 'hunter2',
+        token: 'abc.def.ghi',
+        requestId: 'safe-id',
+      });
+
+      const entry = parseStdout();
+      expect(entry['password']).toBe(REDACTED_VALUE);
+      expect(entry['token']).toBe(REDACTED_VALUE);
+      expect(entry['message']).toBe('login attempt');
+      expect(entry['requestId']).toBe('safe-id');
+    });
+
+    it('redacts authorization key from the logged payload', () => {
+      const logger = new AppLogger('TestContext');
+      logger.log({ message: 'req', authorization: 'Basic abc' });
+
+      const entry = parseStdout();
+      expect(entry['authorization']).toBe(REDACTED_VALUE);
+    });
   });
 
   // Edge case 14: Context override via second argument

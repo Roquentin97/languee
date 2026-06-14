@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     log_level: str = "info"
     service_name: str = "languee-nlp"
     environment: str = "development"
+    tracing_enabled: bool = True
+    otel_exporter_otlp_endpoint: str = "http://alloy:4318"
 
     model_config = SettingsConfigDict(
         env_prefix="LANGUEE_NLP_",

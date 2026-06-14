@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppConfigModule } from './modules/config/config.module';
 import { PrismaModule } from './modules/core/prisma/prisma.module';
 import { RedisModule } from './modules/core/redis/redis.module';
+import { RequestContextModule } from './modules/core/context/request-context.module';
+import { HttpLoggingInterceptor } from './modules/core/interceptors/http-logging.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { SystemModule } from './modules/system/system.module';
 import { DictionaryModule } from './modules/dictionary/dictionary.module';
@@ -19,6 +21,7 @@ import { NlpModule } from './modules/nlp/nlp.module';
     AppConfigModule,
     PrismaModule,
     RedisModule,
+    RequestContextModule,
     AuthModule,
     SystemModule,
     DictionaryModule,
@@ -34,6 +37,10 @@ import { NlpModule } from './modules/nlp/nlp.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpLoggingInterceptor,
     },
   ],
 })
