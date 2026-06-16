@@ -4,7 +4,6 @@ sealed class AnkiDroidSetupIssue {
     object NotInstalled : AnkiDroidSetupIssue()
     object ApiUnavailable : AnkiDroidSetupIssue()
     object PermissionDenied : AnkiDroidSetupIssue()
-    object NoDeckSelected : AnkiDroidSetupIssue()
     object NoNoteTypeSelected : AnkiDroidSetupIssue()
     object NoExportPreference : AnkiDroidSetupIssue()
 }

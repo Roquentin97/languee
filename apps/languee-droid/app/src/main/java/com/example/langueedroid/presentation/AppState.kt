@@ -67,7 +67,7 @@ sealed class AppState {
         /** AnkiDroid setup screen. */
         object AnkiDroidSetup : Screen()
 
-        /** AnkiDroid export retry screen. */
-        object AnkiDroidExportRetry : Screen()
+        /** AnkiDroid bulk sync screen. */
+        object AnkiDroidSync : Screen()
     }
 }

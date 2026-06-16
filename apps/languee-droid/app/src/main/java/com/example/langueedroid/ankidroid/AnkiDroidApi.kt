@@ -1,6 +1,7 @@
 package com.example.langueedroid.ankidroid
 
 import android.content.Context
+import com.ichi2.anki.FlashCardsContract
 import com.ichi2.anki.api.AddContentApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -50,4 +51,25 @@ class AnkiDroidApi(private val context: Context) {
         withContext(Dispatchers.IO) {
             api.findDuplicateNotes(modelId, key).mapNotNull { it?.getId() }
         }
+
+    /**
+     * Looks up a note by the hidden LangueeCardId meta field using Anki's native browser
+     * search syntax, since matching on a visible field like word/lemma would produce false
+     * positives when multiple definitions share the same word text.
+     */
+    suspend fun findNoteIdByCardId(cardId: String): Long? = withContext(Dispatchers.IO) {
+        context.applicationContext.contentResolver.query(
+            FlashCardsContract.Note.CONTENT_URI,
+            arrayOf(FlashCardsContract.Note._ID),
+            "LangueeCardId:$cardId",
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getLong(cursor.getColumnIndexOrThrow(FlashCardsContract.Note._ID))
+            } else {
+                null
+            }
+        }
+    }
 }

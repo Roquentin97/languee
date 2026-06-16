@@ -1,5 +1,6 @@
 package com.example.langueedroid.domain
 
+import com.example.langueedroid.data.remote.dto.CardResponseDto
 import com.example.langueedroid.data.remote.dto.DeckResponseDto
 import com.example.langueedroid.data.remote.dto.EnrichedDefinitionDto
 import com.example.langueedroid.data.remote.dto.LookupVocabularyResponseDto
@@ -7,7 +8,15 @@ import com.example.langueedroid.data.remote.dto.LookupVocabularyResponseDto
 fun DeckResponseDto.toDomain(): Deck = Deck(
     id = id,
     name = name,
-    language = language,
+)
+
+fun CardResponseDto.toDomain(): Card = Card(
+    id = id,
+    deckId = deckId,
+    lemma = word.lemma,
+    partOfSpeech = definition.partOfSpeech,
+    definition = definition.definition,
+    example = definition.example,
 )
 
 fun EnrichedDefinitionDto.toDomain(): DefinitionResult = DefinitionResult(

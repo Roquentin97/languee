@@ -64,11 +64,8 @@
 
     <!-- Deck create dialog -->
     <string name="deck_create_dialog_title">Create a deck</string>
-    <string name="deck_create_name_label">Deck name</string>
-    <string name="deck_create_name_error">Name cannot be empty</string>
-    <string name="deck_create_language_label">Language code</string>
-    <string name="deck_create_language_hint">Two lowercase letters, e.g. en, fr, de</string>
-    <string name="deck_create_language_error">Must be exactly 2 lowercase letters</string>
+    <string name="deck_create_mode_new">Create Languee deck</string>
+    <string name="deck_create_mode_existing">Use existing deck</string>
     <string name="deck_create_confirm_button">Create</string>
 
     <!-- Card creation screen -->
@@ -87,13 +84,12 @@
 
     <!-- AnkiDroid setup -->
     <string name="ankidroid_setup_title">AnkiDroid Setup</string>
-    <string name="ankidroid_setup_recommended_deck">Create Languee deck (recommended)</string>
-    <string name="ankidroid_setup_use_existing_deck">Use existing deck</string>
     <string name="ankidroid_setup_not_installed">AnkiDroid is not installed. Install it from the Play Store to enable export.</string>
     <string name="ankidroid_setup_api_unavailable">AnkiDroid API is unavailable. Enable AnkiDroid API in AnkiDroid settings (Advanced > Enable AnkiDroid API).</string>
     <string name="ankidroid_setup_permission_denied">Languee needs permission to access AnkiDroid.</string>
     <string name="ankidroid_setup_grant_permission">Grant permission</string>
-    <string name="ankidroid_setup_no_deck">Select or create an AnkiDroid deck for Languee.</string>
+    <string name="ankidroid_setup_dedicated_deck_name_label">Subdeck name (optional)</string>
+    <string name="ankidroid_setup_dedicated_deck_prefix">Languee::</string>
     <string name="ankidroid_setup_no_note_type">Select a note type for AnkiDroid cards.</string>
     <string name="ankidroid_setup_save">Save setup</string>
     <string name="ankidroid_setup_skip">Skip for now</string>
@@ -103,10 +99,26 @@
     <string name="ankidroid_note_type_basic_reversed">Languee Basic + Reversed Vocabulary</string>
     <string name="ankidroid_deck_selector_title">Select AnkiDroid Deck</string>
     <string name="ankidroid_deck_selector_search_hint">Search decks</string>
-    <string name="ankidroid_export_retry_title">AnkiDroid Export</string>
-    <string name="ankidroid_export_warning_description">Incomplete AnkiDroid exports</string>
-    <string name="ankidroid_export_retry_button">Retry export</string>
+    <string name="ankidroid_sync_description">Sync with AnkiDroid</string>
+    <string name="ankidroid_sync_title">Sync with AnkiDroid</string>
+    <string name="ankidroid_sync_button">Sync now</string>
+    <string name="ankidroid_sync_in_progress">Sync in progress…</string>
+    <string name="ankidroid_sync_up_to_date">Everything is already up to date</string>
+    <string name="ankidroid_sync_result_summary">Synced %1$d card(s), %2$d failed</string>
+    <string name="ankidroid_sync_failed_words_header">Failed cards</string>
     <string name="ankidroid_export_status_pending">Pending</string>
     <string name="ankidroid_export_status_failed">Failed</string>
     <string name="ankidroid_export_status_completed">Exported</string>
+    <string name="ankidroid_integrations_description">AnkiDroid integration settings</string>
+    <string name="ankidroid_installed_title">AnkiDroid Detected</string>
+    <string name="ankidroid_installed_message">AnkiDroid was installed. Would you like to set up the integration now?</string>
+    <string name="ankidroid_uninstalled_title">AnkiDroid Removed</string>
+    <string name="ankidroid_uninstalled_message">AnkiDroid was removed. Cards will no longer be exported automatically.</string>
+    <string name="ankidroid_permission_granted_title">Permission Granted</string>
+    <string name="ankidroid_permission_granted_message">AnkiDroid permission was granted. Open integration settings to finish setup.</string>
+    <string name="ankidroid_permission_revoked_title">Permission Revoked</string>
+    <string name="ankidroid_permission_revoked_message">AnkiDroid permission was revoked. Export is paused until permission is restored.</string>
+    <string name="ankidroid_status_setup_now">Set up now</string>
+    <string name="ankidroid_status_not_now">Not now</string>
+    <string name="ankidroid_status_ok">OK</string>
 </resources>

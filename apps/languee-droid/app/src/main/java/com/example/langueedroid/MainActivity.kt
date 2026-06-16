@@ -141,7 +141,6 @@ private fun LangueeApp(
                     applicationContext = androidx.compose.ui.platform.LocalContext.current.applicationContext,
                     exportService = ankiDroidExportService,
                     prefsStore = ankiDroidPreferencesStore,
-                    ankiDroidApi = ankiDroidApi,
                     onSetupComplete = { appSessionViewModel.onAnkiSetupFinished() },
                     onSkip = { appSessionViewModel.onAnkiSetupFinished() },
                 ),
@@ -151,15 +150,12 @@ private fun LangueeApp(
                 uiState = setupUiState,
                 onRequestPermission = {
                     permissionLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
-                    setupViewModel.onPermissionGranted()
                 },
-                onCreateDedicatedDeck = { setupViewModel.onCreateDedicatedDeck() },
-                onLoadDecks = { setupViewModel.loadAvailableDecks() },
-                onDeckSelected = { id, name -> setupViewModel.onDeckSelected(id, name) },
                 onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
                 onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
                 onSave = { setupViewModel.onSave() },
                 onSkip = { setupViewModel.onSkipSetup() },
+                onResumeCheck = { setupViewModel.runSetupCheck() },
             )
         }
 

@@ -107,7 +107,6 @@ class CardCreationViewModel(
             _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
             vocabularyRepository.lookup(
                 word = targetWord,
-                language = deck.language,
                 context = context,
             ).fold(
                 onSuccess = { result ->
@@ -187,6 +186,7 @@ class CardCreationViewModel(
                         cardId = cardId,
                         selectedDefinition = selectedDefinition,
                         currentFlowState = currentFlowState,
+                        selectedDeck = selectedDeck,
                     )
                 },
                 onFailure = { error ->
@@ -219,6 +219,7 @@ class CardCreationViewModel(
         cardId: String,
         selectedDefinition: DefinitionResult,
         currentFlowState: CardCreationFlowState.DefinitionsLoaded,
+        selectedDeck: Deck,
     ) {
         val exportRepo = ankiDroidExportRepository ?: return
         val exportService = ankiDroidExportService ?: return
@@ -229,16 +230,10 @@ class CardCreationViewModel(
             if (!setupResult.isReady) return@launch
 
             val prefs = store.read()
-            val deckId = prefs.selectedDeckId ?: return@launch
 
-            if (prefs.exportPreference != ExportPreference.AUTO) return@launch
-
-            _state.value = _state.value.copy(
-                flowState = CardCreationFlowState.CardCreated(
-                    ankiExportStatus = AnkiExportTriggerStatus.InProgress,
-                ),
-            )
-
+            // Always create the pending export record, even for MANUAL preference, so the
+            // Sync screen can find and attempt it later. Only the actual AnkiDroid write is
+            // gated on AUTO.
             val exportRecordResult = exportRepo.createOrGetExportRecord(cardId)
             val exportRecord = exportRecordResult.getOrNull() ?: run {
                 _state.value = _state.value.copy(
@@ -250,6 +245,14 @@ class CardCreationViewModel(
                 )
                 return@launch
             }
+
+            if (prefs.exportPreference != ExportPreference.AUTO) return@launch
+
+            _state.value = _state.value.copy(
+                flowState = CardCreationFlowState.CardCreated(
+                    ankiExportStatus = AnkiExportTriggerStatus.InProgress,
+                ),
+            )
 
             val fields = AnkiDroidNoteBuilder.buildFields(
                 cardId = cardId,
@@ -264,19 +267,19 @@ class CardCreationViewModel(
 
             val noteResult = exportService.exportNote(
                 noteTypeName = prefs.noteTypeName,
-                deckId = deckId,
+                deckName = selectedDeck.name,
                 fields = fields,
                 cardId = cardId,
             )
 
             noteResult.fold(
-                onSuccess = { noteId ->
+                onSuccess = { result ->
                     exportRepo.recordAttemptCompleted(
                         exportId = exportRecord.id,
-                        ankiNoteId = noteId,
-                        ankiDeckId = deckId,
-                        ankiDeckNameSnapshot = prefs.selectedDeckName ?: "",
-                        ankiModelId = 0L,
+                        ankiNoteId = result.noteId,
+                        ankiDeckId = result.deckId,
+                        ankiDeckNameSnapshot = selectedDeck.name,
+                        ankiModelId = result.modelId,
                         ankiModelNameSnapshot = prefs.noteTypeName,
                         templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
                     )

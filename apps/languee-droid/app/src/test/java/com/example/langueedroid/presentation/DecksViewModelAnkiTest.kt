@@ -1,9 +1,8 @@
 package com.example.langueedroid.presentation
 
-import com.example.langueedroid.data.AnkiDroidExportRepository
+import com.example.langueedroid.ankidroid.AnkiDroidApi
 import com.example.langueedroid.data.DeckRepository
 import com.example.langueedroid.domain.Deck
-import com.example.langueedroid.domain.UnauthorizedException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -12,7 +11,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -20,8 +21,9 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
 /**
- * Tests for DecksViewModel's hasIncompleteAnkiExports StateFlow added by the
- * ankidroid-export-integration feature.
+ * Tests for DecksViewModel's AnkiDroid deck listing surface
+ * (availableAnkiDecks / isLoadingAnkiDecks / loadAnkiDecks) used by the deck
+ * "use existing AnkiDroid deck" picker.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DecksViewModelAnkiTest {
@@ -29,13 +31,13 @@ class DecksViewModelAnkiTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var deckRepository: DeckRepository
-    private lateinit var ankiDroidExportRepository: AnkiDroidExportRepository
+    private lateinit var ankiDroidApi: AnkiDroidApi
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         deckRepository = mock()
-        ankiDroidExportRepository = mock()
+        ankiDroidApi = mock()
     }
 
     @After
@@ -43,100 +45,118 @@ class DecksViewModelAnkiTest {
         Dispatchers.resetMain()
     }
 
+    private fun buildViewModel(ankiDroidApi: AnkiDroidApi? = this.ankiDroidApi) = DecksViewModel(
+        deckRepository = deckRepository,
+        onUnauthorized = {},
+        ankiDroidApi = ankiDroidApi,
+    )
+
     // -------------------------------------------------------------------------
-    // hasIncompleteAnkiExports — true when pending/failed exports exist
+    // loadAnkiDecks — populates availableAnkiDecks from the AnkiDroid API
     // -------------------------------------------------------------------------
 
     @Test
-    fun `hasIncompleteAnkiExports is true when repository returns non-empty list`() = runTest {
+    fun `loadAnkiDecks populates availableAnkiDecks when api returns deck list`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
-        whenever(ankiDroidExportRepository.getCardsWithPendingExport())
-            .thenReturn(Result.success(listOf("c1", "c2")))
+        whenever(ankiDroidApi.getDeckList()).thenReturn(mapOf(1L to "General", 2L to "Languee"))
 
-        val vm = DecksViewModel(
-            deckRepository = deckRepository,
-            onUnauthorized = {},
-            ankiDroidExportRepository = ankiDroidExportRepository,
-        )
+        val vm = buildViewModel()
         advanceUntilIdle()
 
-        assertTrue(vm.hasIncompleteAnkiExports.value)
+        vm.loadAnkiDecks()
+        advanceUntilIdle()
+
+        val available = vm.availableAnkiDecks.value
+        assertTrue(available != null)
+        assertEquals(2, available!!.size)
+        assertTrue(available.any { it.first == 1L && it.second == "General" })
+        assertTrue(available.any { it.first == 2L && it.second == "Languee" })
     }
 
     // -------------------------------------------------------------------------
-    // hasIncompleteAnkiExports — false when no incomplete exports
+    // loadAnkiDecks — empty deck list from AnkiDroid
     // -------------------------------------------------------------------------
 
     @Test
-    fun `hasIncompleteAnkiExports is false when repository returns empty list`() = runTest {
+    fun `loadAnkiDecks with empty api result stores empty list`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
-        whenever(ankiDroidExportRepository.getCardsWithPendingExport())
-            .thenReturn(Result.success(emptyList()))
+        whenever(ankiDroidApi.getDeckList()).thenReturn(emptyMap())
 
-        val vm = DecksViewModel(
-            deckRepository = deckRepository,
-            onUnauthorized = {},
-            ankiDroidExportRepository = ankiDroidExportRepository,
-        )
+        val vm = buildViewModel()
         advanceUntilIdle()
 
-        assertFalse(vm.hasIncompleteAnkiExports.value)
+        vm.loadAnkiDecks()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<Pair<Long, String>>(), vm.availableAnkiDecks.value)
     }
 
     // -------------------------------------------------------------------------
-    // hasIncompleteAnkiExports — defaults to false when repository is null
+    // loadAnkiDecks — AnkiDroid unavailable (null result) → empty list
     // -------------------------------------------------------------------------
 
     @Test
-    fun `hasIncompleteAnkiExports defaults to false when ankiDroidExportRepository is null`() = runTest {
+    fun `loadAnkiDecks with null api result stores empty list`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
+        whenever(ankiDroidApi.getDeckList()).thenReturn(null)
 
-        val vm = DecksViewModel(
-            deckRepository = deckRepository,
-            onUnauthorized = {},
-            ankiDroidExportRepository = null,
-        )
+        val vm = buildViewModel()
         advanceUntilIdle()
 
-        assertFalse(vm.hasIncompleteAnkiExports.value)
+        vm.loadAnkiDecks()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<Pair<Long, String>>(), vm.availableAnkiDecks.value)
     }
 
     // -------------------------------------------------------------------------
-    // hasIncompleteAnkiExports — false when repository call fails (graceful degradation)
+    // loadAnkiDecks — no AnkiDroid api configured → empty list, no crash
     // -------------------------------------------------------------------------
 
     @Test
-    fun `hasIncompleteAnkiExports is false when repository call fails`() = runTest {
+    fun `loadAnkiDecks with no ankiDroidApi configured stores empty list`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
-        whenever(ankiDroidExportRepository.getCardsWithPendingExport())
-            .thenReturn(Result.failure(UnauthorizedException()))
 
-        val vm = DecksViewModel(
-            deckRepository = deckRepository,
-            onUnauthorized = {},
-            ankiDroidExportRepository = ankiDroidExportRepository,
-        )
+        val vm = buildViewModel(ankiDroidApi = null)
         advanceUntilIdle()
 
-        assertFalse(vm.hasIncompleteAnkiExports.value)
+        vm.loadAnkiDecks()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<Pair<Long, String>>(), vm.availableAnkiDecks.value)
     }
 
     // -------------------------------------------------------------------------
-    // hasIncompleteAnkiExports — defaults to false before coroutine completes
+    // availableAnkiDecks — defaults to null before loadAnkiDecks is called
     // -------------------------------------------------------------------------
 
     @Test
-    fun `hasIncompleteAnkiExports is false before export check coroutine completes`() = runTest {
+    fun `availableAnkiDecks is null before loadAnkiDecks is called`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
-        whenever(ankiDroidExportRepository.getCardsWithPendingExport())
-            .thenReturn(Result.success(listOf("c1")))
 
-        val vm = DecksViewModel(
-            deckRepository = deckRepository,
-            onUnauthorized = {},
-            ankiDroidExportRepository = ankiDroidExportRepository,
-        )
-        // Do NOT advance — coroutine hasn't run yet
-        assertFalse(vm.hasIncompleteAnkiExports.value)
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        assertNull(vm.availableAnkiDecks.value)
+    }
+
+    // -------------------------------------------------------------------------
+    // isLoadingAnkiDecks — true while loading, false after completion
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `isLoadingAnkiDecks becomes false after loadAnkiDecks completes`() = runTest {
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
+        whenever(ankiDroidApi.getDeckList()).thenReturn(emptyMap())
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        vm.loadAnkiDecks()
+        // Before advancing: isLoading should be true
+        assertTrue(vm.isLoadingAnkiDecks.value)
+
+        advanceUntilIdle()
+        assertFalse(vm.isLoadingAnkiDecks.value)
     }
 }

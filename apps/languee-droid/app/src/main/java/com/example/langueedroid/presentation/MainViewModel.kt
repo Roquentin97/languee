@@ -138,13 +138,23 @@ class MainViewModel(
         addEntry(targetWord, null)
     }
 
-    /** Navigate to the AnkiDroid export retry screen. */
-    fun goToAnkiDroidExportRetry() {
-        _state.value = AppState.Screen.AnkiDroidExportRetry
+    /** Navigate to the AnkiDroid bulk sync screen. */
+    fun goToAnkiDroidSync() {
+        _state.value = AppState.Screen.AnkiDroidSync
     }
 
-    /** Return from AnkiDroid export retry screen to decks. */
-    fun exitAnkiDroidRetry() {
+    /** Return from AnkiDroid bulk sync screen to decks. */
+    fun exitAnkiDroidSync() {
+        _state.value = AppState.Screen.Decks
+    }
+
+    /** Navigate to the AnkiDroid integration settings screen. */
+    fun goToAnkiDroidSetup() {
+        _state.value = AppState.Screen.AnkiDroidSetup
+    }
+
+    /** Return from AnkiDroid integration settings screen to decks. */
+    fun exitAnkiDroidSetup() {
         _state.value = AppState.Screen.Decks
     }
 

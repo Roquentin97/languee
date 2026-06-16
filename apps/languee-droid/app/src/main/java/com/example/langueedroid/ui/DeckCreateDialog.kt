@@ -2,13 +2,18 @@ package com.example.langueedroid.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -17,21 +22,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.langueedroid.R
+import com.example.langueedroid.ui.ankidroid.AnkiDroidDeckSelectorContent
 
-private val languageCodeRegex = Regex("^[a-z]{2}$")
+private enum class DeckCreateMode { CreateNew, UseExisting }
 
+private const val DECK_PARENT_NAME = "Languee"
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeckCreateDialog(
-    onConfirm: (name: String, language: String) -> Unit,
+    onConfirm: (name: String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    availableAnkiDecks: List<Pair<Long, String>>? = null,
+    isLoadingAnkiDecks: Boolean = false,
+    onLoadAnkiDecks: () -> Unit = {},
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var language by rememberSaveable { mutableStateOf("") }
-    var nameError by rememberSaveable { mutableStateOf(false) }
-    var languageError by rememberSaveable { mutableStateOf(false) }
+    var mode by rememberSaveable { mutableStateOf(DeckCreateMode.CreateNew) }
+    var subDeckName by rememberSaveable { mutableStateOf("") }
 
-    val isValid = name.isNotBlank() && languageCodeRegex.matches(language)
+    LaunchedEffect(mode) {
+        if (mode == DeckCreateMode.UseExisting) {
+            onLoadAnkiDecks()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -41,49 +55,49 @@ fun DeckCreateDialog(
                 modifier = Modifier.padding(top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        nameError = false
-                    },
-                    label = { Text(stringResource(R.string.deck_create_name_label)) },
-                    isError = nameError,
-                    supportingText = if (nameError) {
-                        { Text(stringResource(R.string.deck_create_name_error)) }
-                    } else {
-                        null
-                    },
-                )
-                OutlinedTextField(
-                    value = language,
-                    onValueChange = {
-                        language = it
-                        languageError = false
-                    },
-                    label = { Text(stringResource(R.string.deck_create_language_label)) },
-                    isError = languageError,
-                    supportingText = if (languageError) {
-                        { Text(stringResource(R.string.deck_create_language_error)) }
-                    } else {
-                        { Text(stringResource(R.string.deck_create_language_hint)) }
-                    },
-                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = mode == DeckCreateMode.CreateNew,
+                        onClick = { mode = DeckCreateMode.CreateNew },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    ) {
+                        Text(stringResource(R.string.deck_create_mode_new))
+                    }
+                    SegmentedButton(
+                        selected = mode == DeckCreateMode.UseExisting,
+                        onClick = { mode = DeckCreateMode.UseExisting },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    ) {
+                        Text(stringResource(R.string.deck_create_mode_existing))
+                    }
+                }
+
+                when (mode) {
+                    DeckCreateMode.CreateNew -> {
+                        OutlinedTextField(
+                            value = subDeckName,
+                            onValueChange = { subDeckName = it },
+                            label = { Text(stringResource(R.string.ankidroid_setup_dedicated_deck_name_label)) },
+                            prefix = { Text(stringResource(R.string.ankidroid_setup_dedicated_deck_prefix)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    DeckCreateMode.UseExisting -> {
+                        AnkiDroidDeckSelectorContent(
+                            decks = availableAnkiDecks ?: emptyList(),
+                            isLoading = isLoadingAnkiDecks,
+                            onDeckSelected = { _, name -> onConfirm(name) },
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val trimmedName = name.trim()
-                    val trimmedLang = language.trim()
-                    nameError = trimmedName.isEmpty()
-                    languageError = !languageCodeRegex.matches(trimmedLang)
-                    if (!nameError && !languageError) {
-                        onConfirm(trimmedName, trimmedLang)
-                    }
-                },
-            ) {
-                Text(stringResource(R.string.deck_create_confirm_button))
+            if (mode == DeckCreateMode.CreateNew) {
+                TextButton(onClick = { onConfirm(buildDeckName(subDeckName)) }) {
+                    Text(stringResource(R.string.deck_create_confirm_button))
+                }
             }
         },
         dismissButton = {
@@ -93,4 +107,9 @@ fun DeckCreateDialog(
         },
         modifier = modifier,
     )
+}
+
+private fun buildDeckName(subDeckName: String): String {
+    val trimmed = subDeckName.trim()
+    return if (trimmed.isEmpty()) DECK_PARENT_NAME else "$DECK_PARENT_NAME::$trimmed"
 }

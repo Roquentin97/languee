@@ -78,8 +78,7 @@ class CardCreationViewModelTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private fun aDeck(id: String = "d1", language: String = "en") =
-        Deck(id = id, name = "MyDeck", language = language)
+    private fun aDeck(id: String = "d1") = Deck(id = id, name = "MyDeck")
 
     private fun aDefinition(
         id: String = "def1",
@@ -178,7 +177,7 @@ class CardCreationViewModelTest {
         advanceUntilIdle()
 
         assertTrue(vm.state.value.flowState is CardCreationFlowState.DefinitionsLoaded)
-        verify(vocabularyRepository).lookup(eq("cat"), eq("en"), anyOrNull())
+        verify(vocabularyRepository).lookup(eq("cat"), anyOrNull(), eq("I have a cat"))
     }
 
     // -------------------------------------------------------------------------

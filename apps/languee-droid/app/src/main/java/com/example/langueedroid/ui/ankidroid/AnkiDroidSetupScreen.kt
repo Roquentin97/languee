@@ -8,26 +8,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.langueedroid.R
 import com.example.langueedroid.ankidroid.NoteTypeTemplates
 import com.example.langueedroid.domain.AnkiDroidSetupIssue
@@ -38,21 +41,38 @@ import com.example.langueedroid.presentation.AnkiDroidSetupUiState
 fun AnkiDroidSetupScreen(
     uiState: AnkiDroidSetupUiState,
     onRequestPermission: () -> Unit,
-    onCreateDedicatedDeck: () -> Unit,
-    onLoadDecks: () -> Unit,
-    onDeckSelected: (Long, String) -> Unit,
     onNoteTypeSelected: (String) -> Unit,
     onExportPreferenceSelected: (com.example.langueedroid.domain.ExportPreference) -> Unit,
     onSave: () -> Unit,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
+    showBackButton: Boolean = false,
+    onNavigateBack: () -> Unit = {},
+    onResumeCheck: () -> Unit = {},
 ) {
-    var showDeckSelector by rememberSaveable { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) onResumeCheck()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.ankidroid_setup_title)) },
+                navigationIcon = {
+                    if (showBackButton) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.btn_cancel),
+                            )
+                        }
+                    }
+                },
             )
         },
         modifier = modifier,
@@ -68,18 +88,8 @@ fun AnkiDroidSetupScreen(
                 item {
                     IssueCard(
                         issue = issue,
-                        uiState = uiState,
-                        showDeckSelector = showDeckSelector,
+                        selectedNoteType = uiState.noteTypeName,
                         onRequestPermission = onRequestPermission,
-                        onCreateDedicatedDeck = onCreateDedicatedDeck,
-                        onLoadDecks = {
-                            showDeckSelector = true
-                            onLoadDecks()
-                        },
-                        onDeckSelected = { id, name ->
-                            showDeckSelector = false
-                            onDeckSelected(id, name)
-                        },
                         onNoteTypeSelected = onNoteTypeSelected,
                     )
                 }
@@ -112,12 +122,8 @@ fun AnkiDroidSetupScreen(
 @Composable
 private fun IssueCard(
     issue: AnkiDroidSetupIssue,
-    uiState: AnkiDroidSetupUiState,
-    showDeckSelector: Boolean,
+    selectedNoteType: String,
     onRequestPermission: () -> Unit,
-    onCreateDedicatedDeck: () -> Unit,
-    onLoadDecks: () -> Unit,
-    onDeckSelected: (Long, String) -> Unit,
     onNoteTypeSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -140,28 +146,6 @@ private fun IssueCard(
                         Text(stringResource(R.string.ankidroid_setup_grant_permission))
                     }
                 }
-                is AnkiDroidSetupIssue.NoDeckSelected -> {
-                    Text(
-                        stringResource(R.string.ankidroid_setup_no_deck),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = onCreateDedicatedDeck, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.ankidroid_setup_recommended_deck))
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedButton(onClick = onLoadDecks, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.ankidroid_setup_use_existing_deck))
-                    }
-                    if (showDeckSelector) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        AnkiDroidDeckSelectorContent(
-                            decks = uiState.availableDecks ?: emptyList(),
-                            isLoading = uiState.isLoadingDecks,
-                            onDeckSelected = onDeckSelected,
-                        )
-                    }
-                }
                 is AnkiDroidSetupIssue.NoNoteTypeSelected -> {
                     Text(
                         stringResource(R.string.ankidroid_setup_no_note_type),
@@ -169,7 +153,7 @@ private fun IssueCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     NoteTypeRadioGroup(
-                        selectedNoteType = uiState.noteTypeName,
+                        selectedNoteType = selectedNoteType,
                         onNoteTypeSelected = onNoteTypeSelected,
                     )
                 }
@@ -225,4 +209,3 @@ private fun ActionButtons(
         }
     }
 }
-

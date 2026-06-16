@@ -1,5 +1,6 @@
 package com.example.langueedroid.presentation
 
+import com.example.langueedroid.ankidroid.AnkiDroidExportResult
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.data.AnkiDroidExportRepository
 import com.example.langueedroid.data.AnkiDroidPreferencesStore
@@ -11,7 +12,6 @@ import com.example.langueedroid.domain.AnkiDroidExport
 import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.domain.AnkiExportStatus
 import com.example.langueedroid.domain.Deck
-import com.example.langueedroid.domain.DeckRef
 import com.example.langueedroid.domain.DefinitionResult
 import com.example.langueedroid.domain.ExportPreference
 import com.example.langueedroid.domain.LookupResult
@@ -75,8 +75,7 @@ class CardCreationViewModelAnkiTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private fun aDeck(id: String = "d1", language: String = "en") =
-        Deck(id = id, name = "MyDeck", language = language)
+    private fun aDeck(id: String = "d1") = Deck(id = id, name = "MyDeck")
 
     private fun aDefinition(id: String = "def1") = DefinitionResult(
         id = id,
@@ -94,17 +93,13 @@ class CardCreationViewModelAnkiTest {
         definitions = listOf(aDefinition()),
     )
 
-    private fun autoExportPrefs(deckId: Long = 10L) = AnkiDroidSetupPrefs(
-        selectedDeckId = deckId,
-        selectedDeckName = "Languee",
+    private fun autoExportPrefs() = AnkiDroidSetupPrefs(
         noteTypeName = "Languee Type-in Vocabulary",
         exportPreference = ExportPreference.AUTO,
         setupCompleted = true,
     )
 
     private fun manualExportPrefs() = AnkiDroidSetupPrefs(
-        selectedDeckId = 10L,
-        selectedDeckName = "Languee",
         noteTypeName = "Languee Type-in Vocabulary",
         exportPreference = ExportPreference.MANUAL,
         setupCompleted = true,
@@ -203,7 +198,7 @@ class CardCreationViewModelAnkiTest {
         whenever(exportRepository.createOrGetExportRecord("c-abc"))
             .thenReturn(Result.success(aExportRecord(cardId = "c-abc")))
         whenever(exportService.exportNote(any(), any(), any(), any()))
-            .thenReturn(Result.success(999L))
+            .thenReturn(Result.success(AnkiDroidExportResult(noteId = 999L, deckId = 1L, modelId = 1L)))
         whenever(exportRepository.recordAttemptCompleted(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(Result.success(Unit))
 
@@ -227,7 +222,7 @@ class CardCreationViewModelAnkiTest {
         whenever(exportRepository.createOrGetExportRecord("c-abc"))
             .thenReturn(Result.success(aExportRecord(cardId = "c-abc")))
         whenever(exportService.exportNote(any(), any(), any(), any()))
-            .thenReturn(Result.success(999L))
+            .thenReturn(Result.success(AnkiDroidExportResult(noteId = 999L, deckId = 1L, modelId = 1L)))
         whenever(exportRepository.recordAttemptCompleted(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(Result.success(Unit))
 
@@ -294,45 +289,24 @@ class CardCreationViewModelAnkiTest {
     }
 
     // -------------------------------------------------------------------------
-    // Manual export preference — export not triggered automatically
+    // Manual export preference — export record is still created, but the
+    // actual AnkiDroid write is never attempted (deferred to the Sync screen)
     // -------------------------------------------------------------------------
 
     @Test
-    fun `manual export preference — auto-export never triggered`() = runTest {
+    fun `manual export preference — export record created but note never exported`() = runTest {
         val (vm, _) = reachDefinitionsLoaded()
         whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success("c-abc"))
         whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
         whenever(prefsStore.read()).thenReturn(manualExportPrefs())
+        whenever(exportRepository.createOrGetExportRecord("c-abc"))
+            .thenReturn(Result.success(aExportRecord(cardId = "c-abc")))
 
         vm.createCard()
         advanceUntilIdle()
 
-        verify(exportRepository, never()).createOrGetExportRecord(any())
-    }
-
-    // -------------------------------------------------------------------------
-    // Auto-export — no deck selected in prefs → export skipped
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `auto-export skipped when no deck selected in prefs`() = runTest {
-        val (vm, _) = reachDefinitionsLoaded()
-        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success("c-abc"))
-        whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
-        whenever(prefsStore.read()).thenReturn(
-            AnkiDroidSetupPrefs(
-                selectedDeckId = null,
-                selectedDeckName = null,
-                noteTypeName = "Languee Type-in Vocabulary",
-                exportPreference = ExportPreference.AUTO,
-                setupCompleted = true,
-            ),
-        )
-
-        vm.createCard()
-        advanceUntilIdle()
-
-        verify(exportRepository, never()).createOrGetExportRecord(any())
+        verify(exportRepository).createOrGetExportRecord("c-abc")
+        verify(exportService, never()).exportNote(any(), any(), any(), any())
     }
 
     // -------------------------------------------------------------------------
