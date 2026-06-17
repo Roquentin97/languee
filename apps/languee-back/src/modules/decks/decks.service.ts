@@ -8,10 +8,10 @@ import { DeckAlreadyExistsError, DeckNotFoundError } from './decks.errors';
 export class DecksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, name: string, language: string): Promise<Deck> {
+  async create(userId: string, name: string): Promise<Deck> {
     try {
       return await this.prisma.deck.create({
-        data: { userId, name, language },
+        data: { userId, name },
       });
     } catch (err: unknown) {
       if (

@@ -10,9 +10,6 @@ export class DeckResponseDto {
   @ApiProperty({ example: 'English basics' })
   name!: string;
 
-  @ApiProperty({ example: 'en' })
-  language!: string;
-
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
 

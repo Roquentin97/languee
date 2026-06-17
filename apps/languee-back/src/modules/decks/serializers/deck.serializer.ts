@@ -6,7 +6,6 @@ export function serializeDeck(deck: Deck): DeckResponseDto {
     id: deck.id,
     userId: deck.userId,
     name: deck.name,
-    language: deck.language,
     createdAt: deck.createdAt,
     updatedAt: deck.updatedAt,
   };
