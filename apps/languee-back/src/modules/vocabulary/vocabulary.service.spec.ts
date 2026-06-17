@@ -24,7 +24,12 @@ const defaultNlpAnalysis: NlpAnalysis = {
   lemma: 'run',
   pos: PartOfSpeech.VERB,
   isIrregular: true,
-  inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
+  inflectionForms: {
+    type: 'verb' as const,
+    base: 'run',
+    past: 'ran',
+    pastParticiple: 'run',
+  },
 };
 
 const baseDefinition = {
@@ -34,7 +39,12 @@ const baseDefinition = {
   example: 'She ran quickly.',
   provider: 'free-dictionary',
   hasIrregularForms: true,
-  inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
+  inflectionForms: {
+    type: 'verb' as const,
+    base: 'run',
+    past: 'ran',
+    pastParticiple: 'run',
+  },
 };
 
 const baseOutput = {
@@ -308,7 +318,7 @@ describe('VocabularyService', () => {
         lemma: 'run',
         pos: null,
         isIrregular: false,
-        inflectionForms: {},
+        inflectionForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       const verbDef = {
@@ -430,7 +440,7 @@ describe('VocabularyService', () => {
         lemma: 'fast',
         pos: PartOfSpeech.ADJECTIVE,
         isIrregular: false,
-        inflectionForms: {},
+        inflectionForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
       const adjDef = {
@@ -476,7 +486,7 @@ describe('VocabularyService', () => {
         lemma: 'run',
         pos: null,
         isIrregular: false,
-        inflectionForms: {},
+        inflectionForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
@@ -636,7 +646,11 @@ describe('VocabularyService', () => {
         lemma: 'walk',
         pos: PartOfSpeech.VERB,
         isIrregular: false,
-        inflectionForms: { base: 'walk', past: 'walked' },
+        inflectionForms: {
+          type: 'verb' as const,
+          base: 'walk',
+          past: 'walked',
+        },
       };
       mockNlpService.analyzeWord.mockResolvedValue(nlpResult);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
@@ -654,7 +668,11 @@ describe('VocabularyService', () => {
           lemma: 'walk',
           pos: PartOfSpeech.VERB,
           isIrregular: false,
-          inflectionForms: { base: 'walk', past: 'walked' },
+          inflectionForms: {
+            type: 'verb' as const,
+            base: 'walk',
+            past: 'walked',
+          },
         }),
       );
     });

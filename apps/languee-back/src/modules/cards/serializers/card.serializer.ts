@@ -7,6 +7,21 @@ import type {
   CardListItemResponseDto,
   CardResponseDto,
 } from '../dto/card-response.dto';
+import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
+
+function serializeDefinition(
+  definition: CardWithDefinitionAndWord['definition'],
+) {
+  return {
+    id: definition.id,
+    partOfSpeech: definition.partOfSpeech,
+    definition: definition.definition,
+    example: definition.example ?? null,
+    provider: definition.provider,
+    inflectionForms:
+      (definition.inflectionForms as InflectionForms | null) ?? null,
+  };
+}
 
 export function serializeCard(
   card: CardWithDefinitionAndWord,
@@ -16,15 +31,12 @@ export function serializeCard(
     deckId: card.deckId,
     userId: card.userId,
     definitionId: card.definitionId,
+    context: card.context ?? null,
+    inflectionForms:
+      (card.inflectionForms as InflectionForms | null) ?? null,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
-    definition: {
-      id: card.definition.id,
-      partOfSpeech: card.definition.partOfSpeech,
-      definition: card.definition.definition,
-      example: card.definition.example ?? null,
-      provider: card.definition.provider,
-    },
+    definition: serializeDefinition(card.definition),
     word: {
       id: card.definition.word.id,
       lemma: card.definition.word.lemma,
@@ -41,15 +53,12 @@ export function serializeCardListItem(
     deckId: card.deckId,
     userId: card.userId,
     definitionId: card.definitionId,
+    context: card.context ?? null,
+    inflectionForms:
+      (card.inflectionForms as InflectionForms | null) ?? null,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
-    definition: {
-      id: card.definition.id,
-      partOfSpeech: card.definition.partOfSpeech,
-      definition: card.definition.definition,
-      example: card.definition.example ?? null,
-      provider: card.definition.provider,
-    },
+    definition: serializeDefinition(card.definition),
     word: {
       id: card.definition.word.id,
       lemma: card.definition.word.lemma,

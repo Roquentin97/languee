@@ -1,4 +1,5 @@
 import { PartOfSpeech } from '../enums/part-of-speech.enum';
+import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
 
 export type LookupVocabularyInput = {
   word: string;
@@ -20,7 +21,7 @@ export type EnrichedDefinitionResult = {
   example: string | null;
   provider: string;
   hasIrregularForms: boolean;
-  inflectionForms: Record<string, string> | null;
+  inflectionForms: InflectionForms | null;
   decks: DeckRef[];
 };
 

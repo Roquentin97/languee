@@ -20,7 +20,6 @@ const mockDeck: Deck = {
   id: 'deck-id-1',
   userId: 'user-id-1',
   name: 'My Deck',
-  language: 'en',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -51,6 +50,8 @@ const mockCard: Card = {
   deckId: 'deck-id-1',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
+  context: null,
+  inflectionForms: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -141,6 +142,34 @@ describe('CardsService', () => {
           userId: 'user-id-1',
           deckId: 'deck-id-1',
           definitionId: 'def-id-1',
+          context: null,
+          inflectionForms: Prisma.JsonNull,
+        },
+        include: { definition: { include: { word: true } } },
+      });
+    });
+
+    it('happy path — context and inflectionForms are persisted when provided', async () => {
+      const context = 'She walked to the store.';
+      const inflectionForms = { base: 'walk', past: 'walked' };
+      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockPrismaService.card.create.mockResolvedValue(mockCardWithRelations);
+
+      await service.create(
+        'user-id-1',
+        'deck-id-1',
+        'def-id-1',
+        context,
+        inflectionForms,
+      );
+
+      expect(mockPrismaService.card.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'user-id-1',
+          deckId: 'deck-id-1',
+          definitionId: 'def-id-1',
+          context,
+          inflectionForms,
         },
         include: { definition: { include: { word: true } } },
       });

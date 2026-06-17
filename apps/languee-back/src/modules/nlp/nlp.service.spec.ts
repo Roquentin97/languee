@@ -173,6 +173,7 @@ describe('NlpService', () => {
       expect(result.pos).toBe(PartOfSpeech.VERB);
       expect(result.isIrregular).toBe(false);
       expect(result.inflectionForms).toEqual({
+        type: 'verb',
         base: 'walk',
         past: 'walked',
         gerundParticiple: 'walking',
@@ -194,6 +195,7 @@ describe('NlpService', () => {
       expect(result.lemma).toBe('dog');
       expect(result.pos).toBe(PartOfSpeech.NOUN);
       expect(result.inflectionForms).toEqual({
+        type: 'noun',
         singular: 'dog',
         plural: 'dogs',
       });
@@ -211,6 +213,7 @@ describe('NlpService', () => {
       expect(result.lemma).toBe('fast');
       expect(result.pos).toBe(PartOfSpeech.ADJECTIVE);
       expect(result.inflectionForms).toEqual({
+        type: 'adjective',
         positive: 'fast',
         comparative: 'faster',
         superlative: 'fastest',
@@ -258,10 +261,10 @@ describe('NlpService', () => {
 
       const result = await service.analyzeWord('hmm');
 
-      expect(result.inflectionForms).toEqual({});
+      expect(result.inflectionForms).toBeNull();
     });
 
-    it('VERB POS with all verb forms null returns empty inflectionForms (not null)', async () => {
+    it('VERB POS with all verb forms null returns null inflectionForms', async () => {
       const response = makeVerbResponse();
       const token = response.tokens[0];
       token.forms.verb_base = null;
@@ -279,8 +282,7 @@ describe('NlpService', () => {
 
       const result = await service.analyzeWord('walked');
 
-      expect(result.inflectionForms).toEqual({});
-      expect(result.inflectionForms).not.toBeNull();
+      expect(result.inflectionForms).toBeNull();
     });
 
     it('NLP returns lemma different from input: result contains NLP lemma', async () => {

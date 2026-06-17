@@ -34,13 +34,21 @@ export class CardsService {
     userId: string,
     deckId: string,
     definitionId: string,
+    context?: string,
+    inflectionForms?: Record<string, string> | null,
   ): Promise<CardWithDefinitionAndWord> {
     const deck = await this.decksService.findOneByIdAndUserId(deckId, userId);
     if (deck === null) throw new DeckOwnershipError();
 
     try {
       return await this.prisma.card.create({
-        data: { userId, deckId, definitionId },
+        data: {
+          userId,
+          deckId,
+          definitionId,
+          context: context ?? null,
+          inflectionForms: inflectionForms ?? Prisma.JsonNull,
+        },
         include: { definition: { include: { word: true } } },
       });
     } catch (err: unknown) {

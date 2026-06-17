@@ -13,6 +13,10 @@ get {
   auth: inherit
 }
 
+vars:pre-request {
+  card_id: 019ece7b-e9b5-78a5-a78a-75753bf93461
+}
+
 tests {
   test("returns card or 404", function() {
     expect(res.status).to.be.oneOf([200, 404]);
@@ -23,6 +27,24 @@ tests {
       expect(res.body.id).to.be.a("string");
       expect(res.body.deckId).to.be.a("string");
       expect(res.body.definition).to.be.an("object");
+    }
+  });
+
+  test("inflectionForms is null or a typed object with type discriminant", function() {
+    if (res.status === 200) {
+      const forms = res.body.definition.inflectionForms;
+      if (forms !== null) {
+        expect(forms.type).to.be.oneOf(["adjective", "verb", "noun"]);
+        if (forms.type === "adjective") {
+          expect(forms.positive).to.be.a("string");
+        }
+        if (forms.type === "verb") {
+          expect(forms.base).to.be.a("string");
+        }
+        if (forms.type === "noun") {
+          expect(forms).to.have.any.keys("singular", "plural");
+        }
+      }
     }
   });
 }

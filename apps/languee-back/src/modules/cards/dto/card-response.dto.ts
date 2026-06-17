@@ -1,4 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
+import { INFLECTION_FORMS_SWAGGER } from '../../dictionary/types/inflection-forms.types';
 
 export class CardDefinitionResponseDto {
   @ApiProperty({ example: 'def_123' })
@@ -15,6 +17,9 @@ export class CardDefinitionResponseDto {
 
   @ApiProperty({ example: 'free-dictionary' })
   provider!: string;
+
+  @ApiProperty(INFLECTION_FORMS_SWAGGER)
+  inflectionForms!: InflectionForms | null;
 }
 
 export class CardWordResponseDto {
@@ -40,6 +45,16 @@ export class CardResponseDto {
 
   @ApiProperty({ example: 'def_123' })
   definitionId!: string;
+
+  @ApiPropertyOptional({
+    description: 'User-provided context for the card',
+    example: 'She walked to the store.',
+    nullable: true,
+  })
+  context!: string | null;
+
+  @ApiPropertyOptional(INFLECTION_FORMS_SWAGGER)
+  inflectionForms!: InflectionForms | null;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
@@ -83,6 +98,16 @@ export class CardListItemResponseDto {
 
   @ApiProperty({ example: 'def_123' })
   definitionId!: string;
+
+  @ApiPropertyOptional({
+    description: 'User-provided context for the card',
+    example: 'She walked to the store.',
+    nullable: true,
+  })
+  context!: string | null;
+
+  @ApiPropertyOptional(INFLECTION_FORMS_SWAGGER)
+  inflectionForms!: InflectionForms | null;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;

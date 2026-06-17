@@ -1,11 +1,12 @@
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+import type { InflectionForms } from '../types/inflection-forms.types';
 
 export interface RawDefinitionEntry {
   partOfSpeech: PartOfSpeech;
   definition: string;
   example?: string;
   hasIrregularForms?: boolean;
-  inflectionForms?: Record<string, string>;
+  inflectionForms?: InflectionForms | null;
 }
 
 /**

@@ -41,6 +41,8 @@ const mockCard: Card = {
   deckId: 'deck-id-1',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
+  context: null,
+  inflectionForms: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };

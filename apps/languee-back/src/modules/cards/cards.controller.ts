@@ -98,6 +98,8 @@ export class CardsController {
         user.userId,
         dto.deckId,
         dto.definitionId,
+        dto.context,
+        dto.inflectionForms,
       );
       return serializeCard(card);
     } catch (err: unknown) {

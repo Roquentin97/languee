@@ -73,6 +73,8 @@ model Card {
   user            User                    @relation(fields: [userId], references: [id])
   definitionId    String                  @map("definition_id") @db.Uuid
   definition      Definition              @relation(fields: [definitionId], references: [id])
+  context         String?
+  inflectionForms Json?                   @map("inflection_forms") @db.JsonB
   createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz
   ankidroidExport CardAnkiDroidExport?

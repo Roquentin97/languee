@@ -1,4 +1,5 @@
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
+import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 type NlpTokenMorphologyKey = 'verb_form';
 
@@ -40,5 +41,5 @@ export type NlpAnalysis = {
   lemma: string;
   pos: PartOfSpeech | null;
   isIrregular: boolean;
-  inflectionForms: Record<string, string>;
+  inflectionForms: InflectionForms | null;
 };

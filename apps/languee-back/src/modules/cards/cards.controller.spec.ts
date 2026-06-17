@@ -19,6 +19,7 @@ import type {
   Definition,
   Word,
 } from '@prisma/client';
+import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 const mockUser: CurrentUserPayload = {
   userId: 'user-id-1',
@@ -46,11 +47,26 @@ const mockDefinition: Definition = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
+const mockDefinitionWithInflections: Definition = {
+  ...mockDefinition,
+  inflectionForms: {
+    type: 'verb',
+    base: 'run',
+    past: 'ran',
+    pastParticiple: 'run',
+    gerundParticiple: 'running',
+    present3sg: 'runs',
+    presentNon3sg: 'run',
+  } satisfies InflectionForms,
+};
+
 const mockCard: Card = {
   id: 'card-id-1',
   deckId: 'deck-id-1',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
+  context: null,
+  inflectionForms: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -244,6 +260,39 @@ describe('CardsController', () => {
         id: 'export-id-1',
         status: 'pending',
       });
+    });
+
+    it('serializes inflectionForms from definition when present', async () => {
+      const cardWithInflections: CardWithAnkiDroidExport = {
+        ...mockCard,
+        definition: { ...mockDefinitionWithInflections, word: mockWord },
+        ankidroidExport: null,
+      };
+      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+        cardWithInflections,
+      );
+
+      const result = await controller.findOne('card-id-1', mockUser);
+
+      expect(result.definition.inflectionForms).toEqual({
+        type: 'verb',
+        base: 'run',
+        past: 'ran',
+        pastParticiple: 'run',
+        gerundParticiple: 'running',
+        present3sg: 'runs',
+        presentNon3sg: 'run',
+      });
+    });
+
+    it('serializes inflectionForms as null when definition has none', async () => {
+      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+        mockCardWithAnkiDroidExport,
+      );
+
+      const result = await controller.findOne('card-id-1', mockUser);
+
+      expect(result.definition.inflectionForms).toBeNull();
     });
   });
 
