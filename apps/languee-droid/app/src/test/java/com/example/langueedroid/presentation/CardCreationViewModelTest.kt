@@ -83,11 +83,12 @@ class CardCreationViewModelTest {
     private fun aDefinition(
         id: String = "def1",
         deckRefs: List<DeckRef> = emptyList(),
+        example: String? = "I have a cat",
     ) = DefinitionResult(
         id = id,
         partOfSpeech = "noun",
         definition = "A small animal",
-        example = "I have a cat",
+        example = example,
         provider = "dict",
         decks = deckRefs,
     )
@@ -306,11 +307,8 @@ class CardCreationViewModelTest {
 
         val flowState1 = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState1.definitions[0])
-
-        // Switch deck while definitions are loaded
+        // AlreadyInSelectedDeck → stays in DefinitionsLoaded; switch deck
         vm.onDeckSelected(deck2)
-        // Before the re-lookup completes, definition state should have been recomputed.
-        // Advance to complete
         advanceUntilIdle()
 
         // Lookup should have been called twice total (once per deck selection)
@@ -318,11 +316,61 @@ class CardCreationViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // DefinitionState — AlreadyInSelectedDeck
+    // onDefinitionSelected — Available definition transitions to SelectingExample
     // -------------------------------------------------------------------------
 
     @Test
-    fun `definition decks contains selectedDeck id — DefinitionState AlreadyInSelectedDeck`() = runTest {
+    fun `onDefinitionSelected with Available definition — transitions to SelectingExample`() = runTest {
+        val deck = aDeck(id = "d1")
+        val definition = aDefinition(deckRefs = emptyList())
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        vm.onDefinitionSelected(flowState.definitions[0])
+
+        val updatedState = vm.state.value.flowState
+        assertTrue(updatedState is CardCreationFlowState.SelectingExample)
+        assertEquals(DefinitionState.Available, (updatedState as CardCreationFlowState.SelectingExample).definitionState)
+    }
+
+    // -------------------------------------------------------------------------
+    // onDefinitionSelected — ExistsInAnotherDeck transitions to SelectingExample
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onDefinitionSelected with ExistsInAnotherDeck — transitions to SelectingExample`() = runTest {
+        val deck = aDeck(id = "d1")
+        val definition = aDefinition(deckRefs = listOf(DeckRef(id = "other", name = "Other")))
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        vm.onDefinitionSelected(flowState.definitions[0])
+
+        val updatedState = vm.state.value.flowState
+        assertTrue(updatedState is CardCreationFlowState.SelectingExample)
+        assertEquals(DefinitionState.ExistsInAnotherDeck, (updatedState as CardCreationFlowState.SelectingExample).definitionState)
+    }
+
+    // -------------------------------------------------------------------------
+    // DefinitionState — AlreadyInSelectedDeck stays in DefinitionsLoaded
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `definition decks contains selectedDeck id — stays in DefinitionsLoaded with AlreadyInSelectedDeck`() = runTest {
         val deck = aDeck(id = "d1")
         val definition = aDefinition(deckRefs = listOf(DeckRef(id = "d1", name = "MyDeck")))
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
@@ -343,36 +391,11 @@ class CardCreationViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // DefinitionState — ExistsInAnotherDeck
+    // onExampleConfirmed — transitions back to DefinitionsLoaded with example
     // -------------------------------------------------------------------------
 
     @Test
-    fun `definition decks non-empty but not selectedDeck — DefinitionState ExistsInAnotherDeck`() = runTest {
-        val deck = aDeck(id = "d1")
-        val definition = aDefinition(deckRefs = listOf(DeckRef(id = "other", name = "Other")))
-        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
-        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
-            .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-
-        val vm = buildViewModel()
-        advanceUntilIdle()
-
-        vm.onDeckSelected(deck)
-        advanceUntilIdle()
-
-        val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
-        vm.onDefinitionSelected(flowState.definitions[0])
-
-        val updatedFlowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
-        assertEquals(DefinitionState.ExistsInAnotherDeck, updatedFlowState.definitionState)
-    }
-
-    // -------------------------------------------------------------------------
-    // DefinitionState — Available
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `definition decks empty — DefinitionState Available`() = runTest {
+    fun `onExampleConfirmed with text — DefinitionsLoaded with confirmedExample set`() = runTest {
         val deck = aDeck(id = "d1")
         val definition = aDefinition(deckRefs = emptyList())
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
@@ -381,15 +404,68 @@ class CardCreationViewModelTest {
 
         val vm = buildViewModel()
         advanceUntilIdle()
-
         vm.onDeckSelected(deck)
         advanceUntilIdle()
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
 
-        val updatedFlowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
-        assertEquals(DefinitionState.Available, updatedFlowState.definitionState)
+        val confirmedState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        assertEquals("I have a cat", confirmedState.confirmedExample)
+        assertEquals(definition, confirmedState.selectedDefinition)
+        assertEquals(DefinitionState.Available, confirmedState.definitionState)
+    }
+
+    @Test
+    fun `onExampleConfirmed with null — DefinitionsLoaded with no confirmedExample`() = runTest {
+        val deck = aDeck(id = "d1")
+        val definition = aDefinition(deckRefs = emptyList())
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed(null)
+
+        val confirmedState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        assertNull(confirmedState.confirmedExample)
+        assertEquals(definition, confirmedState.selectedDefinition)
+    }
+
+    // -------------------------------------------------------------------------
+    // onBackFromExampleSelection — returns to DefinitionsLoaded with no selection
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onBackFromExampleSelection — DefinitionsLoaded with no selected definition`() = runTest {
+        val deck = aDeck(id = "d1")
+        val definition = aDefinition(deckRefs = emptyList())
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        vm.onDefinitionSelected(flowState.definitions[0])
+        assertTrue(vm.state.value.flowState is CardCreationFlowState.SelectingExample)
+
+        vm.onBackFromExampleSelection()
+
+        val backState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+        assertNull(backState.selectedDefinition)
+        assertNull(backState.definitionState)
+        assertNull(backState.confirmedExample)
     }
 
     // -------------------------------------------------------------------------
@@ -413,6 +489,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
 
@@ -441,6 +518,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
 
         // Fire twice without advancing
         vm.createCard()
@@ -473,6 +551,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
 
@@ -506,6 +585,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
 
@@ -538,6 +618,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
 
@@ -566,6 +647,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
 

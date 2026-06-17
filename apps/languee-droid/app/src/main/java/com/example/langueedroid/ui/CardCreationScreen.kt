@@ -1,5 +1,6 @@
 package com.example.langueedroid.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,11 +55,16 @@ fun CardCreationScreen(
     state: CardCreationState,
     onDeckSelected: (Deck) -> Unit,
     onDefinitionSelected: (DefinitionResult) -> Unit,
+    onExampleConfirmed: (String?) -> Unit,
+    onBackFromExampleSelection: () -> Unit,
     onCreateCard: () -> Unit,
     onRetryLookup: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val inExampleSelection = state.flowState is CardCreationFlowState.SelectingExample
+    BackHandler(enabled = inExampleSelection) { onBackFromExampleSelection() }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -64,7 +72,9 @@ fun CardCreationScreen(
                     Text(stringResource(R.string.card_creation_title, state.targetWord))
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = if (inExampleSelection) onBackFromExampleSelection else onNavigateBack,
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.btn_cancel),
@@ -89,7 +99,7 @@ fun CardCreationScreen(
 
             when (val flowState = state.flowState) {
                 is CardCreationFlowState.SelectingDeck -> {
-                    when (val deckState = state.deckSelectionState) {
+                    when (state.deckSelectionState) {
                         is DeckSelectionState.Empty -> {
                             Text(
                                 text = stringResource(R.string.card_creation_no_decks_hint),
@@ -119,6 +129,15 @@ fun CardCreationScreen(
                         definitionState = flowState.definitionState,
                         onDefinitionSelected = onDefinitionSelected,
                         onCreateCard = onCreateCard,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                is CardCreationFlowState.SelectingExample -> {
+                    ExampleSelectionSection(
+                        userContext = state.context,
+                        dictionaryExample = flowState.selectedDefinition.example,
+                        onExampleConfirmed = onExampleConfirmed,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -300,6 +319,118 @@ private fun DefinitionsList(
                     }
                 }
             }
+        }
+    }
+}
+
+private enum class ExampleSource { USER_CONTEXT, DICTIONARY }
+
+@Composable
+private fun ExampleSelectionSection(
+    userContext: String?,
+    dictionaryExample: String?,
+    onExampleConfirmed: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val initialSource = when {
+        userContext != null -> ExampleSource.USER_CONTEXT
+        dictionaryExample != null -> ExampleSource.DICTIONARY
+        else -> null
+    }
+    var selectedSource by remember { mutableStateOf(initialSource) }
+    val hasOptions = userContext != null || dictionaryExample != null
+
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.card_creation_example_selection_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+
+        if (userContext == null) {
+            Text(
+                text = stringResource(R.string.card_creation_example_no_context_warning),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else {
+            ExampleOption(
+                label = stringResource(R.string.card_creation_example_user_context_label),
+                text = userContext,
+                selected = selectedSource == ExampleSource.USER_CONTEXT,
+                onClick = { selectedSource = ExampleSource.USER_CONTEXT },
+            )
+        }
+
+        if (dictionaryExample != null) {
+            ExampleOption(
+                label = stringResource(R.string.card_creation_example_dictionary_label),
+                text = dictionaryExample,
+                selected = selectedSource == ExampleSource.DICTIONARY,
+                onClick = { selectedSource = ExampleSource.DICTIONARY },
+            )
+        }
+
+        if (!hasOptions) {
+            Text(
+                text = stringResource(R.string.card_creation_example_no_example),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        if (hasOptions) {
+            Button(
+                onClick = {
+                    val example = when (selectedSource) {
+                        ExampleSource.USER_CONTEXT -> userContext
+                        ExampleSource.DICTIONARY -> dictionaryExample
+                        null -> null
+                    }
+                    onExampleConfirmed(example)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.card_creation_example_confirm))
+            }
+        }
+
+        TextButton(
+            onClick = { onExampleConfirmed(null) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.card_creation_example_skip))
+        }
+    }
+}
+
+@Composable
+private fun ExampleOption(
+    label: String,
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.Top,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Column(modifier = Modifier.padding(start = 4.dp, top = 12.dp)) {
+            Text(text = label, style = MaterialTheme.typography.labelMedium)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

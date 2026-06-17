@@ -145,6 +145,7 @@ class CardCreationViewModelAnkiTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed("I have a cat")
         return Pair(vm, definition)
     }
 
@@ -176,6 +177,7 @@ class CardCreationViewModelAnkiTest {
 
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
+        vm.onExampleConfirmed(null)
         vm.createCard()
         advanceUntilIdle()
 

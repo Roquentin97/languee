@@ -226,6 +226,8 @@ fun MainScreen(
                 state = cardCreationState,
                 onDeckSelected = { deck -> cardCreationViewModel.onDeckSelected(deck) },
                 onDefinitionSelected = { def -> cardCreationViewModel.onDefinitionSelected(def) },
+                onExampleConfirmed = { example -> cardCreationViewModel.onExampleConfirmed(example) },
+                onBackFromExampleSelection = { cardCreationViewModel.onBackFromExampleSelection() },
                 onCreateCard = { cardCreationViewModel.createCard() },
                 onRetryLookup = { cardCreationViewModel.retryLookup() },
                 onNavigateBack = { mainViewModel.dismissCapture() },

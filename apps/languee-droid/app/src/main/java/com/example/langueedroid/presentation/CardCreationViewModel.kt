@@ -98,6 +98,7 @@ class CardCreationViewModel(
                 )
                 lookupVocabulary(deck)
             }
+            is CardCreationFlowState.SelectingExample -> lookupVocabulary(deck)
             else -> Unit
         }
     }
@@ -143,10 +144,48 @@ class CardCreationViewModel(
         val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
 
         val definitionState = resolveDefinitionState(definition, selectedDeck)
+        if (definitionState == DefinitionState.AlreadyInSelectedDeck) {
+            _state.value = _state.value.copy(
+                flowState = currentFlowState.copy(
+                    selectedDefinition = definition,
+                    definitionState = definitionState,
+                    confirmedExample = null,
+                ),
+            )
+        } else {
+            _state.value = _state.value.copy(
+                flowState = CardCreationFlowState.SelectingExample(
+                    definitions = currentFlowState.definitions,
+                    lemma = currentFlowState.lemma,
+                    selectedDefinition = definition,
+                    definitionState = definitionState,
+                ),
+            )
+        }
+    }
+
+    fun onExampleConfirmed(example: String?) {
+        val currentFlowState = _state.value.flowState as? CardCreationFlowState.SelectingExample ?: return
         _state.value = _state.value.copy(
-            flowState = currentFlowState.copy(
-                selectedDefinition = definition,
-                definitionState = definitionState,
+            flowState = CardCreationFlowState.DefinitionsLoaded(
+                definitions = currentFlowState.definitions,
+                lemma = currentFlowState.lemma,
+                selectedDefinition = currentFlowState.selectedDefinition,
+                definitionState = currentFlowState.definitionState,
+                confirmedExample = example,
+            ),
+        )
+    }
+
+    fun onBackFromExampleSelection() {
+        val currentFlowState = _state.value.flowState as? CardCreationFlowState.SelectingExample ?: return
+        _state.value = _state.value.copy(
+            flowState = CardCreationFlowState.DefinitionsLoaded(
+                definitions = currentFlowState.definitions,
+                lemma = currentFlowState.lemma,
+                selectedDefinition = null,
+                definitionState = null,
+                confirmedExample = null,
             ),
         )
     }
@@ -169,6 +208,7 @@ class CardCreationViewModel(
 
         if (currentFlowState.definitionState == DefinitionState.AlreadyInSelectedDeck) return
 
+        val confirmedExample = currentFlowState.confirmedExample
         createCardJob = viewModelScope.launch {
             _state.value = _state.value.copy(flowState = CardCreationFlowState.CreatingCard)
             cardRepository.createCard(
@@ -187,6 +227,7 @@ class CardCreationViewModel(
                         selectedDefinition = selectedDefinition,
                         currentFlowState = currentFlowState,
                         selectedDeck = selectedDeck,
+                        confirmedExample = confirmedExample,
                     )
                 },
                 onFailure = { error ->
@@ -220,6 +261,7 @@ class CardCreationViewModel(
         selectedDefinition: DefinitionResult,
         currentFlowState: CardCreationFlowState.DefinitionsLoaded,
         selectedDeck: Deck,
+        confirmedExample: String?,
     ) {
         val exportRepo = ankiDroidExportRepository ?: return
         val exportService = ankiDroidExportService ?: return
@@ -261,7 +303,7 @@ class CardCreationViewModel(
                 partOfSpeech = selectedDefinition.partOfSpeech,
                 definition = selectedDefinition.definition,
                 context = context,
-                example = selectedDefinition.example,
+                example = confirmedExample,
                 inflectionForms = selectedDefinition.inflectionForms,
             )
 

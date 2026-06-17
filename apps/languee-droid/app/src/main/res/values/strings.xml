@@ -82,6 +82,15 @@
     <string name="card_creation_success">Card added successfully!</string>
     <string name="card_creation_retry">Retry</string>
 
+    <!-- Example selection step -->
+    <string name="card_creation_example_selection_title">Choose example sentence</string>
+    <string name="card_creation_example_user_context_label">My context</string>
+    <string name="card_creation_example_dictionary_label">Dictionary example</string>
+    <string name="card_creation_example_no_context_warning">No context provided for this word</string>
+    <string name="card_creation_example_no_example">No example available</string>
+    <string name="card_creation_example_confirm">Confirm</string>
+    <string name="card_creation_example_skip">Continue without example</string>
+
     <!-- AnkiDroid setup -->
     <string name="ankidroid_setup_title">AnkiDroid Setup</string>
     <string name="ankidroid_setup_not_installed">AnkiDroid is not installed. Install it from the Play Store to enable export.</string>

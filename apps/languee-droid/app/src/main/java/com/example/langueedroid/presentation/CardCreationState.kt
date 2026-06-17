@@ -45,6 +45,15 @@ sealed class CardCreationFlowState {
         val selectedDefinition: DefinitionResult?,
         val definitionState: DefinitionState?,
         val lemma: String,
+        val confirmedExample: String? = null,
+    ) : CardCreationFlowState()
+
+    /** User is choosing which example sentence to include on the card. */
+    data class SelectingExample(
+        val definitions: List<DefinitionResult>,
+        val lemma: String,
+        val selectedDefinition: DefinitionResult,
+        val definitionState: DefinitionState,
     ) : CardCreationFlowState()
 
     /** No definitions were returned for the given word. */
