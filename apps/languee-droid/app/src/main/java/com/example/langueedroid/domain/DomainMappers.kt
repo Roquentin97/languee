@@ -17,6 +17,8 @@ fun CardResponseDto.toDomain(): Card = Card(
     partOfSpeech = definition.partOfSpeech,
     definition = definition.definition,
     example = definition.example,
+    context = context,
+    inflectionForms = inflectionForms,
 )
 
 fun EnrichedDefinitionDto.toDomain(): DefinitionResult = DefinitionResult(

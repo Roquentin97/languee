@@ -88,9 +88,9 @@ class SyncViewModel(
                     lemma = card.lemma,
                     partOfSpeech = card.partOfSpeech,
                     definition = card.definition,
-                    context = null,
+                    context = card.context,
                     example = card.example,
-                    inflectionForms = null,
+                    inflectionForms = card.inflectionForms,
                 )
 
                 val noteResult = exportService.exportNote(

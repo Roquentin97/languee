@@ -214,14 +214,10 @@ class CardCreationViewModel(
             cardRepository.createCard(
                 deckId = selectedDeck.id,
                 definitionId = selectedDefinition.id,
+                context = context,
+                inflectionForms = selectedDefinition.inflectionForms,
             ).fold(
                 onSuccess = { cardId ->
-                    _state.value = _state.value.copy(
-                        flowState = CardCreationFlowState.CardCreated(
-                            ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
-                        ),
-                    )
-                    onCardCreated()
                     triggerAnkiExportIfConfigured(
                         cardId = cardId,
                         selectedDefinition = selectedDefinition,
@@ -263,13 +259,31 @@ class CardCreationViewModel(
         selectedDeck: Deck,
         confirmedExample: String?,
     ) {
-        val exportRepo = ankiDroidExportRepository ?: return
-        val exportService = ankiDroidExportService ?: return
-        val store = prefsStore ?: return
+        if (ankiDroidExportRepository == null || ankiDroidExportService == null || prefsStore == null) {
+            _state.value = _state.value.copy(
+                flowState = CardCreationFlowState.CardCreated(
+                    ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
+                ),
+            )
+            onCardCreated()
+            return
+        }
+
+        val exportRepo = ankiDroidExportRepository
+        val exportService = ankiDroidExportService
+        val store = prefsStore
 
         viewModelScope.launch {
             val setupResult = exportService.checkSetup(store)
-            if (!setupResult.isReady) return@launch
+            if (!setupResult.isReady) {
+                _state.value = _state.value.copy(
+                    flowState = CardCreationFlowState.CardCreated(
+                        ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
+                    ),
+                )
+                onCardCreated()
+                return@launch
+            }
 
             val prefs = store.read()
 
@@ -285,10 +299,19 @@ class CardCreationViewModel(
                         ),
                     ),
                 )
+                onCardCreated()
                 return@launch
             }
 
-            if (prefs.exportPreference != ExportPreference.AUTO) return@launch
+            if (prefs.exportPreference != ExportPreference.AUTO) {
+                _state.value = _state.value.copy(
+                    flowState = CardCreationFlowState.CardCreated(
+                        ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
+                    ),
+                )
+                onCardCreated()
+                return@launch
+            }
 
             _state.value = _state.value.copy(
                 flowState = CardCreationFlowState.CardCreated(
@@ -330,6 +353,7 @@ class CardCreationViewModel(
                             ankiExportStatus = AnkiExportTriggerStatus.Success,
                         ),
                     )
+                    onCardCreated()
                 },
                 onFailure = { error ->
                     exportRepo.recordAttemptFailed(
@@ -344,6 +368,7 @@ class CardCreationViewModel(
                             ),
                         ),
                     )
+                    onCardCreated()
                 },
             )
         }

@@ -80,6 +80,9 @@
     <string name="card_creation_already_in_deck">This definition is already in the selected deck</string>
     <string name="card_creation_exists_in_another_deck">This definition already exists in another deck</string>
     <string name="card_creation_success">Card added successfully!</string>
+    <string name="card_creation_syncing">Syncing with AnkiDroid…</string>
+    <string name="card_creation_sync_success">Synced to AnkiDroid!</string>
+    <string name="card_creation_sync_failed">Failed to sync with AnkiDroid</string>
     <string name="card_creation_retry">Retry</string>
 
     <!-- Example selection step -->

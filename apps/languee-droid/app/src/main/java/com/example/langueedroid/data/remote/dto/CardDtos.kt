@@ -3,6 +3,8 @@ package com.example.langueedroid.data.remote.dto
 data class CreateCardRequest(
     val deckId: String,
     val definitionId: String,
+    val context: String? = null,
+    val inflectionForms: Map<String, String>? = null,
 )
 
 data class CardDefinitionDto(
@@ -24,6 +26,8 @@ data class CardResponseDto(
     val deckId: String,
     val userId: String,
     val definitionId: String,
+    val context: String? = null,
+    val inflectionForms: Map<String, String>? = null,
     val createdAt: String,
     val updatedAt: String,
     val definition: CardDefinitionDto,

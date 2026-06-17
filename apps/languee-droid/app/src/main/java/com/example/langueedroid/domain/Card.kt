@@ -7,4 +7,6 @@ data class Card(
     val partOfSpeech: String,
     val definition: String,
     val example: String?,
+    val context: String? = null,
+    val inflectionForms: Map<String, String>? = null,
 )

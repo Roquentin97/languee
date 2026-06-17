@@ -45,6 +45,7 @@ import com.example.langueedroid.R
 import com.example.langueedroid.domain.Deck
 import com.example.langueedroid.domain.DefinitionResult
 import com.example.langueedroid.domain.DefinitionState
+import com.example.langueedroid.presentation.AnkiExportTriggerStatus
 import com.example.langueedroid.presentation.CardCreationFlowState
 import com.example.langueedroid.presentation.CardCreationState
 import com.example.langueedroid.presentation.DeckSelectionState
@@ -169,11 +170,49 @@ fun CardCreationScreen(
                 }
 
                 is CardCreationFlowState.CardCreated -> {
-                    Text(
-                        text = stringResource(R.string.card_creation_success),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    when (flowState.ankiExportStatus) {
+                        AnkiExportTriggerStatus.NotTriggered -> {
+                            Text(
+                                text = stringResource(R.string.card_creation_success),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        AnkiExportTriggerStatus.InProgress -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                CircularProgressIndicator()
+                                Text(
+                                    text = stringResource(R.string.card_creation_syncing),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                        }
+                        AnkiExportTriggerStatus.Success -> {
+                            Text(
+                                text = stringResource(R.string.card_creation_sync_success),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        is AnkiExportTriggerStatus.Failed -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = stringResource(R.string.card_creation_sync_failed),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                                Text(
+                                    text = flowState.ankiExportStatus.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
                 }
 
                 is CardCreationFlowState.CreateCardError -> {
@@ -482,6 +521,24 @@ private fun DefinitionCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (!definition.inflectionForms.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Forms:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    definition.inflectionForms.forEach { (key, value) ->
+                        Text(
+                            text = "$key: $value",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }

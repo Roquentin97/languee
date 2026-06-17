@@ -12,9 +12,19 @@ class CardRepository(
     private val cardsApi: CardsApi,
 ) {
 
-    suspend fun createCard(deckId: String, definitionId: String): Result<String> = runCatching {
+    suspend fun createCard(
+        deckId: String,
+        definitionId: String,
+        context: String? = null,
+        inflectionForms: Map<String, String>? = null,
+    ): Result<String> = runCatching {
         val response = cardsApi.createCard(
-            CreateCardRequest(deckId = deckId, definitionId = definitionId),
+            CreateCardRequest(
+                deckId = deckId,
+                definitionId = definitionId,
+                context = context,
+                inflectionForms = inflectionForms,
+            ),
         )
         when {
             response.isSuccessful -> {
