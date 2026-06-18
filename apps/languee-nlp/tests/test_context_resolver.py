@@ -154,13 +154,11 @@ def test_post_words_meeting_as_verb_in_planning_context():
             from languee_nlp.main import app
 
             client = TestClient(app)
-            response = client.post(
+            response = client.get(
                 "/words",
-                json={
-                    "input_text": word,
-                    "context": context,
-                    "selection_start": selection_start,
-                    "selection_end": selection_end,
+                params={
+                    "word": word,
+                    "input_text": context,
                 },
                 auth=("admin", "changeme"),
             )
@@ -168,7 +166,7 @@ def test_post_words_meeting_as_verb_in_planning_context():
     assert response.status_code == 200
     body = response.json()
     assert body["tokens"][0]["pos"] == "VERB"
-    assert body["context_analysis"]["pos_source"] == "context"
+    assert body["input_text_analysis"]["pos_source"] == "input_text"
 
 
 # ===========================================================================
@@ -208,13 +206,11 @@ def test_post_words_meeting_as_noun_in_went_to_context():
             from languee_nlp.main import app
 
             client = TestClient(app)
-            response = client.post(
+            response = client.get(
                 "/words",
-                json={
-                    "input_text": word,
-                    "context": context,
-                    "selection_start": selection_start,
-                    "selection_end": selection_end,
+                params={
+                    "word": word,
+                    "input_text": context,
                 },
                 auth=("admin", "changeme"),
             )
@@ -222,7 +218,7 @@ def test_post_words_meeting_as_noun_in_went_to_context():
     assert response.status_code == 200
     body = response.json()
     assert body["tokens"][0]["pos"] == "NOUN"
-    assert body["context_analysis"]["pos_source"] == "context"
+    assert body["input_text_analysis"]["pos_source"] == "input_text"
 
 
 # ===========================================================================

@@ -114,6 +114,14 @@ function makeAdjResponse(): NlpWordResponse {
   };
 }
 
+function getFirstFetchUrl(mockFetch: jest.MockedFunction<typeof fetch>): URL {
+  const [url] = mockFetch.mock.lastCall ?? [];
+  if (typeof url !== 'string') {
+    throw new Error('Expected fetch to be called with a string URL');
+  }
+  return new URL(url);
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -164,8 +172,8 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(makeVerbResponse()),
-      });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
 
       const result = await service.analyzeWord('walked');
 
@@ -437,6 +445,37 @@ describe('NlpService', () => {
           headers: { Authorization: `Basic ${expectedCredentials}` },
         }),
       );
+    });
+
+    it('context is sent as input_text query parameter when provided', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await service.analyzeWord('saw', 'The saw was sharp enough to cut oak');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.pathname).toBe('/words');
+      expect(url.searchParams.get('word')).toBe('saw');
+      expect(url.searchParams.get('input_text')).toBe(
+        'The saw was sharp enough to cut oak',
+      );
+    });
+
+    it('blank context is omitted from the NLP request', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeWord('walk', '   ');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('word')).toBe('walk');
+      expect(url.searchParams.has('input_text')).toBe(false);
     });
   });
 });

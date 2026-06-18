@@ -14,7 +14,7 @@ import type { InflectionForms } from '../dictionary/types/inflection-forms.types
 export class NlpService {
   constructor(private readonly configService: ConfigService) {}
 
-  async analyzeWord(word: string): Promise<NlpAnalysis> {
+  async analyzeWord(word: string, context?: string): Promise<NlpAnalysis> {
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
     const login = this.configService.getOrThrow<string>('nlp.basicAuthLogin');
     const password = this.configService.getOrThrow<string>(
@@ -22,15 +22,16 @@ export class NlpService {
     );
 
     const credentials = Buffer.from(`${login}:${password}`).toString('base64');
+    const params = new URLSearchParams({ word });
+    if (context?.trim()) {
+      params.set('input_text', context);
+    }
 
     let response: Response;
     try {
-      response = await fetch(
-        `${baseUrl}/words?word=${encodeURIComponent(word)}`,
-        {
-          headers: { Authorization: `Basic ${credentials}` },
-        },
-      );
+      response = await fetch(`${baseUrl}/words?${params.toString()}`, {
+        headers: { Authorization: `Basic ${credentials}` },
+      });
     } catch (err: unknown) {
       const span = trace.getActiveSpan();
       if (err instanceof Error) {

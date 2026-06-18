@@ -638,7 +638,27 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith('walked');
+      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+        'walked',
+        undefined,
+      );
+    });
+
+    it('passes optional context to NLP analyzeWord()', async () => {
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      await service.lookup({
+        word: 'saw',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'The saw was sharp enough to cut oak.',
+      });
+
+      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+        'saw',
+        'The saw was sharp enough to cut oak.',
+      );
     });
 
     it('dictionaryService.lookup() is called with NLP lemma, pos, and inflection data', async () => {

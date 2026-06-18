@@ -25,3 +25,9 @@ def test_openapi_schema_describes_health_routes():
     assert "/words" in data["paths"]
     assert data["paths"]["/health"]["get"]["tags"] == ["health"]
     assert data["paths"]["/words"]["get"]["tags"] == ["words"]
+    assert "post" not in data["paths"]["/words"]
+
+    parameters = data["paths"]["/words"]["get"]["parameters"]
+    assert [parameter["name"] for parameter in parameters] == ["word", "input_text"]
+    assert parameters[0]["required"] is True
+    assert parameters[1]["required"] is False
