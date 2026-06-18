@@ -32,8 +32,7 @@ export function serializeCard(
     userId: card.userId,
     definitionId: card.definitionId,
     context: card.context ?? null,
-    inflectionForms:
-      (card.inflectionForms as InflectionForms | null) ?? null,
+    inflectionForms: (card.inflectionForms as InflectionForms | null) ?? null,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
     definition: serializeDefinition(card.definition),
@@ -54,8 +53,7 @@ export function serializeCardListItem(
     userId: card.userId,
     definitionId: card.definitionId,
     context: card.context ?? null,
-    inflectionForms:
-      (card.inflectionForms as InflectionForms | null) ?? null,
+    inflectionForms: (card.inflectionForms as InflectionForms | null) ?? null,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
     definition: serializeDefinition(card.definition),
