@@ -1,11 +1,11 @@
 package com.example.langueedroid.presentation
 
-import com.example.langueedroid.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.data.AuthRepository
-import com.example.langueedroid.data.local.AnkiDroidSetupPrefs
-import com.example.langueedroid.data.local.AuthSession
-import com.example.langueedroid.data.local.AuthSessionStore
-import com.example.langueedroid.domain.ExportPreference
+import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.data.local.AnkiDroidSetupPrefs
+import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.ExportPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher

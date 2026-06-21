@@ -1,8 +1,8 @@
 package com.example.langueedroid.di
 
 import android.content.Context
-import com.example.langueedroid.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.data.local.AuthSessionStore
+import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.local.AuthSessionStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

@@ -1,12 +1,12 @@
 package com.example.langueedroid.data
 
-import com.example.langueedroid.data.remote.CardsApi
-import com.example.langueedroid.data.remote.dto.CardDefinitionDto
-import com.example.langueedroid.data.remote.dto.CardResponseDto
-import com.example.langueedroid.data.remote.dto.CardWordDto
-import com.example.langueedroid.domain.CardAlreadyExistsException
-import com.example.langueedroid.domain.StaleReferenceException
-import com.example.langueedroid.domain.UnauthorizedException
+import com.example.langueedroid.core.network.CardsApi
+import com.example.langueedroid.core.network.dto.CardDefinitionDto
+import com.example.langueedroid.core.network.dto.CardResponseDto
+import com.example.langueedroid.core.network.dto.CardWordDto
+import com.example.langueedroid.core.domain.CardAlreadyExistsException
+import com.example.langueedroid.core.domain.StaleReferenceException
+import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertTrue

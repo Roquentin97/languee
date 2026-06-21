@@ -1,14 +1,14 @@
 package com.example.langueedroid.di
 
 import com.example.langueedroid.BuildConfig
-import com.example.langueedroid.data.AuthRepository
-import com.example.langueedroid.data.local.AuthSessionStore
-import com.example.langueedroid.data.remote.AnkiDroidExportApi
-import com.example.langueedroid.data.remote.AuthApi
-import com.example.langueedroid.data.remote.AuthAuthenticator
-import com.example.langueedroid.data.remote.CardsApi
-import com.example.langueedroid.data.remote.DecksApi
-import com.example.langueedroid.data.remote.VocabularyApi
+import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.network.AnkiDroidExportApi
+import com.example.langueedroid.core.network.AuthApi
+import com.example.langueedroid.core.network.AuthAuthenticator
+import com.example.langueedroid.core.network.CardsApi
+import com.example.langueedroid.core.network.DecksApi
+import com.example.langueedroid.core.network.VocabularyApi
 import dagger.Lazy
 import dagger.Module
 import dagger.Provides

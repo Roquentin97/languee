@@ -12,14 +12,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.langueedroid.presentation.AppSessionState
-import com.example.langueedroid.presentation.AppSessionViewModel
-import com.example.langueedroid.presentation.AnkiDroidSetupViewModel
-import com.example.langueedroid.ui.MainScreen
-import com.example.langueedroid.ui.ankidroid.AnkiDroidSetupScreen
-import com.example.langueedroid.ui.auth.AuthNavGraph
-import com.example.langueedroid.ui.CheckingSessionScreen
-import com.example.langueedroid.ui.theme.LangueeDroidTheme
+import com.example.langueedroid.feature.session.presentation.AppSessionState
+import com.example.langueedroid.feature.session.presentation.AppSessionViewModel
+import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
+import com.example.langueedroid.feature.session.ui.MainScreen
+import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
+import com.example.langueedroid.feature.auth.ui.AuthNavGraph
+import com.example.langueedroid.feature.session.ui.CheckingSessionScreen
+import com.example.langueedroid.core.ui.theme.LangueeDroidTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

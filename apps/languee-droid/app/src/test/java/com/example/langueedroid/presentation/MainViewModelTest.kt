@@ -1,8 +1,8 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
-import com.example.langueedroid.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.domain.Token
+import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.domain.Token
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -1,7 +1,7 @@
 package com.example.langueedroid.presentation.auth
 
-import com.example.langueedroid.data.AuthRepository
-import com.example.langueedroid.data.local.AuthSession
+import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.data.local.AuthSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel

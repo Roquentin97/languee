@@ -1,11 +1,11 @@
 package com.example.langueedroid.data
 
-import com.example.langueedroid.data.remote.AnkiDroidExportApi
-import com.example.langueedroid.data.remote.dto.AnkiDroidExportResponseDto
-import com.example.langueedroid.data.remote.dto.CardSummaryDto
-import com.example.langueedroid.domain.AnkiExportStatus
-import com.example.langueedroid.domain.StaleReferenceException
-import com.example.langueedroid.domain.UnauthorizedException
+import com.example.langueedroid.core.network.AnkiDroidExportApi
+import com.example.langueedroid.core.network.dto.AnkiDroidExportResponseDto
+import com.example.langueedroid.core.network.dto.CardSummaryDto
+import com.example.langueedroid.core.domain.AnkiExportStatus
+import com.example.langueedroid.core.domain.StaleReferenceException
+import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
