@@ -4,6 +4,13 @@ import com.example.langueedroid.domain.Deck
 import com.example.langueedroid.domain.DefinitionResult
 import com.example.langueedroid.domain.DefinitionState
 
+sealed class AnkiExportTriggerStatus {
+    object NotTriggered : AnkiExportTriggerStatus()
+    object InProgress : AnkiExportTriggerStatus()
+    object Success : AnkiExportTriggerStatus()
+    data class Failed(val message: String) : AnkiExportTriggerStatus()
+}
+
 /**
  * Represents the full state of the card creation screen.
  *
@@ -38,6 +45,15 @@ sealed class CardCreationFlowState {
         val selectedDefinition: DefinitionResult?,
         val definitionState: DefinitionState?,
         val lemma: String,
+        val confirmedExample: String? = null,
+    ) : CardCreationFlowState()
+
+    /** User is choosing which example sentence to include on the card. */
+    data class SelectingExample(
+        val definitions: List<DefinitionResult>,
+        val lemma: String,
+        val selectedDefinition: DefinitionResult,
+        val definitionState: DefinitionState,
     ) : CardCreationFlowState()
 
     /** No definitions were returned for the given word. */
@@ -50,7 +66,9 @@ sealed class CardCreationFlowState {
     object CreatingCard : CardCreationFlowState()
 
     /** Card was created successfully. */
-    object CardCreated : CardCreationFlowState()
+    data class CardCreated(
+        val ankiExportStatus: AnkiExportTriggerStatus = AnkiExportTriggerStatus.NotTriggered,
+    ) : CardCreationFlowState()
 
     /** Card creation failed with an error message. */
     data class CreateCardError(val message: String) : CardCreationFlowState()

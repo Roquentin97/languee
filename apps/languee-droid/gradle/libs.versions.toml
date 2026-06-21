@@ -17,7 +17,8 @@ securityCrypto = "1.1.0-alpha06"
 mockitoKotlin = "5.4.0"
 coroutinesTest = "1.10.2"
 otel = "1.44.0"
-otel-instrumentation = "2.11.0"
+otel-instrumentation = "2.11.0-alpha"
+datastorePreferences = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -48,6 +49,7 @@ otel-exporter-otlp = { group = "io.opentelemetry", name = "opentelemetry-exporte
 otel-okhttp-instrumentation = { group = "io.opentelemetry.instrumentation", name = "opentelemetry-okhttp-3.0", version.ref = "otel-instrumentation" }
 otel-sdk-testing = { group = "io.opentelemetry", name = "opentelemetry-sdk-testing", version.ref = "otel" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

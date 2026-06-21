@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,10 +42,15 @@ import com.example.langueedroid.presentation.DecksScreenState
 fun DecksScreen(
     state: DecksScreenState,
     onDeckClick: (Deck) -> Unit,
-    onCreateDeck: (name: String, language: String) -> Unit,
+    onCreateDeck: (name: String) -> Unit,
     onLogout: () -> Unit,
     logoutInProgress: Boolean,
     modifier: Modifier = Modifier,
+    onIntegrationsClick: (() -> Unit)? = null,
+    onSyncClick: (() -> Unit)? = null,
+    availableAnkiDecks: List<Pair<Long, String>>? = null,
+    isLoadingAnkiDecks: Boolean = false,
+    onLoadAnkiDecks: () -> Unit = {},
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -52,6 +59,22 @@ fun DecksScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.decks_screen_title)) },
                 actions = {
+                    if (onIntegrationsClick != null) {
+                        IconButton(onClick = onIntegrationsClick) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = stringResource(R.string.ankidroid_integrations_description),
+                            )
+                        }
+                    }
+                    if (onSyncClick != null) {
+                        IconButton(onClick = onSyncClick) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = stringResource(R.string.ankidroid_sync_description),
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = onLogout,
                         enabled = !logoutInProgress,
@@ -131,11 +154,14 @@ fun DecksScreen(
 
     if (showCreateDialog) {
         DeckCreateDialog(
-            onConfirm = { name, language ->
-                onCreateDeck(name, language)
+            onConfirm = { name ->
+                onCreateDeck(name)
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
+            availableAnkiDecks = availableAnkiDecks,
+            isLoadingAnkiDecks = isLoadingAnkiDecks,
+            onLoadAnkiDecks = onLoadAnkiDecks,
         )
     }
 }
@@ -155,11 +181,6 @@ private fun DeckCard(
             Text(
                 text = deck.name,
                 style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = deck.language.uppercase(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

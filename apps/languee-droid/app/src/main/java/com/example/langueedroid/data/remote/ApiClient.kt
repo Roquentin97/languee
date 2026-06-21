@@ -71,4 +71,6 @@ class ApiClient(
     fun createVocabularyApi(): VocabularyApi = retrofit.create(VocabularyApi::class.java)
 
     fun createCardsApi(): CardsApi = retrofit.create(CardsApi::class.java)
+
+    fun createAnkiDroidExportApi(): AnkiDroidExportApi = retrofit.create(AnkiDroidExportApi::class.java)
 }

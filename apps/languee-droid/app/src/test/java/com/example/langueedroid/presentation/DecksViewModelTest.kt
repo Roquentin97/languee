@@ -65,7 +65,7 @@ class DecksViewModelTest {
 
     @Test
     fun `getDecks returns decks — state transitions to Success with deck list`() = runTest {
-        val decks = listOf(Deck(id = "d1", name = "French", language = "fr"))
+        val decks = listOf(Deck(id = "d1", name = "French"))
         whenever(deckRepository.getDecks()).thenReturn(Result.success(decks))
 
         val vm = buildViewModel()
@@ -127,16 +127,16 @@ class DecksViewModelTest {
 
     @Test
     fun `createDeck success calls onCreated and reloads decks`() = runTest {
-        val deck = Deck(id = "d1", name = "French", language = "fr")
+        val deck = Deck(id = "d1", name = "French")
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
-        whenever(deckRepository.createDeck(name = "French", language = "fr"))
+        whenever(deckRepository.createDeck(name = "French"))
             .thenReturn(Result.success(deck))
 
         val vm = buildViewModel()
         advanceUntilIdle()
 
         var onCreatedCalled = false
-        vm.createDeck(name = "French", language = "fr", onCreated = { onCreatedCalled = true })
+        vm.createDeck(name = "French", onCreated = { onCreatedCalled = true })
         advanceUntilIdle()
 
         assertTrue(onCreatedCalled)
@@ -151,14 +151,14 @@ class DecksViewModelTest {
     @Test
     fun `createDeck 409 Conflict — Error state with message shown`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
-        whenever(deckRepository.createDeck(name = "French", language = "fr"))
+        whenever(deckRepository.createDeck(name = "French"))
             .thenReturn(Result.failure(DeckConflictException()))
 
         val vm = buildViewModel()
         advanceUntilIdle()
 
         var onCreatedCalled = false
-        vm.createDeck(name = "French", language = "fr", onCreated = { onCreatedCalled = true })
+        vm.createDeck(name = "French", onCreated = { onCreatedCalled = true })
         advanceUntilIdle()
 
         val state = vm.decksState.value
@@ -174,14 +174,14 @@ class DecksViewModelTest {
     @Test
     fun `createDeck 401 — onUnauthorized called`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
-        whenever(deckRepository.createDeck(name = "French", language = "fr"))
+        whenever(deckRepository.createDeck(name = "French"))
             .thenReturn(Result.failure(UnauthorizedException()))
 
         val vm = buildViewModel()
         advanceUntilIdle()
 
         unauthorizedCalled = false
-        vm.createDeck(name = "French", language = "fr", onCreated = {})
+        vm.createDeck(name = "French", onCreated = {})
         advanceUntilIdle()
 
         assertTrue(unauthorizedCalled)

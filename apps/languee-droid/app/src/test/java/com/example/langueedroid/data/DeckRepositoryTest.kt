@@ -1,7 +1,6 @@
 package com.example.langueedroid.data
 
 import com.example.langueedroid.data.remote.DecksApi
-import com.example.langueedroid.data.remote.dto.CreateDeckRequest
 import com.example.langueedroid.data.remote.dto.DeckResponseDto
 import com.example.langueedroid.domain.DeckConflictException
 import com.example.langueedroid.domain.UnauthorizedException
@@ -33,7 +32,7 @@ class DeckRepositoryTest {
 
     @Test
     fun `getDecks success returns mapped deck list`() = runTest {
-        val dto = deckDto(id = "d1", name = "French", language = "fr")
+        val dto = deckDto(id = "d1", name = "French")
         whenever(decksApi.getDecks()).thenReturn(Response.success(listOf(dto)))
 
         val result = repository.getDecks()
@@ -43,7 +42,6 @@ class DeckRepositoryTest {
         assertEquals(1, decks.size)
         assertEquals("d1", decks[0].id)
         assertEquals("French", decks[0].name)
-        assertEquals("fr", decks[0].language)
     }
 
     // -------------------------------------------------------------------------
@@ -107,16 +105,15 @@ class DeckRepositoryTest {
 
     @Test
     fun `createDeck success returns mapped deck`() = runTest {
-        val dto = deckDto(id = "d1", name = "German", language = "de")
+        val dto = deckDto(id = "d1", name = "German")
         whenever(decksApi.createDeck(any())).thenReturn(Response.success(dto))
 
-        val result = repository.createDeck(name = "German", language = "de")
+        val result = repository.createDeck(name = "German")
 
         assertTrue(result.isSuccess)
         val deck = result.getOrThrow()
         assertEquals("d1", deck.id)
         assertEquals("German", deck.name)
-        assertEquals("de", deck.language)
     }
 
     // -------------------------------------------------------------------------
@@ -127,7 +124,7 @@ class DeckRepositoryTest {
     fun `createDeck 409 throws DeckConflictException`() = runTest {
         whenever(decksApi.createDeck(any())).thenReturn(Response.error(409, "{}".toResponseBody()))
 
-        val result = repository.createDeck(name = "French", language = "fr")
+        val result = repository.createDeck(name = "French")
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is DeckConflictException)
@@ -141,7 +138,7 @@ class DeckRepositoryTest {
     fun `createDeck 401 throws UnauthorizedException`() = runTest {
         whenever(decksApi.createDeck(any())).thenReturn(Response.error(401, "{}".toResponseBody()))
 
-        val result = repository.createDeck(name = "French", language = "fr")
+        val result = repository.createDeck(name = "French")
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is UnauthorizedException)
@@ -155,7 +152,7 @@ class DeckRepositoryTest {
     fun `createDeck null body returns failure`() = runTest {
         whenever(decksApi.createDeck(any())).thenReturn(Response.success(null))
 
-        val result = repository.createDeck(name = "French", language = "fr")
+        val result = repository.createDeck(name = "French")
 
         assertTrue(result.isFailure)
     }
@@ -164,11 +161,10 @@ class DeckRepositoryTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private fun deckDto(id: String, name: String, language: String) = DeckResponseDto(
+    private fun deckDto(id: String, name: String) = DeckResponseDto(
         id = id,
         userId = "u1",
         name = name,
-        language = language,
         createdAt = "2024-01-01T00:00:00Z",
         updatedAt = "2024-01-01T00:00:00Z",
     )

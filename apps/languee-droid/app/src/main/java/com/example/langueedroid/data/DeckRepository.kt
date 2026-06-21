@@ -20,8 +20,8 @@ class DeckRepository(
         }
     }
 
-    suspend fun createDeck(name: String, language: String): Result<Deck> = runCatching {
-        val response = decksApi.createDeck(CreateDeckRequest(name = name, language = language))
+    suspend fun createDeck(name: String): Result<Deck> = runCatching {
+        val response = decksApi.createDeck(CreateDeckRequest(name = name))
         when {
             response.isSuccessful -> response.body()?.toDomain()
                 ?: throw Exception("Empty response body when creating deck")

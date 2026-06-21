@@ -63,5 +63,11 @@ sealed class AppState {
             val context: String,
             val highlightRanges: kotlin.collections.List<IntRange>,
         ) : Screen()
+
+        /** AnkiDroid setup screen. */
+        object AnkiDroidSetup : Screen()
+
+        /** AnkiDroid bulk sync screen. */
+        object AnkiDroidSync : Screen()
     }
 }
