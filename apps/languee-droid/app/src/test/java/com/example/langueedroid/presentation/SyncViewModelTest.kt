@@ -74,7 +74,7 @@ class SyncViewModelTest {
     private fun notReadySetup() = AnkiDroidSetupCheckResult(isReady = false, issues = emptyList())
 
     private fun autoPrefs() = AnkiDroidSetupPrefs(
-        noteTypeName = "Languee Type-in Vocabulary",
+        noteTypeName = "Languee Mobile Native Type Vocabulary",
         exportPreference = ExportPreference.AUTO,
         setupCompleted = true,
     )
@@ -199,7 +199,7 @@ class SyncViewModelTest {
         assertTrue(state.failedWords.isEmpty())
 
         verify(exportService).exportNote(
-            noteTypeName = eq("Languee Type-in Vocabulary"),
+            noteTypeName = eq("Languee Mobile Native Type Vocabulary"),
             deckName = eq("Languee::French"),
             fields = any(),
             cardId = eq("c1"),
@@ -210,7 +210,7 @@ class SyncViewModelTest {
             ankiDeckId = eq(5L),
             ankiDeckNameSnapshot = eq("Languee::French"),
             ankiModelId = eq(9L),
-            ankiModelNameSnapshot = eq("Languee Type-in Vocabulary"),
+            ankiModelNameSnapshot = eq("Languee Mobile Native Type Vocabulary"),
             templateVersion = any(),
         )
     }

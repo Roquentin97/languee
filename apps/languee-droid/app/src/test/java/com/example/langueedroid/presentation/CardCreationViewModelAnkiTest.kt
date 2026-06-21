@@ -94,13 +94,13 @@ class CardCreationViewModelAnkiTest {
     )
 
     private fun autoExportPrefs() = AnkiDroidSetupPrefs(
-        noteTypeName = "Languee Type-in Vocabulary",
+        noteTypeName = "Languee Mobile Native Type Vocabulary",
         exportPreference = ExportPreference.AUTO,
         setupCompleted = true,
     )
 
     private fun manualExportPrefs() = AnkiDroidSetupPrefs(
-        noteTypeName = "Languee Type-in Vocabulary",
+        noteTypeName = "Languee Mobile Native Type Vocabulary",
         exportPreference = ExportPreference.MANUAL,
         setupCompleted = true,
     )

@@ -167,8 +167,8 @@ class AnkiDroidExportRepositoryTest {
             ankiDeckId = 10L,
             ankiDeckNameSnapshot = "Languee",
             ankiModelId = 20L,
-            ankiModelNameSnapshot = "Languee Type-in Vocabulary",
-            templateVersion = "1",
+            ankiModelNameSnapshot = "Languee Mobile Native Type Vocabulary",
+            templateVersion = "4",
         )
 
         assertTrue(result.isSuccess)
@@ -190,8 +190,8 @@ class AnkiDroidExportRepositoryTest {
             ankiDeckId = 10L,
             ankiDeckNameSnapshot = "Languee",
             ankiModelId = 20L,
-            ankiModelNameSnapshot = "Languee Type-in Vocabulary",
-            templateVersion = "1",
+            ankiModelNameSnapshot = "Languee Mobile Native Type Vocabulary",
+            templateVersion = "4",
         )
 
         assertTrue(result.isFailure)
@@ -397,7 +397,7 @@ class AnkiDroidExportRepositoryTest {
         ankiDeckNameSnapshot = null,
         ankiModelId = ankiModelId,
         ankiModelNameSnapshot = null,
-        templateVersion = "1",
+        templateVersion = "4",
         failureReason = failureReason,
         failureMessage = failureMessage,
     )

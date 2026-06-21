@@ -56,7 +56,7 @@ class AnkiDroidSetupViewModelTest {
     // -------------------------------------------------------------------------
 
     private fun defaultPrefs(
-        noteTypeName: String = "Languee Type-in Vocabulary",
+        noteTypeName: String = "Languee Mobile Native Type Vocabulary",
         exportPreference: ExportPreference = ExportPreference.MANUAL,
         setupCompleted: Boolean = false,
     ) = AnkiDroidSetupPrefs(
@@ -179,7 +179,7 @@ class AnkiDroidSetupViewModelTest {
 
         verify(prefsStore).save(
             AnkiDroidSetupPrefs(
-                noteTypeName = "Languee Type-in Vocabulary",
+                noteTypeName = "Languee Mobile Native Type Vocabulary",
                 exportPreference = ExportPreference.AUTO,
                 setupCompleted = true,
             ),

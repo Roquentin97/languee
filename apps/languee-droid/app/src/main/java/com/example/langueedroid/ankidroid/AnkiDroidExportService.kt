@@ -40,15 +40,17 @@ class AnkiDroidExportService(
             return Result.failure(AnkiDroidPermissionDeniedException())
         }
 
-        val templates = when (noteTypeName) {
+        val normalizedNoteTypeName = NoteTypeTemplates.normalizeNoteTypeName(noteTypeName)
+        val templates = when (normalizedNoteTypeName) {
             NoteTypeTemplates.LANGUEE_BASIC_REVERSED -> NoteTypeTemplates.BASIC_REVERSED_CARDS
             else -> NoteTypeTemplates.TYPE_IN_CARDS
         }
 
         val modelId = ankiDroidApi.getOrCreateNoteType(
-            noteTypeName,
+            normalizedNoteTypeName,
             NoteTypeTemplates.SHARED_FIELDS,
             templates,
+            css = NoteTypeTemplates.CSS,
         ) ?: return Result.failure(AnkiDroidNoteCreationFailedException())
 
         val deckId = ankiDroidApi.getOrCreateDeck(deckName)

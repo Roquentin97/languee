@@ -21,7 +21,9 @@ class AnkiDroidPreferencesStore(private val context: Context) {
     suspend fun read(): AnkiDroidSetupPrefs {
         val prefs = context.ankiDroidPrefsDataStore.data.first()
         return AnkiDroidSetupPrefs(
-            noteTypeName = prefs[noteTypeName] ?: NoteTypeTemplates.LANGUEE_TYPE_IN_VOCABULARY,
+            noteTypeName = NoteTypeTemplates.normalizeNoteTypeName(
+                prefs[noteTypeName] ?: NoteTypeTemplates.LANGUEE_TYPE_IN_VOCABULARY,
+            ),
             exportPreference = prefs[exportPreference]?.let { raw ->
                 runCatching { ExportPreference.valueOf(raw) }.getOrDefault(ExportPreference.MANUAL)
             } ?: ExportPreference.MANUAL,

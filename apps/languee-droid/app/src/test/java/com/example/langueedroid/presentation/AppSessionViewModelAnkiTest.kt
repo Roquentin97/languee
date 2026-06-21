@@ -64,7 +64,7 @@ class AppSessionViewModelAnkiTest {
     )
 
     private fun incompleteSetupPrefs() = AnkiDroidSetupPrefs(
-        noteTypeName = "Languee Type-in Vocabulary",
+        noteTypeName = "Languee Mobile Native Type Vocabulary",
         exportPreference = ExportPreference.MANUAL,
         setupCompleted = false,
     )
