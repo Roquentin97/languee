@@ -10,32 +10,30 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.langueedroid.R
-import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
-import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
-import com.example.langueedroid.feature.capture.presentation.AppState
-import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
-import com.example.langueedroid.feature.decks.presentation.DecksViewModel
-import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSyncScreen
+import com.example.langueedroid.feature.capture.presentation.AnkiStatusNotification
+import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
+import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.feature.decks.ui.DecksScreen
-import com.example.langueedroid.core.domain.ExportPreference
-import kotlinx.coroutines.launch
+import java.net.URLDecoder
 
 @Composable
 fun MainScreen(
@@ -47,51 +45,69 @@ fun MainScreen(
     modifier: Modifier = Modifier,
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
+    val navController = rememberNavController()
 
     LaunchedEffect(sharedText) {
         if (!sharedText.isNullOrBlank()) {
             mainViewModel.startSharedTextCapture(sharedText)
+            navController.navigate(MainNavRoutes.CAPTURE) {
+                popUpTo(MainNavRoutes.DECKS) { inclusive = false }
+            }
         }
     }
 
-    val state by mainViewModel.state.collectAsState()
+    // Observe navigation events emitted by MainViewModel
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.cardCreationRequest.collect { request ->
+            val route = MainNavRoutes.cardCreation(request.targetWord, request.context)
+            navController.navigate(route) {
+                popUpTo(MainNavRoutes.CAPTURE) { inclusive = false }
+            }
+        }
+    }
 
-    // Detect AnkiDroid dependency state changes while the app is in the foreground.
-    var ankiStatusNotification by remember { mutableStateOf<AnkiStatusNotification?>(null) }
-    var previousAnkiResult by remember { mutableStateOf<AnkiDroidSetupCheckResult?>(null) }
-    val scope = rememberCoroutineScope()
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.navigateToAnkiSetup.collect {
+            navController.navigate(MainNavRoutes.ANKI_SETUP)
+        }
+    }
+
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.navigateToAnkiSync.collect {
+            navController.navigate(MainNavRoutes.ANKI_SYNC)
+        }
+    }
+
+    // AnkiDroid status change detection on resume (TASK-6)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                scope.launch {
-                    val current = mainViewModel.checkAnkiSetupStatus()
-                    val prev = previousAnkiResult
-                    if (prev != null) {
-                        val notification = detectAnkiStatusChange(prev, current)
-                        if (notification != null) ankiStatusNotification = notification
-                    }
-                    previousAnkiResult = current
-                }
+                mainViewModel.onResumeCheckAnkiStatus()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val ankiStatusNotification by mainViewModel.ankiStatusNotification.collectAsState()
     ankiStatusNotification?.let { notification ->
         AnkiStatusChangeDialog(
             notification = notification,
-            onDismiss = { ankiStatusNotification = null },
+            onDismiss = { mainViewModel.dismissAnkiStatusNotification() },
             onSetupNow = {
-                ankiStatusNotification = null
+                mainViewModel.dismissAnkiStatusNotification()
                 mainViewModel.goToAnkiDroidSetup()
             },
         )
     }
 
-    when (val currentState = state) {
-        is AppState.Screen.Decks -> {
+    NavHost(
+        navController = navController,
+        startDestination = MainNavRoutes.DECKS,
+        modifier = modifier,
+    ) {
+        composable(MainNavRoutes.DECKS) {
             val decksViewModel: DecksViewModel = hiltViewModel()
             LaunchedEffect(decksViewModel) {
                 decksViewModel.unauthorizedEvent.collect {
@@ -105,6 +121,7 @@ fun MainScreen(
                 state = decksState,
                 onDeckClick = { _ ->
                     mainViewModel.startManualAdd()
+                    navController.navigate(MainNavRoutes.CAPTURE)
                 },
                 onCreateDeck = { name ->
                     decksViewModel.createDeck(name, onCreated = {})
@@ -116,62 +133,57 @@ fun MainScreen(
                 availableAnkiDecks = availableAnkiDecks,
                 isLoadingAnkiDecks = isLoadingAnkiDecks,
                 onLoadAnkiDecks = { decksViewModel.loadAnkiDecks() },
-                modifier = modifier,
             )
         }
 
-        is AppState.Screen.AnkiDroidSetup -> {
-            val setupViewModel: AnkiDroidSetupViewModel = hiltViewModel()
-            LaunchedEffect(setupViewModel) {
-                setupViewModel.setupCompleteEvent.collect {
-                    mainViewModel.exitAnkiDroidSetup()
-                }
-            }
-            LaunchedEffect(setupViewModel) {
-                setupViewModel.skipEvent.collect {
-                    mainViewModel.exitAnkiDroidSetup()
-                }
-            }
-            val setupUiState by setupViewModel.uiState.collectAsState()
-            val setupPermLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission(),
-            ) { setupViewModel.onPermissionGranted() }
-            AnkiDroidSetupScreen(
-                uiState = setupUiState,
-                showBackButton = true,
-                onNavigateBack = { mainViewModel.exitAnkiDroidSetup() },
-                onRequestPermission = {
-                    setupPermLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
+        composable(MainNavRoutes.CAPTURE) {
+            val captureState by mainViewModel.state.collectAsState()
+            CaptureScreen(
+                state = captureState as? com.example.langueedroid.feature.capture.presentation.AppState.Screen
+                    ?: com.example.langueedroid.feature.capture.presentation.AppState.Screen.ManualCapture(),
+                onAddEntry = { word, context -> mainViewModel.addEntry(word, context) },
+                onStartManualAdd = { mainViewModel.startManualAdd() },
+                onSelectTargetWord = { token -> mainViewModel.selectTargetWord(token) },
+                onConfirmTruncation = { mainViewModel.confirmTruncation() },
+                onKeepFullContext = { mainViewModel.keepFullContext() },
+                onEditContext = {
+                    val reviewState = captureState as?
+                        com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextReview
+                    if (reviewState != null) {
+                        mainViewModel.startContextEdit(reviewState.targetWord, reviewState.context)
+                    }
                 },
-                onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
-                onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
-                onSave = { setupViewModel.onSave() },
-                onSkip = { setupViewModel.onSkipSetup() },
-                onResumeCheck = { setupViewModel.runSetupCheck() },
-                modifier = modifier,
+                onDismiss = {
+                    mainViewModel.dismissCapture()
+                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                },
+                onContextEditSave = { editedContext -> mainViewModel.onContextEditSave(editedContext) },
+                onConfirmSaveWithoutContext = {
+                    val editState = captureState as?
+                        com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextEdit
+                    if (editState != null) {
+                        mainViewModel.confirmSaveWithoutContext(editState.targetWord)
+                    }
+                },
             )
         }
 
-        is AppState.Screen.AnkiDroidSync -> {
-            val syncViewModel: SyncViewModel = hiltViewModel()
-            val syncUiState by syncViewModel.uiState.collectAsState()
-            AnkiDroidSyncScreen(
-                uiState = syncUiState,
-                onSync = { syncViewModel.sync() },
-                onDismissResult = { syncViewModel.dismissResult() },
-                onNavigateBack = { mainViewModel.exitAnkiDroidSync() },
-                modifier = modifier,
-            )
-        }
+        composable(
+            route = MainNavRoutes.CARD_CREATION,
+            arguments = listOf(
+                navArgument("word") { type = NavType.StringType },
+                navArgument("context") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val encodedWord = backStackEntry.arguments?.getString("word") ?: ""
+            val encodedContext = backStackEntry.arguments?.getString("context") ?: ""
+            val targetWord = URLDecoder.decode(encodedWord, "UTF-8")
+            val context = URLDecoder.decode(encodedContext, "UTF-8").ifEmpty { null }
 
-        is AppState.Screen.CardCreation -> {
             val cardCreationViewModel: CardCreationViewModel = hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
-                key = "${currentState.targetWord}:${currentState.context}",
+                key = "$targetWord:$context",
             ) { factory ->
-                factory.create(
-                    targetWord = currentState.targetWord,
-                    context = currentState.context,
-                )
+                factory.create(targetWord = targetWord, context = context)
             }
             LaunchedEffect(cardCreationViewModel) {
                 cardCreationViewModel.unauthorizedEvent.collect {
@@ -181,6 +193,7 @@ fun MainScreen(
             LaunchedEffect(cardCreationViewModel) {
                 cardCreationViewModel.cardCreatedEvent.collect {
                     mainViewModel.dismissCapture()
+                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
                 }
             }
             val cardCreationState by cardCreationViewModel.state.collectAsState()
@@ -192,65 +205,54 @@ fun MainScreen(
                 onBackFromExampleSelection = { cardCreationViewModel.onBackFromExampleSelection() },
                 onCreateCard = { cardCreationViewModel.createCard() },
                 onRetryLookup = { cardCreationViewModel.retryLookup() },
-                onNavigateBack = { mainViewModel.dismissCapture() },
-                modifier = modifier,
+                onNavigateBack = {
+                    mainViewModel.dismissCapture()
+                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                },
             )
         }
 
-        is AppState.Screen.ManualCapture,
-        is AppState.Screen.SharedWordCapture,
-        is AppState.Screen.SharedContextCapture,
-        is AppState.Screen.ContextReview,
-        is AppState.Screen.ContextEdit,
-        -> CaptureScreen(
-            state = currentState as AppState.Screen,
-            onAddEntry = { word, context -> mainViewModel.addEntry(word, context) },
-            onStartManualAdd = { mainViewModel.startManualAdd() },
-            onSelectTargetWord = { token -> mainViewModel.selectTargetWord(token) },
-            onConfirmTruncation = { mainViewModel.confirmTruncation() },
-            onKeepFullContext = { mainViewModel.keepFullContext() },
-            onEditContext = {
-                val reviewState = currentState as? AppState.Screen.ContextReview
-                if (reviewState != null) {
-                    mainViewModel.startContextEdit(reviewState.targetWord, reviewState.context)
+        composable(MainNavRoutes.ANKI_SETUP) {
+            val setupViewModel: AnkiDroidSetupViewModel = hiltViewModel()
+            LaunchedEffect(setupViewModel) {
+                setupViewModel.setupCompleteEvent.collect {
+                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
                 }
-            },
-            onDismiss = { mainViewModel.dismissCapture() },
-            onContextEditSave = { editedContext -> mainViewModel.onContextEditSave(editedContext) },
-            onConfirmSaveWithoutContext = {
-                val editState = currentState as? AppState.Screen.ContextEdit
-                if (editState != null) {
-                    mainViewModel.confirmSaveWithoutContext(editState.targetWord)
+            }
+            LaunchedEffect(setupViewModel) {
+                setupViewModel.skipEvent.collect {
+                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
                 }
-            },
-            modifier = modifier,
-        )
+            }
+            val setupUiState by setupViewModel.uiState.collectAsState()
+            val setupPermLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission(),
+            ) { setupViewModel.onPermissionGranted() }
+            AnkiDroidSetupScreen(
+                uiState = setupUiState,
+                showBackButton = true,
+                onNavigateBack = { navController.popBackStack() },
+                onRequestPermission = {
+                    setupPermLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
+                },
+                onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
+                onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
+                onSave = { setupViewModel.onSave() },
+                onSkip = { setupViewModel.onSkipSetup() },
+                onResumeCheck = { setupViewModel.runSetupCheck() },
+            )
+        }
 
-    }
-}
-
-private sealed class AnkiStatusNotification {
-    object AnkiDroidInstalled : AnkiStatusNotification()
-    object AnkiDroidUninstalled : AnkiStatusNotification()
-    object PermissionGranted : AnkiStatusNotification()
-    object PermissionRevoked : AnkiStatusNotification()
-}
-
-private fun detectAnkiStatusChange(
-    previous: AnkiDroidSetupCheckResult,
-    current: AnkiDroidSetupCheckResult,
-): AnkiStatusNotification? {
-    val prevNotInstalled = previous.issues.any { it is AnkiDroidSetupIssue.NotInstalled }
-    val currNotInstalled = current.issues.any { it is AnkiDroidSetupIssue.NotInstalled }
-    val prevPermDenied = previous.issues.any { it is AnkiDroidSetupIssue.PermissionDenied }
-    val currPermDenied = current.issues.any { it is AnkiDroidSetupIssue.PermissionDenied }
-
-    return when {
-        prevNotInstalled && !currNotInstalled -> AnkiStatusNotification.AnkiDroidInstalled
-        !prevNotInstalled && currNotInstalled -> AnkiStatusNotification.AnkiDroidUninstalled
-        prevPermDenied && !currPermDenied -> AnkiStatusNotification.PermissionGranted
-        !prevPermDenied && currPermDenied -> AnkiStatusNotification.PermissionRevoked
-        else -> null
+        composable(MainNavRoutes.ANKI_SYNC) {
+            val syncViewModel: SyncViewModel = hiltViewModel()
+            val syncUiState by syncViewModel.uiState.collectAsState()
+            AnkiDroidSyncScreen(
+                uiState = syncUiState,
+                onSync = { syncViewModel.sync() },
+                onDismissResult = { syncViewModel.dismissResult() },
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
     }
 }
 

@@ -9,16 +9,6 @@ sealed class AppState {
         object Decks : Screen()
 
         /**
-         * Card creation flow: vocabulary lookup and definition selection for the given word.
-         * [targetWord] is the word to look up.
-         * [context] is optional sentence context for the lookup.
-         */
-        data class CardCreation(
-            val targetWord: String,
-            val context: String?,
-        ) : Screen()
-
-        /**
          * Manual capture: two text fields (target word, optional context).
          * [prefilledWord] carries a word pre-populated from a single-word share intent.
          */
@@ -64,10 +54,5 @@ sealed class AppState {
             val highlightRanges: kotlin.collections.List<IntRange>,
         ) : Screen()
 
-        /** AnkiDroid setup screen. */
-        object AnkiDroidSetup : Screen()
-
-        /** AnkiDroid bulk sync screen. */
-        object AnkiDroidSync : Screen()
     }
 }

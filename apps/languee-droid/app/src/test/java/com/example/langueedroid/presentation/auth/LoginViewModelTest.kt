@@ -1,6 +1,8 @@
 package com.example.langueedroid.presentation.auth
 
 import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.feature.auth.presentation.AuthUiState
+import com.example.langueedroid.feature.auth.presentation.LoginViewModel
 import com.example.langueedroid.core.data.local.AuthSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

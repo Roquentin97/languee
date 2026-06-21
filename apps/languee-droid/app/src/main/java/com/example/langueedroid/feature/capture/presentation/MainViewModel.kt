@@ -5,13 +5,27 @@ import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
+import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.EntryValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/** One-shot navigation event emitted when the capture flow produces a word ready for card creation. */
+data class CardCreationRequest(val targetWord: String, val context: String?)
+
+sealed class AnkiStatusNotification {
+    object AnkiDroidInstalled : AnkiStatusNotification()
+    object AnkiDroidUninstalled : AnkiStatusNotification()
+    object PermissionGranted : AnkiStatusNotification()
+    object PermissionRevoked : AnkiStatusNotification()
+}
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -22,6 +36,24 @@ class MainViewModel @Inject constructor(
     private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
     val state: StateFlow<AppState> = _state.asStateFlow()
 
+    /** Emitted when the capture flow has a word ready; the UI navigates to card creation. */
+    private val _cardCreationRequest = MutableSharedFlow<CardCreationRequest>(extraBufferCapacity = 1)
+    val cardCreationRequest: SharedFlow<CardCreationRequest> = _cardCreationRequest.asSharedFlow()
+
+    /** Emitted when the capture flow should navigate to AnkiDroid setup. */
+    private val _navigateToAnkiSetup = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val navigateToAnkiSetup: SharedFlow<Unit> = _navigateToAnkiSetup.asSharedFlow()
+
+    /** Emitted when the capture flow should navigate to AnkiDroid sync. */
+    private val _navigateToAnkiSync = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val navigateToAnkiSync: SharedFlow<Unit> = _navigateToAnkiSync.asSharedFlow()
+
+    // --- AnkiDroid status monitoring (TASK-6) ---
+    private val _ankiStatusNotification = MutableStateFlow<AnkiStatusNotification?>(null)
+    val ankiStatusNotification: StateFlow<AnkiStatusNotification?> = _ankiStatusNotification.asStateFlow()
+
+    private var previousAnkiResult: AnkiDroidSetupCheckResult? = null
+
     /** Navigate to the manual add screen with no pre-filled word. */
     fun startManualAdd() {
         _state.value = AppState.Screen.ManualCapture()
@@ -29,13 +61,13 @@ class MainViewModel @Inject constructor(
 
     /**
      * Called when a word and optional context are ready to proceed to card creation.
-     * Delegates to the provided callback and navigates to the CardCreation screen.
+     * Emits a [CardCreationRequest] event for the UI to handle navigation.
      */
     fun addEntry(word: String, context: String?) {
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
         val normalizedContext = context?.trim()?.ifBlank { null }
-        _state.value = AppState.Screen.CardCreation(targetWord = trimmedWord, context = normalizedContext)
+        _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext))
     }
 
     /**
@@ -145,28 +177,56 @@ class MainViewModel @Inject constructor(
         addEntry(targetWord, null)
     }
 
-    /** Navigate to the AnkiDroid bulk sync screen. */
+    /** Request navigation to the AnkiDroid bulk sync screen. */
     fun goToAnkiDroidSync() {
-        _state.value = AppState.Screen.AnkiDroidSync
+        _navigateToAnkiSync.tryEmit(Unit)
     }
 
-    /** Return from AnkiDroid bulk sync screen to decks. */
-    fun exitAnkiDroidSync() {
-        _state.value = AppState.Screen.Decks
-    }
-
-    /** Navigate to the AnkiDroid integration settings screen. */
+    /** Request navigation to the AnkiDroid integration settings screen. */
     fun goToAnkiDroidSetup() {
-        _state.value = AppState.Screen.AnkiDroidSetup
+        _navigateToAnkiSetup.tryEmit(Unit)
     }
 
-    /** Return from AnkiDroid integration settings screen to decks. */
-    fun exitAnkiDroidSetup() {
-        _state.value = AppState.Screen.Decks
+    // --- AnkiDroid status monitoring (TASK-6) ---
+
+    /**
+     * Called when the app resumes. Checks the AnkiDroid setup status and emits a
+     * notification if the status changed since the last check.
+     */
+    fun onResumeCheckAnkiStatus() {
+        viewModelScope.launch {
+            val current = ankiDroidExportService.checkSetup(ankiDroidPreferencesStore)
+            val prev = previousAnkiResult
+            if (prev != null) {
+                val notification = detectAnkiStatusChange(prev, current)
+                if (notification != null) {
+                    _ankiStatusNotification.value = notification
+                }
+            }
+            previousAnkiResult = current
+        }
     }
 
-    /** Run the AnkiDroid setup check and return the result. Used by the UI to detect status changes on resume. */
-    suspend fun checkAnkiSetupStatus(): AnkiDroidSetupCheckResult =
-        ankiDroidExportService.checkSetup(ankiDroidPreferencesStore)
+    /** Dismiss the current AnkiDroid status notification. */
+    fun dismissAnkiStatusNotification() {
+        _ankiStatusNotification.value = null
+    }
 
+    private fun detectAnkiStatusChange(
+        previous: AnkiDroidSetupCheckResult,
+        current: AnkiDroidSetupCheckResult,
+    ): AnkiStatusNotification? {
+        val prevNotInstalled = previous.issues.any { it is AnkiDroidSetupIssue.NotInstalled }
+        val currNotInstalled = current.issues.any { it is AnkiDroidSetupIssue.NotInstalled }
+        val prevPermDenied = previous.issues.any { it is AnkiDroidSetupIssue.PermissionDenied }
+        val currPermDenied = current.issues.any { it is AnkiDroidSetupIssue.PermissionDenied }
+
+        return when {
+            prevNotInstalled && !currNotInstalled -> AnkiStatusNotification.AnkiDroidInstalled
+            !prevNotInstalled && currNotInstalled -> AnkiStatusNotification.AnkiDroidUninstalled
+            prevPermDenied && !currPermDenied -> AnkiStatusNotification.PermissionGranted
+            !prevPermDenied && currPermDenied -> AnkiStatusNotification.PermissionRevoked
+            else -> null
+        }
+    }
 }

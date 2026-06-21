@@ -3,7 +3,15 @@ package com.example.langueedroid.presentation
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.domain.Token
+import com.example.langueedroid.feature.capture.presentation.AppState
+import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
+import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
+import com.example.langueedroid.feature.capture.presentation.MainViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -13,6 +21,7 @@ import org.junit.Test
 import org.mockito.kotlin.mock
 
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModelTest {
 
     private lateinit var viewModel: MainViewModel
@@ -65,33 +74,44 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `addEntry with valid word navigates to CardCreation`() {
+    fun `addEntry with valid word emits CardCreationRequest`() = runTest {
+        var received: CardCreationRequest? = null
+        val job = launch { received = viewModel.cardCreationRequest.first() }
+
         viewModel.addEntry("cat", "I have a cat")
-        val state = currentState
-        assertTrue(state is AppState.Screen.CardCreation)
-        val cardCreation = state as AppState.Screen.CardCreation
-        assertEquals("cat", cardCreation.targetWord)
-        assertEquals("I have a cat", cardCreation.context)
+        job.join()
+
+        assertEquals("cat", received?.targetWord)
+        assertEquals("I have a cat", received?.context)
     }
 
     @Test
-    fun `addEntry trims word`() {
+    fun `addEntry trims word`() = runTest {
+        var received: CardCreationRequest? = null
+        val job = launch { received = viewModel.cardCreationRequest.first() }
+
         viewModel.addEntry("  cat  ", null)
-        val state = currentState as AppState.Screen.CardCreation
-        assertEquals("cat", state.targetWord)
+        job.join()
+
+        assertEquals("cat", received?.targetWord)
     }
 
     @Test
     fun `addEntry ignores blank word`() {
         viewModel.addEntry("   ", null)
+        // State should not change (still Decks from initial)
         assertTrue(currentState is AppState.Screen.Decks)
     }
 
     @Test
-    fun `addEntry converts blank context to null`() {
+    fun `addEntry converts blank context to null`() = runTest {
+        var received: CardCreationRequest? = null
+        val job = launch { received = viewModel.cardCreationRequest.first() }
+
         viewModel.addEntry("cat", "   ")
-        val state = currentState as AppState.Screen.CardCreation
-        assertNull(state.context)
+        job.join()
+
+        assertNull(received?.context)
     }
 
     // -------------------------------------------------------------------------
@@ -286,7 +306,7 @@ class MainViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // onContextEditSave — valid context → Valid, navigates to CardCreation
+    // onContextEditSave — valid context → Valid, emits CardCreationRequest
     // -------------------------------------------------------------------------
 
     @Test
@@ -297,14 +317,17 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `onContextEditSave with valid context navigates to CardCreation`() {
+    fun `onContextEditSave with valid context emits CardCreationRequest`() = runTest {
         viewModel.startContextEdit("cat", "I have a cat")
+
+        var received: CardCreationRequest? = null
+        val job = launch { received = viewModel.cardCreationRequest.first() }
+
         viewModel.onContextEditSave("The cat sat on the mat")
-        val state = currentState
-        assertTrue(state is AppState.Screen.CardCreation)
-        val cardCreation = state as AppState.Screen.CardCreation
-        assertEquals("cat", cardCreation.targetWord)
-        assertEquals("The cat sat on the mat", cardCreation.context)
+        job.join()
+
+        assertEquals("cat", received?.targetWord)
+        assertEquals("The cat sat on the mat", received?.context)
     }
 
     @Test
@@ -345,12 +368,17 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `confirmSaveWithoutContext adds entry with null context and navigates to CardCreation`() {
+    fun `confirmSaveWithoutContext adds entry with null context and emits CardCreationRequest`() = runTest {
         viewModel.startContextEdit("cat", "I have a cat")
+
+        var received: CardCreationRequest? = null
+        val job = launch { received = viewModel.cardCreationRequest.first() }
+
         viewModel.confirmSaveWithoutContext("cat")
-        val state = currentState as AppState.Screen.CardCreation
-        assertEquals("cat", state.targetWord)
-        assertNull(state.context)
+        job.join()
+
+        assertEquals("cat", received?.targetWord)
+        assertNull(received?.context)
     }
 
     @Test
