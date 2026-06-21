@@ -1,15 +1,17 @@
 package com.example.langueedroid.presentation.auth
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.data.AuthRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class RegisterViewModel(
+@HiltViewModel
+class RegisterViewModel @Inject constructor(
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
@@ -64,15 +66,4 @@ class RegisterViewModel(
         }
     }
 
-    class Factory(
-        private val authRepository: AuthRepository,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(RegisterViewModel::class.java)) {
-                return RegisterViewModel(authRepository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
-    }
 }

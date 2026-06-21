@@ -1,14 +1,22 @@
 package com.example.langueedroid.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.domain.EntryValidator
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class MainViewModel(
-    private val onEntryReadyForCardCreation: (word: String, context: String?) -> Unit,
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val ankiDroidExportService: AnkiDroidExportService,
+    private val ankiDroidPreferencesStore: AnkiDroidPreferencesStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
@@ -27,7 +35,6 @@ class MainViewModel(
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
         val normalizedContext = context?.trim()?.ifBlank { null }
-        onEntryReadyForCardCreation(trimmedWord, normalizedContext)
         _state.value = AppState.Screen.CardCreation(targetWord = trimmedWord, context = normalizedContext)
     }
 
@@ -158,11 +165,8 @@ class MainViewModel(
         _state.value = AppState.Screen.Decks
     }
 
-    class Factory(
-        private val onEntryReadyForCardCreation: (word: String, context: String?) -> Unit,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MainViewModel(onEntryReadyForCardCreation = onEntryReadyForCardCreation) as T
-    }
+    /** Run the AnkiDroid setup check and return the result. Used by the UI to detect status changes on resume. */
+    suspend fun checkAnkiSetupStatus(): AnkiDroidSetupCheckResult =
+        ankiDroidExportService.checkSetup(ankiDroidPreferencesStore)
+
 }

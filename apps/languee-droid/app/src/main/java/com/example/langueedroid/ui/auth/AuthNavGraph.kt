@@ -1,21 +1,20 @@
 package com.example.langueedroid.ui.auth
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.langueedroid.data.AuthRepository
 import com.example.langueedroid.data.local.AuthSession
 import com.example.langueedroid.presentation.auth.LoginViewModel
 import com.example.langueedroid.presentation.auth.RegisterViewModel
 
 @Composable
 fun AuthNavGraph(
-    authRepository: AuthRepository,
     onAuthSuccess: (AuthSession) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -34,12 +33,16 @@ fun AuthNavGraph(
         }
 
         composable(AuthNavRoutes.LOGIN) {
-            val loginViewModel: LoginViewModel = viewModel(
-                factory = LoginViewModel.Factory(authRepository, onAuthSuccess),
-            )
+            val loginViewModel: LoginViewModel = hiltViewModel()
             val uiState by loginViewModel.uiState.collectAsState()
             val email by loginViewModel.email.collectAsState()
             val password by loginViewModel.password.collectAsState()
+
+            LaunchedEffect(loginViewModel) {
+                loginViewModel.authSuccessEvent.collect { session ->
+                    onAuthSuccess(session)
+                }
+            }
 
             LoginScreen(
                 uiState = uiState,
@@ -58,9 +61,7 @@ fun AuthNavGraph(
         }
 
         composable(AuthNavRoutes.REGISTER) {
-            val registerViewModel: RegisterViewModel = viewModel(
-                factory = RegisterViewModel.Factory(authRepository),
-            )
+            val registerViewModel: RegisterViewModel = hiltViewModel()
             val uiState by registerViewModel.uiState.collectAsState()
             val email by registerViewModel.email.collectAsState()
             val password by registerViewModel.password.collectAsState()

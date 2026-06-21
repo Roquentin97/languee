@@ -1,20 +1,24 @@
 package com.example.langueedroid.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidApi
 import com.example.langueedroid.data.DeckRepository
 import com.example.langueedroid.domain.UnauthorizedException
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class DecksViewModel(
+@HiltViewModel
+class DecksViewModel @Inject constructor(
     private val deckRepository: DeckRepository,
-    private val onUnauthorized: () -> Unit,
-    private val ankiDroidApi: AnkiDroidApi? = null,
+    private val ankiDroidApi: AnkiDroidApi,
 ) : ViewModel() {
 
     private val _decksState = MutableStateFlow<DecksScreenState>(DecksScreenState.Loading)
@@ -25,6 +29,9 @@ class DecksViewModel(
 
     private val _isLoadingAnkiDecks = MutableStateFlow(false)
     val isLoadingAnkiDecks: StateFlow<Boolean> = _isLoadingAnkiDecks.asStateFlow()
+
+    private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
 
     init {
         loadDecks()
@@ -43,7 +50,7 @@ class DecksViewModel(
                 },
                 onFailure = { error ->
                     if (error is UnauthorizedException) {
-                        onUnauthorized()
+                        _unauthorizedEvent.tryEmit(Unit)
                     } else {
                         _decksState.value = DecksScreenState.Error(
                             error.message ?: "Failed to load decks",
@@ -63,7 +70,7 @@ class DecksViewModel(
                 },
                 onFailure = { error ->
                     if (error is UnauthorizedException) {
-                        onUnauthorized()
+                        _unauthorizedEvent.tryEmit(Unit)
                     } else {
                         _decksState.value = DecksScreenState.Error(
                             error.message ?: "Failed to create deck",
@@ -75,30 +82,11 @@ class DecksViewModel(
     }
 
     fun loadAnkiDecks() {
-        val api = ankiDroidApi
-        if (api == null) {
-            _availableAnkiDecks.value = emptyList()
-            return
-        }
         _isLoadingAnkiDecks.value = true
         viewModelScope.launch {
-            val decks = api.getDeckList()
+            val decks = ankiDroidApi.getDeckList()
             _availableAnkiDecks.value = decks?.entries?.map { Pair(it.key, it.value) } ?: emptyList()
             _isLoadingAnkiDecks.value = false
         }
-    }
-
-    class Factory(
-        private val deckRepository: DeckRepository,
-        private val onUnauthorized: () -> Unit,
-        private val ankiDroidApi: AnkiDroidApi? = null,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            DecksViewModel(
-                deckRepository = deckRepository,
-                onUnauthorized = onUnauthorized,
-                ankiDroidApi = ankiDroidApi,
-            ) as T
     }
 }

@@ -3,7 +3,7 @@ package com.example.langueedroid.data
 import com.example.langueedroid.data.remote.VocabularyApi
 import com.example.langueedroid.domain.LookupResult
 import com.example.langueedroid.domain.UnauthorizedException
-import com.example.langueedroid.domain.toLookupResult
+import com.example.langueedroid.data.mapper.toLookupResult
 
 class VocabularyRepository(
     private val vocabularyApi: VocabularyApi,

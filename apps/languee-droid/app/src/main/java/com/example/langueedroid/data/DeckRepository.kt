@@ -5,7 +5,7 @@ import com.example.langueedroid.data.remote.dto.CreateDeckRequest
 import com.example.langueedroid.domain.Deck
 import com.example.langueedroid.domain.DeckConflictException
 import com.example.langueedroid.domain.UnauthorizedException
-import com.example.langueedroid.domain.toDomain
+import com.example.langueedroid.data.mapper.toDomain
 
 class DeckRepository(
     private val decksApi: DecksApi,

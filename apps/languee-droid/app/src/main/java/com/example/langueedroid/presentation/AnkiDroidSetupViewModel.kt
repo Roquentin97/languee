@@ -1,8 +1,6 @@
 package com.example.langueedroid.presentation
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.ankidroid.NoteTypeTemplates
@@ -10,11 +8,16 @@ import com.example.langueedroid.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.data.local.AnkiDroidSetupPrefs
 import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.domain.ExportPreference
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class AnkiDroidSetupUiState(
     val checkResult: AnkiDroidSetupCheckResult = AnkiDroidSetupCheckResult(false, emptyList()),
@@ -24,16 +27,20 @@ data class AnkiDroidSetupUiState(
     val permissionPending: Boolean = false,
 )
 
-class AnkiDroidSetupViewModel(
-    private val applicationContext: Context,
+@HiltViewModel
+class AnkiDroidSetupViewModel @Inject constructor(
     private val exportService: AnkiDroidExportService,
     private val prefsStore: AnkiDroidPreferencesStore,
-    val onSetupComplete: () -> Unit,
-    val onSkip: () -> Unit,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AnkiDroidSetupUiState())
     val uiState: StateFlow<AnkiDroidSetupUiState> = _uiState.asStateFlow()
+
+    private val _setupCompleteEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val setupCompleteEvent: SharedFlow<Unit> = _setupCompleteEvent.asSharedFlow()
+
+    private val _skipEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val skipEvent: SharedFlow<Unit> = _skipEvent.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -76,7 +83,7 @@ class AnkiDroidSetupViewModel(
             )
             runSetupCheck()
             _uiState.update { it.copy(isSaving = false) }
-            onSetupComplete()
+            _setupCompleteEvent.tryEmit(Unit)
         }
     }
 
@@ -90,7 +97,7 @@ class AnkiDroidSetupViewModel(
                     setupCompleted = true,
                 ),
             )
-            onSkip()
+            _skipEvent.tryEmit(Unit)
         }
     }
 
@@ -98,21 +105,4 @@ class AnkiDroidSetupViewModel(
         runSetupCheck()
     }
 
-    class Factory(
-        private val applicationContext: Context,
-        private val exportService: AnkiDroidExportService,
-        private val prefsStore: AnkiDroidPreferencesStore,
-        private val onSetupComplete: () -> Unit,
-        private val onSkip: () -> Unit,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            AnkiDroidSetupViewModel(
-                applicationContext = applicationContext,
-                exportService = exportService,
-                prefsStore = prefsStore,
-                onSetupComplete = onSetupComplete,
-                onSkip = onSkip,
-            ) as T
-    }
 }

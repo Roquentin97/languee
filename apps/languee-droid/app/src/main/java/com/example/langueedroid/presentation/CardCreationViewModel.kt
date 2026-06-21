@@ -1,7 +1,6 @@
 package com.example.langueedroid.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.ankidroid.AnkiDroidNoteBuilder
@@ -18,29 +17,47 @@ import com.example.langueedroid.domain.DefinitionState
 import com.example.langueedroid.domain.ExportPreference
 import com.example.langueedroid.domain.StaleReferenceException
 import com.example.langueedroid.domain.UnauthorizedException
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class CardCreationViewModel(
-    private val targetWord: String,
-    private val context: String?,
+class CardCreationViewModel @AssistedInject constructor(
+    @Assisted("targetWord") private val targetWord: String,
+    @Assisted("context") private val context: String?,
     private val deckRepository: DeckRepository,
     private val vocabularyRepository: VocabularyRepository,
     private val cardRepository: CardRepository,
-    private val onUnauthorized: () -> Unit,
-    private val onCardCreated: () -> Unit,
-    private val ankiDroidExportRepository: AnkiDroidExportRepository? = null,
-    private val ankiDroidExportService: AnkiDroidExportService? = null,
-    private val prefsStore: AnkiDroidPreferencesStore? = null,
+    private val ankiDroidExportRepository: AnkiDroidExportRepository,
+    private val ankiDroidExportService: AnkiDroidExportService,
+    private val prefsStore: AnkiDroidPreferencesStore,
 ) : ViewModel() {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(
+            @Assisted("targetWord") targetWord: String,
+            @Assisted("context") context: String?,
+        ): CardCreationViewModel
+    }
 
     private val _state = MutableStateFlow(
         CardCreationState(targetWord = targetWord, context = context),
     )
     val state: StateFlow<CardCreationState> = _state.asStateFlow()
+
+    private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
+
+    private val _cardCreatedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val cardCreatedEvent: SharedFlow<Unit> = _cardCreatedEvent.asSharedFlow()
 
     private var createCardJob: Job? = null
 
@@ -48,7 +65,7 @@ class CardCreationViewModel(
         loadDecks()
     }
 
-    private fun loadDecks() {
+    internal fun loadDecks() {
         viewModelScope.launch {
             _state.value = _state.value.copy(deckSelectionState = DeckSelectionState.Loading)
             deckRepository.getDecks().fold(
@@ -64,7 +81,7 @@ class CardCreationViewModel(
                 },
                 onFailure = { error ->
                     if (error is UnauthorizedException) {
-                        onUnauthorized()
+                        _unauthorizedEvent.tryEmit(Unit)
                     } else {
                         _state.value = _state.value.copy(
                             deckSelectionState = DeckSelectionState.Error(
@@ -126,7 +143,7 @@ class CardCreationViewModel(
                 },
                 onFailure = { error ->
                     if (error is UnauthorizedException) {
-                        onUnauthorized()
+                        _unauthorizedEvent.tryEmit(Unit)
                     } else {
                         _state.value = _state.value.copy(
                             flowState = CardCreationFlowState.LookupError(
@@ -228,7 +245,7 @@ class CardCreationViewModel(
                 },
                 onFailure = { error ->
                     when (error) {
-                        is UnauthorizedException -> onUnauthorized()
+                        is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
                         is CardAlreadyExistsException -> _state.value = _state.value.copy(
                             flowState = currentFlowState.copy(
                                 selectedDefinition = selectedDefinition,
@@ -259,38 +276,24 @@ class CardCreationViewModel(
         selectedDeck: Deck,
         confirmedExample: String?,
     ) {
-        if (ankiDroidExportRepository == null || ankiDroidExportService == null || prefsStore == null) {
-            _state.value = _state.value.copy(
-                flowState = CardCreationFlowState.CardCreated(
-                    ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
-                ),
-            )
-            onCardCreated()
-            return
-        }
-
-        val exportRepo = ankiDroidExportRepository
-        val exportService = ankiDroidExportService
-        val store = prefsStore
-
         viewModelScope.launch {
-            val setupResult = exportService.checkSetup(store)
+            val setupResult = ankiDroidExportService.checkSetup(prefsStore)
             if (!setupResult.isReady) {
                 _state.value = _state.value.copy(
                     flowState = CardCreationFlowState.CardCreated(
                         ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
                     ),
                 )
-                onCardCreated()
+                _cardCreatedEvent.tryEmit(Unit)
                 return@launch
             }
 
-            val prefs = store.read()
+            val prefs = prefsStore.read()
 
             // Always create the pending export record, even for MANUAL preference, so the
             // Sync screen can find and attempt it later. Only the actual AnkiDroid write is
             // gated on AUTO.
-            val exportRecordResult = exportRepo.createOrGetExportRecord(cardId)
+            val exportRecordResult = ankiDroidExportRepository.createOrGetExportRecord(cardId)
             val exportRecord = exportRecordResult.getOrNull() ?: run {
                 _state.value = _state.value.copy(
                     flowState = CardCreationFlowState.CardCreated(
@@ -299,7 +302,7 @@ class CardCreationViewModel(
                         ),
                     ),
                 )
-                onCardCreated()
+                _cardCreatedEvent.tryEmit(Unit)
                 return@launch
             }
 
@@ -309,7 +312,7 @@ class CardCreationViewModel(
                         ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
                     ),
                 )
-                onCardCreated()
+                _cardCreatedEvent.tryEmit(Unit)
                 return@launch
             }
 
@@ -330,7 +333,7 @@ class CardCreationViewModel(
                 inflectionForms = selectedDefinition.inflectionForms,
             )
 
-            val noteResult = exportService.exportNote(
+            val noteResult = ankiDroidExportService.exportNote(
                 noteTypeName = prefs.noteTypeName,
                 deckName = selectedDeck.name,
                 fields = fields,
@@ -339,7 +342,7 @@ class CardCreationViewModel(
 
             noteResult.fold(
                 onSuccess = { result ->
-                    exportRepo.recordAttemptCompleted(
+                    ankiDroidExportRepository.recordAttemptCompleted(
                         exportId = exportRecord.id,
                         ankiNoteId = result.noteId,
                         ankiDeckId = result.deckId,
@@ -353,10 +356,10 @@ class CardCreationViewModel(
                             ankiExportStatus = AnkiExportTriggerStatus.Success,
                         ),
                     )
-                    onCardCreated()
+                    _cardCreatedEvent.tryEmit(Unit)
                 },
                 onFailure = { error ->
-                    exportRepo.recordAttemptFailed(
+                    ankiDroidExportRepository.recordAttemptFailed(
                         exportId = exportRecord.id,
                         failureReason = error.javaClass.simpleName,
                         failureMessage = error.message ?: "",
@@ -368,7 +371,7 @@ class CardCreationViewModel(
                             ),
                         ),
                     )
-                    onCardCreated()
+                    _cardCreatedEvent.tryEmit(Unit)
                 },
             )
         }
@@ -391,31 +394,4 @@ class CardCreationViewModel(
         }
     }
 
-    class Factory(
-        private val targetWord: String,
-        private val context: String?,
-        private val deckRepository: DeckRepository,
-        private val vocabularyRepository: VocabularyRepository,
-        private val cardRepository: CardRepository,
-        private val onUnauthorized: () -> Unit,
-        private val onCardCreated: () -> Unit,
-        private val ankiDroidExportRepository: AnkiDroidExportRepository? = null,
-        private val ankiDroidExportService: AnkiDroidExportService? = null,
-        private val prefsStore: AnkiDroidPreferencesStore? = null,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            CardCreationViewModel(
-                targetWord = targetWord,
-                context = context,
-                deckRepository = deckRepository,
-                vocabularyRepository = vocabularyRepository,
-                cardRepository = cardRepository,
-                onUnauthorized = onUnauthorized,
-                onCardCreated = onCardCreated,
-                ankiDroidExportRepository = ankiDroidExportRepository,
-                ankiDroidExportService = ankiDroidExportService,
-                prefsStore = prefsStore,
-            ) as T
-    }
 }

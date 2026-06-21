@@ -1,18 +1,22 @@
 package com.example.langueedroid.presentation.auth
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.data.AuthRepository
 import com.example.langueedroid.data.local.AuthSession
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class LoginViewModel(
+@HiltViewModel
+class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val onAuthSuccess: (AuthSession) -> Unit,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -23,6 +27,9 @@ class LoginViewModel(
 
     private val _password = MutableStateFlow("")
     val password: StateFlow<String> = _password.asStateFlow()
+
+    private val _authSuccessEvent = MutableSharedFlow<AuthSession>(extraBufferCapacity = 1)
+    val authSuccessEvent: SharedFlow<AuthSession> = _authSuccessEvent.asSharedFlow()
 
     fun onEmailChange(value: String) {
         _email.value = value
@@ -46,7 +53,7 @@ class LoginViewModel(
             val session = result.getOrNull()
             if (session != null) {
                 _uiState.value = AuthUiState.Idle
-                onAuthSuccess(session)
+                _authSuccessEvent.tryEmit(session)
             } else {
                 _uiState.value = AuthUiState.Error(
                     result.exceptionOrNull()?.message ?: "Login failed",
@@ -55,16 +62,4 @@ class LoginViewModel(
         }
     }
 
-    class Factory(
-        private val authRepository: AuthRepository,
-        private val onAuthSuccess: (AuthSession) -> Unit,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
-                return LoginViewModel(authRepository, onAuthSuccess) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
-    }
 }

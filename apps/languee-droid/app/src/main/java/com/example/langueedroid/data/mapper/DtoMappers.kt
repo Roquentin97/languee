@@ -1,9 +1,14 @@
-package com.example.langueedroid.domain
+package com.example.langueedroid.data.mapper
 
 import com.example.langueedroid.data.remote.dto.CardResponseDto
 import com.example.langueedroid.data.remote.dto.DeckResponseDto
 import com.example.langueedroid.data.remote.dto.EnrichedDefinitionDto
 import com.example.langueedroid.data.remote.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.domain.Card
+import com.example.langueedroid.domain.Deck
+import com.example.langueedroid.domain.DeckRef
+import com.example.langueedroid.domain.DefinitionResult
+import com.example.langueedroid.domain.LookupResult
 
 fun DeckResponseDto.toDomain(): Deck = Deck(
     id = id,

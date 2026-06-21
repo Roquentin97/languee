@@ -1,8 +1,8 @@
 package com.example.langueedroid.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import com.example.langueedroid.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.data.AuthRepository
 import com.example.langueedroid.data.local.AuthSession
@@ -11,11 +11,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class AppSessionViewModel(
+@HiltViewModel
+class AppSessionViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val sessionStore: AuthSessionStore,
-    private val prefsStore: AnkiDroidPreferencesStore? = null,
+    private val prefsStore: AnkiDroidPreferencesStore,
 ) : ViewModel() {
 
     private val _sessionState = MutableStateFlow<AppSessionState>(AppSessionState.CheckingSession)
@@ -48,15 +50,11 @@ class AppSessionViewModel(
     }
 
     private suspend fun transitionToAuthorized(userId: String, userEmail: String) {
-        if (prefsStore != null) {
-            val ankiPrefs = prefsStore.read()
-            _sessionState.value = if (!ankiPrefs.setupCompleted) {
-                AppSessionState.AuthorizedPendingAnkiSetup(userId = userId, userEmail = userEmail)
-            } else {
-                AppSessionState.Authorized(userId = userId, userEmail = userEmail)
-            }
+        val ankiPrefs = prefsStore.read()
+        _sessionState.value = if (!ankiPrefs.setupCompleted) {
+            AppSessionState.AuthorizedPendingAnkiSetup(userId = userId, userEmail = userEmail)
         } else {
-            _sessionState.value = AppSessionState.Authorized(userId = userId, userEmail = userEmail)
+            AppSessionState.Authorized(userId = userId, userEmail = userEmail)
         }
     }
 
@@ -79,10 +77,8 @@ class AppSessionViewModel(
     fun onAnkiSetupFinished() {
         val current = _sessionState.value
         viewModelScope.launch {
-            if (prefsStore != null) {
-                val prefs = prefsStore.read()
-                prefsStore.save(prefs.copy(setupCompleted = true))
-            }
+            val prefs = prefsStore.read()
+            prefsStore.save(prefs.copy(setupCompleted = true))
             val (userId, userEmail) = when (current) {
                 is AppSessionState.AuthorizedPendingAnkiSetup -> Pair(current.userId, current.userEmail)
                 is AppSessionState.Authorized -> Pair(current.userId, current.userEmail)
@@ -92,17 +88,4 @@ class AppSessionViewModel(
         }
     }
 
-    class Factory(
-        private val authRepository: AuthRepository,
-        private val sessionStore: AuthSessionStore,
-        private val prefsStore: AnkiDroidPreferencesStore? = null,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(AppSessionViewModel::class.java)) {
-                return AppSessionViewModel(authRepository, sessionStore, prefsStore) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
-    }
 }

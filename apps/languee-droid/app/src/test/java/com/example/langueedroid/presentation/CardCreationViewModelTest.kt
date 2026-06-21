@@ -1,8 +1,12 @@
 package com.example.langueedroid.presentation
 
+import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.data.AnkiDroidExportRepository
+import com.example.langueedroid.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.data.CardRepository
 import com.example.langueedroid.data.DeckRepository
 import com.example.langueedroid.data.VocabularyRepository
+import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.domain.CardAlreadyExistsException
 import com.example.langueedroid.domain.Deck
 import com.example.langueedroid.domain.DeckRef
@@ -13,6 +17,8 @@ import com.example.langueedroid.domain.StaleReferenceException
 import com.example.langueedroid.domain.UnauthorizedException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -43,8 +49,9 @@ class CardCreationViewModelTest {
     private lateinit var deckRepository: DeckRepository
     private lateinit var vocabularyRepository: VocabularyRepository
     private lateinit var cardRepository: CardRepository
-    private var unauthorizedCalled = false
-    private var cardCreatedCalled = false
+    private lateinit var ankiDroidExportRepository: AnkiDroidExportRepository
+    private lateinit var ankiDroidExportService: AnkiDroidExportService
+    private lateinit var prefsStore: AnkiDroidPreferencesStore
 
     @Before
     fun setUp() {
@@ -52,8 +59,9 @@ class CardCreationViewModelTest {
         deckRepository = mock()
         vocabularyRepository = mock()
         cardRepository = mock()
-        unauthorizedCalled = false
-        cardCreatedCalled = false
+        ankiDroidExportRepository = mock()
+        ankiDroidExportService = mock()
+        prefsStore = mock()
     }
 
     @After
@@ -70,13 +78,19 @@ class CardCreationViewModelTest {
         deckRepository = deckRepository,
         vocabularyRepository = vocabularyRepository,
         cardRepository = cardRepository,
-        onUnauthorized = { unauthorizedCalled = true },
-        onCardCreated = { cardCreatedCalled = true },
+        ankiDroidExportRepository = ankiDroidExportRepository,
+        ankiDroidExportService = ankiDroidExportService,
+        prefsStore = prefsStore,
     )
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private suspend fun stubAnkiSetupNotReady() {
+        whenever(ankiDroidExportService.checkSetup(prefsStore))
+            .thenReturn(AnkiDroidSetupCheckResult(isReady = false, issues = emptyList()))
+    }
 
     private fun aDeck(id: String = "d1") = Deck(id = id, name = "MyDeck")
 
@@ -120,11 +134,20 @@ class CardCreationViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `loadDecks returns 401 — onUnauthorized called`() = runTest {
-        whenever(deckRepository.getDecks()).thenReturn(Result.failure(UnauthorizedException()))
-
+    fun `loadDecks returns 401 — unauthorizedEvent is emitted`() = runTest {
+        stubAnkiSetupNotReady()
+        // Init with success so init completes without event emission
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
         val vm = buildViewModel()
         advanceUntilIdle()
+
+        // Re-stub for 401 and explicitly trigger a deck reload
+        whenever(deckRepository.getDecks()).thenReturn(Result.failure(UnauthorizedException()))
+        var unauthorizedCalled = false
+        val job = launch { vm.unauthorizedEvent.first(); unauthorizedCalled = true }
+        vm.loadDecks()
+        advanceUntilIdle()
+        job.cancel()
 
         assertTrue(unauthorizedCalled)
     }
@@ -250,17 +273,20 @@ class CardCreationViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `vocabulary lookup 401 — onUnauthorized called`() = runTest {
+    fun `vocabulary lookup 401 — unauthorizedEvent is emitted`() = runTest {
         val deck = aDeck()
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(UnauthorizedException()))
 
         val vm = buildViewModel()
+        var unauthorizedCalled = false
+        val job = launch { vm.unauthorizedEvent.first(); unauthorizedCalled = true }
         advanceUntilIdle()
 
         vm.onDeckSelected(deck)
         advanceUntilIdle()
+        job.cancel()
 
         assertTrue(unauthorizedCalled)
     }
@@ -473,13 +499,14 @@ class CardCreationViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createCard success — CardCreated state and onCardCreated fired`() = runTest {
+    fun `createCard success — CardCreated state and cardCreatedEvent emitted`() = runTest {
         val deck = aDeck()
         val definition = aDefinition()
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success("card-id"))
+        whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+        stubAnkiSetupNotReady()
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -487,11 +514,14 @@ class CardCreationViewModelTest {
         vm.onDeckSelected(deck)
         advanceUntilIdle()
 
+        var cardCreatedCalled = false
+        val job = launch { vm.cardCreatedEvent.first(); cardCreatedCalled = true }
         val flowState = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
         vm.onDefinitionSelected(flowState.definitions[0])
         vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
+        job.cancel()
 
         assertTrue(vm.state.value.flowState is CardCreationFlowState.CardCreated)
         assertTrue(cardCreatedCalled)
@@ -508,7 +538,8 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any())).thenReturn(Result.success("card-id"))
+        whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+        stubAnkiSetupNotReady()
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -526,7 +557,7 @@ class CardCreationViewModelTest {
         advanceUntilIdle()
 
         // createCard should only be called once in the repository
-        verify(cardRepository, times(1)).createCard(any(), any())
+        verify(cardRepository, times(1)).createCard(any(), any(), anyOrNull(), anyOrNull())
     }
 
     // -------------------------------------------------------------------------
@@ -540,7 +571,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any()))
+        whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(CardAlreadyExistsException()))
 
         val vm = buildViewModel()
@@ -574,7 +605,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any()))
+        whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(StaleReferenceException()))
 
         val vm = buildViewModel()
@@ -601,16 +632,18 @@ class CardCreationViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createCard returns 401 — onUnauthorized called`() = runTest {
+    fun `createCard returns 401 — unauthorizedEvent is emitted`() = runTest {
         val deck = aDeck()
         val definition = aDefinition()
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any()))
+        whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(UnauthorizedException()))
 
         val vm = buildViewModel()
+        var unauthorizedCalled = false
+        val job = launch { vm.unauthorizedEvent.first(); unauthorizedCalled = true }
         advanceUntilIdle()
 
         vm.onDeckSelected(deck)
@@ -621,6 +654,7 @@ class CardCreationViewModelTest {
         vm.onExampleConfirmed("I have a cat")
         vm.createCard()
         advanceUntilIdle()
+        job.cancel()
 
         assertTrue(unauthorizedCalled)
     }
@@ -636,7 +670,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = listOf(definition))))
-        whenever(cardRepository.createCard(any(), any()))
+        whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(RuntimeException("HTTP 500")))
 
         val vm = buildViewModel()
@@ -678,6 +712,6 @@ class CardCreationViewModelTest {
         vm.createCard()
         advanceUntilIdle()
 
-        verify(cardRepository, never()).createCard(any(), any())
+        verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull())
     }
 }

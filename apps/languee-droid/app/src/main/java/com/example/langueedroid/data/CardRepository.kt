@@ -6,7 +6,7 @@ import com.example.langueedroid.domain.Card
 import com.example.langueedroid.domain.CardAlreadyExistsException
 import com.example.langueedroid.domain.StaleReferenceException
 import com.example.langueedroid.domain.UnauthorizedException
-import com.example.langueedroid.domain.toDomain
+import com.example.langueedroid.data.mapper.toDomain
 
 class CardRepository(
     private val cardsApi: CardsApi,

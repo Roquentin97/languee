@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 val localProperties = Properties()
@@ -87,6 +89,9 @@ dependencies {
     implementation(libs.otel.sdk)
     implementation(libs.otel.exporter.otlp)
     implementation(libs.otel.okhttp.instrumentation)
+    implementation(libs.hilt.android)
+    implementation(libs.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
     debugImplementation(libs.okhttp.logging.interceptor)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.kotlin)

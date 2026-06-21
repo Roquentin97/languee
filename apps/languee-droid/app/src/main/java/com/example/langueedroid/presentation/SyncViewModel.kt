@@ -1,8 +1,8 @@
 package com.example.langueedroid.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.ankidroid.AnkiDroidNoteBuilder
 import com.example.langueedroid.ankidroid.NoteTypeTemplates
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class SyncUiState {
     object Idle : SyncUiState()
@@ -22,7 +23,8 @@ sealed class SyncUiState {
     data class Result(val syncedCount: Int, val failedWords: List<String>) : SyncUiState()
 }
 
-class SyncViewModel(
+@HiltViewModel
+class SyncViewModel @Inject constructor(
     private val exportRepository: AnkiDroidExportRepository,
     private val exportService: AnkiDroidExportService,
     private val prefsStore: AnkiDroidPreferencesStore,
@@ -132,21 +134,4 @@ class SyncViewModel(
         _uiState.value = SyncUiState.Idle
     }
 
-    class Factory(
-        private val exportRepository: AnkiDroidExportRepository,
-        private val exportService: AnkiDroidExportService,
-        private val prefsStore: AnkiDroidPreferencesStore,
-        private val cardRepository: CardRepository,
-        private val deckRepository: DeckRepository,
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SyncViewModel(
-                exportRepository = exportRepository,
-                exportService = exportService,
-                prefsStore = prefsStore,
-                cardRepository = cardRepository,
-                deckRepository = deckRepository,
-            ) as T
-    }
 }

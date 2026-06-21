@@ -2,8 +2,10 @@ package com.example.langueedroid
 
 import android.app.Application
 import com.example.langueedroid.telemetry.initOpenTelemetry
+import dagger.hilt.android.HiltAndroidApp
 import io.opentelemetry.api.OpenTelemetry
 
+@HiltAndroidApp
 class LangueeDroidApp : Application() {
 
     var openTelemetry: OpenTelemetry = OpenTelemetry.noop()

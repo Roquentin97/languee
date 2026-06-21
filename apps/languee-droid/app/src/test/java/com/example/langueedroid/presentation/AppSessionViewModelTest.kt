@@ -1,8 +1,11 @@
 package com.example.langueedroid.presentation
 
+import com.example.langueedroid.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.data.AuthRepository
+import com.example.langueedroid.data.local.AnkiDroidSetupPrefs
 import com.example.langueedroid.data.local.AuthSession
 import com.example.langueedroid.data.local.AuthSessionStore
+import com.example.langueedroid.domain.ExportPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -30,12 +33,14 @@ class AppSessionViewModelTest {
 
     private lateinit var authRepository: AuthRepository
     private lateinit var sessionStore: AuthSessionStore
+    private lateinit var prefsStore: AnkiDroidPreferencesStore
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         authRepository = mock()
         sessionStore = mock()
+        prefsStore = mock()
     }
 
     @After
@@ -43,7 +48,13 @@ class AppSessionViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = AppSessionViewModel(authRepository, sessionStore)
+    private fun buildViewModel() = AppSessionViewModel(authRepository, sessionStore, prefsStore)
+
+    private fun setupCompletedPrefs() = AnkiDroidSetupPrefs(
+        noteTypeName = "Languee Mobile Native Type Vocabulary",
+        exportPreference = ExportPreference.MANUAL,
+        setupCompleted = true,
+    )
 
     // -----------------------------------------------------------------------
     // Startup — no stored session (edge case 1)
@@ -87,6 +98,7 @@ class AppSessionViewModelTest {
         val stored = storedSession()
         whenever(sessionStore.read()).thenReturn(stored)
         whenever(authRepository.refreshSession()).thenReturn(Result.success(stored))
+        whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -135,6 +147,7 @@ class AppSessionViewModelTest {
     @Test
     fun `onAuthSuccess transitions to Authorized`() = runTest {
         whenever(sessionStore.read()).thenReturn(null)
+        whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
         val vm = buildViewModel()
         advanceUntilIdle()
 
@@ -157,6 +170,7 @@ class AppSessionViewModelTest {
         whenever(sessionStore.read()).thenReturn(storedSession())
         whenever(authRepository.refreshSession()).thenReturn(Result.success(storedSession()))
         whenever(authRepository.logout()).thenReturn(Result.success(Unit))
+        whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -176,6 +190,7 @@ class AppSessionViewModelTest {
     fun `onLogout routes to Unauthorized even when logout network call fails`() = runTest {
         whenever(sessionStore.read()).thenReturn(null)
         whenever(authRepository.logout()).thenReturn(Result.success(Unit))
+        whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -199,6 +214,7 @@ class AppSessionViewModelTest {
         val logoutGate = Channel<Result<Unit>>(capacity = 0)
         whenever(sessionStore.read()).thenReturn(null)
         whenever(authRepository.logout()).doSuspendableAnswer { logoutGate.receive() }
+        whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
 
         val vm = buildViewModel()
         advanceUntilIdle()
@@ -231,6 +247,7 @@ class AppSessionViewModelTest {
         val logoutGate = Channel<Result<Unit>>(capacity = 0)
         whenever(sessionStore.read()).thenReturn(null)
         whenever(authRepository.logout()).doSuspendableAnswer { logoutGate.receive() }
+        whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
 
         val vm = buildViewModel()
         advanceUntilIdle()

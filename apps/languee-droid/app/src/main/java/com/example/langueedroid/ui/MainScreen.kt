@@ -15,20 +15,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.langueedroid.R
-import com.example.langueedroid.ankidroid.AnkiDroidApi
-import com.example.langueedroid.ankidroid.AnkiDroidExportService
-import com.example.langueedroid.data.AnkiDroidExportRepository
-import com.example.langueedroid.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.data.CardRepository
-import com.example.langueedroid.data.DeckRepository
-import com.example.langueedroid.data.VocabularyRepository
 import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.presentation.AnkiDroidSetupViewModel
@@ -46,22 +38,11 @@ fun MainScreen(
     userEmail: String,
     onLogout: () -> Unit,
     logoutInProgress: Boolean,
-    deckRepository: DeckRepository,
-    vocabularyRepository: VocabularyRepository,
-    cardRepository: CardRepository,
     onUnauthorized: () -> Unit,
     sharedText: String?,
     modifier: Modifier = Modifier,
-    ankiDroidPreferencesStore: AnkiDroidPreferencesStore? = null,
-    ankiDroidExportService: AnkiDroidExportService? = null,
-    ankiDroidExportRepository: AnkiDroidExportRepository? = null,
-    ankiDroidApi: AnkiDroidApi? = null,
 ) {
-    val mainViewModel: MainViewModel = viewModel(
-        factory = MainViewModel.Factory(
-            onEntryReadyForCardCreation = { _, _ -> },
-        ),
-    )
+    val mainViewModel: MainViewModel = hiltViewModel()
 
     LaunchedEffect(sharedText) {
         if (!sharedText.isNullOrBlank()) {
@@ -78,12 +59,9 @@ fun MainScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME &&
-                ankiDroidExportService != null &&
-                ankiDroidPreferencesStore != null
-            ) {
+            if (event == Lifecycle.Event.ON_RESUME) {
                 scope.launch {
-                    val current = ankiDroidExportService.checkSetup(ankiDroidPreferencesStore)
+                    val current = mainViewModel.checkAnkiSetupStatus()
                     val prev = previousAnkiResult
                     if (prev != null) {
                         val notification = detectAnkiStatusChange(prev, current)
@@ -110,13 +88,12 @@ fun MainScreen(
 
     when (val currentState = state) {
         is AppState.Screen.Decks -> {
-            val decksViewModel: DecksViewModel = viewModel(
-                factory = DecksViewModel.Factory(
-                    deckRepository = deckRepository,
-                    onUnauthorized = onUnauthorized,
-                    ankiDroidApi = ankiDroidApi,
-                ),
-            )
+            val decksViewModel: DecksViewModel = hiltViewModel()
+            LaunchedEffect(decksViewModel) {
+                decksViewModel.unauthorizedEvent.collect {
+                    onUnauthorized()
+                }
+            }
             val decksState by decksViewModel.decksState.collectAsState()
             val availableAnkiDecks by decksViewModel.availableAnkiDecks.collectAsState()
             val isLoadingAnkiDecks by decksViewModel.isLoadingAnkiDecks.collectAsState()
@@ -130,16 +107,8 @@ fun MainScreen(
                 },
                 onLogout = onLogout,
                 logoutInProgress = logoutInProgress,
-                onSyncClick = if (ankiDroidExportService != null) {
-                    { mainViewModel.goToAnkiDroidSync() }
-                } else {
-                    null
-                },
-                onIntegrationsClick = if (ankiDroidExportService != null) {
-                    { mainViewModel.goToAnkiDroidSetup() }
-                } else {
-                    null
-                },
+                onSyncClick = { mainViewModel.goToAnkiDroidSync() },
+                onIntegrationsClick = { mainViewModel.goToAnkiDroidSetup() },
                 availableAnkiDecks = availableAnkiDecks,
                 isLoadingAnkiDecks = isLoadingAnkiDecks,
                 onLoadAnkiDecks = { decksViewModel.loadAnkiDecks() },
@@ -148,79 +117,68 @@ fun MainScreen(
         }
 
         is AppState.Screen.AnkiDroidSetup -> {
-            if (ankiDroidExportService != null && ankiDroidPreferencesStore != null) {
-                val setupViewModel: AnkiDroidSetupViewModel = viewModel(
-                    factory = AnkiDroidSetupViewModel.Factory(
-                        applicationContext = LocalContext.current.applicationContext,
-                        exportService = ankiDroidExportService,
-                        prefsStore = ankiDroidPreferencesStore,
-                        onSetupComplete = { mainViewModel.exitAnkiDroidSetup() },
-                        onSkip = { mainViewModel.exitAnkiDroidSetup() },
-                    ),
-                )
-                val setupUiState by setupViewModel.uiState.collectAsState()
-                val setupPermLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                ) { setupViewModel.onPermissionGranted() }
-                AnkiDroidSetupScreen(
-                    uiState = setupUiState,
-                    showBackButton = true,
-                    onNavigateBack = { mainViewModel.exitAnkiDroidSetup() },
-                    onRequestPermission = {
-                        setupPermLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
-                    },
-                    onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
-                    onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
-                    onSave = { setupViewModel.onSave() },
-                    onSkip = { setupViewModel.onSkipSetup() },
-                    onResumeCheck = { setupViewModel.runSetupCheck() },
-                    modifier = modifier,
-                )
-            } else {
-                mainViewModel.exitAnkiDroidSetup()
+            val setupViewModel: AnkiDroidSetupViewModel = hiltViewModel()
+            LaunchedEffect(setupViewModel) {
+                setupViewModel.setupCompleteEvent.collect {
+                    mainViewModel.exitAnkiDroidSetup()
+                }
             }
+            LaunchedEffect(setupViewModel) {
+                setupViewModel.skipEvent.collect {
+                    mainViewModel.exitAnkiDroidSetup()
+                }
+            }
+            val setupUiState by setupViewModel.uiState.collectAsState()
+            val setupPermLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission(),
+            ) { setupViewModel.onPermissionGranted() }
+            AnkiDroidSetupScreen(
+                uiState = setupUiState,
+                showBackButton = true,
+                onNavigateBack = { mainViewModel.exitAnkiDroidSetup() },
+                onRequestPermission = {
+                    setupPermLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
+                },
+                onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
+                onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
+                onSave = { setupViewModel.onSave() },
+                onSkip = { setupViewModel.onSkipSetup() },
+                onResumeCheck = { setupViewModel.runSetupCheck() },
+                modifier = modifier,
+            )
         }
 
         is AppState.Screen.AnkiDroidSync -> {
-            if (ankiDroidExportRepository != null && ankiDroidExportService != null && ankiDroidPreferencesStore != null) {
-                val syncViewModel: SyncViewModel = viewModel(
-                    factory = SyncViewModel.Factory(
-                        exportRepository = ankiDroidExportRepository,
-                        exportService = ankiDroidExportService,
-                        prefsStore = ankiDroidPreferencesStore,
-                        cardRepository = cardRepository,
-                        deckRepository = deckRepository,
-                    ),
-                )
-                val syncUiState by syncViewModel.uiState.collectAsState()
-                AnkiDroidSyncScreen(
-                    uiState = syncUiState,
-                    onSync = { syncViewModel.sync() },
-                    onDismissResult = { syncViewModel.dismissResult() },
-                    onNavigateBack = { mainViewModel.exitAnkiDroidSync() },
-                    modifier = modifier,
-                )
-            } else {
-                mainViewModel.exitAnkiDroidSync()
-            }
+            val syncViewModel: SyncViewModel = hiltViewModel()
+            val syncUiState by syncViewModel.uiState.collectAsState()
+            AnkiDroidSyncScreen(
+                uiState = syncUiState,
+                onSync = { syncViewModel.sync() },
+                onDismissResult = { syncViewModel.dismissResult() },
+                onNavigateBack = { mainViewModel.exitAnkiDroidSync() },
+                modifier = modifier,
+            )
         }
 
         is AppState.Screen.CardCreation -> {
-            val cardCreationViewModel: CardCreationViewModel = viewModel(
+            val cardCreationViewModel: CardCreationViewModel = hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
                 key = "${currentState.targetWord}:${currentState.context}",
-                factory = CardCreationViewModel.Factory(
+            ) { factory ->
+                factory.create(
                     targetWord = currentState.targetWord,
                     context = currentState.context,
-                    deckRepository = deckRepository,
-                    vocabularyRepository = vocabularyRepository,
-                    cardRepository = cardRepository,
-                    onUnauthorized = onUnauthorized,
-                    onCardCreated = { mainViewModel.dismissCapture() },
-                    ankiDroidExportRepository = ankiDroidExportRepository,
-                    ankiDroidExportService = ankiDroidExportService,
-                    prefsStore = ankiDroidPreferencesStore,
-                ),
-            )
+                )
+            }
+            LaunchedEffect(cardCreationViewModel) {
+                cardCreationViewModel.unauthorizedEvent.collect {
+                    onUnauthorized()
+                }
+            }
+            LaunchedEffect(cardCreationViewModel) {
+                cardCreationViewModel.cardCreatedEvent.collect {
+                    mainViewModel.dismissCapture()
+                }
+            }
             val cardCreationState by cardCreationViewModel.state.collectAsState()
             CardCreationScreen(
                 state = cardCreationState,
