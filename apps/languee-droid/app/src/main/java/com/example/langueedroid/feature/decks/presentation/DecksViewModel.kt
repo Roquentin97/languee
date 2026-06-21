@@ -52,9 +52,7 @@ class DecksViewModel @Inject constructor(
                     if (error is UnauthorizedException) {
                         _unauthorizedEvent.tryEmit(Unit)
                     } else {
-                        _decksState.value = DecksScreenState.Error(
-                            error.message ?: "Failed to load decks",
-                        )
+                        _decksState.value = DecksScreenState.Error(DecksError.LOAD_FAILED)
                     }
                 },
             )
@@ -72,9 +70,7 @@ class DecksViewModel @Inject constructor(
                     if (error is UnauthorizedException) {
                         _unauthorizedEvent.tryEmit(Unit)
                     } else {
-                        _decksState.value = DecksScreenState.Error(
-                            error.message ?: "Failed to create deck",
-                        )
+                        _decksState.value = DecksScreenState.Error(DecksError.CREATE_FAILED)
                     }
                 },
             )

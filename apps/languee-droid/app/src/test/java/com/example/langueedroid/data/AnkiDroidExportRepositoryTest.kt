@@ -1,5 +1,6 @@
 package com.example.langueedroid.data
 
+import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.dto.AnkiDroidExportResponseDto
 import com.example.langueedroid.core.network.dto.CardSummaryDto

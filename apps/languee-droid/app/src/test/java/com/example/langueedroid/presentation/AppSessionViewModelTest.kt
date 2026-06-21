@@ -1,6 +1,8 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.feature.session.presentation.AppSessionState
+import com.example.langueedroid.feature.session.presentation.AppSessionViewModel
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AnkiDroidSetupPrefs
 import com.example.langueedroid.core.data.local.AuthSession

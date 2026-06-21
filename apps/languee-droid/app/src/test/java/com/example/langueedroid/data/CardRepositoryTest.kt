@@ -1,5 +1,6 @@
 package com.example.langueedroid.data
 
+import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.dto.CardDefinitionDto
 import com.example.langueedroid.core.network.dto.CardResponseDto

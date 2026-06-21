@@ -84,9 +84,7 @@ class CardCreationViewModel @AssistedInject constructor(
                         _unauthorizedEvent.tryEmit(Unit)
                     } else {
                         _state.value = _state.value.copy(
-                            deckSelectionState = DeckSelectionState.Error(
-                                error.message ?: "Failed to load decks",
-                            ),
+                            deckSelectionState = DeckSelectionState.Error(CardCreationError.LOAD_DECKS_FAILED),
                         )
                     }
                 },
@@ -146,9 +144,7 @@ class CardCreationViewModel @AssistedInject constructor(
                         _unauthorizedEvent.tryEmit(Unit)
                     } else {
                         _state.value = _state.value.copy(
-                            flowState = CardCreationFlowState.LookupError(
-                                error.message ?: "Vocabulary lookup failed",
-                            ),
+                            flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_FAILED),
                         )
                     }
                 },
@@ -254,14 +250,12 @@ class CardCreationViewModel @AssistedInject constructor(
                         )
                         is StaleReferenceException -> {
                             _state.value = _state.value.copy(
-                                flowState = CardCreationFlowState.CreateCardError("Deck or definition no longer exists"),
+                                flowState = CardCreationFlowState.CreateCardError(CardCreationError.STALE_REFERENCE),
                             )
                             loadDecks()
                         }
                         else -> _state.value = _state.value.copy(
-                            flowState = CardCreationFlowState.CreateCardError(
-                                error.message ?: "Failed to create card",
-                            ),
+                            flowState = CardCreationFlowState.CreateCardError(CardCreationError.CREATE_CARD_FAILED),
                         )
                     }
                 },
@@ -297,9 +291,7 @@ class CardCreationViewModel @AssistedInject constructor(
             val exportRecord = exportRecordResult.getOrNull() ?: run {
                 _state.value = _state.value.copy(
                     flowState = CardCreationFlowState.CardCreated(
-                        ankiExportStatus = AnkiExportTriggerStatus.Failed(
-                            exportRecordResult.exceptionOrNull()?.message ?: "Failed to create export record",
-                        ),
+                        ankiExportStatus = AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED),
                     ),
                 )
                 _cardCreatedEvent.tryEmit(Unit)
@@ -366,9 +358,7 @@ class CardCreationViewModel @AssistedInject constructor(
                     )
                     _state.value = _state.value.copy(
                         flowState = CardCreationFlowState.CardCreated(
-                            ankiExportStatus = AnkiExportTriggerStatus.Failed(
-                                error.message ?: "Export failed",
-                            ),
+                            ankiExportStatus = AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED),
                         ),
                     )
                     _cardCreatedEvent.tryEmit(Unit)

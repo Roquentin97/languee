@@ -1,5 +1,7 @@
 package com.example.langueedroid.domain
 
+import com.example.langueedroid.core.domain.EntryValidator
+import com.example.langueedroid.core.domain.Token
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

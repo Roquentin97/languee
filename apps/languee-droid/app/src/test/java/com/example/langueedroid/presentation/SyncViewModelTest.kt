@@ -1,6 +1,8 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportResult
+import com.example.langueedroid.feature.anki.presentation.SyncUiState
+import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore

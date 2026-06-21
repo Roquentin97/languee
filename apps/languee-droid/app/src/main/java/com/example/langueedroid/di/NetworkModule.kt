@@ -1,6 +1,6 @@
 package com.example.langueedroid.di
 
-import com.example.langueedroid.BuildConfig
+import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AnkiDroidExportApi

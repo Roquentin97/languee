@@ -1,6 +1,9 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidApi
+import com.example.langueedroid.feature.decks.presentation.DecksError
+import com.example.langueedroid.feature.decks.presentation.DecksScreenState
+import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DeckConflictException
@@ -116,7 +119,7 @@ class DecksViewModelTest {
 
         val state = vm.decksState.value
         assertTrue(state is DecksScreenState.Error)
-        assertTrue((state as DecksScreenState.Error).message.isNotBlank())
+        assertEquals(DecksError.LOAD_FAILED, (state as DecksScreenState.Error).type)
     }
 
     // -------------------------------------------------------------------------
@@ -174,7 +177,7 @@ class DecksViewModelTest {
 
         val state = vm.decksState.value
         assertTrue(state is DecksScreenState.Error)
-        assertTrue((state as DecksScreenState.Error).message.isNotBlank())
+        assertEquals(DecksError.CREATE_FAILED, (state as DecksScreenState.Error).type)
         assertTrue(!onCreatedCalled)
     }
 

@@ -27,7 +27,7 @@ val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("
 val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
 
 android {
-    namespace = "com.example.langueedroid"
+    namespace = "com.languee.droid"
     compileSdk {
         version =
             release(36) {
@@ -36,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.langueedroid"
+        applicationId = "com.languee.droid"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -50,9 +50,9 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
     compileOptions {

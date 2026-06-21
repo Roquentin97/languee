@@ -33,8 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.example.langueedroid.R
+import com.languee.droid.R
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.feature.decks.presentation.DecksError
 import com.example.langueedroid.feature.decks.presentation.DecksScreenState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,6 +120,12 @@ fun DecksScreen(
                 }
 
                 is DecksScreenState.Error -> {
+                    val errorMessage = stringResource(
+                        when (state.type) {
+                            DecksError.LOAD_FAILED -> R.string.error_load_decks_failed
+                            DecksError.CREATE_FAILED -> R.string.error_create_deck_failed
+                        },
+                    )
                     Column(
                         modifier = Modifier
                             .align(Alignment.Center)
@@ -127,7 +134,7 @@ fun DecksScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            text = state.message,
+                            text = errorMessage,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                         )

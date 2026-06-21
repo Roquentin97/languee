@@ -1,6 +1,12 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
+import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
 import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
@@ -223,7 +229,7 @@ class CardCreationViewModelTest {
 
         val flowState = vm.state.value.flowState
         assertTrue(flowState is CardCreationFlowState.LookupError)
-        assertTrue((flowState as CardCreationFlowState.LookupError).message.isNotBlank())
+        assertEquals(CardCreationError.LOOKUP_FAILED, (flowState as CardCreationFlowState.LookupError).type)
     }
 
     // -------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 package com.example.langueedroid.data
 
+import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.dto.DeckResponseDto
 import com.example.langueedroid.core.domain.DeckConflictException

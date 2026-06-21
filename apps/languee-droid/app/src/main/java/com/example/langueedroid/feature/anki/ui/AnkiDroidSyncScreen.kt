@@ -26,7 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.langueedroid.R
+import com.languee.droid.R
 import com.example.langueedroid.feature.anki.presentation.SyncUiState
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -4,11 +4,19 @@ import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 
+enum class CardCreationError {
+    LOAD_DECKS_FAILED,
+    LOOKUP_FAILED,
+    CREATE_CARD_FAILED,
+    STALE_REFERENCE,
+    EXPORT_RECORD_FAILED,
+}
+
 sealed class AnkiExportTriggerStatus {
     object NotTriggered : AnkiExportTriggerStatus()
     object InProgress : AnkiExportTriggerStatus()
     object Success : AnkiExportTriggerStatus()
-    data class Failed(val message: String) : AnkiExportTriggerStatus()
+    data class Failed(val type: CardCreationError) : AnkiExportTriggerStatus()
 }
 
 /**
@@ -29,7 +37,7 @@ sealed class DeckSelectionState {
     object Loading : DeckSelectionState()
     data class Loaded(val decks: List<Deck>, val selectedDeck: Deck?) : DeckSelectionState()
     object Empty : DeckSelectionState()
-    data class Error(val message: String) : DeckSelectionState()
+    data class Error(val type: CardCreationError) : DeckSelectionState()
 }
 
 sealed class CardCreationFlowState {
@@ -59,8 +67,8 @@ sealed class CardCreationFlowState {
     /** No definitions were returned for the given word. */
     data class NoDefinitions(val lemma: String) : CardCreationFlowState()
 
-    /** Lookup failed with an error message. */
-    data class LookupError(val message: String) : CardCreationFlowState()
+    /** Lookup failed. */
+    data class LookupError(val type: CardCreationError) : CardCreationFlowState()
 
     /** Card creation is in progress. */
     object CreatingCard : CardCreationFlowState()
@@ -70,6 +78,6 @@ sealed class CardCreationFlowState {
         val ankiExportStatus: AnkiExportTriggerStatus = AnkiExportTriggerStatus.NotTriggered,
     ) : CardCreationFlowState()
 
-    /** Card creation failed with an error message. */
-    data class CreateCardError(val message: String) : CardCreationFlowState()
+    /** Card creation failed. */
+    data class CreateCardError(val type: CardCreationError) : CardCreationFlowState()
 }

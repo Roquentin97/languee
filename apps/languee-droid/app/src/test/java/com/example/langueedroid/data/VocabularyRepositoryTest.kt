@@ -1,5 +1,6 @@
 package com.example.langueedroid.data
 
+import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.network.VocabularyApi
 import com.example.langueedroid.core.network.dto.DeckRefDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto

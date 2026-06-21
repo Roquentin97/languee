@@ -41,11 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.example.langueedroid.R
+import com.languee.droid.R
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
@@ -153,7 +154,7 @@ fun CardCreationScreen(
                 is CardCreationFlowState.LookupError -> {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = flowState.message,
+                            text = stringResource(flowState.type.toStringRes()),
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -199,25 +200,18 @@ fun CardCreationScreen(
                             )
                         }
                         is AnkiExportTriggerStatus.Failed -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = stringResource(R.string.card_creation_sync_failed),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                                Text(
-                                    text = flowState.ankiExportStatus.message,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            }
+                            Text(
+                                text = stringResource(R.string.card_creation_sync_failed),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                 }
 
                 is CardCreationFlowState.CreateCardError -> {
                     Text(
-                        text = flowState.message,
+                        text = stringResource(flowState.type.toStringRes()),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -249,7 +243,7 @@ private fun DeckSelector(
 
         is DeckSelectionState.Error -> {
             Text(
-                text = deckSelectionState.message,
+                text = stringResource(deckSelectionState.type.toStringRes()),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = modifier,
@@ -542,4 +536,12 @@ private fun DefinitionCard(
             }
         }
     }
+}
+
+private fun CardCreationError.toStringRes(): Int = when (this) {
+    CardCreationError.LOAD_DECKS_FAILED -> R.string.error_load_decks_for_card_failed
+    CardCreationError.LOOKUP_FAILED -> R.string.error_lookup_failed
+    CardCreationError.CREATE_CARD_FAILED -> R.string.error_create_card_failed
+    CardCreationError.STALE_REFERENCE -> R.string.error_stale_reference
+    CardCreationError.EXPORT_RECORD_FAILED -> R.string.error_export_record_failed
 }

@@ -2,6 +2,7 @@ package com.example.langueedroid
 
 import android.app.Application
 import com.example.langueedroid.core.telemetry.initOpenTelemetry
+import com.languee.droid.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import io.opentelemetry.api.OpenTelemetry
 

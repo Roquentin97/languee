@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -76,10 +77,11 @@ class MainViewModelTest {
     @Test
     fun `addEntry with valid word emits CardCreationRequest`() = runTest {
         var received: CardCreationRequest? = null
-        val job = launch { received = viewModel.cardCreationRequest.first() }
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
 
         viewModel.addEntry("cat", "I have a cat")
-        job.join()
+        advanceUntilIdle()
 
         assertEquals("cat", received?.targetWord)
         assertEquals("I have a cat", received?.context)
@@ -88,10 +90,11 @@ class MainViewModelTest {
     @Test
     fun `addEntry trims word`() = runTest {
         var received: CardCreationRequest? = null
-        val job = launch { received = viewModel.cardCreationRequest.first() }
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
 
         viewModel.addEntry("  cat  ", null)
-        job.join()
+        advanceUntilIdle()
 
         assertEquals("cat", received?.targetWord)
     }
@@ -106,10 +109,11 @@ class MainViewModelTest {
     @Test
     fun `addEntry converts blank context to null`() = runTest {
         var received: CardCreationRequest? = null
-        val job = launch { received = viewModel.cardCreationRequest.first() }
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
 
         viewModel.addEntry("cat", "   ")
-        job.join()
+        advanceUntilIdle()
 
         assertNull(received?.context)
     }
@@ -321,10 +325,11 @@ class MainViewModelTest {
         viewModel.startContextEdit("cat", "I have a cat")
 
         var received: CardCreationRequest? = null
-        val job = launch { received = viewModel.cardCreationRequest.first() }
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
 
         viewModel.onContextEditSave("The cat sat on the mat")
-        job.join()
+        advanceUntilIdle()
 
         assertEquals("cat", received?.targetWord)
         assertEquals("The cat sat on the mat", received?.context)
@@ -372,10 +377,11 @@ class MainViewModelTest {
         viewModel.startContextEdit("cat", "I have a cat")
 
         var received: CardCreationRequest? = null
-        val job = launch { received = viewModel.cardCreationRequest.first() }
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
 
         viewModel.confirmSaveWithoutContext("cat")
-        job.join()
+        advanceUntilIdle()
 
         assertEquals("cat", received?.targetWord)
         assertNull(received?.context)

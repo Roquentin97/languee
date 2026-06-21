@@ -1,5 +1,6 @@
 package com.example.langueedroid.data
 
+import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AuthApi

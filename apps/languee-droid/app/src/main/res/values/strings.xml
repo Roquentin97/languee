@@ -133,4 +133,13 @@
     <string name="ankidroid_status_setup_now">Set up now</string>
     <string name="ankidroid_status_not_now">Not now</string>
     <string name="ankidroid_status_ok">OK</string>
+
+    <!-- Error messages (resolved in UI from typed ViewModel errors) -->
+    <string name="error_load_decks_failed">Failed to load decks</string>
+    <string name="error_create_deck_failed">Failed to create deck</string>
+    <string name="error_load_decks_for_card_failed">Failed to load decks</string>
+    <string name="error_lookup_failed">Failed to look up word</string>
+    <string name="error_create_card_failed">Failed to create card</string>
+    <string name="error_stale_reference">Deck or definition no longer exists</string>
+    <string name="error_export_record_failed">Failed to record export</string>
 </resources>

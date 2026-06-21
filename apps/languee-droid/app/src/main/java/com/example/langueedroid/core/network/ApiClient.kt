@@ -1,6 +1,6 @@
 package com.example.langueedroid.core.network
 
-import com.example.langueedroid.BuildConfig
+import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry

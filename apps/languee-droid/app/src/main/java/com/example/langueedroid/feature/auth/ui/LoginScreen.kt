@@ -27,7 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.langueedroid.R
+import com.languee.droid.R
 import com.example.langueedroid.feature.auth.presentation.AuthUiState
 
 @OptIn(ExperimentalMaterial3Api::class)

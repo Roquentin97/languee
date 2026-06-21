@@ -1,7 +1,7 @@
 package com.example.langueedroid.di
 
 import android.content.Context
-import com.example.langueedroid.BuildConfig
+import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.telemetry.initOpenTelemetry
 import dagger.Module
 import dagger.Provides
