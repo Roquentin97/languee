@@ -8,6 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineDispatcher
 import javax.inject.Singleton
 
 @Module
@@ -16,7 +17,10 @@ object AnkiDroidModule {
 
     @Provides
     @Singleton
-    fun provideAnkiDroidApi(@ApplicationContext context: Context): AnkiDroidApi = AnkiDroidApi(context)
+    fun provideAnkiDroidApi(
+        @ApplicationContext context: Context,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    ): AnkiDroidApi = AnkiDroidApi(context, ioDispatcher)
 
     @Provides
     @Singleton
