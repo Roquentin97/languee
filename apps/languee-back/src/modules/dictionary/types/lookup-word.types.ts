@@ -1,4 +1,5 @@
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+import type { InflectionForms } from './inflection-forms.types';
 
 export type LookupWordInput = {
   word: string;
@@ -6,7 +7,7 @@ export type LookupWordInput = {
   lemma?: string;
   pos?: string;
   isIrregular?: boolean;
-  inflectionForms?: Record<string, string>;
+  inflectionForms?: InflectionForms | null;
 };
 
 export type DefinitionResult = {
@@ -16,7 +17,7 @@ export type DefinitionResult = {
   example: string | null;
   provider: string;
   hasIrregularForms: boolean;
-  inflectionForms: Record<string, string> | null;
+  inflectionForms: InflectionForms | null;
 };
 
 export type LookupWordOutput = {

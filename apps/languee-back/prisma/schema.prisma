@@ -57,7 +57,6 @@ model Deck {
   userId    String   @map("user_id") @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
   name      String
-  language  String
   cards     Card[]
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -67,16 +66,62 @@ model Deck {
 }
 
 model Card {
-  id           String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  deckId       String     @map("deck_id") @db.Uuid
-  deck         Deck       @relation(fields: [deckId], references: [id])
-  userId       String     @map("user_id") @db.Uuid
-  user         User       @relation(fields: [userId], references: [id])
-  definitionId String     @map("definition_id") @db.Uuid
-  definition   Definition @relation(fields: [definitionId], references: [id])
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id              String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  deckId          String                  @map("deck_id") @db.Uuid
+  deck            Deck                    @relation(fields: [deckId], references: [id])
+  userId          String                  @map("user_id") @db.Uuid
+  user            User                    @relation(fields: [userId], references: [id])
+  definitionId    String                  @map("definition_id") @db.Uuid
+  definition      Definition              @relation(fields: [definitionId], references: [id])
+  context         String?
+  inflectionForms Json?                   @map("inflection_forms") @db.JsonB
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  ankidroidExport CardAnkiDroidExport?
 
   @@unique([deckId, definitionId])
   @@map("cards")
+}
+
+enum CardAnkiDroidExportStatus {
+  pending
+  completed
+  failed
+}
+
+model CardAnkiDroidExport {
+  id                     String                       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  cardId                 String                       @unique @map("card_id") @db.Uuid
+  card                   Card                         @relation(fields: [cardId], references: [id])
+  status                 CardAnkiDroidExportStatus    @default(pending)
+  failureReason          String?                      @map("failure_reason")
+  failureMessage         String?                      @map("failure_message")
+  ankiNoteId             String?                      @map("anki_note_id")
+  ankiDeckId             String?                      @map("anki_deck_id")
+  ankiDeckNameSnapshot   String?                      @map("anki_deck_name_snapshot")
+  ankiModelId            String?                      @map("anki_model_id")
+  ankiModelNameSnapshot  String?                      @map("anki_model_name_snapshot")
+  templateVersion        String?                      @map("template_version")
+  lastAttemptedAt        DateTime?                    @map("last_attempted_at") @db.Timestamptz
+  completedAt            DateTime?                    @map("completed_at") @db.Timestamptz
+  attempts               CardAnkiDroidExportAttempt[]
+  createdAt              DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime                     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status])
+  @@index([cardId])
+  @@map("card_ankidroid_exports")
+}
+
+model CardAnkiDroidExportAttempt {
+  id             String                    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  exportId       String                    @map("export_id") @db.Uuid
+  export         CardAnkiDroidExport       @relation(fields: [exportId], references: [id])
+  status         CardAnkiDroidExportStatus
+  failureReason  String?                   @map("failure_reason")
+  failureMessage String?                   @map("failure_message")
+  attemptedAt    DateTime                  @default(now()) @map("attempted_at") @db.Timestamptz
+
+  @@index([exportId])
+  @@map("card_ankidroid_export_attempts")
 }

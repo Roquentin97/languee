@@ -19,7 +19,10 @@ export class VocabularyService {
   ) {}
 
   async lookup(input: LookupVocabularyInput): Promise<LookupVocabularyOutput> {
-    const nlpResult = await this.nlpService.analyzeWord(input.word);
+    const nlpResult = await this.nlpService.analyzeWord(
+      input.word,
+      input.context,
+    );
 
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { DefinitionService } from './definitions.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
+import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 function makeDefinitionRow(
   overrides: Partial<{
@@ -13,7 +14,7 @@ function makeDefinitionRow(
     example: string | null;
     provider: string;
     hasIrregularForms: boolean;
-    inflectionForms: Record<string, string> | null;
+    inflectionForms: InflectionForms | null;
   }> = {},
 ) {
   return {
@@ -220,7 +221,11 @@ describe('DefinitionService', () => {
     });
 
     it('passes inflection metadata when provided', async () => {
-      const inflectionForms = { base: 'run', past: 'ran' };
+      const inflectionForms: InflectionForms = {
+        type: 'verb',
+        base: 'run',
+        past: 'ran',
+      };
       prismaMock.definition.findUnique.mockResolvedValue(null);
       prismaMock.definition.create.mockResolvedValue(
         makeDefinitionRow({ hasIrregularForms: true, inflectionForms }),

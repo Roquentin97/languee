@@ -12,6 +12,7 @@ import type {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
 } from './interfaces/dictionary-api-adapter.interface';
+import type { InflectionForms } from './types/inflection-forms.types';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 @Injectable()
@@ -43,7 +44,7 @@ export class DictionaryService {
           hasIrregularForms: row.hasIrregularForms,
           inflectionForms:
             row.inflectionForms !== null
-              ? (row.inflectionForms as Record<string, string>)
+              ? (row.inflectionForms as InflectionForms)
               : null,
         }));
         return { lemma, source: 'cache', definitions };
@@ -62,7 +63,7 @@ export class DictionaryService {
     const enrichedEntries: RawDefinitionEntry[] = rawEntries.map((entry) => ({
       ...entry,
       hasIrregularForms: input.isIrregular ?? entry.hasIrregularForms,
-      inflectionForms: input.inflectionForms ?? entry.inflectionForms,
+      inflectionForms: input.inflectionForms,
     }));
 
     const rows = await this.definitionService.createMany(
@@ -80,7 +81,7 @@ export class DictionaryService {
       hasIrregularForms: row.hasIrregularForms,
       inflectionForms:
         row.inflectionForms !== null
-          ? (row.inflectionForms as Record<string, string>)
+          ? (row.inflectionForms as InflectionForms)
           : null,
     }));
 

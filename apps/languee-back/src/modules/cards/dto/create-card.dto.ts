@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsUUID } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsUUID, IsOptional, IsString } from 'class-validator';
+import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
 
 export class CreateCardDto {
   @ApiProperty({
@@ -15,4 +16,19 @@ export class CreateCardDto {
   })
   @IsUUID()
   definitionId!: string;
+
+  @ApiPropertyOptional({
+    description: 'User-provided context for the card',
+    example: 'She walked to the store.',
+  })
+  @IsOptional()
+  @IsString()
+  context?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inflection forms for the word',
+    example: { base: 'walk', past: 'walked' },
+  })
+  @IsOptional()
+  inflectionForms?: InflectionForms | null;
 }

@@ -114,6 +114,14 @@ function makeAdjResponse(): NlpWordResponse {
   };
 }
 
+function getFirstFetchUrl(mockFetch: jest.MockedFunction<typeof fetch>): URL {
+  const [url] = mockFetch.mock.lastCall ?? [];
+  if (typeof url !== 'string') {
+    throw new Error('Expected fetch to be called with a string URL');
+  }
+  return new URL(url);
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -164,8 +172,8 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(makeVerbResponse()),
-      });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
 
       const result = await service.analyzeWord('walked');
 
@@ -173,6 +181,7 @@ describe('NlpService', () => {
       expect(result.pos).toBe(PartOfSpeech.VERB);
       expect(result.isIrregular).toBe(false);
       expect(result.inflectionForms).toEqual({
+        type: 'verb',
         base: 'walk',
         past: 'walked',
         gerundParticiple: 'walking',
@@ -194,6 +203,7 @@ describe('NlpService', () => {
       expect(result.lemma).toBe('dog');
       expect(result.pos).toBe(PartOfSpeech.NOUN);
       expect(result.inflectionForms).toEqual({
+        type: 'noun',
         singular: 'dog',
         plural: 'dogs',
       });
@@ -211,6 +221,7 @@ describe('NlpService', () => {
       expect(result.lemma).toBe('fast');
       expect(result.pos).toBe(PartOfSpeech.ADJECTIVE);
       expect(result.inflectionForms).toEqual({
+        type: 'adjective',
         positive: 'fast',
         comparative: 'faster',
         superlative: 'fastest',
@@ -258,10 +269,10 @@ describe('NlpService', () => {
 
       const result = await service.analyzeWord('hmm');
 
-      expect(result.inflectionForms).toEqual({});
+      expect(result.inflectionForms).toBeNull();
     });
 
-    it('VERB POS with all verb forms null returns empty inflectionForms (not null)', async () => {
+    it('VERB POS with all verb forms null returns null inflectionForms', async () => {
       const response = makeVerbResponse();
       const token = response.tokens[0];
       token.forms.verb_base = null;
@@ -279,8 +290,7 @@ describe('NlpService', () => {
 
       const result = await service.analyzeWord('walked');
 
-      expect(result.inflectionForms).toEqual({});
-      expect(result.inflectionForms).not.toBeNull();
+      expect(result.inflectionForms).toBeNull();
     });
 
     it('NLP returns lemma different from input: result contains NLP lemma', async () => {
@@ -435,6 +445,37 @@ describe('NlpService', () => {
           headers: { Authorization: `Basic ${expectedCredentials}` },
         }),
       );
+    });
+
+    it('context is sent as input_text query parameter when provided', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await service.analyzeWord('saw', 'The saw was sharp enough to cut oak');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.pathname).toBe('/words');
+      expect(url.searchParams.get('word')).toBe('saw');
+      expect(url.searchParams.get('input_text')).toBe(
+        'The saw was sharp enough to cut oak',
+      );
+    });
+
+    it('blank context is omitted from the NLP request', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeWord('walk', '   ');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('word')).toBe('walk');
+      expect(url.searchParams.has('input_text')).toBe(false);
     });
   });
 });

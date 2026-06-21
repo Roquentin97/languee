@@ -10,8 +10,7 @@ from languee_nlp.nlp.context_resolver import resolve_token_from_context
 from languee_nlp.nlp.provider import get_nlp
 from languee_nlp.nlp.word_service import analyze_single_token
 from languee_nlp.schemas import (
-    ContextAnalysis,
-    WordAnalysisRequest,
+    InputTextAnalysis,
     WordAnalysisResponse,
 )
 from languee_nlp.settings import settings
@@ -39,29 +38,13 @@ def require_basic_auth(
 def _serialize_response(response: WordAnalysisResponse) -> JSONResponse:
     """Serialize response omitting only top-level None fields."""
     data = response.model_dump()
-    if data.get("context") is None:
-        data.pop("context", None)
-    if data.get("context_analysis") is None:
-        data.pop("context_analysis", None)
+    if data.get("input_text_analysis") is None:
+        data.pop("input_text_analysis", None)
     return JSONResponse(content=data)
 
 
-@router.get(
-    "",
-    response_model=WordAnalysisResponse,
-    summary="Analyze a word",
-    dependencies=[Depends(require_basic_auth)],
-)
-def analyze_word(
-    word: Annotated[
-        str,
-        Query(
-            description="Single word to analyze.",
-        ),
-    ],
-) -> JSONResponse:
-    sanitized = unicodedata.normalize("NFC", word.strip().lower())
-
+def _sanitize_single_word(value: str) -> str:
+    sanitized = unicodedata.normalize("NFC", value.strip().lower())
     if not sanitized:
         raise HTTPException(
             status_code=400,
@@ -73,7 +56,11 @@ def analyze_word(
             status_code=400,
             detail="word must be a single word; multi-word input is not supported",
         )
+    return sanitized
 
+
+def _analyze_isolated_word(word: str) -> JSONResponse:
+    sanitized = _sanitize_single_word(word)
     doc = get_nlp()(sanitized)
 
     if len(doc) == 0 or len(doc) > 1:
@@ -92,62 +79,71 @@ def analyze_word(
     )
 
 
-@router.post(
+def _find_word_span(input_text: str, word: str) -> tuple[str, int, int]:
+    context = unicodedata.normalize("NFC", input_text)
+    sanitized = _sanitize_single_word(word)
+    selection_start = context.lower().find(sanitized)
+
+    if selection_start == -1:
+        raise HTTPException(
+            status_code=422,
+            detail="SELECTION_DOES_NOT_MATCH_INPUT",
+        )
+
+    return context, selection_start, selection_start + len(sanitized)
+
+
+def _analyze_word_in_input_text(word: str, input_text: str) -> JSONResponse:
+    context, selection_start, selection_end = _find_word_span(input_text, word)
+    sanitized = _sanitize_single_word(word)
+    result = resolve_token_from_context(
+        get_nlp(),
+        sanitized,
+        context,
+        selection_start,
+        selection_end,
+    )
+    token_result = analyze_single_token(result.token)
+    input_text_analysis = InputTextAnalysis(
+        input_found_in_text=True,
+        matched_text=result.token.text,
+        matched_token_index=result.matched_token_index,
+        pos_source="input_text",
+        confidence=result.confidence,  # type: ignore[arg-type]
+        detected_expression=result.detected_expression,
+        warnings=result.warnings,
+    )
+    return _serialize_response(
+        WordAnalysisResponse(
+            input_text=sanitized,
+            is_multi_word=False,
+            tokens=[token_result],
+            input_text_analysis=input_text_analysis,
+        )
+    )
+
+
+@router.get(
     "",
     response_model=WordAnalysisResponse,
-    summary="Analyze a word with optional context",
+    summary="Analyze a word with optional input text context",
     dependencies=[Depends(require_basic_auth)],
 )
-def analyze_word_post(body: WordAnalysisRequest) -> JSONResponse:
-    sanitized = unicodedata.normalize("NFC", body.input_text.strip().lower())
+def analyze_word(
+    word: Annotated[
+        str,
+        Query(
+            description="Single word to analyze.",
+        ),
+    ],
+    input_text: Annotated[
+        str | None,
+        Query(
+            description="Optional text containing the word for contextual analysis.",
+        ),
+    ] = None,
+) -> JSONResponse:
+    if input_text is None or not input_text.strip():
+        return _analyze_isolated_word(word)
 
-    if not sanitized or any(c.isspace() for c in sanitized):
-        raise HTTPException(
-            status_code=400,
-            detail="word must be a single word; multi-word input is not supported",
-        )
-
-    if body.context is not None:
-        result = resolve_token_from_context(
-            get_nlp(),
-            sanitized,
-            body.context,
-            body.selection_start,  # type: ignore[arg-type]
-            body.selection_end,  # type: ignore[arg-type]
-        )
-        token_result = analyze_single_token(result.token)
-        context_analysis = ContextAnalysis(
-            input_found_in_context=True,
-            matched_text=result.token.text,
-            matched_token_index=result.matched_token_index,
-            pos_source="context",
-            confidence=result.confidence,  # type: ignore[arg-type]
-            detected_expression=result.detected_expression,
-            warnings=result.warnings,
-        )
-        return _serialize_response(
-            WordAnalysisResponse(
-                input_text=sanitized,
-                is_multi_word=False,
-                tokens=[token_result],
-                context=body.context,
-                context_analysis=context_analysis,
-            )
-        )
-
-    doc = get_nlp()(sanitized)
-
-    if len(doc) == 0 or len(doc) > 1:
-        raise HTTPException(
-            status_code=400,
-            detail="word must be a single word; multi-word input is not supported",
-        )
-
-    token_result = analyze_single_token(doc[0])
-    return _serialize_response(
-        WordAnalysisResponse(
-            input_text=sanitized,
-            is_multi_word=False,
-            tokens=[token_result],
-        )
-    )
+    return _analyze_word_in_input_text(word, input_text)

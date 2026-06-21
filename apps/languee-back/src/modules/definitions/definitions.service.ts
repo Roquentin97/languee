@@ -40,8 +40,8 @@ export class DefinitionService {
               provider: providerName,
               hasIrregularForms: entry.hasIrregularForms ?? false,
               inflectionForms:
-                entry.inflectionForms !== undefined
-                  ? entry.inflectionForms
+                entry.inflectionForms != null
+                  ? (entry.inflectionForms as Prisma.InputJsonValue)
                   : Prisma.JsonNull,
             },
           });

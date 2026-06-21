@@ -35,7 +35,7 @@ const successOutput: LookupVocabularyOutput = {
       example: 'She ran quickly.',
       provider: 'free-dictionary',
       hasIrregularForms: true,
-      inflectionForms: { base: 'run', past: 'ran' },
+      inflectionForms: { type: 'verb' as const, base: 'run', past: 'ran' },
       decks: [],
     },
   ],

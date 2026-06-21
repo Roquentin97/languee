@@ -8,13 +8,18 @@ import {
   DeckOwnershipError,
   DefinitionNotFoundError,
 } from './cards.errors';
-import type { Card, Definition, Word, Deck } from '@prisma/client';
+import type {
+  Card,
+  CardAnkiDroidExport,
+  Definition,
+  Word,
+  Deck,
+} from '@prisma/client';
 
 const mockDeck: Deck = {
   id: 'deck-id-1',
   userId: 'user-id-1',
   name: 'My Deck',
-  language: 'en',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -45,6 +50,26 @@ const mockCard: Card = {
   deckId: 'deck-id-1',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
+  context: null,
+  inflectionForms: null,
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+};
+
+const mockAnkiDroidExport: CardAnkiDroidExport = {
+  id: 'export-id-1',
+  cardId: 'card-id-1',
+  status: 'pending',
+  failureReason: null,
+  failureMessage: null,
+  ankiNoteId: null,
+  ankiDeckId: null,
+  ankiDeckNameSnapshot: null,
+  ankiModelId: null,
+  ankiModelNameSnapshot: null,
+  templateVersion: null,
+  lastAttemptedAt: null,
+  completedAt: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -54,10 +79,23 @@ const mockCardWithRelations = {
   definition: { ...mockDefinition, word: mockWord },
 };
 
+const mockCardWithAnkiDroidExport = {
+  ...mockCard,
+  definition: { ...mockDefinition, word: mockWord },
+  ankidroidExport: null,
+};
+
+const mockCardWithExportPresent = {
+  ...mockCard,
+  definition: { ...mockDefinition, word: mockWord },
+  ankidroidExport: mockAnkiDroidExport,
+};
+
 const mockPrismaService = {
   card: {
     create: jest.fn(),
     findMany: jest.fn(),
+    findFirst: jest.fn(),
   },
 };
 
@@ -104,6 +142,34 @@ describe('CardsService', () => {
           userId: 'user-id-1',
           deckId: 'deck-id-1',
           definitionId: 'def-id-1',
+          context: null,
+          inflectionForms: Prisma.JsonNull,
+        },
+        include: { definition: { include: { word: true } } },
+      });
+    });
+
+    it('happy path — context and inflectionForms are persisted when provided', async () => {
+      const context = 'She walked to the store.';
+      const inflectionForms = { base: 'walk', past: 'walked' };
+      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockPrismaService.card.create.mockResolvedValue(mockCardWithRelations);
+
+      await service.create(
+        'user-id-1',
+        'deck-id-1',
+        'def-id-1',
+        context,
+        inflectionForms,
+      );
+
+      expect(mockPrismaService.card.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'user-id-1',
+          deckId: 'deck-id-1',
+          definitionId: 'def-id-1',
+          context,
+          inflectionForms,
         },
         include: { definition: { include: { word: true } } },
       });
@@ -175,6 +241,207 @@ describe('CardsService', () => {
       await expect(
         service.create('user-id-1', 'deck-id-1', 'def-id-1'),
       ).rejects.toThrow('Network failure');
+    });
+  });
+
+  describe('findManyByUserId()', () => {
+    it('happy path — returns all cards for user with no filters', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([
+        mockCardWithAnkiDroidExport,
+      ]);
+
+      const result = await service.findManyByUserId('user-id-1');
+
+      expect(result).toEqual([mockCardWithAnkiDroidExport]);
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id-1' },
+        include: {
+          definition: { include: { word: true } },
+          ankidroidExport: true,
+        },
+      });
+    });
+
+    it('filter — deckId adds deckId to where clause', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([
+        mockCardWithAnkiDroidExport,
+      ]);
+
+      await service.findManyByUserId('user-id-1', { deckId: 'deck-id-1' });
+
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          where: expect.objectContaining({
+            userId: 'user-id-1',
+            deckId: 'deck-id-1',
+          }),
+        }),
+      );
+    });
+
+    it('filter — ankiDroidExportStatus=none uses Prisma is:null relation filter', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([
+        mockCardWithAnkiDroidExport,
+      ]);
+
+      await service.findManyByUserId('user-id-1', {
+        ankiDroidExportStatus: 'none',
+      });
+
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          where: expect.objectContaining({
+            userId: 'user-id-1',
+            ankidroidExport: { is: null },
+          }),
+        }),
+      );
+    });
+
+    it('filter — ankiDroidExportStatus=pending filters by status in ankidroidExport relation', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([
+        mockCardWithExportPresent,
+      ]);
+
+      await service.findManyByUserId('user-id-1', {
+        ankiDroidExportStatus: 'pending',
+      });
+
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          where: expect.objectContaining({
+            userId: 'user-id-1',
+            ankidroidExport: { is: { status: 'pending' } },
+          }),
+        }),
+      );
+    });
+
+    it('filter — ankiDroidExportStatus=failed with failureReason combines both filters', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([]);
+
+      await service.findManyByUserId('user-id-1', {
+        ankiDroidExportStatus: 'failed',
+        failureReason: 'DECK_NOT_FOUND',
+      });
+
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          where: expect.objectContaining({
+            userId: 'user-id-1',
+            ankidroidExport: {
+              is: { status: 'failed', failureReason: 'DECK_NOT_FOUND' },
+            },
+          }),
+        }),
+      );
+    });
+
+    it('filter — failureReason without ankiDroidExportStatus applies failureReason filter on relation', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([]);
+
+      await service.findManyByUserId('user-id-1', {
+        failureReason: 'DECK_NOT_FOUND',
+      });
+
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          where: expect.objectContaining({
+            userId: 'user-id-1',
+            ankidroidExport: { is: { failureReason: 'DECK_NOT_FOUND' } },
+          }),
+        }),
+      );
+    });
+
+    it('edge case — no cards returns empty array', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([]);
+
+      const result = await service.findManyByUserId('user-id-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('edge case — ankiDroidExportStatus=none ignores failureReason (none means no export)', async () => {
+      mockPrismaService.card.findMany.mockResolvedValue([]);
+
+      await service.findManyByUserId('user-id-1', {
+        ankiDroidExportStatus: 'none',
+        failureReason: 'DECK_NOT_FOUND',
+      });
+
+      // 'none' takes priority: ankidroidExport should be { is: null }
+      // not combined with failureReason since no export means no failure
+      expect(mockPrismaService.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          where: expect.objectContaining({
+            ankidroidExport: { is: null },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findOneByIdAndUserId()', () => {
+    it('happy path — returns card with definition, word, and ankidroidExport when found', async () => {
+      mockPrismaService.card.findFirst.mockResolvedValue(
+        mockCardWithAnkiDroidExport,
+      );
+
+      const result = await service.findOneByIdAndUserId(
+        'card-id-1',
+        'user-id-1',
+      );
+
+      expect(result).toEqual(mockCardWithAnkiDroidExport);
+      expect(mockPrismaService.card.findFirst).toHaveBeenCalledWith({
+        where: { id: 'card-id-1', userId: 'user-id-1' },
+        include: {
+          definition: { include: { word: true } },
+          ankidroidExport: true,
+        },
+      });
+    });
+
+    it('edge case — card belongs to another user returns null', async () => {
+      mockPrismaService.card.findFirst.mockResolvedValue(null);
+
+      const result = await service.findOneByIdAndUserId(
+        'card-id-1',
+        'other-user',
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('edge case — card not found returns null', async () => {
+      mockPrismaService.card.findFirst.mockResolvedValue(null);
+
+      const result = await service.findOneByIdAndUserId(
+        'nonexistent-card',
+        'user-id-1',
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('includes ankidroidExport in result when export exists', async () => {
+      mockPrismaService.card.findFirst.mockResolvedValue(
+        mockCardWithExportPresent,
+      );
+
+      const result = await service.findOneByIdAndUserId(
+        'card-id-1',
+        'user-id-1',
+      );
+
+      expect(result?.ankidroidExport).toEqual(mockAnkiDroidExport);
     });
   });
 

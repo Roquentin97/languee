@@ -8,6 +8,7 @@ import type { Word, Definition } from '@prisma/client';
 import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import type { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
+import type { InflectionForms } from './types/inflection-forms.types';
 
 const mockWord: Word = {
   id: 'word-id-1',
@@ -198,7 +199,11 @@ describe('DictionaryService', () => {
     });
 
     it('inflectionForms and isIrregular are forwarded to createMany entries', async () => {
-      const inflectionForms = { base: 'walk', past: 'walked' };
+      const inflectionForms: InflectionForms = {
+        type: 'verb',
+        base: 'walk',
+        past: 'walked',
+      };
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
       adapterMock.fetch.mockResolvedValue([
@@ -233,7 +238,11 @@ describe('DictionaryService', () => {
     });
 
     it('definitions returned include hasIrregularForms and inflectionForms from persisted rows', async () => {
-      const inflectionForms = { base: 'walk', past: 'walked' };
+      const inflectionForms: InflectionForms = {
+        type: 'verb',
+        base: 'walk',
+        past: 'walked',
+      };
       const enrichedRow: Definition = {
         ...mockDefinitionRow,
         hasIrregularForms: true,
@@ -260,7 +269,11 @@ describe('DictionaryService', () => {
     });
 
     it('cache hit path returns hasIrregularForms and inflectionForms from cached rows', async () => {
-      const inflectionForms = { base: 'walk', past: 'walked' };
+      const inflectionForms: InflectionForms = {
+        type: 'verb',
+        base: 'walk',
+        past: 'walked',
+      };
       const cachedRow: Definition = {
         ...mockDefinitionRow,
         hasIrregularForms: false,

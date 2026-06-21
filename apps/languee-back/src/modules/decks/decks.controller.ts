@@ -48,11 +48,7 @@ export class DecksController {
     @Body() dto: CreateDeckDto,
   ): Promise<DeckResponseDto> {
     try {
-      const deck = await this.decksService.create(
-        user.userId,
-        dto.name,
-        dto.language,
-      );
+      const deck = await this.decksService.create(user.userId, dto.name);
       return serializeDeck(deck);
     } catch (err: unknown) {
       if (err instanceof DeckAlreadyExistsError) {

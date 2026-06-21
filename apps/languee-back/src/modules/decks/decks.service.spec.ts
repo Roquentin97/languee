@@ -9,7 +9,6 @@ const mockDeck: Deck = {
   id: 'deck-id-1',
   userId: 'user-id-1',
   name: 'My French Deck',
-  language: 'fr',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -46,11 +45,11 @@ describe('DecksService', () => {
     it('happy path — creates and returns the new deck', async () => {
       mockPrismaService.deck.create.mockResolvedValue(mockDeck);
 
-      const result = await service.create('user-id-1', 'My French Deck', 'fr');
+      const result = await service.create('user-id-1', 'My French Deck');
 
       expect(result).toEqual(mockDeck);
       expect(mockPrismaService.deck.create).toHaveBeenCalledWith({
-        data: { userId: 'user-id-1', name: 'My French Deck', language: 'fr' },
+        data: { userId: 'user-id-1', name: 'My French Deck' },
       });
     });
 
@@ -62,7 +61,7 @@ describe('DecksService', () => {
       mockPrismaService.deck.create.mockRejectedValue(prismaError);
 
       await expect(
-        service.create('user-id-1', 'My French Deck', 'fr'),
+        service.create('user-id-1', 'My French Deck'),
       ).rejects.toBeInstanceOf(DeckAlreadyExistsError);
     });
 
@@ -74,7 +73,7 @@ describe('DecksService', () => {
       };
       mockPrismaService.deck.create.mockResolvedValue(anotherUserDeck);
 
-      const result = await service.create('user-id-2', 'My French Deck', 'fr');
+      const result = await service.create('user-id-2', 'My French Deck');
 
       expect(result).toEqual(anotherUserDeck);
     });
@@ -84,9 +83,9 @@ describe('DecksService', () => {
         new Error('Database connection lost'),
       );
 
-      await expect(
-        service.create('user-id-1', 'My Deck', 'fr'),
-      ).rejects.toThrow('Database connection lost');
+      await expect(service.create('user-id-1', 'My Deck')).rejects.toThrow(
+        'Database connection lost',
+      );
     });
   });
 

@@ -11,6 +11,9 @@ jest.mock('./app.service', () => ({ AppService: class AppService {} }));
 jest.mock('./modules/auth/auth.service', () => ({
   AuthService: class AuthService {},
 }));
+jest.mock('./modules/ankidroid-exports/ankidroid-exports.service', () => ({
+  AnkiDroidExportsService: class AnkiDroidExportsService {},
+}));
 jest.mock('./modules/cards/cards.service', () => ({
   CardsService: class CardsService {},
 }));
@@ -32,6 +35,8 @@ import { AppService } from './app.service';
 import { AuthController } from './modules/auth/auth.controller';
 import { AuthService } from './modules/auth/auth.service';
 import { MobileAuthController } from './modules/auth/mobile-auth.controller';
+import { AnkiDroidExportsController } from './modules/ankidroid-exports/ankidroid-exports.controller';
+import { AnkiDroidExportsService } from './modules/ankidroid-exports/ankidroid-exports.service';
 import { CardsController } from './modules/cards/cards.controller';
 import { CardsService } from './modules/cards/cards.service';
 import { DecksController } from './modules/decks/decks.controller';
@@ -188,6 +193,39 @@ const expectations: OperationExpectation[] = [
     responses: ['201', '401', '404', '409'],
     responseSchema: 'CardResponseDto',
   },
+  {
+    path: '/api/v1/cards',
+    method: 'get',
+    responses: ['200', '401'],
+    responseSchema: 'CardListItemResponseDto',
+  },
+  {
+    path: '/api/v1/cards/{id}',
+    method: 'get',
+    parameters: ['id'],
+    responses: ['200', '401', '404'],
+    responseSchema: 'CardDetailResponseDto',
+  },
+  {
+    path: '/api/v1/cards/{cardId}/ankidroid-exports',
+    method: 'post',
+    responses: ['200', '201', '401', '404'],
+    responseSchema: 'AnkiDroidExportResponseDto',
+  },
+  {
+    path: '/api/v1/ankidroid-exports/{id}',
+    method: 'get',
+    parameters: ['id'],
+    responses: ['200', '401', '404'],
+    responseSchema: 'AnkiDroidExportDetailResponseDto',
+  },
+  {
+    path: '/api/v1/ankidroid-exports/{id}/attempts',
+    method: 'post',
+    requestBodySchema: 'RecordAttemptDto',
+    responses: ['201', '401', '404'],
+    responseSchema: 'AnkiDroidExportDetailResponseDto',
+  },
 ];
 
 function getOperation(
@@ -220,6 +258,7 @@ describe('generated Swagger schema', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [
         AppController,
+        AnkiDroidExportsController,
         AuthController,
         MobileAuthController,
         CardsController,
@@ -230,6 +269,14 @@ describe('generated Swagger schema', () => {
       ],
       providers: [
         { provide: AppService, useValue: { getHello: jest.fn() } },
+        {
+          provide: AnkiDroidExportsService,
+          useValue: {
+            getOrCreateExportForCard: jest.fn(),
+            findOneById: jest.fn(),
+            recordAttempt: jest.fn(),
+          },
+        },
         {
           provide: AuthService,
           useValue: {
@@ -242,7 +289,14 @@ describe('generated Swagger schema', () => {
             register: jest.fn(),
           },
         },
-        { provide: CardsService, useValue: { create: jest.fn() } },
+        {
+          provide: CardsService,
+          useValue: {
+            create: jest.fn(),
+            findManyByUserId: jest.fn(),
+            findOneByIdAndUserId: jest.fn(),
+          },
+        },
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue('test') },

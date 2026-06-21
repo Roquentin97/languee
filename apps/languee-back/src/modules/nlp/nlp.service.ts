@@ -8,12 +8,13 @@ import type {
   NlpWordResponse,
 } from './nlp.interfaces';
 import { mapSpacyPos } from './mappers/spacy-pos.mapper';
+import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 @Injectable()
 export class NlpService {
   constructor(private readonly configService: ConfigService) {}
 
-  async analyzeWord(word: string): Promise<NlpAnalysis> {
+  async analyzeWord(word: string, context?: string): Promise<NlpAnalysis> {
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
     const login = this.configService.getOrThrow<string>('nlp.basicAuthLogin');
     const password = this.configService.getOrThrow<string>(
@@ -21,15 +22,16 @@ export class NlpService {
     );
 
     const credentials = Buffer.from(`${login}:${password}`).toString('base64');
+    const params = new URLSearchParams({ word });
+    if (context?.trim()) {
+      params.set('input_text', context);
+    }
 
     let response: Response;
     try {
-      response = await fetch(
-        `${baseUrl}/words?word=${encodeURIComponent(word)}`,
-        {
-          headers: { Authorization: `Basic ${credentials}` },
-        },
-      );
+      response = await fetch(`${baseUrl}/words?${params.toString()}`, {
+        headers: { Authorization: `Basic ${credentials}` },
+      });
     } catch (err: unknown) {
       const span = trace.getActiveSpan();
       if (err instanceof Error) {
@@ -74,9 +76,9 @@ export class NlpService {
   private buildInflectionForms(
     pos: string,
     forms: NlpTokenForms,
-  ): Record<string, string> {
+  ): InflectionForms | null {
     if (pos === 'VERB') {
-      return this.compactRecord({
+      const compact = this.compactRecord({
         base: forms['verb_base'],
         past: forms['verb_past'],
         gerundParticiple: forms['verb_gerund_participle'],
@@ -84,24 +86,30 @@ export class NlpService {
         presentNon3sg: forms['verb_present_non_3sg'],
         present3sg: forms['verb_present_3sg'],
       });
+      if (!compact.base) return null;
+      return { type: 'verb', ...compact } as InflectionForms;
     }
 
     if (pos === 'NOUN') {
-      return this.compactRecord({
+      const compact = this.compactRecord({
         singular: forms['noun_singular'],
         plural: forms['noun_plural'],
       });
+      if (Object.keys(compact).length === 0) return null;
+      return { type: 'noun', ...compact } as InflectionForms;
     }
 
     if (pos === 'ADJ' || pos === 'ADV') {
-      return this.compactRecord({
+      const compact = this.compactRecord({
         positive: forms['adj_positive'],
         comparative: forms['adj_comparative'],
         superlative: forms['adj_superlative'],
       });
+      if (!compact.positive) return null;
+      return { type: 'adjective', ...compact } as InflectionForms;
     }
 
-    return {};
+    return null;
   }
 
   private compactRecord(

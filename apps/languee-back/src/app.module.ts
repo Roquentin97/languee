@@ -15,6 +15,7 @@ import { DecksModule } from './modules/decks/decks.module';
 import { CardsModule } from './modules/cards/cards.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { NlpModule } from './modules/nlp/nlp.module';
+import { AnkiDroidExportsModule } from './modules/ankidroid-exports/ankidroid-exports.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { NlpModule } from './modules/nlp/nlp.module';
     CardsModule,
     VocabularyModule,
     NlpModule,
+    AnkiDroidExportsModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
   ],
   controllers: [AppController],

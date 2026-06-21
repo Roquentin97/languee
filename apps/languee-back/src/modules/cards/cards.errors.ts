@@ -18,3 +18,10 @@ export class DefinitionNotFoundError extends Error {
     this.name = 'DefinitionNotFoundError';
   }
 }
+
+export class CardNotFoundError extends Error {
+  constructor() {
+    super('Card not found or does not belong to this user');
+    this.name = 'CardNotFoundError';
+  }
+}

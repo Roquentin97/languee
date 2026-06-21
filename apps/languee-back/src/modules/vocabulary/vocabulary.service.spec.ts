@@ -24,7 +24,12 @@ const defaultNlpAnalysis: NlpAnalysis = {
   lemma: 'run',
   pos: PartOfSpeech.VERB,
   isIrregular: true,
-  inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
+  inflectionForms: {
+    type: 'verb' as const,
+    base: 'run',
+    past: 'ran',
+    pastParticiple: 'run',
+  },
 };
 
 const baseDefinition = {
@@ -34,7 +39,12 @@ const baseDefinition = {
   example: 'She ran quickly.',
   provider: 'free-dictionary',
   hasIrregularForms: true,
-  inflectionForms: { base: 'run', past: 'ran', pastParticiple: 'run' },
+  inflectionForms: {
+    type: 'verb' as const,
+    base: 'run',
+    past: 'ran',
+    pastParticiple: 'run',
+  },
 };
 
 const baseOutput = {
@@ -308,7 +318,7 @@ describe('VocabularyService', () => {
         lemma: 'run',
         pos: null,
         isIrregular: false,
-        inflectionForms: {},
+        inflectionForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       const verbDef = {
@@ -430,7 +440,7 @@ describe('VocabularyService', () => {
         lemma: 'fast',
         pos: PartOfSpeech.ADJECTIVE,
         isIrregular: false,
-        inflectionForms: {},
+        inflectionForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
       const adjDef = {
@@ -476,7 +486,7 @@ describe('VocabularyService', () => {
         lemma: 'run',
         pos: null,
         isIrregular: false,
-        inflectionForms: {},
+        inflectionForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
@@ -628,7 +638,27 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith('walked');
+      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+        'walked',
+        undefined,
+      );
+    });
+
+    it('passes optional context to NLP analyzeWord()', async () => {
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+
+      await service.lookup({
+        word: 'saw',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'The saw was sharp enough to cut oak.',
+      });
+
+      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+        'saw',
+        'The saw was sharp enough to cut oak.',
+      );
     });
 
     it('dictionaryService.lookup() is called with NLP lemma, pos, and inflection data', async () => {
@@ -636,7 +666,11 @@ describe('VocabularyService', () => {
         lemma: 'walk',
         pos: PartOfSpeech.VERB,
         isIrregular: false,
-        inflectionForms: { base: 'walk', past: 'walked' },
+        inflectionForms: {
+          type: 'verb' as const,
+          base: 'walk',
+          past: 'walked',
+        },
       };
       mockNlpService.analyzeWord.mockResolvedValue(nlpResult);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
@@ -654,7 +688,11 @@ describe('VocabularyService', () => {
           lemma: 'walk',
           pos: PartOfSpeech.VERB,
           isIrregular: false,
-          inflectionForms: { base: 'walk', past: 'walked' },
+          inflectionForms: {
+            type: 'verb' as const,
+            base: 'walk',
+            past: 'walked',
+          },
         }),
       );
     });

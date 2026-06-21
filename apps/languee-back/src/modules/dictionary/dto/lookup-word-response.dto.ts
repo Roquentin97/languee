@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+import type { InflectionForms } from '../types/inflection-forms.types';
+import { INFLECTION_FORMS_SWAGGER } from '../types/inflection-forms.types';
 
 export class DefinitionResultDto {
   @ApiProperty({ example: 'def_123' })
@@ -20,13 +22,8 @@ export class DefinitionResultDto {
   @ApiProperty({ example: true })
   hasIrregularForms!: boolean;
 
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: { type: 'string' },
-    nullable: true,
-    example: { base: 'run', past: 'ran' },
-  })
-  inflectionForms!: Record<string, string> | null;
+  @ApiProperty(INFLECTION_FORMS_SWAGGER)
+  inflectionForms!: InflectionForms | null;
 }
 
 export class LookupWordResponseDto {
