@@ -27,9 +27,16 @@ export class AuthService {
     return this.configService.get<string>('app.nodeEnv') !== 'test';
   }
 
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
   async register(dto: RegisterDto): Promise<Omit<User, 'passwordHash'>> {
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = await this.usersService.create(dto.email, passwordHash);
+    const user = await this.usersService.create(
+      this.normalizeEmail(dto.email),
+      passwordHash,
+    );
 
     return {
       id: user.id,
@@ -48,7 +55,9 @@ export class AuthService {
     plainRefreshToken: string;
     sessionId: string;
   }> {
-    const user = await this.usersService.findByEmail(dto.email);
+    const user = await this.usersService.findByEmail(
+      this.normalizeEmail(dto.email),
+    );
 
     if (!user) {
       // Compare against dummy hash to prevent timing attacks
@@ -105,7 +114,9 @@ export class AuthService {
     userId: string;
     email: string;
   }> {
-    const user = await this.usersService.findByEmail(dto.email);
+    const user = await this.usersService.findByEmail(
+      this.normalizeEmail(dto.email),
+    );
 
     if (!user) {
       // Compare against dummy hash to prevent timing attacks
