@@ -19,6 +19,8 @@ PR-opening context, this is the skill.
   `git log`, `git add`, and `git commit`.
 - Do not open the PR until all affected app versions are bumped and every required
   `make cc <affected-service>` command passes.
+- Do not open the PR for endpoint changes until the matching Bruno collection entries
+  and Swagger/OpenAPI schema metadata are updated.
 - If GitHub MCP is unavailable, stop and report that the PR cannot be opened safely.
 
 ## Affected services
@@ -51,6 +53,24 @@ bump all three services.
 
 Default to a patch bump unless the human explicitly requests a different version.
 Include the version bump in the PR branch before verification and publication.
+
+## Endpoint documentation
+
+If the PR adds or updates an HTTP endpoint, request/response shape, query or path
+parameter, auth requirement, status code, or error response, update the API artifacts
+before opening the PR:
+
+- `languee-back`: update the relevant Bruno requests under `apps/languee-back/bruno/`
+  and keep NestJS Swagger metadata current with controller decorators, DTO
+  `@ApiProperty`/`@ApiPropertyOptional` fields, response decorators, auth decorators,
+  and error/status documentation.
+- `languee-nlp`: update the relevant Bruno requests under `apps/languee-nlp/bruno/`
+  and keep FastAPI OpenAPI metadata current with route summaries/descriptions, tags,
+  request/response Pydantic schemas, status codes, and error responses.
+
+The Bruno request must exercise the new or changed contract with realistic local
+environment variables. The Swagger/OpenAPI schema must describe the actual shipped
+contract; do not rely on stale generated docs or incomplete DTO/schema annotations.
 
 ## Verification
 
