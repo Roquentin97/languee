@@ -7,7 +7,7 @@ pipeline `feature` in Notion.
 
 Reads the Lead agent from `.claude/agents/lead.md`, resolves each spec's target service
 from the Notion `Target` select field and `forge/config.py`, then executes the full pipeline:
-Architect → Implementer → Linter → QA → PR
+Architect -> Implementer -> Linter -> QA -> open-pr skill
 
 ## Steps
 
@@ -26,6 +26,9 @@ Architect → Implementer → Linter → QA → PR
 8. Otherwise execute the Lead agent instructions for each matching spec. Lead generates
    target-specific agent instructions and compact context artifacts in
    `forge/runs/<spec-title-kebab-case>/context/` before dispatching Architect.
+9. When QA passes, Lead must use `.claude/skills/open-pr/SKILL.md` for version bumps,
+   `make cc <affected-service>`, GitHub MCP publication, PR creation, and Notion PR URL
+   updates.
 
 ## Subagent prompts
 

@@ -81,6 +81,8 @@ def build_instructions(
         f"- `api_docs_url`: {format_value(service.get('api_docs_url'))}",
         f"- `api_docs_port_env`: {format_value(service.get('api_docs_port_env'))}",
         f"- `affected_components`: {format_value(service.get('affected_components', []))}",
+        f"- `app_version_files`: {format_value(service.get('app_version_files', []))}",
+        f"- `app_version_bump`: {format_value(service.get('app_version_bump'))}",
         f"- `rulesets`: {format_value(names)}",
         "",
     ]
@@ -92,6 +94,17 @@ def build_instructions(
         {
             "swagger_docs_url": service.get("api_docs_url"),
             "port_env_override": service.get("api_docs_port_env"),
+        },
+    )
+    append_mapping_section(
+        parts,
+        "PR Opening Skill",
+        {
+            "skill": ".claude/skills/open-pr/SKILL.md",
+            "requirement": (
+                "Use before opening or preparing a PR; it enforces GitHub MCP remote "
+                "operations, app version bumps, and make cc for affected services."
+            ),
         },
     )
     append_mapping_section(

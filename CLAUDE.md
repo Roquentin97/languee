@@ -155,6 +155,14 @@ Local repository operations such as `git status`, `git diff`, `git log`, `git ad
 `git commit` remain allowed. When a workflow needs remote state, branch publication, or a
 PR, use the GitHub MCP tools instead of `git pull`, `git push`, or `gh pr`.
 
+## PR opening skill
+
+Whenever the human asks to open, create, publish, or prepare a PR, or asks to "use the
+skill" in a PR-opening context, Claude must use `.claude/skills/open-pr/SKILL.md`.
+Forge PR stages must also use that skill. The skill is required because it enforces
+GitHub MCP-only remote operations, app version bumps, `make cc <affected-service>` for
+each affected service, and PR/Notion bookkeeping.
+
 ## Commit and PR conventions
 
 All commits must follow Conventional Commits format:
@@ -179,7 +187,8 @@ Examples:
 PR titles follow the same format as commit messages.
 Commit messages are enforced via `commitlint` + `husky` at the `commit-msg` hook level.
 Agents must produce valid conventional commit messages - the hook will reject anything else.
-PR body must include: spec description, target service, affected modules/components, and QA summary.
+PR body must include: spec description, target service, affected modules/components,
+version bumps, and QA summary.
 
 ## Environment
 
@@ -220,10 +229,10 @@ Never assume environment variables are already exported - always use the wrapper
 
 | Pipeline | Command           | Agent chain                                                   |
 | -------- | ----------------- | ------------------------------------------------------------- |
-| Feature  | `/forge`          | Lead -> Architect -> Implementer -> Linter -> QA -> PR        |
+| Feature  | `/forge`          | Lead -> Architect -> Implementer -> Linter -> QA -> open-pr skill |
 | Infra    | `/forge-infra`    | DevOps                                                        |
-| Refactor | `/forge-refactor` | Restructurer -> Decomposer -> Linter -> QA -> PR              |
-| Feedback | `/forge-feedback` | Lead (infers stage) -> relevant agents -> push to existing PR |
+| Refactor | `/forge-refactor` | Restructurer -> Decomposer -> Linter -> QA -> open-pr skill   |
+| Feedback | `/forge-feedback` | Lead (infers stage) -> agents -> GitHub MCP update to existing PR |
 | Recovery | `/forge-recovery` | Detects stuck specs, orphaned worktrees, held migration locks |
 
 Notion specs filtered by `Pipeline` (`feature`, `infra`, or `refactor`) and `Status` = `ready-for-dev`.
@@ -231,7 +240,7 @@ Feedback pipeline additionally queries `needs-revision` and `pending-more-info` 
 
 ### Agent roles
 
-- **Lead**: orchestrates the feature pipeline, reads Notion, selects target service, persists outputs, opens PR
+- **Lead**: orchestrates the feature pipeline, reads Notion, selects target service, persists outputs, opens PR through the open-pr skill
 - **Architect**: reviews spec, designs service-specific contracts and persistence changes, writes implementation plan - no code
 - **Implementer**: executes Architect's plan, writes target-service code and persistence artifacts - no tests, no lint
 - **Linter**: runs target-service lint/format commands, fixes lint errors - no logic changes

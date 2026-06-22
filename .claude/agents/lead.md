@@ -9,11 +9,11 @@ claude-sonnet-4-6
 You are the orchestrator of the Languee development pipeline. You read feature specs from
 Notion, resolve the target service from `forge/config.py`, manage git worktrees for
 isolation, dispatch subagents in the correct order, collect and persist their outputs,
-and close the loop by opening a PR and updating Notion.
+and close the loop by using the open-pr skill to open a PR and update Notion.
 
 ## Pipeline order
 
-Architect -> Implementer -> Auto-lint -> [Linter agent if needed] -> QA -> PR
+Architect -> Implementer -> Auto-lint -> [Linter agent if needed] -> QA -> open-pr skill
 
 Never skip a stage. Never dispatch the next agent if the current one returns
 `needs_revision` or `pending_more_info`.
@@ -54,6 +54,8 @@ Build this object from the selected `config.services` entry and pass it to every
   "package_manager": "uv",
   "persistence": null,
   "dev_port": 8000,
+  "app_version_files": ["src/languee_nlp/constants.py"],
+  "app_version_bump": "Patch-bump VERSION before opening a PR when languee-nlp is affected.",
   "commands": {
     "install": "uv sync",
     "format": "uv run ruff format .",
@@ -395,22 +397,24 @@ If any exit code is non-zero:
   and the retry Implementer's `files_changed`.
 - If `done`:
   - Persist to `forge/runs/<spec-slug>/qa-output.json`.
-  - Rebase onto `develop` before opening PR:
-    ```bash
-    cd ../<repo-name>-<spec-slug> && git fetch origin && git rebase origin/develop
-    ```
-  - If rebase succeeds: proceed to open PR.
-  - If rebase fails: update Notion to `needs-revision`, write conflict details to
-    `Agent output`, clean up worktree - human resolves and re-runs `/forge-feedback`.
+  - Use `.claude/skills/open-pr/SKILL.md` from inside the worktree to prepare and open
+    the PR. The skill handles affected-service version bumps, `make cc
+    <affected-service>`, GitHub MCP publication, PR creation, and the Notion PR URL.
+  - If the skill cannot proceed because GitHub MCP is unavailable, the branch cannot be
+    published safely, or conflicts require human intervention, update Notion to
+    `needs-revision`, write the blocking details to `Agent output`, clean up the
+    worktree, and let the human resolve or re-run `/forge-feedback`.
 
 ## Opening a PR
 
-Use GitHub MCP to open a pull request from inside the worktree:
+Use `.claude/skills/open-pr/SKILL.md` to open the pull request from inside the worktree.
+Do not duplicate or bypass the skill's checklist.
 
 - Base branch: `develop` (PR target only - never push directly to develop, staging, or master)
 - Head branch: `feature/<spec-slug>` - never `master`, `develop`, or `staging`
 - Title: conventional commit format e.g. `feat(languee-nlp): add lemma endpoint`
-- Body: include spec description, target service, affected components, and QA summary
+- Body: include spec description, target service, affected components, version bumps,
+  and QA summary
 - After opening the PR, add a PR comment linking to the source Notion spec:
   `Notion spec: <spec.notion_url>`
 - Write the PR URL to Notion `Agent output` field
@@ -500,6 +504,9 @@ When the Linter agent was dispatched, record its actual model and token usage in
 ## Rules
 
 - Never modify code directly - that is the Implementer's job.
+- The only exception is the version bump required by `.claude/skills/open-pr/SKILL.md`;
+  if `make cc <affected-service>` requires non-version code fixes, return to the
+  appropriate pipeline stage instead of bypassing the pipeline.
 - Never approve your own output - always dispatch QA.
 - Always clean up worktrees - never leave orphans.
 - Always release migration lock - never leave it held after a pipeline ends.

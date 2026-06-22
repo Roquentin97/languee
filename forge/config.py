@@ -62,6 +62,8 @@ def _load_services() -> dict[str, dict[str, object]]:
             "api_docs_url": service_data.get("api_docs_url"),
             "api_docs_port_env": service_data.get("api_docs_port_env"),
             "affected_components": service_data.get("affected_components", []),
+            "app_version_files": service_data.get("app_version_files", []),
+            "app_version_bump": service_data.get("app_version_bump"),
             "rulesets": service_data.get("rulesets", []),
             "environment": service_data.get("environment", []),
             "context": service_data.get("context", {}),

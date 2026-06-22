@@ -1,6 +1,7 @@
 # /forge-dry
 
-Run the Languee pipeline in dry run mode — no Notion writes, no PRs opened.
+Run the Languee pipeline in dry run mode - no Notion writes, no open-pr skill execution,
+and no PRs opened.
 Useful for testing pipeline logic and prompt behaviour without side effects.
 
 Equivalent to running `/forge` with `FORGE_DRY_RUN=true`.

@@ -40,7 +40,8 @@ Each stage is conditional:
       to `forge/runs/<spec-title-kebab-case>/decomposer-output.json`
    e. Dispatch Linter — persist to `forge/runs/<spec-title-kebab-case>/linter-output.json`
    f. Dispatch QA — persist to `forge/runs/<spec-title-kebab-case>/qa-output.json`
-   g. On QA done: update Notion to `done`, open PR, write PR URL to `Agent output`
+   g. On QA done: use `.claude/skills/open-pr/SKILL.md`, update Notion to `done`,
+      and write the PR URL to `Agent output`
    h. On any `needs_revision`: update Notion to `failed`, write stage and reason to
       `Agent output`
 

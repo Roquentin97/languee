@@ -88,6 +88,15 @@ Agents may only push to branches with these prefixes:
 `feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`.
 
 Never push directly to `master`, `develop`, `staging`, or any environment branch.
+Use GitHub MCP for every GitHub or remote operation, including branch publication and
+PR creation. Do not use `gh`, `git pull`, `git fetch`, or `git push` unless the human
+explicitly overrides this rule for the current task.
+
+Whenever a workflow opens, creates, publishes, or prepares a PR, use
+`.claude/skills/open-pr/SKILL.md`. The skill requires app version bumps for affected
+services, treats shared/root/tooling-only changes as all-service changes unless the
+human narrows scope, and requires `make cc <affected-service>` for each affected service
+before PR creation.
 
 All commits and PR titles must use Conventional Commits:
 
@@ -97,4 +106,4 @@ All commits and PR titles must use Conventional Commits:
 
 Allowed types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`.
 PR bodies must include spec description, target service, affected modules/components,
-and QA summary.
+version bumps, and QA summary.

@@ -2,7 +2,7 @@
 
 Process human feedback on rejected PRs and re-run the pipeline from the appropriate
 stage. Detects specs with status `needs-revision` in Notion, reads feedback, infers
-the restart stage, and pushes fixes to the existing PR branch.
+the restart stage, and uses GitHub MCP to publish fixes to the existing PR branch.
 
 ## Steps
 
@@ -33,8 +33,8 @@ the restart stage, and pushes fixes to the existing PR branch.
     as additional context
 14. Validate every agent output with `forge/output_gateway.py` before persisting it as
     canonical or passing it downstream
-15. On completion: push to existing branch, update Notion to `done`, append iteration
-    summary to `Agent output`
+15. On completion: use GitHub MCP to publish to the existing branch, update Notion to
+    `done`, append iteration summary to `Agent output`
 16. On failure: update Notion to `failed`, append failure reason to `Agent output`
 17. Clean up worktree
 
@@ -124,8 +124,8 @@ Human writes feedback in this format — each iteration appended, never overwrit
 ## Rules
 
 - Never overwrite previous feedback in Notion — always append
-- Never close the existing PR — push fixes to the same branch
+- Never close the existing PR - use GitHub MCP to publish fixes to the same branch
 - Always confirm inferred restart stage before running
 - Always increment `Iteration` before running
 - Always clean up worktree on completion or failure
-- If FORGE_DRY_RUN is true, skip Notion writes and git pushes, log actions only
+- If FORGE_DRY_RUN is true, skip Notion writes and GitHub MCP publication, log actions only

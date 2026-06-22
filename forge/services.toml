@@ -8,6 +8,8 @@ dev_port = 3000
 api_docs_url = "http://localhost:3000/api/v1/docs"
 api_docs_port_env = "LANGUEE_BACK_API_PORT"
 affected_components = ["auth", "users"]
+app_version_files = ["src/modules/health/health.service.ts"]
+app_version_bump = "Patch-bump APP_VERSION before opening a PR when languee-back is affected."
 rulesets = ["common", "boundary", "nestjs", "prisma", "jest"]
 environment = [
   "DATABASE_URL",
@@ -30,7 +32,7 @@ persistence_generate = "sh scripts/load-env.sh yarn prisma generate"
 [services.languee-back.context]
 include = ["src/**/*.ts", "test/**/*.ts", "prisma/schema.prisma", "package.json"]
 exclude = ["node_modules/**", "dist/**", "build/**", "coverage/**"]
-always_full = ["prisma/schema.prisma", "package.json"]
+always_full = ["prisma/schema.prisma", "package.json", "src/modules/health/health.service.ts"]
 
 [services.languee-nlp]
 path = "apps/languee-nlp"
@@ -42,6 +44,8 @@ dev_port = 8000
 api_docs_url = "http://localhost:8000/docs"
 api_docs_port_env = "LANGUEE_NLP_PORT"
 affected_components = ["api", "nlp", "spacy"]
+app_version_files = ["src/languee_nlp/constants.py"]
+app_version_bump = "Patch-bump VERSION before opening a PR when languee-nlp is affected."
 rulesets = ["common", "boundary", "fastapi", "spacy", "pytest"]
 environment = [
   "LANGUEE_NLP_PORT",
@@ -66,7 +70,7 @@ exclude = [
   "build/**",
   "coverage/**",
 ]
-always_full = ["pyproject.toml"]
+always_full = ["pyproject.toml", "src/languee_nlp/constants.py"]
 
 [services.languee-droid]
 path = "apps/languee-droid"
@@ -76,6 +80,8 @@ package_manager = "gradle"
 persistence = ""
 dev_port = 0
 affected_components = ["app", "ui", "presentation", "data"]
+app_version_files = ["app/build.gradle.kts"]
+app_version_bump = "Increment defaultConfig.versionCode and patch-bump defaultConfig.versionName before opening a PR when languee-droid is affected."
 rulesets = ["common", "boundary", "android-kotlin"]
 environment = [
   "ANDROID_HOME",
