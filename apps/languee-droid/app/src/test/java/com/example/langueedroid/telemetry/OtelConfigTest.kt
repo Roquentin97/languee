@@ -1,5 +1,6 @@
 package com.example.langueedroid.telemetry
 
+import com.example.langueedroid.core.telemetry.initOpenTelemetry
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import org.junit.Assert.assertNotNull

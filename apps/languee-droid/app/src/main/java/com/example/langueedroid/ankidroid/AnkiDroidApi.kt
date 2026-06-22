@@ -1,20 +1,24 @@
 package com.example.langueedroid.ankidroid
 
 import android.content.Context
+import com.example.langueedroid.di.IoDispatcher
 import com.ichi2.anki.FlashCardsContract
 import com.ichi2.anki.api.AddContentApi
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-class AnkiDroidApi(private val context: Context) {
+class AnkiDroidApi(
+    private val context: Context,
+    private val ioDispatcher: CoroutineDispatcher,
+) {
 
     private val api by lazy { AddContentApi(context.applicationContext) }
 
-    suspend fun getDeckList(): Map<Long, String>? = withContext(Dispatchers.IO) {
+    suspend fun getDeckList(): Map<Long, String>? = withContext(ioDispatcher) {
         api.deckList
     }
 
-    suspend fun getOrCreateDeck(name: String): Long? = withContext(Dispatchers.IO) {
+    suspend fun getOrCreateDeck(name: String): Long? = withContext(ioDispatcher) {
         api.deckList?.entries?.find { it.value == name }?.key ?: api.addNewDeck(name)
     }
 
@@ -26,7 +30,7 @@ class AnkiDroidApi(private val context: Context) {
         fields: Array<String>,
         cardTemplates: Array<String>,
         css: String = "",
-    ): Long? = withContext(Dispatchers.IO) {
+    ): Long? = withContext(ioDispatcher) {
         val existingId = api.modelList?.entries?.find { it.value == typeName }?.key
         if (existingId != null) return@withContext existingId
 
@@ -43,12 +47,12 @@ class AnkiDroidApi(private val context: Context) {
         deckId: Long,
         fields: Array<String>,
         tags: Set<String>,
-    ): Long? = withContext(Dispatchers.IO) {
+    ): Long? = withContext(ioDispatcher) {
         api.addNote(modelId, deckId, fields, tags)
     }
 
     suspend fun findDuplicateNotes(modelId: Long, key: String): List<Long> =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             api.findDuplicateNotes(modelId, key).mapNotNull { it?.getId() }
         }
 
@@ -57,7 +61,7 @@ class AnkiDroidApi(private val context: Context) {
      * search syntax, since matching on a visible field like word/lemma would produce false
      * positives when multiple definitions share the same word text.
      */
-    suspend fun findNoteIdByCardId(cardId: String): Long? = withContext(Dispatchers.IO) {
+    suspend fun findNoteIdByCardId(cardId: String): Long? = withContext(ioDispatcher) {
         context.applicationContext.contentResolver.query(
             FlashCardsContract.Note.CONTENT_URI,
             arrayOf(FlashCardsContract.Note._ID),

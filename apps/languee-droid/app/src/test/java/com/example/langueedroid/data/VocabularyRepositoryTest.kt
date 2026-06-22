@@ -1,11 +1,12 @@
 package com.example.langueedroid.data
 
-import com.example.langueedroid.data.remote.VocabularyApi
-import com.example.langueedroid.data.remote.dto.DeckRefDto
-import com.example.langueedroid.data.remote.dto.EnrichedDefinitionDto
-import com.example.langueedroid.data.remote.dto.LookupMetaDto
-import com.example.langueedroid.data.remote.dto.LookupVocabularyResponseDto
-import com.example.langueedroid.domain.UnauthorizedException
+import com.example.langueedroid.core.data.VocabularyRepository
+import com.example.langueedroid.core.network.VocabularyApi
+import com.example.langueedroid.core.network.dto.DeckRefDto
+import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
+import com.example.langueedroid.core.network.dto.LookupMetaDto
+import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals

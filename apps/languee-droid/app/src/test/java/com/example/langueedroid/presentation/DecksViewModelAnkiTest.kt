@@ -1,8 +1,11 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidApi
-import com.example.langueedroid.data.DeckRepository
-import com.example.langueedroid.domain.Deck
+import com.example.langueedroid.feature.decks.presentation.DecksError
+import com.example.langueedroid.feature.decks.presentation.DecksScreenState
+import com.example.langueedroid.feature.decks.presentation.DecksViewModel
+import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.domain.Deck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -45,9 +48,8 @@ class DecksViewModelAnkiTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel(ankiDroidApi: AnkiDroidApi? = this.ankiDroidApi) = DecksViewModel(
+    private fun buildViewModel() = DecksViewModel(
         deckRepository = deckRepository,
-        onUnauthorized = {},
         ankiDroidApi = ankiDroidApi,
     )
 
@@ -101,23 +103,6 @@ class DecksViewModelAnkiTest {
         whenever(ankiDroidApi.getDeckList()).thenReturn(null)
 
         val vm = buildViewModel()
-        advanceUntilIdle()
-
-        vm.loadAnkiDecks()
-        advanceUntilIdle()
-
-        assertEquals(emptyList<Pair<Long, String>>(), vm.availableAnkiDecks.value)
-    }
-
-    // -------------------------------------------------------------------------
-    // loadAnkiDecks — no AnkiDroid api configured → empty list, no crash
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `loadAnkiDecks with no ankiDroidApi configured stores empty list`() = runTest {
-        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList<Deck>()))
-
-        val vm = buildViewModel(ankiDroidApi = null)
         advanceUntilIdle()
 
         vm.loadAnkiDecks()

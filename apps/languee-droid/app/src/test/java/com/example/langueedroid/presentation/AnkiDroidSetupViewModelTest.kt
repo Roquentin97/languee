@@ -1,14 +1,16 @@
 package com.example.langueedroid.presentation
 
-import android.content.Context
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
-import com.example.langueedroid.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.data.local.AnkiDroidSetupPrefs
-import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
-import com.example.langueedroid.domain.AnkiDroidSetupIssue
-import com.example.langueedroid.domain.ExportPreference
+import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
+import com.example.langueedroid.core.data.local.AnkiDroidSetupPrefs
+import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
+import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
+import com.example.langueedroid.core.domain.ExportPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -30,20 +32,14 @@ class AnkiDroidSetupViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var context: Context
     private lateinit var exportService: AnkiDroidExportService
     private lateinit var prefsStore: AnkiDroidPreferencesStore
-    private var setupCompleteCalled = false
-    private var skipCalled = false
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        context = mock()
         exportService = mock()
         prefsStore = mock()
-        setupCompleteCalled = false
-        skipCalled = false
     }
 
     @After
@@ -73,11 +69,8 @@ class AnkiDroidSetupViewModelTest {
         whenever(prefsStore.read()).thenReturn(defaultPrefs())
         whenever(exportService.checkSetup(prefsStore)).thenReturn(notReadySetup(AnkiDroidSetupIssue.NoNoteTypeSelected))
         return AnkiDroidSetupViewModel(
-            applicationContext = context,
             exportService = exportService,
             prefsStore = prefsStore,
-            onSetupComplete = { setupCompleteCalled = true },
-            onSkip = { skipCalled = true },
         )
     }
 
@@ -92,11 +85,8 @@ class AnkiDroidSetupViewModelTest {
         whenever(exportService.checkSetup(prefsStore)).thenReturn(readySetup())
 
         val vm = AnkiDroidSetupViewModel(
-            applicationContext = context,
             exportService = exportService,
             prefsStore = prefsStore,
-            onSetupComplete = {},
-            onSkip = {},
         )
         advanceUntilIdle()
 
@@ -165,7 +155,7 @@ class AnkiDroidSetupViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `onSave persists prefs and calls onSetupComplete`() = runTest {
+    fun `onSave persists prefs and emits setupCompleteEvent`() = runTest {
         val vm = buildViewModel()
         advanceUntilIdle()
 
@@ -174,8 +164,11 @@ class AnkiDroidSetupViewModelTest {
         // After save, checkSetup is called again
         whenever(exportService.checkSetup(prefsStore)).thenReturn(readySetup())
 
+        var setupCompleteCalled = false
+        val job = launch { vm.setupCompleteEvent.first(); setupCompleteCalled = true }
         vm.onSave()
         advanceUntilIdle()
+        job.cancel()
 
         verify(prefsStore).save(
             AnkiDroidSetupPrefs(
@@ -205,12 +198,18 @@ class AnkiDroidSetupViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `onSkipSetup saves prefs with setupCompleted true and calls onSkip`() = runTest {
+    fun `onSkipSetup saves prefs with setupCompleted true and emits skipEvent`() = runTest {
         val vm = buildViewModel()
         advanceUntilIdle()
 
+        var skipCalled = false
+        var setupCompleteCalled = false
+        val skipJob = launch { vm.skipEvent.first(); skipCalled = true }
+        val setupJob = launch { vm.setupCompleteEvent.first(); setupCompleteCalled = true }
         vm.onSkipSetup()
         advanceUntilIdle()
+        skipJob.cancel()
+        setupJob.cancel()
 
         verify(prefsStore).save(any())
         assertTrue(skipCalled)

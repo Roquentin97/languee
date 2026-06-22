@@ -1,10 +1,14 @@
 package com.example.langueedroid.presentation.auth
 
-import com.example.langueedroid.data.AuthRepository
-import com.example.langueedroid.data.local.AuthSession
+import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.feature.auth.presentation.AuthUiState
+import com.example.langueedroid.feature.auth.presentation.LoginViewModel
+import com.example.langueedroid.core.data.local.AuthSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -28,14 +32,11 @@ class LoginViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var authRepository: AuthRepository
-    private val capturedSessions = mutableListOf<AuthSession>()
-    private val onAuthSuccess: (AuthSession) -> Unit = { capturedSessions.add(it) }
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         authRepository = mock()
-        capturedSessions.clear()
     }
 
     @After
@@ -43,7 +44,7 @@ class LoginViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = LoginViewModel(authRepository, onAuthSuccess)
+    private fun buildViewModel() = LoginViewModel(authRepository)
 
     // -----------------------------------------------------------------------
     // Initial state
@@ -122,14 +123,17 @@ class LoginViewModelTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `onLoginClick success calls onAuthSuccess and resets to Idle`() = runTest {
+    fun `onLoginClick success emits authSuccessEvent and resets to Idle`() = runTest {
         val vm = buildViewModel()
         val session = fakeSession()
         whenever(authRepository.login(any(), any())).thenReturn(Result.success(session))
         vm.onEmailChange("user@example.com")
         vm.onPasswordChange("secret")
+        val capturedSessions = mutableListOf<AuthSession>()
+        val job = launch { vm.authSuccessEvent.collect { capturedSessions.add(it) } }
         vm.onLoginClick()
         advanceUntilIdle()
+        job.cancel()
         assertTrue(vm.uiState.value is AuthUiState.Idle)
         assertEquals(1, capturedSessions.size)
         assertEquals(session, capturedSessions.first())
@@ -154,14 +158,17 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun `onLoginClick network exception does not call onAuthSuccess`() = runTest {
+    fun `onLoginClick network exception does not emit authSuccessEvent`() = runTest {
         val vm = buildViewModel()
         whenever(authRepository.login(any(), any()))
             .thenReturn(Result.failure(RuntimeException("Network error")))
         vm.onEmailChange("user@example.com")
         vm.onPasswordChange("secret")
+        val capturedSessions = mutableListOf<AuthSession>()
+        val job = launch { vm.authSuccessEvent.collect { capturedSessions.add(it) } }
         vm.onLoginClick()
         advanceUntilIdle()
+        job.cancel()
         assertTrue(capturedSessions.isEmpty())
     }
 
@@ -170,14 +177,17 @@ class LoginViewModelTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `onLoginClick repository failure shows Error state and does not call onAuthSuccess`() = runTest {
+    fun `onLoginClick repository failure shows Error state and does not emit authSuccessEvent`() = runTest {
         val vm = buildViewModel()
         whenever(authRepository.login(any(), any()))
             .thenReturn(Result.failure(RuntimeException("HTTP 401")))
         vm.onEmailChange("user@example.com")
         vm.onPasswordChange("secret")
+        val capturedSessions = mutableListOf<AuthSession>()
+        val job = launch { vm.authSuccessEvent.collect { capturedSessions.add(it) } }
         vm.onLoginClick()
         advanceUntilIdle()
+        job.cancel()
         assertTrue(vm.uiState.value is AuthUiState.Error)
         assertTrue(capturedSessions.isEmpty())
     }

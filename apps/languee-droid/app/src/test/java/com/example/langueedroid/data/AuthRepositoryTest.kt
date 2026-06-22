@@ -1,11 +1,12 @@
 package com.example.langueedroid.data
 
-import com.example.langueedroid.data.local.AuthSession
-import com.example.langueedroid.data.local.AuthSessionStore
-import com.example.langueedroid.data.remote.AuthApi
-import com.example.langueedroid.data.remote.dto.AuthUserDto
-import com.example.langueedroid.data.remote.dto.LoginRegisterResponse
-import com.example.langueedroid.data.remote.dto.RefreshResponse
+import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.network.AuthApi
+import com.example.langueedroid.core.network.dto.AuthUserDto
+import com.example.langueedroid.core.network.dto.LoginRegisterResponse
+import com.example.langueedroid.core.network.dto.RefreshResponse
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals

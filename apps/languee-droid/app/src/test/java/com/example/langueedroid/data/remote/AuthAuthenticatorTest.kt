@@ -1,8 +1,9 @@
 package com.example.langueedroid.data.remote
 
-import com.example.langueedroid.data.AuthRepository
-import com.example.langueedroid.data.local.AuthSession
-import com.example.langueedroid.data.local.AuthSessionStore
+import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.network.AuthAuthenticator
+import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.data.local.AuthSessionStore
 import kotlinx.coroutines.runBlocking
 import okhttp3.Protocol
 import okhttp3.Request

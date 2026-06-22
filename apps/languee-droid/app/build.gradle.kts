@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 val localProperties = Properties()
@@ -25,7 +27,7 @@ val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("
 val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
 
 android {
-    namespace = "com.example.langueedroid"
+    namespace = "com.languee.droid"
     compileSdk {
         version =
             release(36) {
@@ -34,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.langueedroid"
+        applicationId = "com.languee.droid"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -48,9 +50,9 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
     compileOptions {
@@ -87,6 +89,9 @@ dependencies {
     implementation(libs.otel.sdk)
     implementation(libs.otel.exporter.otlp)
     implementation(libs.otel.okhttp.instrumentation)
+    implementation(libs.hilt.android)
+    implementation(libs.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
     debugImplementation(libs.okhttp.logging.interceptor)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.kotlin)

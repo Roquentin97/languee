@@ -1,11 +1,17 @@
 package com.example.langueedroid.presentation
 
-import com.example.langueedroid.data.DeckRepository
-import com.example.langueedroid.domain.Deck
-import com.example.langueedroid.domain.DeckConflictException
-import com.example.langueedroid.domain.UnauthorizedException
+import com.example.langueedroid.ankidroid.AnkiDroidApi
+import com.example.langueedroid.feature.decks.presentation.DecksError
+import com.example.langueedroid.feature.decks.presentation.DecksScreenState
+import com.example.langueedroid.feature.decks.presentation.DecksViewModel
+import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.domain.DeckConflictException
+import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -26,13 +32,13 @@ class DecksViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var deckRepository: DeckRepository
-    private var unauthorizedCalled = false
+    private lateinit var ankiDroidApi: AnkiDroidApi
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         deckRepository = mock()
-        unauthorizedCalled = false
+        ankiDroidApi = mock()
     }
 
     @After
@@ -42,7 +48,7 @@ class DecksViewModelTest {
 
     private fun buildViewModel() = DecksViewModel(
         deckRepository = deckRepository,
-        onUnauthorized = { unauthorizedCalled = true },
+        ankiDroidApi = ankiDroidApi,
     )
 
     // -------------------------------------------------------------------------
@@ -81,11 +87,19 @@ class DecksViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `getDecks returns 401 — onUnauthorized is called`() = runTest {
-        whenever(deckRepository.getDecks()).thenReturn(Result.failure(UnauthorizedException()))
-
+    fun `getDecks returns 401 — unauthorizedEvent is emitted`() = runTest {
+        // Init the VM with a successful response so init coroutine completes without emitting
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
         val vm = buildViewModel()
         advanceUntilIdle()
+
+        // Now re-stub for 401 and explicitly trigger a reload with the subscriber active
+        whenever(deckRepository.getDecks()).thenReturn(Result.failure(UnauthorizedException()))
+        var unauthorizedCalled = false
+        val job = launch { vm.unauthorizedEvent.first(); unauthorizedCalled = true }
+        vm.loadDecks()
+        advanceUntilIdle()
+        job.cancel()
 
         assertTrue(unauthorizedCalled)
     }
@@ -105,7 +119,7 @@ class DecksViewModelTest {
 
         val state = vm.decksState.value
         assertTrue(state is DecksScreenState.Error)
-        assertTrue((state as DecksScreenState.Error).message.isNotBlank())
+        assertEquals(DecksError.LOAD_FAILED, (state as DecksScreenState.Error).type)
     }
 
     // -------------------------------------------------------------------------
@@ -163,16 +177,16 @@ class DecksViewModelTest {
 
         val state = vm.decksState.value
         assertTrue(state is DecksScreenState.Error)
-        assertTrue((state as DecksScreenState.Error).message.isNotBlank())
+        assertEquals(DecksError.CREATE_FAILED, (state as DecksScreenState.Error).type)
         assertTrue(!onCreatedCalled)
     }
 
     // -------------------------------------------------------------------------
-    // createDeck — 401 → onUnauthorized called
+    // createDeck — 401 → unauthorizedEvent emitted
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createDeck 401 — onUnauthorized called`() = runTest {
+    fun `createDeck 401 — unauthorizedEvent is emitted`() = runTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
         whenever(deckRepository.createDeck(name = "French"))
             .thenReturn(Result.failure(UnauthorizedException()))
@@ -180,9 +194,11 @@ class DecksViewModelTest {
         val vm = buildViewModel()
         advanceUntilIdle()
 
-        unauthorizedCalled = false
+        var unauthorizedCalled = false
+        val job = launch { vm.unauthorizedEvent.first(); unauthorizedCalled = true }
         vm.createDeck(name = "French", onCreated = {})
         advanceUntilIdle()
+        job.cancel()
 
         assertTrue(unauthorizedCalled)
     }

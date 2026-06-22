@@ -1,9 +1,9 @@
 package com.example.langueedroid.ankidroid
 
 import android.content.Context
-import com.example.langueedroid.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.domain.AnkiDroidSetupCheckResult
-import com.example.langueedroid.domain.AnkiDroidSetupIssue
+import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
+import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 
 class AnkiDroidPermissionDeniedException : Exception("AnkiDroid permission denied")
 
