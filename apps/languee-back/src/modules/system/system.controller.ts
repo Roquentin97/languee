@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { API_V1_PREFIX } from '../../api-prefix';
+import { API_V1_PREFIX } from '../core/api-prefix';
 import { SystemService } from './system.service';
 
 @ApiTags('system')

@@ -4,7 +4,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
-import { SanitizingSpanProcessor } from './modules/core/sanitization/sanitize-span.processor';
+import { SanitizingSpanProcessor } from './sanitization/sanitize-span.processor';
 
 // Tracing is on by default in dev; set TRACING_ENABLED=false to disable (e.g. in tests).
 const tracingEnabled = process.env['TRACING_ENABLED'] !== 'false';

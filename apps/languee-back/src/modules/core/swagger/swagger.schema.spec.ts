@@ -7,46 +7,48 @@ import {
   type OpenAPIObject,
 } from '@nestjs/swagger';
 
-jest.mock('./app.service', () => ({ AppService: class AppService {} }));
-jest.mock('./modules/auth/auth.service', () => ({
+jest.mock('../../health/health.service', () => ({
+  HealthService: class HealthService {},
+}));
+jest.mock('../../auth/auth.service', () => ({
   AuthService: class AuthService {},
 }));
-jest.mock('./modules/ankidroid-exports/ankidroid-exports.service', () => ({
+jest.mock('../../ankidroid-exports/ankidroid-exports.service', () => ({
   AnkiDroidExportsService: class AnkiDroidExportsService {},
 }));
-jest.mock('./modules/cards/cards.service', () => ({
+jest.mock('../../cards/cards.service', () => ({
   CardsService: class CardsService {},
 }));
-jest.mock('./modules/decks/decks.service', () => ({
+jest.mock('../../decks/decks.service', () => ({
   DecksService: class DecksService {},
 }));
-jest.mock('./modules/dictionary/dictionary.service', () => ({
+jest.mock('../../dictionary/dictionary.service', () => ({
   DictionaryService: class DictionaryService {},
 }));
-jest.mock('./modules/system/system.service', () => ({
+jest.mock('../../system/system.service', () => ({
   SystemService: class SystemService {},
 }));
-jest.mock('./modules/vocabulary/vocabulary.service', () => ({
+jest.mock('../../vocabulary/vocabulary.service', () => ({
   VocabularyService: class VocabularyService {},
 }));
 
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthController } from './modules/auth/auth.controller';
-import { AuthService } from './modules/auth/auth.service';
-import { MobileAuthController } from './modules/auth/mobile-auth.controller';
-import { AnkiDroidExportsController } from './modules/ankidroid-exports/ankidroid-exports.controller';
-import { AnkiDroidExportsService } from './modules/ankidroid-exports/ankidroid-exports.service';
-import { CardsController } from './modules/cards/cards.controller';
-import { CardsService } from './modules/cards/cards.service';
-import { DecksController } from './modules/decks/decks.controller';
-import { DecksService } from './modules/decks/decks.service';
-import { DictionaryController } from './modules/dictionary/dictionary.controller';
-import { DictionaryService } from './modules/dictionary/dictionary.service';
-import { SystemController } from './modules/system/system.controller';
-import { SystemService } from './modules/system/system.service';
-import { VocabularyController } from './modules/vocabulary/vocabulary.controller';
-import { VocabularyService } from './modules/vocabulary/vocabulary.service';
+import { HealthController } from '../../health/health.controller';
+import { HealthService } from '../../health/health.service';
+import { AuthController } from '../../auth/auth.controller';
+import { AuthService } from '../../auth/auth.service';
+import { MobileAuthController } from '../../auth/mobile-auth.controller';
+import { AnkiDroidExportsController } from '../../ankidroid-exports/ankidroid-exports.controller';
+import { AnkiDroidExportsService } from '../../ankidroid-exports/ankidroid-exports.service';
+import { CardsController } from '../../cards/cards.controller';
+import { CardsService } from '../../cards/cards.service';
+import { DecksController } from '../../decks/decks.controller';
+import { DecksService } from '../../decks/decks.service';
+import { DictionaryController } from '../../dictionary/dictionary.controller';
+import { DictionaryService } from '../../dictionary/dictionary.service';
+import { SystemController } from '../../system/system.controller';
+import { SystemService } from '../../system/system.service';
+import { VocabularyController } from '../../vocabulary/vocabulary.controller';
+import { VocabularyService } from '../../vocabulary/vocabulary.service';
 
 type HttpMethod = 'get' | 'post';
 
@@ -74,6 +76,7 @@ type OperationExpectation = {
 
 const expectations: OperationExpectation[] = [
   { path: '/api/v1', method: 'get', responses: ['200'] },
+  { path: '/api/v1/version', method: 'get', responses: ['200'] },
   { path: '/api/v1/system/env', method: 'get', responses: ['200'] },
   {
     path: '/auth/register',
@@ -257,7 +260,7 @@ describe('generated Swagger schema', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [
-        AppController,
+        HealthController,
         AnkiDroidExportsController,
         AuthController,
         MobileAuthController,
@@ -268,7 +271,10 @@ describe('generated Swagger schema', () => {
         VocabularyController,
       ],
       providers: [
-        { provide: AppService, useValue: { getHello: jest.fn() } },
+        {
+          provide: HealthService,
+          useValue: { getHello: jest.fn(), getVersion: jest.fn() },
+        },
         {
           provide: AnkiDroidExportsService,
           useValue: {
