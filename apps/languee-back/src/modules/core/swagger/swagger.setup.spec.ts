@@ -223,7 +223,7 @@ describe('setupSwagger', () => {
 
   // Edge case 7: non-docs endpoint is NOT intercepted by the middleware
   describe('Edge case 7: middleware scope', () => {
-    it('registers middleware only for /api/v1/docs paths', () => {
+    it('registers middleware only for /docs paths', () => {
       const registered: { path: string }[] = [];
       const app: INestApplication = {
         use: jest.fn().mockImplementation((path: string) => {
@@ -236,16 +236,16 @@ describe('setupSwagger', () => {
 
       // First call to app.use is the Basic Auth middleware
       const guardedPath = registered[0].path;
-      expect(guardedPath).toBe('/api/v1/docs');
+      expect(guardedPath).toBe('/docs');
       // Other routes must not be included
       expect(guardedPath).not.toBe('/');
       expect(guardedPath).not.toBe('/auth');
     });
   });
 
-  // Edge case 9: sub-paths of /api/v1/docs are also guarded
+  // Edge case 9: sub-paths of /docs are also guarded
   describe('Edge case 9: sub-paths are guarded', () => {
-    it('mounts middleware at /api/v1/docs so Express guards sub-paths', () => {
+    it('mounts middleware at /docs so Express guards sub-paths', () => {
       const registered: { path: string }[] = [];
       const app: INestApplication = {
         use: jest.fn().mockImplementation((path: string) => {
@@ -257,7 +257,7 @@ describe('setupSwagger', () => {
       setupSwagger(app, configService);
 
       const guardedPath = registered[0].path;
-      expect(guardedPath).toBe('/api/v1/docs');
+      expect(guardedPath).toBe('/docs');
     });
   });
 });
