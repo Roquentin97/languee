@@ -75,9 +75,9 @@ type OperationExpectation = {
 };
 
 const expectations: OperationExpectation[] = [
-  { path: '/api/v1', method: 'get', responses: ['200'] },
-  { path: '/api/v1/version', method: 'get', responses: ['200'] },
-  { path: '/api/v1/system/env', method: 'get', responses: ['200'] },
+  { path: '/', method: 'get', responses: ['200'] },
+  { path: '/version', method: 'get', responses: ['200'] },
+  { path: '/system/env', method: 'get', responses: ['200'] },
   {
     path: '/auth/register',
     method: 'post',

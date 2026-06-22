@@ -16,9 +16,9 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/api/v1 (GET)', () => {
+  it('/ (GET)', () => {
     return request(app.getHttpServer())
-      .get('/api/v1')
+      .get('/')
       .expect(200)
       .expect({ success: true });
   });
