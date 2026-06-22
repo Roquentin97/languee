@@ -16,7 +16,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { API_V1_PREFIX } from '../../api-prefix';
+import { API_V1_PREFIX } from '../core/api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import { DefinitionsNotFoundException } from './dictionary.errors';

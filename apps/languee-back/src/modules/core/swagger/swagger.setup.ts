@@ -1,8 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { API_V1_PATH, API_V1_PREFIX } from './api-prefix';
-import { createBasicAuthMiddleware } from './modules/core/basic-auth/basic-auth.middleware.factory';
+import { API_V1_PATH, API_V1_PREFIX } from '../api-prefix';
+import { createBasicAuthMiddleware } from '../basic-auth/basic-auth.middleware.factory';
 
 function getRequiredConfigValue(
   configService: ConfigService,

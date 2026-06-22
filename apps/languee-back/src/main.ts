@@ -1,10 +1,10 @@
-import './tracing';
+import './modules/core/tracing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { setupSwagger } from './swagger.setup';
+import { setupSwagger } from './modules/core/swagger/swagger.setup';
 import { AppLogger } from './modules/core/logger/app-logger';
 
 async function bootstrap() {

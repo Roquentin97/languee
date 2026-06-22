@@ -5,7 +5,7 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { API_V1_PREFIX } from '../../api-prefix';
+import { API_V1_PREFIX } from '../core/api-prefix';
 import { createBasicAuthMiddleware } from '../core/basic-auth/basic-auth.middleware.factory';
 import { SystemController } from './system.controller';
 import { SystemService } from './system.service';
