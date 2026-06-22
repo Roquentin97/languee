@@ -26,7 +26,7 @@ describe('RequestContextMiddleware', () => {
         'X-Request-ID',
         expect.any(String),
       );
-      const id = setHeader.mock.calls[0][1] as string;
+      const id = (setHeader.mock.calls as [string, string][])[0][1];
       // UUID v4 pattern
       expect(id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
@@ -64,11 +64,11 @@ describe('RequestContextMiddleware', () => {
   it('generates a unique requestId on each call when no header is present', () => {
     const { res: res1, setHeader: sh1 } = makeRes();
     middleware.use(makeReq(), res1, () => {});
-    const id1 = sh1.mock.calls[0]?.[1] as string;
+    const id1 = (sh1.mock.calls as [string, string][])[0]?.[1];
 
     const { res: res2, setHeader: sh2 } = makeRes();
     middleware.use(makeReq(), res2, () => {});
-    const id2 = sh2.mock.calls[0]?.[1] as string;
+    const id2 = (sh2.mock.calls as [string, string][])[0]?.[1];
 
     expect(id1).toBeDefined();
     expect(id2).toBeDefined();

@@ -1,9 +1,5 @@
 import type { Context } from '@opentelemetry/api';
-import type {
-  ReadableSpan,
-  Span,
-  SpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
+import type { ReadableSpan, Span } from '@opentelemetry/sdk-trace-base';
 import { REDACTED_VALUE } from './redaction';
 import { SanitizingSpanProcessor } from './sanitize-span.processor';
 
@@ -11,7 +7,7 @@ function makeReadableSpan(attributes: Record<string, unknown>): ReadableSpan {
   return { attributes } as unknown as ReadableSpan;
 }
 
-function makeDelegate(): SpanProcessor {
+function makeDelegate() {
   return {
     onStart: jest.fn(),
     onEnd: jest.fn(),
