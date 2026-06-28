@@ -1,9 +1,12 @@
 package com.example.langueedroid.ankidroid
 
 import android.content.Context
+import android.util.Log
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
+
+private const val TAG = "AnkiDroidExportService"
 
 class AnkiDroidPermissionDeniedException : Exception("AnkiDroid permission denied")
 
@@ -31,12 +34,15 @@ class AnkiDroidExportService(
         cardId: String,
     ): Result<AnkiDroidExportResult> {
         if (!AnkiDroidAvailability.isInstalled(context)) {
+            Log.w(TAG, "[event=ankidroid.unavailable method=exportNote] AnkiDroid unavailable | cardId=$cardId")
             return Result.failure(AnkiDroidApiUnavailableException())
         }
         if (!AnkiDroidAvailability.isApiAvailable(context)) {
+            Log.w(TAG, "[event=ankidroid.unavailable method=exportNote] AnkiDroid unavailable | cardId=$cardId")
             return Result.failure(AnkiDroidApiUnavailableException())
         }
         if (!AnkiDroidAvailability.checkPermission(context)) {
+            Log.w(TAG, "[event=ankidroid.permission_denied method=exportNote] permission denied | cardId=$cardId")
             return Result.failure(AnkiDroidPermissionDeniedException())
         }
 
@@ -52,17 +58,21 @@ class AnkiDroidExportService(
             templates,
             css = NoteTypeTemplates.CSS,
         ) ?: return Result.failure(AnkiDroidNoteCreationFailedException())
+        Log.i(TAG, "[event=ankidroid.note_type_resolved method=exportNote] note type resolved | modelId=$modelId noteTypeName=$normalizedNoteTypeName")
 
         val deckId = ankiDroidApi.getOrCreateDeck(deckName)
             ?: return Result.failure(AnkiDroidDeckCreationFailedException())
+        Log.i(TAG, "[event=ankidroid.deck_resolved method=exportNote] deck resolved | deckId=$deckId deckName=$deckName")
 
         val existingNoteId = ankiDroidApi.findNoteIdByCardId(cardId)
         if (existingNoteId != null) {
+            Log.i(TAG, "[event=ankidroid.note_exists method=exportNote] note already exists | existingNoteId=$existingNoteId cardId=$cardId")
             return Result.success(AnkiDroidExportResult(noteId = existingNoteId, deckId = deckId, modelId = modelId))
         }
 
         val noteId = ankiDroidApi.addNote(modelId, deckId, fields, setOf("languee"))
             ?: return Result.failure(AnkiDroidNoteCreationFailedException())
+        Log.i(TAG, "[event=ankidroid.note_created method=exportNote] note created | noteId=$noteId deckId=$deckId modelId=$modelId cardId=$cardId")
 
         return Result.success(AnkiDroidExportResult(noteId = noteId, deckId = deckId, modelId = modelId))
     }
@@ -72,7 +82,9 @@ class AnkiDroidExportService(
 
         if (!AnkiDroidAvailability.isInstalled(context)) {
             issues.add(AnkiDroidSetupIssue.NotInstalled)
-            return AnkiDroidSetupCheckResult(isReady = false, issues = issues)
+            val result = AnkiDroidSetupCheckResult(isReady = false, issues = issues)
+            Log.i(TAG, "[event=ankidroid.setup_checked method=checkSetup] setup check complete | isReady=${result.isReady} issueCount=${issues.size}")
+            return result
         }
         if (!AnkiDroidAvailability.isApiAvailable(context)) {
             issues.add(AnkiDroidSetupIssue.ApiUnavailable)
@@ -86,6 +98,8 @@ class AnkiDroidExportService(
             issues.add(AnkiDroidSetupIssue.NoNoteTypeSelected)
         }
 
-        return AnkiDroidSetupCheckResult(isReady = issues.isEmpty(), issues = issues)
+        val result = AnkiDroidSetupCheckResult(isReady = issues.isEmpty(), issues = issues)
+        Log.i(TAG, "[event=ankidroid.setup_checked method=checkSetup] setup check complete | isReady=${result.isReady} issueCount=${issues.size}")
+        return result
     }
 }

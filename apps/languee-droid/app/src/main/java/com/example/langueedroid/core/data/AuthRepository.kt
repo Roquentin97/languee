@@ -1,5 +1,6 @@
 package com.example.langueedroid.core.data
 
+import android.util.Log
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AuthApi
@@ -7,6 +8,8 @@ import com.example.langueedroid.core.network.dto.LoginRequest
 import com.example.langueedroid.core.network.dto.LogoutRequest
 import com.example.langueedroid.core.network.dto.RefreshRequest
 import com.example.langueedroid.core.network.dto.RegisterRequest
+
+private const val TAG = "AuthRepository"
 
 class AuthRepository(
     private val authApi: AuthApi,
@@ -26,8 +29,10 @@ class AuthRepository(
                     userEmail = body.user.email,
                 )
                 sessionStore.save(session)
+                Log.i(TAG, "[event=auth.login_succeeded method=login] login succeeded | userId=${body.user.id}")
                 session
             } else {
+                Log.w(TAG, "[event=auth.login_failed method=login] login failed | code=${response.code()}")
                 throw RuntimeException("Login failed: HTTP ${response.code()}")
             }
         }
@@ -45,6 +50,7 @@ class AuthRepository(
                     userEmail = body.user.email,
                 )
                 sessionStore.save(session)
+                Log.i(TAG, "[event=auth.registration_succeeded method=register] registration succeeded | userId=${body.user.id}")
                 session
             } else {
                 throw RuntimeException("Registration failed: HTTP ${response.code()}")
@@ -69,6 +75,7 @@ class AuthRepository(
                     refreshToken = body.refreshToken,
                     sessionId = body.sessionId,
                 )
+                Log.i(TAG, "[event=auth.session_refreshed method=refreshSession] session refreshed | sessionId=${body.sessionId}")
                 AuthSession(
                     accessToken = body.accessToken,
                     refreshToken = body.refreshToken,
@@ -77,6 +84,7 @@ class AuthRepository(
                     userEmail = stored.userEmail,
                 )
             } else {
+                Log.w(TAG, "[event=auth.session_refresh_failed method=refreshSession] session refresh failed | code=${response.code()}")
                 sessionStore.clear()
                 throw RuntimeException("Token refresh failed: HTTP ${response.code()}")
             }
@@ -104,5 +112,6 @@ class AuthRepository(
                 }
             }
             sessionStore.clear()
+            Log.i(TAG, "[event=auth.session_cleared method=logout] session cleared")
         }
 }
