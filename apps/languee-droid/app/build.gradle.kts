@@ -48,6 +48,12 @@ android {
         buildConfigField("boolean", "TRACING_ENABLED", tracingEnabled)
     }
 
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

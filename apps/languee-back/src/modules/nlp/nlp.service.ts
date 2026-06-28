@@ -80,13 +80,13 @@ export class NlpService {
 
     const token = body.tokens[0];
     const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
-    const duration_ms = Date.now() - start;
+    const durationMs = Date.now() - start;
 
     this.logger.log({
       message: 'word analyzed',
       event: 'nlp.word_analyzed',
       method: this.analyzeWord.name,
-      duration_ms,
+      duration_ms: durationMs,
       data: {
         word,
         lemma: token.lemma,

@@ -23,7 +23,7 @@ class VocabularyRepository(
                 val body = response.body()?.toLookupResult()
                     ?: throw Exception("Empty response body from vocabulary lookup")
                 val definitionCount = body.definitions.size
-                Log.i(TAG, "[event=vocabulary.lookup_succeeded method=lookup] lookup succeeded | lemma=${body.lemma} pos=${body.pos} definitionCount=$definitionCount")
+                Log.i(TAG, "[event=vocabulary.lookup_succeeded method=lookup] lookup succeeded | lemma=${body.lemma} definitionCount=$definitionCount")
                 body
             }
             response.code() == 401 -> {
