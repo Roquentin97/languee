@@ -39,13 +39,19 @@ android {
         applicationId = "com.languee.droid"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
         buildConfigField("String", "OTEL_EXPORTER_ENDPOINT", "\"$escapedOtelEndpoint\"")
         buildConfigField("boolean", "TRACING_ENABLED", tracingEnabled)
+    }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
     }
 
     buildTypes {

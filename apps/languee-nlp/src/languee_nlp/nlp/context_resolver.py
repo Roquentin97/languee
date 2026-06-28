@@ -1,8 +1,11 @@
+import logging
 from dataclasses import dataclass, field
 
 import spacy.language
 import spacy.tokens
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,6 +38,18 @@ def resolve_token_from_context(
         if tok.idx == selection_start and tok_end == selection_end:
             matched_token = tok
             matched_index = i
+            logger.debug(
+                "exact match",
+                extra={
+                    "event": "nlp.exact_match",
+                    "method": resolve_token_from_context.__name__,
+                    "data": {
+                        "word": input_text,
+                        "matched_index": matched_index,
+                        "token_text": matched_token.text,
+                    },
+                },
+            )
             break
 
     # Fallback: find the token whose span overlaps the selection the most
@@ -60,6 +75,14 @@ def resolve_token_from_context(
 
         confidence = "low"
         warnings.append("SELECTION_OFFSET_MISMATCH")
+        logger.warning(
+            "offset mismatch",
+            extra={
+                "event": "nlp.offset_mismatch",
+                "method": resolve_token_from_context.__name__,
+                "data": {"word": input_text, "best_overlap": best_overlap},
+            },
+        )
 
     # Phrasal-verb / expression detection: look for particle children
     detected_expression: str | None = None
@@ -72,6 +95,30 @@ def resolve_token_from_context(
         expression_parts = [matched_token.lemma_] + particle_texts
         detected_expression = " ".join(expression_parts)
         warnings.append("SELECTED_WORD_PART_OF_EXPRESSION")
+        logger.info(
+            "phrasal verb detected",
+            extra={
+                "event": "nlp.phrasal_verb_detected",
+                "method": resolve_token_from_context.__name__,
+                "data": {
+                    "word": input_text,
+                    "detected_expression": detected_expression,
+                },
+            },
+        )
+
+    logger.info(
+        "token resolved",
+        extra={
+            "event": "nlp.token_resolved",
+            "method": resolve_token_from_context.__name__,
+            "data": {
+                "word": input_text,
+                "confidence": confidence,
+                "warnings": warnings,
+            },
+        },
+    )
 
     return ContextResolverResult(
         token=matched_token,

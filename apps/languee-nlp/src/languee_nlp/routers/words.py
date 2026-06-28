@@ -1,3 +1,4 @@
+import logging
 import secrets
 import unicodedata
 from typing import Annotated
@@ -14,6 +15,8 @@ from languee_nlp.schemas import (
     WordAnalysisResponse,
 )
 from languee_nlp.settings import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/words", tags=["words"])
 security = HTTPBasic()
@@ -46,12 +49,28 @@ def _serialize_response(response: WordAnalysisResponse) -> JSONResponse:
 def _sanitize_single_word(value: str) -> str:
     sanitized = unicodedata.normalize("NFC", value.strip().lower())
     if not sanitized:
+        logger.info(
+            "invalid input rejected",
+            extra={
+                "event": "nlp.invalid_input",
+                "method": _sanitize_single_word.__name__,
+                "data": {"raw_value": value},
+            },
+        )
         raise HTTPException(
             status_code=400,
             detail="word must be a single word; multi-word input is not supported",
         )
 
     if any(c.isspace() for c in sanitized):
+        logger.info(
+            "invalid input rejected",
+            extra={
+                "event": "nlp.invalid_input",
+                "method": _sanitize_single_word.__name__,
+                "data": {"raw_value": value},
+            },
+        )
         raise HTTPException(
             status_code=400,
             detail="word must be a single word; multi-word input is not supported",
@@ -62,6 +81,15 @@ def _sanitize_single_word(value: str) -> str:
 def _analyze_isolated_word(word: str) -> JSONResponse:
     sanitized = _sanitize_single_word(word)
     doc = get_nlp()(sanitized)
+
+    logger.debug(
+        "tokenized",
+        extra={
+            "event": "nlp.tokenized",
+            "method": _analyze_isolated_word.__name__,
+            "data": {"word": sanitized, "token_count": len(doc)},
+        },
+    )
 
     if len(doc) == 0 or len(doc) > 1:
         raise HTTPException(
@@ -85,12 +113,33 @@ def _find_word_span(input_text: str, word: str) -> tuple[str, int, int]:
     selection_start = context.lower().find(sanitized)
 
     if selection_start == -1:
+        logger.warning(
+            "word not found in context",
+            extra={
+                "event": "nlp.word_not_in_context",
+                "method": _find_word_span.__name__,
+                "data": {"word": word, "context_length": len(context)},
+            },
+        )
         raise HTTPException(
             status_code=422,
             detail="SELECTION_DOES_NOT_MATCH_INPUT",
         )
 
-    return context, selection_start, selection_start + len(sanitized)
+    selection_end = selection_start + len(sanitized)
+    logger.debug(
+        "word located in context",
+        extra={
+            "event": "nlp.word_located",
+            "method": _find_word_span.__name__,
+            "data": {
+                "word": word,
+                "selection_start": selection_start,
+                "selection_end": selection_end,
+            },
+        },
+    )
+    return context, selection_start, selection_end
 
 
 def _analyze_word_in_input_text(word: str, input_text: str) -> JSONResponse:
@@ -104,6 +153,18 @@ def _analyze_word_in_input_text(word: str, input_text: str) -> JSONResponse:
         selection_end,
     )
     token_result = analyze_single_token(result.token)
+    logger.info(
+        "token resolved from context",
+        extra={
+            "event": "nlp.token_resolved_from_context",
+            "method": _analyze_word_in_input_text.__name__,
+            "data": {
+                "word": sanitized,
+                "matched_text": result.token.text,
+                "confidence": result.confidence,
+            },
+        },
+    )
     input_text_analysis = InputTextAnalysis(
         input_found_in_text=True,
         matched_text=result.token.text,
@@ -143,6 +204,17 @@ def analyze_word(
         ),
     ] = None,
 ) -> JSONResponse:
+    logger.debug(
+        "request",
+        extra={
+            "event": "nlp.request",
+            "method": analyze_word.__name__,
+            "data": {
+                "word": word,
+                "has_input_text": input_text is not None and bool(input_text.strip()),
+            },
+        },
+    )
     if input_text is None or not input_text.strip():
         return _analyze_isolated_word(word)
 

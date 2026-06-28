@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
@@ -12,9 +12,18 @@ import type { InflectionForms } from '../dictionary/types/inflection-forms.types
 
 @Injectable()
 export class NlpService {
+  private readonly logger = new Logger(NlpService.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   async analyzeWord(word: string, context?: string): Promise<NlpAnalysis> {
+    this.logger.debug({
+      message: 'request',
+      event: 'nlp.request',
+      method: this.analyzeWord.name,
+      data: { word, hasContext: Boolean(context?.trim()) },
+    });
+
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
     const login = this.configService.getOrThrow<string>('nlp.basicAuthLogin');
     const password = this.configService.getOrThrow<string>(
@@ -28,6 +37,7 @@ export class NlpService {
     }
 
     let response: Response;
+    const start = Date.now();
     try {
       response = await fetch(`${baseUrl}/words?${params.toString()}`, {
         headers: { Authorization: `Basic ${credentials}` },
@@ -59,11 +69,31 @@ export class NlpService {
 
     if (body['is_multi_word'] || body.tokens.length !== 1) {
       trace.getActiveSpan()?.addEvent('nlp.multi_word_rejected', { word });
+      this.logger.warn({
+        message: 'multi-word input rejected',
+        event: 'nlp.multi_word_rejected',
+        method: this.analyzeWord.name,
+        data: { word, tokenCount: body.tokens.length },
+      });
       throw new NlpMultiWordError();
     }
 
     const token = body.tokens[0];
     const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
+    const durationMs = Date.now() - start;
+
+    this.logger.log({
+      message: 'word analyzed',
+      event: 'nlp.word_analyzed',
+      method: this.analyzeWord.name,
+      duration_ms: durationMs,
+      data: {
+        word,
+        lemma: token.lemma,
+        pos: token.pos,
+        isIrregular: token['is_irregular'],
+      },
+    });
 
     return {
       lemma: token.lemma,
@@ -87,6 +117,12 @@ export class NlpService {
         present3sg: forms['verb_present_3sg'],
       });
       if (!compact.base) return null;
+      this.logger.debug({
+        message: 'inflection forms built',
+        event: 'nlp.inflection_forms_built',
+        method: this.buildInflectionForms.name,
+        data: { pos, formKeys: Object.keys(compact) },
+      });
       return { type: 'verb', ...compact } as InflectionForms;
     }
 
@@ -96,6 +132,12 @@ export class NlpService {
         plural: forms['noun_plural'],
       });
       if (Object.keys(compact).length === 0) return null;
+      this.logger.debug({
+        message: 'inflection forms built',
+        event: 'nlp.inflection_forms_built',
+        method: this.buildInflectionForms.name,
+        data: { pos, formKeys: Object.keys(compact) },
+      });
       return { type: 'noun', ...compact } as InflectionForms;
     }
 
@@ -106,6 +148,12 @@ export class NlpService {
         superlative: forms['adj_superlative'],
       });
       if (!compact.positive) return null;
+      this.logger.debug({
+        message: 'inflection forms built',
+        event: 'nlp.inflection_forms_built',
+        method: this.buildInflectionForms.name,
+        data: { pos, formKeys: Object.keys(compact) },
+      });
       return { type: 'adjective', ...compact } as InflectionForms;
     }
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type {
   Card,
@@ -25,6 +25,8 @@ export type CardWithAnkiDroidExport = Card & {
 
 @Injectable()
 export class CardsService {
+  private readonly logger = new Logger(CardsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly decksService: DecksService,
@@ -38,10 +40,16 @@ export class CardsService {
     inflectionForms?: Record<string, string> | null,
   ): Promise<CardWithDefinitionAndWord> {
     const deck = await this.decksService.findOneByIdAndUserId(deckId, userId);
+    this.logger.debug({
+      message: 'deck ownership check',
+      event: 'card.deck_ownership_check',
+      method: this.create.name,
+      data: { deckId, userId, deckFound: deck !== null },
+    });
     if (deck === null) throw new DeckOwnershipError();
 
     try {
-      return await this.prisma.card.create({
+      const result = await this.prisma.card.create({
         data: {
           userId,
           deckId,
@@ -51,9 +59,22 @@ export class CardsService {
         },
         include: { definition: { include: { word: true } } },
       });
+      this.logger.log({
+        message: 'card created',
+        event: 'card.created',
+        method: this.create.name,
+        data: { cardId: result.id, userId, deckId, definitionId },
+      });
+      return result;
     } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
         if (err.code === 'P2002') {
+          this.logger.log({
+            message: 'duplicate card',
+            event: 'card.duplicate',
+            method: this.create.name,
+            data: { userId, deckId, definitionId },
+          });
           throw new CardAlreadyExistsError();
         }
         if (err.code === 'P2003') {
@@ -61,6 +82,12 @@ export class CardsService {
           const fieldName =
             typeof meta?.['field_name'] === 'string' ? meta['field_name'] : '';
           if (fieldName.includes('definition_id')) {
+            this.logger.log({
+              message: 'definition not found',
+              event: 'card.definition_not_found',
+              method: this.create.name,
+              data: { definitionId },
+            });
             throw new DefinitionNotFoundError();
           } else {
             throw new DeckOwnershipError();
@@ -101,13 +128,22 @@ export class CardsService {
       };
     }
 
-    return this.prisma.card.findMany({
+    const result = await this.prisma.card.findMany({
       where,
       include: {
         definition: { include: { word: true } },
         ankidroidExport: true,
       },
     });
+
+    this.logger.debug({
+      message: 'cards found',
+      event: 'card.query_result',
+      method: this.findManyByUserId.name,
+      data: { userId, filters, count: result.length },
+    });
+
+    return result;
   }
 
   async findOneByIdAndUserId(
