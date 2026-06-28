@@ -9,7 +9,7 @@ api_docs_url = "http://localhost:3000/api/v1/docs"
 api_docs_port_env = "LANGUEE_BACK_API_PORT"
 affected_components = ["auth", "users"]
 app_version_files = ["src/modules/health/health.service.ts"]
-app_version_bump = "Patch-bump APP_VERSION before opening a PR when languee-back is affected."
+app_version_bump = "Do not bump manually in feature PRs; Release Please updates APP_VERSION in release PRs."
 rulesets = ["common", "boundary", "nestjs", "prisma", "jest"]
 environment = [
   "DATABASE_URL",
@@ -45,7 +45,7 @@ api_docs_url = "http://localhost:8000/docs"
 api_docs_port_env = "LANGUEE_NLP_PORT"
 affected_components = ["api", "nlp", "spacy"]
 app_version_files = ["src/languee_nlp/constants.py"]
-app_version_bump = "Patch-bump VERSION before opening a PR when languee-nlp is affected."
+app_version_bump = "Do not bump manually in feature PRs; Release Please updates VERSION in release PRs."
 rulesets = ["common", "boundary", "fastapi", "spacy", "pytest"]
 environment = [
   "LANGUEE_NLP_PORT",
@@ -81,7 +81,7 @@ persistence = ""
 dev_port = 0
 affected_components = ["app", "ui", "presentation", "data"]
 app_version_files = ["app/build.gradle.kts"]
-app_version_bump = "Increment defaultConfig.versionCode and patch-bump defaultConfig.versionName before opening a PR when languee-droid is affected."
+app_version_bump = "Do not bump versionName manually in feature PRs; Release Please updates SemVer release files in release PRs. Change versionCode only for explicit release/publication tasks."
 rulesets = ["common", "boundary", "android-kotlin"]
 environment = [
   "ANDROID_HOME",
