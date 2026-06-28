@@ -5,7 +5,6 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { API_V1_PREFIX } from '../core/api-prefix';
 import { createBasicAuthMiddleware } from '../core/basic-auth/basic-auth.middleware.factory';
 import { SystemController } from './system.controller';
 import { SystemService } from './system.service';
@@ -30,7 +29,7 @@ export class SystemModule implements NestModule {
         createBasicAuthMiddleware(basicAuthUser, basicAuthPassword, 'System'),
       )
       .forRoutes({
-        path: `${API_V1_PREFIX}/system/env`,
+        path: 'system/env',
         method: RequestMethod.GET,
       });
   }

@@ -74,7 +74,7 @@ describe('AuthService', () => {
     const createdAt = new Date('2026-01-01T00:00:00.000Z');
     const updatedAt = new Date('2026-01-01T00:00:00.000Z');
 
-    it('hashes password and creates user with email and hash', async () => {
+    it('hashes password and creates user with normalized email and hash', async () => {
       bcryptMock.hash.mockResolvedValue('hashed-password' as never);
       mockUsersService.create.mockResolvedValue({
         id: 'user-123',
@@ -89,6 +89,28 @@ describe('AuthService', () => {
       expect(bcryptMock.hash).toHaveBeenCalledWith(dto.password, 10);
       expect(mockUsersService.create).toHaveBeenCalledWith(
         dto.email,
+        'hashed-password',
+      );
+    });
+
+    it('normalizes email before creating user (trims and lowercases)', async () => {
+      const dirtyDto = {
+        email: '  NEW@Example.COM  ',
+        password: 'password123',
+      };
+      bcryptMock.hash.mockResolvedValue('hashed-password' as never);
+      mockUsersService.create.mockResolvedValue({
+        id: 'user-123',
+        email: 'new@example.com',
+        passwordHash: 'hashed-password',
+        createdAt,
+        updatedAt,
+      });
+
+      await service.register(dirtyDto);
+
+      expect(mockUsersService.create).toHaveBeenCalledWith(
+        'new@example.com',
         'hashed-password',
       );
     });
@@ -230,6 +252,25 @@ describe('AuthService', () => {
         session_id: result.sessionId,
       });
     });
+
+    it('normalizes email before lookup (trims and lowercases)', async () => {
+      const dirtyDto = { email: '  User@Example.COM  ', password: 'password123' };
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'user-123',
+        passwordHash: 'hashed-pw',
+      });
+      bcryptMock.compare.mockResolvedValue(true as never);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      mockRedisService.set.mockResolvedValue('OK');
+      mockRedisService.sadd.mockResolvedValue(1);
+      mockJwtService.sign.mockReturnValue('access-token');
+
+      await service.login(dirtyDto, 'agent', 'ip');
+
+      expect(mockUsersService.findByEmail).toHaveBeenCalledWith(
+        'user@example.com',
+      );
+    });
   });
 
   // ─── loginMobile ─────────────────────────────────────────────────────────
@@ -288,6 +329,26 @@ describe('AuthService', () => {
 
       await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
         'Invalid credentials',
+      );
+    });
+
+    it('normalizes email before lookup (trims and lowercases)', async () => {
+      const dirtyDto = { email: '  User@Example.COM  ', password: 'password123' };
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'user-123',
+        email: 'user@example.com',
+        passwordHash: 'hashed-pw',
+      });
+      bcryptMock.compare.mockResolvedValue(true as never);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      mockRedisService.set.mockResolvedValue('OK');
+      mockRedisService.sadd.mockResolvedValue(1);
+      mockJwtService.sign.mockReturnValue('access-token');
+
+      await service.loginMobile(dirtyDto, 'agent', 'ip');
+
+      expect(mockUsersService.findByEmail).toHaveBeenCalledWith(
+        'user@example.com',
       );
     });
   });
