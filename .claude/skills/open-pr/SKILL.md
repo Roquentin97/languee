@@ -17,8 +17,9 @@ PR-opening context, this is the skill.
   operations unless the human explicitly overrides this skill for the current task.
 - Local git inspection and commit preparation are allowed: `git status`, `git diff`,
   `git log`, `git add`, and `git commit`.
-- Do not open the PR until all affected app versions are bumped and every required
-  `make cc <affected-service>` command passes.
+- Do not open the PR until every required `make cc <affected-service>` command passes.
+- Do not manually bump app versions, version files, or changelogs in feature PRs unless
+  the human explicitly asks for a release/versioning change.
 - Do not open the PR for endpoint changes until the matching Bruno collection entries
   and Swagger/OpenAPI schema metadata are updated.
 - If GitHub MCP is unavailable, stop and report that the PR cannot be opened safely.
@@ -35,24 +36,26 @@ cross-service contract changes:
   Use the spec and changed behavior to decide. If no app service can be determined,
   treat all three services as affected unless the human explicitly narrows the scope.
 
-## Version bump
+## Release Please
 
-Every PR must include an app version bump before opening. Bump the app version for every
-affected service; for shared/root/tooling-only changes with no narrower service scope,
-bump all three services.
+Release Please owns app SemVer updates and changelog generation. Ordinary feature, fix,
+docs, test, refactor, CI, and dependency PRs must not edit these files only to bump a
+version:
 
-- `languee-back`: bump `APP_VERSION` in
-  `apps/languee-back/src/modules/health/health.service.ts`.
-- `languee-nlp`: bump `VERSION` in
-  `apps/languee-nlp/src/languee_nlp/constants.py`.
-- `languee-droid`: bump both Android app version fields in
-  `apps/languee-droid/app/build.gradle.kts`:
-  - increment `defaultConfig.versionCode` by 1
-  - patch-bump `defaultConfig.versionName`; if it has no patch component, use the next
-    patch version, for example `1.0` -> `1.0.1`
+- `apps/languee-back/version.txt`
+- `apps/languee-back/CHANGELOG.md`
+- `apps/languee-back/src/modules/health/health.service.ts`
+- `apps/languee-nlp/version.txt`
+- `apps/languee-nlp/CHANGELOG.md`
+- `apps/languee-nlp/src/languee_nlp/constants.py`
+- `apps/languee-droid/version.txt`
+- `apps/languee-droid/CHANGELOG.md`
+- `apps/languee-droid/app/build.gradle.kts` when changing only `versionName`
 
-Default to a patch bump unless the human explicitly requests a different version.
-Include the version bump in the PR branch before verification and publication.
+Use release-please-compatible Conventional Commits so release PRs can derive the correct
+SemVer bump: `fix` and `deps` for patch, `feat` for minor, and `!` or a
+`BREAKING CHANGE` footer for major. Android `versionCode` is not a SemVer field; change
+it only for an explicit release/publication task or dedicated automation.
 
 ## Endpoint documentation
 
@@ -93,10 +96,10 @@ Use these defaults unless the human or spec says otherwise:
 
 - Base branch: `develop`
 - Head branch: use the Conventional Commit type as the branch prefix
-  (`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, or `ci/`)
+  (`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`, or `deps/`)
 - Title: Conventional Commit format
 - Body: include the spec description, target service or services, affected
-  modules/components, version bumps, and QA summary
+  modules/components, release impact, and QA summary
 
 After opening the PR through GitHub MCP, add a PR comment linking the source Notion spec
 when one exists:

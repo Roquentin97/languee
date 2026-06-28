@@ -85,7 +85,7 @@ Avoid brace expansion in shell commands.
 ## Branch, Commit, and PR Rules
 
 Agents may only push to branches with these prefixes:
-`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`.
+`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`, `deps/`.
 
 Never push directly to `master`, `develop`, `staging`, or any environment branch.
 Use GitHub MCP for every GitHub or remote operation, including branch publication and
@@ -93,10 +93,11 @@ PR creation. Do not use `gh`, `git pull`, `git fetch`, or `git push` unless the 
 explicitly overrides this rule for the current task.
 
 Whenever a workflow opens, creates, publishes, or prepares a PR, use
-`.claude/skills/open-pr/SKILL.md`. The skill requires app version bumps for affected
-services, treats shared/root/tooling-only changes as all-service changes unless the
-human narrows scope, and requires `make cc <affected-service>` for each affected service
-before PR creation.
+`.claude/skills/open-pr/SKILL.md`. The skill treats shared/root/tooling-only changes as
+all-service changes unless the human narrows scope, requires `make cc <affected-service>`
+for each affected service before PR creation, and keeps PR metadata compatible with
+Release Please. Do not manually bump app versions or changelogs in feature PRs; Release
+Please owns version and changelog updates through generated release PRs.
 
 All commits and PR titles must use Conventional Commits:
 
@@ -104,6 +105,9 @@ All commits and PR titles must use Conventional Commits:
 <type>(<scope>): <description>
 ```
 
-Allowed types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`.
+Allowed types: `feat`, `fix`, `deps`, `chore`, `docs`, `refactor`, `test`, `ci`.
+Release Please derives release impact from these messages: `fix` and `deps` trigger patch
+releases, `feat` triggers minor releases, and `!` or a `BREAKING CHANGE` footer triggers
+major releases. Do not hide user-facing fixes or features behind `chore`.
 PR bodies must include spec description, target service, affected modules/components,
-version bumps, and QA summary.
+release impact, and QA summary.

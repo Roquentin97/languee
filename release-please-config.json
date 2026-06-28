@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "pull-request-title-pattern": "chore(release): release${component} ${version}",
+  "group-pull-request-title-pattern": "chore(release): release ${branch}",
+  "packages": {
+    "apps/languee-back": {
+      "release-type": "simple",
+      "version-file": "version.txt",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "src/modules/health/health.service.ts"
+        }
+      ]
+    },
+    "apps/languee-nlp": {
+      "release-type": "simple",
+      "version-file": "version.txt",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "src/languee_nlp/constants.py"
+        }
+      ]
+    },
+    "apps/languee-droid": {
+      "release-type": "simple",
+      "version-file": "version.txt",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "app/build.gradle.kts"
+        }
+      ]
+    }
+  }
+}

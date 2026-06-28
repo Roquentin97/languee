@@ -103,7 +103,8 @@ def build_instructions(
             "skill": ".claude/skills/open-pr/SKILL.md",
             "requirement": (
                 "Use before opening or preparing a PR; it enforces GitHub MCP remote "
-                "operations, app version bumps, and make cc for affected services."
+                "operations, release-please-compatible PR metadata, and make cc for "
+                "affected services."
             ),
         },
     )
