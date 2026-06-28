@@ -22,7 +22,7 @@ describe('HealthController', () => {
 
   describe('getVersion', () => {
     it('should return application version', () => {
-      expect(healthController.getVersion()).toEqual({ version: '0.0.4' });
+      expect(healthController.getVersion()).toEqual({ version: '0.0.5' });
     });
   });
 });
