@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DictionaryService } from '../dictionary/dictionary.service';
 import { CardsService } from '../cards/cards.service';
 import { NlpService } from '../nlp/nlp.service';
@@ -12,6 +12,8 @@ import type {
 
 @Injectable()
 export class VocabularyService {
+  private readonly logger = new Logger(VocabularyService.name);
+
   constructor(
     private readonly dictionaryService: DictionaryService,
     private readonly cardsService: CardsService,
@@ -23,6 +25,18 @@ export class VocabularyService {
       input.word,
       input.context,
     );
+
+    this.logger.debug({
+      message: 'nlp result',
+      event: 'vocabulary.nlp_result',
+      method: this.lookup.name,
+      data: {
+        word: input.word,
+        lemma: nlpResult.lemma,
+        pos: nlpResult.pos,
+        isIrregular: nlpResult.isIrregular,
+      },
+    });
 
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
@@ -44,6 +58,18 @@ export class VocabularyService {
     const shouldFilterByPos =
       hasContext && !input.disablePosFiltering && mappedPos !== null;
 
+    this.logger.debug({
+      message: 'pos filter decision',
+      event: 'vocabulary.pos_filter_decision',
+      method: this.lookup.name,
+      data: {
+        shouldFilterByPos,
+        hasContext,
+        mappedPos,
+        totalDefinitions: baseOutput.definitions.length,
+      },
+    });
+
     // Filter definitions by POS only for context-aware lookups.
     const filteredDefinitions = shouldFilterByPos
       ? baseOutput.definitions.filter((def) => def.partOfSpeech === mappedPos)
@@ -52,6 +78,19 @@ export class VocabularyService {
     const filteredByPos = shouldFilterByPos;
     const unmatchedPos = filteredByPos && filteredDefinitions.length === 0;
 
+    if (unmatchedPos) {
+      this.logger.warn({
+        message: 'no definitions match pos',
+        event: 'vocabulary.no_definitions_match_pos',
+        method: this.lookup.name,
+        data: {
+          word: input.word,
+          mappedPos,
+          availablePartsOfSpeech,
+        },
+      });
+    }
+
     // Deck enrichment on filtered definitions
     const definitionIds = filteredDefinitions.map((d) => d.id);
 
@@ -59,6 +98,16 @@ export class VocabularyService {
       definitionIds,
       input.userId,
     );
+
+    this.logger.debug({
+      message: 'deck enrichment',
+      event: 'vocabulary.deck_enrichment',
+      method: this.lookup.name,
+      data: {
+        definitionCount: filteredDefinitions.length,
+        cardsFound: cards.length,
+      },
+    });
 
     const decksByDefinition = new Map<string, DeckRef[]>();
     for (const card of cards) {
@@ -79,6 +128,20 @@ export class VocabularyService {
         decks: decksByDefinition.get(def.id) ?? [],
       }),
     );
+
+    this.logger.log({
+      message: 'lookup complete',
+      event: 'vocabulary.lookup_complete',
+      method: this.lookup.name,
+      data: {
+        word: input.word,
+        lemma: baseOutput.lemma,
+        pos: mappedPos,
+        filteredByPos,
+        definitionCount: definitions.length,
+        unmatchedPos,
+      },
+    });
 
     return {
       input: input.word,

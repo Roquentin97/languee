@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
@@ -16,6 +16,8 @@ const DUMMY_HASH =
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
@@ -30,6 +32,13 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<Omit<User, 'passwordHash'>> {
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.usersService.create(dto.email, passwordHash);
+
+    this.logger.log({
+      message: 'user registered',
+      event: 'auth.user_registered',
+      method: this.register.name,
+      data: { userId: user.id, email: user.email },
+    });
 
     return {
       id: user.id,
@@ -53,6 +62,12 @@ export class AuthService {
     if (!user) {
       // Compare against dummy hash to prevent timing attacks
       await bcrypt.compare(dto.password, DUMMY_HASH);
+      this.logger.log({
+        message: 'user not found',
+        event: 'auth.user_not_found',
+        method: this.login.name,
+        data: { email: dto.email },
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -89,6 +104,13 @@ export class AuthService {
     const accessToken = this.jwtService.sign({
       sub: user.id,
       session_id: sessionId,
+    });
+
+    this.logger.log({
+      message: 'session created',
+      event: 'auth.session_created',
+      method: this.login.name,
+      data: { userId: user.id, sessionId, userAgent, ip },
     });
 
     return { accessToken, plainRefreshToken, sessionId };
@@ -110,6 +132,12 @@ export class AuthService {
     if (!user) {
       // Compare against dummy hash to prevent timing attacks
       await bcrypt.compare(dto.password, DUMMY_HASH);
+      this.logger.log({
+        message: 'user not found',
+        event: 'auth.user_not_found',
+        method: this.loginMobile.name,
+        data: { email: dto.email },
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -148,6 +176,13 @@ export class AuthService {
       session_id: sessionId,
     });
 
+    this.logger.log({
+      message: 'session created',
+      event: 'auth.session_created',
+      method: this.loginMobile.name,
+      data: { userId: user.id, sessionId, userAgent, ip },
+    });
+
     return {
       accessToken,
       plainRefreshToken,
@@ -163,12 +198,24 @@ export class AuthService {
   ): Promise<{ accessToken: string; plainRefreshToken: string }> {
     const raw = await this.redisService.get(`session:${sessionId}`);
     if (!raw) {
+      this.logger.warn({
+        message: 'session not found',
+        event: 'auth.session_not_found',
+        method: this.refresh.name,
+        data: { sessionId },
+      });
       throw new UnauthorizedException('Session not found');
     }
 
     const session: SessionData = JSON.parse(raw) as SessionData;
 
     if (session.revoked) {
+      this.logger.warn({
+        message: 'revoked session presented',
+        event: 'auth.revoked_session_presented',
+        method: this.refresh.name,
+        data: { sessionId, userId: session.userId },
+      });
       await this.revokeAllUserSessions(session.userId);
       throw new UnauthorizedException(
         'Refresh token reuse detected — all sessions revoked',
@@ -193,6 +240,13 @@ export class AuthService {
       (expiresAt.getTime() - now.getTime()) / 1000,
     );
 
+    this.logger.debug({
+      message: 'session expiry',
+      event: 'auth.session_expiry',
+      method: this.refresh.name,
+      data: { sessionId, expiresAt: session.expiresAt, remainingTtlSeconds: remainingTtl },
+    });
+
     const plainRefreshToken = randomUUID();
     const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
 
@@ -212,12 +266,25 @@ export class AuthService {
       session_id: sessionId,
     });
 
+    this.logger.log({
+      message: 'token rotated',
+      event: 'auth.token_rotated',
+      method: this.refresh.name,
+      data: { userId: session.userId, sessionId, remainingTtlSeconds: remainingTtl },
+    });
+
     return { accessToken, plainRefreshToken };
   }
 
   async logout(sessionId: string): Promise<void> {
     const raw = await this.redisService.get(`session:${sessionId}`);
     if (!raw) {
+      this.logger.log({
+        message: 'session not found',
+        event: 'auth.session_not_found',
+        method: this.logout.name,
+        data: { sessionId },
+      });
       return;
     }
 
@@ -236,10 +303,23 @@ export class AuthService {
       remainingTtl,
     );
     await this.redisService.srem(`user_sessions:${session.userId}`, sessionId);
+
+    this.logger.log({
+      message: 'session revoked',
+      event: 'auth.session_revoked',
+      method: this.logout.name,
+      data: { userId: session.userId, sessionId },
+    });
   }
 
   async logoutAll(userId: string): Promise<void> {
     await this.revokeAllUserSessions(userId);
+    this.logger.log({
+      message: 'all sessions revoked',
+      event: 'auth.all_sessions_revoked',
+      method: this.logoutAll.name,
+      data: { userId },
+    });
   }
 
   async getSessions(
@@ -270,6 +350,13 @@ export class AuthService {
     const sessionIds = await this.redisService.smembers(
       `user_sessions:${userId}`,
     );
+
+    this.logger.debug({
+      message: 'revoking sessions',
+      event: 'auth.revoking_sessions',
+      method: this.revokeAllUserSessions.name,
+      data: { userId, sessionCount: sessionIds.length },
+    });
 
     await Promise.all(
       sessionIds.map(async (id) => {

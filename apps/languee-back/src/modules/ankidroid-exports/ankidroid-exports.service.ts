@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type {
   CardAnkiDroidExport,
@@ -18,6 +18,8 @@ export type ExportWithAttempts = CardAnkiDroidExport & {
 
 @Injectable()
 export class AnkiDroidExportsService {
+  private readonly logger = new Logger(AnkiDroidExportsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cardsService: CardsService,
@@ -28,6 +30,12 @@ export class AnkiDroidExportsService {
     cardId: string,
   ): Promise<{ export: CardAnkiDroidExport; created: boolean }> {
     const card = await this.cardsService.findOneByIdAndUserId(cardId, userId);
+    this.logger.debug({
+      message: 'card ownership check',
+      event: 'ankidroid.card_ownership_check',
+      method: this.getOrCreateExportForCard.name,
+      data: { cardId, userId, found: card !== null },
+    });
     if (card === null) {
       throw new CardNotFoundOrNotOwnedError();
     }
@@ -36,6 +44,12 @@ export class AnkiDroidExportsService {
       where: { cardId },
     });
     if (existing !== null) {
+      this.logger.log({
+        message: 'export record found',
+        event: 'ankidroid.export_record_found',
+        method: this.getOrCreateExportForCard.name,
+        data: { exportId: existing.id, cardId, status: existing.status },
+      });
       return { export: existing, created: false };
     }
 
@@ -43,12 +57,24 @@ export class AnkiDroidExportsService {
       const created = await this.prisma.cardAnkiDroidExport.create({
         data: { cardId, status: 'pending' },
       });
+      this.logger.log({
+        message: 'export record created',
+        event: 'ankidroid.export_record_created',
+        method: this.getOrCreateExportForCard.name,
+        data: { exportId: created.id, cardId },
+      });
       return { export: created, created: true };
     } catch (err: unknown) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
+        this.logger.warn({
+          message: 'concurrent creation detected',
+          event: 'ankidroid.concurrent_creation',
+          method: this.getOrCreateExportForCard.name,
+          data: { cardId },
+        });
         // Concurrent creation — re-fetch the existing record
         const refetched = await this.prisma.cardAnkiDroidExport.findUnique({
           where: { cardId },
@@ -146,6 +172,30 @@ export class AnkiDroidExportsService {
         include: { attempts: { orderBy: { attemptedAt: 'desc' } } },
       }),
     ]);
+
+    if (dto.status === 'completed') {
+      this.logger.log({
+        message: 'export completed',
+        event: 'ankidroid.export_completed',
+        method: this.recordAttempt.name,
+        data: {
+          exportId,
+          ankiNoteId: dto.ankiNoteId,
+          ankiDeckId: dto.ankiDeckId,
+        },
+      });
+    } else {
+      this.logger.log({
+        message: 'export attempt failed',
+        event: 'ankidroid.export_attempt_failed',
+        method: this.recordAttempt.name,
+        data: {
+          exportId,
+          failureReason: dto.failureReason,
+          failureMessage: dto.failureMessage,
+        },
+      });
+    }
 
     return updatedExport;
   }

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import type {
@@ -17,6 +17,8 @@ import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 @Injectable()
 export class DictionaryService {
+  private readonly logger = new Logger(DictionaryService.name);
+
   constructor(
     private readonly wordsService: WordsService,
     private readonly definitionService: DefinitionService,
@@ -47,9 +49,30 @@ export class DictionaryService {
               ? (row.inflectionForms as InflectionForms)
               : null,
         }));
+        this.logger.log({
+          message: 'cache hit',
+          event: 'dictionary.cache_hit',
+          method: this.lookup.name,
+          data: {
+            lemma,
+            language: input.language,
+            definitionCount: rows.length,
+          },
+        });
         return { lemma, source: 'cache', definitions };
       }
     }
+
+    this.logger.log({
+      message: 'cache miss',
+      event: 'dictionary.cache_miss',
+      method: this.lookup.name,
+      data: {
+        lemma,
+        language: input.language,
+        wordFoundInDb: word !== null,
+      },
+    });
 
     const savedWord = await this.wordsService.ensureExistsAndReturn(
       lemma,
@@ -57,6 +80,15 @@ export class DictionaryService {
     );
     const rawEntries = await this.adapter.fetch(lemma, input.language);
     if (rawEntries.length === 0) {
+      this.logger.warn({
+        message: 'provider returned no definitions',
+        event: 'dictionary.no_definitions',
+        method: this.lookup.name,
+        data: {
+          lemma,
+          language: input.language,
+        },
+      });
       throw new DefinitionsNotFoundException(lemma, input.language);
     }
 
@@ -84,6 +116,17 @@ export class DictionaryService {
           ? (row.inflectionForms as InflectionForms)
           : null,
     }));
+
+    this.logger.log({
+      message: 'definitions saved',
+      event: 'dictionary.definitions_saved',
+      method: this.lookup.name,
+      data: {
+        lemma,
+        savedCount: rows.length,
+        provider: this.adapter.providerName,
+      },
+    });
 
     return { lemma, source: 'provider', definitions };
   }
