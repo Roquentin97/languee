@@ -1,7 +1,11 @@
+import logging
+
 import spacy.tokens
 from lemminflect import getInflection
 
 from languee_nlp.schemas import FormsResult, MorphologyResult, TokenResult
+
+logger = logging.getLogger(__name__)
 
 
 def _build_morphology(token: spacy.tokens.Token) -> MorphologyResult:
@@ -60,6 +64,14 @@ def _build_forms(token: spacy.tokens.Token) -> FormsResult:
             adj_comparative=_first(getInflection(lemma, tag="JJR")),
             adj_superlative=_first(getInflection(lemma, tag="JJS")),
         )
+    logger.debug(
+        "no forms for pos",
+        extra={
+            "event": "nlp.no_forms_for_pos",
+            "method": _build_forms.__name__,
+            "data": {"pos": pos},
+        },
+    )
     return FormsResult(
         verb_base=None,
         verb_past=None,
@@ -92,24 +104,51 @@ def _is_irregular(token: spacy.tokens.Token) -> bool:
         verb_form = morph.get("VerbForm")
         if tense == "Past" or verb_form == "Part":
             regular = text == lemma + "ed" or text == lemma + "d"
+            if not regular:
+                logger.debug(
+                    "irregular form detected",
+                    extra={
+                        "event": "nlp.irregular_form_detected",
+                        "method": _is_irregular.__name__,
+                        "data": {"text": text, "lemma": lemma, "pos": pos},
+                    },
+                )
             return not regular
     elif pos == "NOUN":
         number = morph.get("Number")
         if number == "Plur":
             ends_with_y = lemma.endswith("y") and text == lemma[:-1] + "ies"
             regular = text == lemma + "s" or text == lemma + "es" or ends_with_y
+            if not regular:
+                logger.debug(
+                    "irregular form detected",
+                    extra={
+                        "event": "nlp.irregular_form_detected",
+                        "method": _is_irregular.__name__,
+                        "data": {"text": text, "lemma": lemma, "pos": pos},
+                    },
+                )
             return not regular
     elif pos in ("ADJ", "ADV"):
         degree = morph.get("Degree")
         if degree == "Cmp" or degree == "Sup":
             regular = text == lemma + "er" or text == lemma + "est"
+            if not regular:
+                logger.debug(
+                    "irregular form detected",
+                    extra={
+                        "event": "nlp.irregular_form_detected",
+                        "method": _is_irregular.__name__,
+                        "data": {"text": text, "lemma": lemma, "pos": pos},
+                    },
+                )
             return not regular
 
     return False
 
 
 def analyze_single_token(token: spacy.tokens.Token) -> TokenResult:
-    return TokenResult(
+    result = TokenResult(
         text=token.text,
         lemma=token.lemma_,
         pos=token.pos_,
@@ -117,3 +156,17 @@ def analyze_single_token(token: spacy.tokens.Token) -> TokenResult:
         morphology=_build_morphology(token),
         forms=_build_forms(token),
     )
+    logger.info(
+        "token analyzed",
+        extra={
+            "event": "nlp.token_analyzed",
+            "method": analyze_single_token.__name__,
+            "data": {
+                "text": result.text,
+                "lemma": result.lemma,
+                "pos": result.pos,
+                "is_irregular": result.is_irregular,
+            },
+        },
+    )
+    return result
