@@ -38,6 +38,6 @@ export const configuration = () => ({
     samplerArg: parseFloat(process.env['OTEL_TRACES_SAMPLER_ARG'] ?? '1.0'),
   },
   dictionary: {
-    provider: process.env['DICTIONARY_PROVIDER'] ?? 'freedictionaryapi',
+    provider: process.env['DICTIONARY_PROVIDER'] ?? 'wiktionary',
   },
 });

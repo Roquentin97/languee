@@ -153,10 +153,16 @@ describe('configuration()', () => {
       expect(result.dictionary.provider).toBe('dictionaryapi_dev');
     });
 
-    it('defaults dictionary.provider to "freedictionaryapi" when DICTIONARY_PROVIDER is not set', () => {
+    it('reads DICTIONARY_PROVIDER env var when set to "wiktionary"', () => {
+      process.env['DICTIONARY_PROVIDER'] = 'wiktionary';
+      const result = configuration();
+      expect(result.dictionary.provider).toBe('wiktionary');
+    });
+
+    it('defaults dictionary.provider to "wiktionary" when DICTIONARY_PROVIDER is not set', () => {
       delete process.env['DICTIONARY_PROVIDER'];
       const result = configuration();
-      expect(result.dictionary.provider).toBe('freedictionaryapi');
+      expect(result.dictionary.provider).toBe('wiktionary');
     });
   });
 });
