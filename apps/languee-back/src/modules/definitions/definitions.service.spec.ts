@@ -64,6 +64,41 @@ describe('DefinitionService', () => {
     await module.close();
   });
 
+  describe('findManyByIds', () => {
+    it('returns thin definition summaries with word lemma/kind for the given ids', async () => {
+      const rows = [
+        {
+          id: 'def-1',
+          partOfSpeech: 'verb',
+          definition: 'move at a fast pace',
+          word: { lemma: 'run', kind: 'word' },
+        },
+      ];
+      prismaMock.definition.findMany.mockResolvedValue(rows);
+
+      const result = await service.findManyByIds(['def-1']);
+
+      expect(result).toEqual(rows);
+      expect(prismaMock.definition.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['def-1'] } },
+        select: {
+          id: true,
+          partOfSpeech: true,
+          definition: true,
+          word: { select: { lemma: true, kind: true } },
+        },
+      });
+    });
+
+    it('returns an empty array when no ids match', async () => {
+      prismaMock.definition.findMany.mockResolvedValue([]);
+
+      const result = await service.findManyByIds(['nonexistent-id']);
+
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('findByWordId', () => {
     it('returns all definitions for the given wordId', async () => {
       const rows = [
