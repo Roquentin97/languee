@@ -1,0 +1,46 @@
+meta {
+  name: Create User Definition
+  type: http
+  seq: 5
+  tags: [
+    vocabulary
+  ]
+}
+
+post {
+  url: {{base_url}}/api/v1/vocabulary/definitions
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "text": "run into",
+    "language": "en",
+    "kind": "phrasal_verb",
+    "definition": "to encounter someone or something unexpectedly",
+    "example": "I ran into an old friend yesterday."
+  }
+}
+
+tests {
+  test("creates or conflicts on a user-provided definition", function() {
+    expect(res.status).to.be.oneOf([201, 409]);
+  });
+
+  test("returns the created definition shape on success", function() {
+    if (res.status === 201) {
+      expect(res.body.id).to.be.a("string");
+      expect(res.body.wordId).to.be.a("string");
+      expect(res.body.lemma).to.be.a("string");
+      expect(["word", "phrasal_verb", "expression"]).to.include(res.body.kind);
+      expect(res.body.partOfSpeech).to.be.a("string");
+      expect(res.body.definition).to.be.a("string");
+      expect(res.body.provider).to.equal("user");
+    }
+  });
+}

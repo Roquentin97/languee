@@ -1,8 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
+import {
+  NlpExpressionInvalidError,
+  NlpMultiWordError,
+  NlpUnavailableError,
+} from './nlp.errors';
 import { NlpService } from './nlp.service';
-import type { NlpWordResponse } from './nlp.interfaces';
+import type { NlpExpressionResponse, NlpWordResponse } from './nlp.interfaces';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 // ---------------------------------------------------------------------------
@@ -111,6 +115,22 @@ function makeAdjResponse(): NlpWordResponse {
         },
       },
     ],
+  };
+}
+
+function makeExpressionResponse(
+  overrides: Partial<NlpExpressionResponse> = {},
+): NlpExpressionResponse {
+  return {
+    input_text: 'ran into',
+    canonical: 'run into',
+    kind: 'phrasal_verb',
+    head_lemma: 'run',
+    tokens: [
+      { text: 'ran', lemma: 'run', pos: 'VERB' },
+      { text: 'into', lemma: 'into', pos: 'ADP' },
+    ],
+    ...overrides,
   };
 }
 
@@ -475,6 +495,199 @@ describe('NlpService', () => {
 
       const url = getFirstFetchUrl(mockFetch);
       expect(url.searchParams.get('word')).toBe('walk');
+      expect(url.searchParams.has('input_text')).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // analyzeExpression()
+  // -------------------------------------------------------------------------
+
+  describe('analyzeExpression() — happy paths', () => {
+    it('maps canonical, kind, and headLemma from the NLP response', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeExpression('ran into');
+
+      expect(result.canonical).toBe('run into');
+      expect(result.kind).toBe('phrasal_verb');
+      expect(result.headLemma).toBe('run');
+      expect(result.contextMatch).toBeNull();
+    });
+
+    it('maps kind "expression" from the NLP response', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            makeExpressionResponse({
+              input_text: 'kick the bucket',
+              canonical: 'kick the bucket',
+              kind: 'expression',
+              head_lemma: 'kick',
+            }),
+          ),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeExpression('kick the bucket');
+
+      expect(result.kind).toBe('expression');
+    });
+
+    it('maps context_match to contextMatch when context is provided', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            makeExpressionResponse({
+              context_match: {
+                found: true,
+                matched_text: 'ran into',
+                start: 5,
+                end: 13,
+                confidence: 'high',
+              },
+            }),
+          ),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeExpression(
+        'ran into',
+        'I ran into an old friend.',
+      );
+
+      expect(result.contextMatch).toEqual({
+        found: true,
+        matchedText: 'ran into',
+        confidence: 'high',
+      });
+    });
+
+    it('contextMatch is null when the NLP response omits context_match', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeExpression('ran into');
+
+      expect(result.contextMatch).toBeNull();
+    });
+
+    it('sends the expression as a query parameter to /expressions', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeExpression('ran into');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.pathname).toBe('/expressions');
+      expect(url.searchParams.get('expression')).toBe('ran into');
+      expect(url.searchParams.has('input_text')).toBe(false);
+    });
+
+    it('sends context as input_text query parameter when provided', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeExpression('ran into', 'I ran into an old friend.');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('input_text')).toBe(
+        'I ran into an old friend.',
+      );
+    });
+
+    it('sends correct Basic auth Authorization header', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await service.analyzeExpression('ran into');
+
+      const expectedCredentials = Buffer.from('user:pass').toString('base64');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/expressions?expression=ran'),
+        expect.objectContaining({
+          headers: { Authorization: `Basic ${expectedCredentials}` },
+        }),
+      );
+    });
+  });
+
+  describe('analyzeExpression() — error cases', () => {
+    it('400 response throws NlpExpressionInvalidError', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({}),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(
+        service.analyzeExpression('a b c d e f g'),
+      ).rejects.toBeInstanceOf(NlpExpressionInvalidError);
+    });
+
+    it('non-400, non-2xx response throws NlpUnavailableError', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: () => Promise.resolve({}),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(
+        service.analyzeExpression('ran into'),
+      ).rejects.toBeInstanceOf(NlpUnavailableError);
+    });
+
+    it('network failure (fetch throws) throws NlpUnavailableError', async () => {
+      const mockFetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(
+        service.analyzeExpression('ran into'),
+      ).rejects.toBeInstanceOf(NlpUnavailableError);
+    });
+
+    it('network failure wraps original error as cause', async () => {
+      const cause = new Error('ECONNREFUSED');
+      const mockFetch = jest.fn().mockRejectedValue(cause);
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const err = await service
+        .analyzeExpression('ran into')
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(NlpUnavailableError);
+      expect((err as NlpUnavailableError).cause).toBe(cause);
+    });
+
+    it('blank context is omitted from the NLP request', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeExpression('ran into', '   ');
+
+      const url = getFirstFetchUrl(mockFetch);
       expect(url.searchParams.has('input_text')).toBe(false);
     });
   });

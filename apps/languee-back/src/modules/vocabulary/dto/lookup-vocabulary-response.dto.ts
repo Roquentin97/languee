@@ -46,6 +46,15 @@ export class LookupVocabularyMetaDto {
 
   @ApiProperty({ enum: PartOfSpeech, isArray: true, example: ['verb'] })
   availablePartsOfSpeech!: PartOfSpeech[];
+
+  @ApiProperty({ example: false })
+  isExpression!: boolean;
+
+  @ApiProperty({ example: false })
+  providerMiss!: boolean;
+
+  @ApiProperty({ example: null, nullable: true })
+  expressionContextFound!: boolean | null;
 }
 
 export class LookupVocabularyResponseDto {
@@ -57,6 +66,12 @@ export class LookupVocabularyResponseDto {
 
   @ApiProperty({ example: 'run' })
   lemma!: string;
+
+  @ApiProperty({
+    enum: ['word', 'phrasal_verb', 'expression'],
+    example: 'word',
+  })
+  kind!: 'word' | 'phrasal_verb' | 'expression';
 
   @ApiProperty({
     enum: PartOfSpeech,

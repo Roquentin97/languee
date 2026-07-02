@@ -77,6 +77,7 @@ export class DictionaryService {
     const savedWord = await this.wordsService.ensureExistsAndReturn(
       lemma,
       input.language,
+      input.kind,
     );
     const rawEntries = await this.adapter.fetch(lemma, input.language);
     if (rawEntries.length === 0) {

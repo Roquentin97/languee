@@ -46,7 +46,7 @@ export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
     let response: Response;
     try {
       response = await fetch(
-        `${FREE_DICTIONARY_API_BASE_URL}/entries/${language}/${lemma}`,
+        `${FREE_DICTIONARY_API_BASE_URL}/entries/${language}/${encodeURIComponent(lemma)}`,
       );
     } catch (err: unknown) {
       throw new ProviderUnavailableError(this.providerName, err);

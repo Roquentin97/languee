@@ -7,11 +7,17 @@ import {
   Length,
   Matches,
 } from 'class-validator';
+import { MaxWhitespaceTokens } from '../validators/token-limit.validator';
 
 export class LookupVocabularyDto {
-  @ApiProperty({ example: 'running', description: 'Word to look up' })
+  @ApiProperty({
+    example: 'running',
+    description:
+      'Word or expression to look up. Up to 6 whitespace-separated tokens are supported for idioms and phrasal verbs.',
+  })
   @IsString()
   @IsNotEmpty({ message: 'WORD_REQUIRED' })
+  @MaxWhitespaceTokens(6, { message: 'EXPRESSION_TOO_LONG' })
   word!: string;
 
   @ApiPropertyOptional({
