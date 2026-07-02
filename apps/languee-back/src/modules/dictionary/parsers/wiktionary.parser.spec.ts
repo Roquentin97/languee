@@ -179,6 +179,69 @@ describe('parseWiktionaryResponse', () => {
     expect(parseWiktionaryResponse({ en: 'not an array' }, 'en')).toEqual([]);
   });
 
+  it('parses an "es"-keyed body (Spanish section of an en.wiktionary.org entry)', () => {
+    const spanishFixture = {
+      es: [
+        {
+          partOfSpeech: 'Verb',
+          language: 'Spanish',
+          definitions: [
+            {
+              definition: 'To move faster than a walk.',
+              examples: ['Ella <b>corre</b> todos los días.'],
+            },
+          ],
+        },
+        {
+          partOfSpeech: 'Noun',
+          language: 'Spanish',
+          definitions: [{ definition: 'A running race.' }],
+        },
+      ],
+    };
+
+    const result = parseWiktionaryResponse(spanishFixture, 'es');
+
+    expect(result).toEqual([
+      {
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'To move faster than a walk.',
+        example: 'Ella corre todos los días.',
+      },
+      {
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'A running race.',
+      },
+    ]);
+  });
+
+  it('parses a "de"-keyed body (German section of an en.wiktionary.org entry)', () => {
+    const germanFixture = {
+      de: [
+        {
+          partOfSpeech: 'Verb',
+          language: 'German',
+          definitions: [
+            {
+              definition: 'To move on foot at a speed faster than walking.',
+              examples: ['Er <b>läuft</b> jeden Morgen.'],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = parseWiktionaryResponse(germanFixture, 'de');
+
+    expect(result).toEqual([
+      {
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: 'To move on foot at a speed faster than walking.',
+        example: 'Er läuft jeden Morgen.',
+      },
+    ]);
+  });
+
   it('skips a usage whose definitions field is not an array', () => {
     const result = parseWiktionaryResponse(
       { en: [{ partOfSpeech: 'Verb', definitions: 'nope' }] },

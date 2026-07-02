@@ -330,6 +330,123 @@ describe('NlpService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Language param and extraForms (Spanish, German)
+  // -------------------------------------------------------------------------
+
+  describe('analyzeWord() — language param and extraForms', () => {
+    it('defaults to language=en in the request URL when language is omitted', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeWord('walked');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('language')).toBe('en');
+    });
+
+    it('appends language=es to the request URL when language is "es"', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeWord('corro', undefined, 'es');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('word')).toBe('corro');
+      expect(url.searchParams.get('language')).toBe('es');
+    });
+
+    it('appends language=de to the request URL when language is "de"', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeWord('laufe', undefined, 'de');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('language')).toBe('de');
+    });
+
+    it('maps extra_forms from the NLP response into NlpAnalysis.extraForms for Spanish', async () => {
+      const response = makeVerbResponse();
+      response.tokens[0].extra_forms = {
+        indicative_present_yo: 'corro',
+        indicative_preterite_yo: 'corrí',
+      };
+
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(response),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeWord('corro', undefined, 'es');
+
+      expect(result.extraForms).toEqual({
+        indicative_present_yo: 'corro',
+        indicative_preterite_yo: 'corrí',
+      });
+    });
+
+    it('maps extra_forms from the NLP response into NlpAnalysis.extraForms for German', async () => {
+      const response = makeVerbResponse();
+      response.tokens[0].extra_forms = {
+        present_ich: 'laufe',
+        present_du: 'läufst',
+        partizip_ii: 'gelaufen',
+      };
+
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(response),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeWord('laufe', undefined, 'de');
+
+      expect(result.extraForms).toEqual({
+        present_ich: 'laufe',
+        present_du: 'läufst',
+        partizip_ii: 'gelaufen',
+      });
+    });
+
+    it('extraForms is null when the NLP response omits extra_forms (English)', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      const result = await service.analyzeWord('walked');
+
+      expect(result.extraForms).toBeNull();
+    });
+
+    it('extraForms is null when the NLP response sets extra_forms to null', async () => {
+      const response = makeVerbResponse();
+      response.tokens[0].extra_forms = null;
+
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(response),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyzeWord('walked');
+
+      expect(result.extraForms).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Error cases
   // -------------------------------------------------------------------------
 
@@ -627,6 +744,48 @@ describe('NlpService', () => {
           headers: { Authorization: `Basic ${expectedCredentials}` },
         }),
       );
+    });
+  });
+
+  describe('analyzeExpression() — language param', () => {
+    it('defaults to language=en in the request URL when language is omitted', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeExpression('ran into');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('language')).toBe('en');
+    });
+
+    it('appends language=es to the request URL when language is "es"', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeExpression('darse cuenta', undefined, 'es');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('expression')).toBe('darse cuenta');
+      expect(url.searchParams.get('language')).toBe('es');
+    });
+
+    it('appends language=de to the request URL when language is "de"', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyzeExpression('Bescheid geben', undefined, 'de');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('language')).toBe('de');
     });
   });
 

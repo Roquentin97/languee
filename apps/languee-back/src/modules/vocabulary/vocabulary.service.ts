@@ -61,6 +61,7 @@ export class VocabularyService {
     const nlpResult = await this.nlpService.analyzeWord(
       input.word,
       input.context,
+      input.language,
     );
 
     this.logger.debug({
@@ -75,13 +76,26 @@ export class VocabularyService {
       },
     });
 
+    // Non-English languages (Spanish, German, ...) carry their inflected
+    // forms in extraForms (keyed by form name) rather than the English
+    // lemminflect-derived inflectionForms shape. `type` is the language code
+    // itself so masking/answer-matching can treat every non-`type` key as an
+    // accepted form regardless of its name — no per-language branching.
+    const inflectionForms: InflectionForms | null =
+      nlpResult.extraForms !== null
+        ? ({
+            type: input.language as 'es' | 'de',
+            ...nlpResult.extraForms,
+          } as InflectionForms)
+        : nlpResult.inflectionForms;
+
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
       lemma: nlpResult.lemma,
       language: input.language,
       pos: nlpResult.pos ?? undefined,
       isIrregular: nlpResult.isIrregular,
-      inflectionForms: nlpResult.inflectionForms,
+      inflectionForms,
     });
 
     const mappedPos: PartOfSpeech | null = nlpResult.pos;
@@ -184,6 +198,7 @@ export class VocabularyService {
       input: input.word,
       context: input.context,
       lemma: baseOutput.lemma,
+      language: input.language,
       kind: 'word',
       partOfSpeech: mappedPos,
       definitions,
@@ -205,6 +220,7 @@ export class VocabularyService {
     const analysis = await this.nlpService.analyzeExpression(
       trimmedWord,
       input.context,
+      input.language,
     );
 
     this.logger.debug({
@@ -316,6 +332,7 @@ export class VocabularyService {
       input: input.word,
       context: input.context,
       lemma: analysis.canonical,
+      language: input.language,
       kind,
       partOfSpeech: null,
       definitions,
@@ -353,7 +370,11 @@ export class VocabularyService {
       if (tokens.length < 2 || tokens.length > 6) {
         throw new TextMustBeExpressionError();
       }
-      const analysis = await this.nlpService.analyzeExpression(input.text);
+      const analysis = await this.nlpService.analyzeExpression(
+        input.text,
+        undefined,
+        input.language,
+      );
       canonical = analysis.canonical;
       effectiveKind =
         analysis.kind === 'phrasal_verb'

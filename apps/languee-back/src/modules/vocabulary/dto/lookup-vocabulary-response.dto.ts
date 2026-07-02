@@ -68,6 +68,12 @@ export class LookupVocabularyResponseDto {
   lemma!: string;
 
   @ApiProperty({
+    example: 'en',
+    description: 'Effective ISO 639-1 language code used for this lookup.',
+  })
+  language!: string;
+
+  @ApiProperty({
     enum: ['word', 'phrasal_verb', 'expression'],
     example: 'word',
   })

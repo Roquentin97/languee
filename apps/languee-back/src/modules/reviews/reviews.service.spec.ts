@@ -276,8 +276,29 @@ describe('ReviewsService', () => {
           partOfSpeech: 'verb',
           kind: 'phrasal_verb',
           lemmaLength: 'run into'.length,
+          language: 'en',
         },
       });
+    });
+
+    it('prompt building — prompt.language reflects the card word language (Spanish)', async () => {
+      const spanishWord: Word = {
+        ...mockWord,
+        language: 'es',
+        lemma: 'correr',
+      };
+      const spanishCardWithDeck = {
+        ...mockCardWithDeck,
+        definition: { ...mockDefinition, word: spanishWord },
+      };
+      mockPrismaService.cardReviewState.findMany.mockResolvedValue([
+        { ...mockReviewState, card: spanishCardWithDeck },
+      ]);
+      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([]);
+
+      const result = await service.getQueue('user-id-1', { limit: 20 });
+
+      expect(result[0]?.prompt.language).toBe('es');
     });
   });
 

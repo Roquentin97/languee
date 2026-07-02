@@ -26,6 +26,7 @@ const mockUser: CurrentUserPayload = {
 const successOutput: LookupVocabularyOutput = {
   input: 'run',
   lemma: 'run',
+  language: 'en',
   kind: 'word',
   partOfSpeech: PartOfSpeech.VERB,
   definitions: [

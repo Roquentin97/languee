@@ -101,6 +101,7 @@ describe('ReviewsController', () => {
             partOfSpeech: 'verb',
             kind: 'phrasal_verb',
             lemmaLength: 8,
+            language: 'en',
           },
         },
       ]);
@@ -121,6 +122,7 @@ describe('ReviewsController', () => {
               partOfSpeech: 'verb',
               kind: 'phrasal_verb',
               lemmaLength: 8,
+              language: 'en',
             },
           },
         ],

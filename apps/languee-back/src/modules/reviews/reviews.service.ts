@@ -254,6 +254,7 @@ export class ReviewsService {
       partOfSpeech: card.definition.partOfSpeech,
       kind: word.kind,
       lemmaLength: word.lemma.length,
+      language: word.language,
     };
 
     return {

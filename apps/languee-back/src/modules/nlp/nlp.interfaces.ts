@@ -30,18 +30,21 @@ export type NlpToken = {
   pos: string;
   morphology: NlpTokenMorphology;
   forms: NlpTokenForms;
-} & Record<'is_irregular', boolean>;
+} & Record<'is_irregular', boolean> &
+  Partial<Record<'extra_forms', Record<string, string> | null>>;
 
 export type NlpWordResponse = {
   tokens: NlpToken[];
 } & Record<'input_text', string> &
-  Record<'is_multi_word', boolean>;
+  Record<'is_multi_word', boolean> &
+  Partial<Record<'language', string>>;
 
 export type NlpAnalysis = {
   lemma: string;
   pos: PartOfSpeech | null;
   isIrregular: boolean;
   inflectionForms: InflectionForms | null;
+  extraForms: Record<string, string> | null;
 };
 
 export type NlpExpressionKind = 'phrasal_verb' | 'expression';
@@ -65,7 +68,8 @@ export type NlpExpressionResponse = {
   tokens: NlpExpressionToken[];
 } & Record<'input_text', string> &
   Record<'head_lemma', string> &
-  Partial<Record<'context_match', NlpExpressionContextMatch>>;
+  Partial<Record<'context_match', NlpExpressionContextMatch>> &
+  Partial<Record<'language', string>>;
 
 export type NlpExpressionAnalysis = {
   canonical: string;

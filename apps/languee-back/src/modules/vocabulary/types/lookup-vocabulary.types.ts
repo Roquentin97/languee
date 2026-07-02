@@ -31,6 +31,7 @@ export type LookupVocabularyOutput = {
   input: string;
   context?: string;
   lemma: string;
+  language: string;
   kind: LookupVocabularyKind;
   partOfSpeech: PartOfSpeech | null;
   definitions: EnrichedDefinitionResult[];
