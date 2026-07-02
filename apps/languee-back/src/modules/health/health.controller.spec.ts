@@ -19,5 +19,4 @@ describe('HealthController', () => {
       expect(healthController.getHello()).toEqual({ success: true });
     });
   });
-
 });

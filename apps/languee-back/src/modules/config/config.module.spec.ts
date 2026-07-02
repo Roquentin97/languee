@@ -165,4 +165,30 @@ describe('configuration()', () => {
       expect(result.dictionary.provider).toBe('wiktionary');
     });
   });
+
+  describe('chat namespace', () => {
+    it('reads CHATBOT_PROVIDER env var when set to "stub"', () => {
+      process.env['CHATBOT_PROVIDER'] = 'stub';
+      const result = configuration();
+      expect(result.chat.botProvider).toBe('stub');
+    });
+
+    it('defaults chat.botProvider to "stub" when CHATBOT_PROVIDER is not set', () => {
+      delete process.env['CHATBOT_PROVIDER'];
+      const result = configuration();
+      expect(result.chat.botProvider).toBe('stub');
+    });
+
+    it('uses CHAT_ANALYSIS_INTERVAL_MS env var when set', () => {
+      process.env['CHAT_ANALYSIS_INTERVAL_MS'] = '5000';
+      const result = configuration();
+      expect(result.chat.analysisIntervalMs).toBe(5000);
+    });
+
+    it('defaults chat.analysisIntervalMs to 30000 when CHAT_ANALYSIS_INTERVAL_MS is not set', () => {
+      delete process.env['CHAT_ANALYSIS_INTERVAL_MS'];
+      const result = configuration();
+      expect(result.chat.analysisIntervalMs).toBe(30000);
+    });
+  });
 });
