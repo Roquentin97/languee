@@ -21,7 +21,7 @@ router = APIRouter(prefix="/expressions", tags=["expressions"])
 
 _MIN_TOKENS = 2
 _MAX_TOKENS = 6
-_SUPPORTED_LANGUAGES = {"en", "es"}
+_SUPPORTED_LANGUAGES = {"en", "es", "de"}
 
 
 def _validate_language(language: str) -> str:
@@ -68,7 +68,7 @@ def analyze_expression(
     ] = None,
     language: Annotated[
         str,
-        Query(description="Language of the expression: 'en' or 'es'."),
+        Query(description="Language of the expression: 'en', 'es', or 'de'."),
     ] = "en",
 ) -> JSONResponse:
     logger.debug(

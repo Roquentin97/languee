@@ -75,6 +75,15 @@ def test_get_nlp_caches_en_and_es_independently():
     assert first_es is second_es is es_model
 
 
+def test_get_nlp_uses_german_model_name_for_de():
+    mock_model = MagicMock()
+    with patch(
+        "languee_nlp.nlp.provider.spacy.load", return_value=mock_model
+    ) as mock_load:
+        get_nlp("de")
+    mock_load.assert_called_once_with("de_core_news_md")
+
+
 def test_get_nlp_rejects_unsupported_language():
     with pytest.raises(ValueError):
         get_nlp("fr")

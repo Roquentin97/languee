@@ -1,0 +1,25 @@
+meta {
+  name: Analyze Expression German
+  type: http
+  seq: 4
+  tags: [
+    expressions
+    german
+  ]
+}
+
+get {
+  url: {{base_url}}/expressions?expression=warten%20auf%20dich&language=de
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns expression analysis for German expression", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.language).to.equal("de");
+    expect(res.body.input_text).to.be.a("string");
+    expect(["phrasal_verb", "expression"]).to.include(res.body.kind);
+    expect(res.body.tokens).to.be.an("array");
+  });
+}

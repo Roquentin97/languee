@@ -3,6 +3,10 @@ import logging
 import spacy.tokens
 from lemminflect import getInflection
 
+from languee_nlp.nlp.german_inflections import (
+    build_german_extra_forms,
+    is_irregular_de,
+)
 from languee_nlp.nlp.spanish_inflections import (
     build_spanish_extra_forms,
     is_irregular_es,
@@ -180,6 +184,17 @@ def analyze_single_token(
             morphology=_build_morphology(token),
             forms=_null_forms(),
             extra_forms=build_spanish_extra_forms(token.lemma_, token.pos_, morph),
+        )
+    elif language == "de":
+        de_morph: dict[str, str] = token.morph.to_dict()
+        result = TokenResult(
+            text=token.text,
+            lemma=token.lemma_,
+            pos=token.pos_,
+            is_irregular=is_irregular_de(token.text, token.lemma_, de_morph),
+            morphology=_build_morphology(token),
+            forms=_null_forms(),
+            extra_forms=build_german_extra_forms(token.lemma_, token.pos_, de_morph),
         )
     else:
         result = TokenResult(

@@ -26,6 +26,13 @@ def classify_expression(tokens: list[spacy.tokens.Token], language: str = "en") 
     produce the "prt" dependency label. So for `language="es"`, only the
     "prt" dependency check applies, and ordinary Spanish verb+ADP sequences
     correctly fall through to "expression".
+
+    German (`language="de"`) is treated the same way: no English POS
+    fallback, but the "prt" dependency check remains meaningful because
+    spaCy's German models tag separable-verb particles (e.g. "gab ... auf"
+    for "aufgeben") with dep "prt", so German separable verbs classify as
+    "phrasal_verb" while ordinary verb+preposition sequences fall through
+    to "expression".
     """
     head = tokens[0]
     if head.pos_ != "VERB":

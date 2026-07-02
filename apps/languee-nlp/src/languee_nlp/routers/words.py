@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/words", tags=["words"])
 
-_SUPPORTED_LANGUAGES = {"en", "es"}
+_SUPPORTED_LANGUAGES = {"en", "es", "de"}
 
 
 def _validate_language(language: str) -> str:
@@ -210,7 +210,7 @@ def analyze_word(
     ] = None,
     language: Annotated[
         str,
-        Query(description="Language of the word: 'en' or 'es'."),
+        Query(description="Language of the word: 'en', 'es', or 'de'."),
     ] = "en",
 ) -> JSONResponse:
     logger.debug(
