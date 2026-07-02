@@ -190,5 +190,17 @@ describe('configuration()', () => {
       const result = configuration();
       expect(result.chat.analysisIntervalMs).toBe(30000);
     });
+
+    it('uses CHAT_PROGRESS_INTERVAL_MS env var when set', () => {
+      process.env['CHAT_PROGRESS_INTERVAL_MS'] = '15000';
+      const result = configuration();
+      expect(result.chat.progressIntervalMs).toBe(15000);
+    });
+
+    it('defaults chat.progressIntervalMs to 60000 when CHAT_PROGRESS_INTERVAL_MS is not set', () => {
+      delete process.env['CHAT_PROGRESS_INTERVAL_MS'];
+      const result = configuration();
+      expect(result.chat.progressIntervalMs).toBe(60000);
+    });
   });
 });

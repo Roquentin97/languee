@@ -18,6 +18,9 @@ const mockPrismaService = {
   chatConversation: {
     update: jest.fn(),
   },
+  chatAnalysisSnapshot: {
+    create: jest.fn(),
+  },
   $transaction: jest.fn(
     async (ops: unknown[]): Promise<unknown[]> => Promise.all(ops),
   ),
@@ -50,6 +53,21 @@ function getCreateManyArg(): CreateManyArg {
   return call[0] as CreateManyArg;
 }
 
+type SnapshotCreateArg = {
+  data: {
+    conversationId: string;
+    userMessageCount: number;
+    fingerprints: string[];
+    countsByType: Record<string, number>;
+  };
+};
+
+function getSnapshotCreateArg(): SnapshotCreateArg {
+  const call = mockPrismaService.chatAnalysisSnapshot.create.mock
+    .calls[0] as unknown[];
+  return call[0] as SnapshotCreateArg;
+}
+
 describe('ChatAnalysisService', () => {
   let service: ChatAnalysisService;
 
@@ -64,6 +82,7 @@ describe('ChatAnalysisService', () => {
       count: 0,
     });
     mockPrismaService.chatConversation.update.mockResolvedValue({});
+    mockPrismaService.chatAnalysisSnapshot.create.mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -232,5 +251,63 @@ describe('ChatAnalysisService', () => {
     const createManyCall = getCreateManyArg();
     const types = createManyCall.data.map((s) => s.type);
     expect(types).toContain('grammar');
+  });
+
+  describe('analysis snapshot', () => {
+    it('creates a snapshot in the same transaction with fingerprints and per-type counts', async () => {
+      mockPrismaService.chatMessage.findMany.mockResolvedValue([
+        { id: 'm1', content: 'i saw a elephant.' },
+      ]);
+      mockWordsService.findByLemma.mockResolvedValue(null);
+
+      await service.analyzeConversation('conv-1');
+
+      expect(
+        mockPrismaService.chatAnalysisSnapshot.create,
+      ).toHaveBeenCalledTimes(1);
+      const snapshotArg = getSnapshotCreateArg();
+      const createManyCall = getCreateManyArg();
+
+      expect(snapshotArg.data.conversationId).toBe('conv-1');
+      expect(snapshotArg.data.userMessageCount).toBe(1);
+      expect(snapshotArg.data.fingerprints).toHaveLength(
+        createManyCall.data.length,
+      );
+
+      const grammarSuggestion = createManyCall.data.find(
+        (s) => s.type === 'grammar',
+      );
+      expect(grammarSuggestion).toBeDefined();
+      const expectedGrammarFingerprint = `grammar:${String(
+        grammarSuggestion?.payload['rule'],
+      ).toLowerCase()}`;
+      expect(snapshotArg.data.fingerprints).toContain(
+        expectedGrammarFingerprint,
+      );
+
+      const grammarCount = createManyCall.data.filter(
+        (s) => s.type === 'grammar',
+      ).length;
+      expect(snapshotArg.data.countsByType).toEqual({
+        overused_word: 0,
+        grammar: grammarCount,
+        style: 0,
+      });
+    });
+
+    it('records an empty fingerprint list and zeroed counts when there are no suggestions', async () => {
+      mockPrismaService.chatMessage.findMany.mockResolvedValue([]);
+
+      await service.analyzeConversation('conv-1');
+
+      const snapshotArg = getSnapshotCreateArg();
+      expect(snapshotArg.data.fingerprints).toEqual([]);
+      expect(snapshotArg.data.userMessageCount).toBe(0);
+      expect(snapshotArg.data.countsByType).toEqual({
+        overused_word: 0,
+        grammar: 0,
+        style: 0,
+      });
+    });
   });
 });

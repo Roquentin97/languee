@@ -29,4 +29,5 @@ export const configValidationSchema = Joi.object({
     .default('wiktionary'),
   CHATBOT_PROVIDER: Joi.string().valid('stub').default('stub'),
   CHAT_ANALYSIS_INTERVAL_MS: Joi.number().integer().min(1000).default(30000),
+  CHAT_PROGRESS_INTERVAL_MS: Joi.number().integer().min(1000).default(60000),
 });

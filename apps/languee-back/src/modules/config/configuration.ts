@@ -46,5 +46,9 @@ export const configuration = () => ({
       process.env['CHAT_ANALYSIS_INTERVAL_MS'] ?? '30000',
       10,
     ),
+    progressIntervalMs: parseInt(
+      process.env['CHAT_PROGRESS_INTERVAL_MS'] ?? '60000',
+      10,
+    ),
   },
 });
