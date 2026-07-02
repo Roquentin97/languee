@@ -11,6 +11,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
     logger: new AppLogger('NestApplication'),
+    rawBody: true,
   });
   app.use(cookieParser());
   app.useGlobalPipes(

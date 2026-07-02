@@ -16,6 +16,7 @@ model User {
   cards            Card[]
   chatConversations ChatConversation[]
   chatProgressStats ChatProgressStat[]
+  subscription      Subscription?
 
   @@map("users")
 }
@@ -300,4 +301,44 @@ model ChatProgressStat {
 
   @@unique([userId, weekStart])
   @@map("chat_progress_stats")
+}
+
+enum SubscriptionTier {
+  free
+  plus
+  pro
+}
+
+enum SubscriptionStatus {
+  active
+  trialing
+  past_due
+  canceled
+  incomplete
+}
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId               String             @unique @map("user_id") @db.Uuid
+  user                 User               @relation(fields: [userId], references: [id])
+  tier                 SubscriptionTier   @default(free)
+  status               SubscriptionStatus @default(active)
+  stripeCustomerId     String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  currentPeriodEnd     DateTime?          @map("current_period_end") @db.Timestamptz
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("subscriptions")
+}
+
+model BillingEvent {
+  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  stripeEventId String   @unique @map("stripe_event_id")
+  type          String
+  payload       Json     @db.JsonB
+  processedAt   DateTime @default(now()) @map("processed_at") @db.Timestamptz
+
+  @@index([type])
+  @@map("billing_events")
 }

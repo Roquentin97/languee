@@ -1,4 +1,5 @@
 import { configuration } from './configuration';
+import { configValidationSchema } from './config.validation';
 
 describe('configuration()', () => {
   const ORIGINAL_ENV = process.env;
@@ -202,5 +203,88 @@ describe('configuration()', () => {
       const result = configuration();
       expect(result.chat.progressIntervalMs).toBe(60000);
     });
+  });
+
+  describe('billing namespace', () => {
+    it('uses STRIPE_* and BILLING_* env vars when set', () => {
+      process.env['STRIPE_SECRET_KEY'] = 'sk_test_123';
+      process.env['STRIPE_WEBHOOK_SECRET'] = 'whsec_123';
+      process.env['STRIPE_PRICE_PLUS'] = 'price_plus';
+      process.env['STRIPE_PRICE_PRO'] = 'price_pro';
+      process.env['BILLING_SUCCESS_URL'] = 'https://example.com/success';
+      process.env['BILLING_CANCEL_URL'] = 'https://example.com/cancel';
+
+      const result = configuration();
+      expect(result.billing.stripeSecretKey).toBe('sk_test_123');
+      expect(result.billing.stripeWebhookSecret).toBe('whsec_123');
+      expect(result.billing.stripePricePlus).toBe('price_plus');
+      expect(result.billing.stripePricePro).toBe('price_pro');
+      expect(result.billing.successUrl).toBe('https://example.com/success');
+      expect(result.billing.cancelUrl).toBe('https://example.com/cancel');
+    });
+
+    it('defaults all Stripe keys to empty string when unset', () => {
+      delete process.env['STRIPE_SECRET_KEY'];
+      delete process.env['STRIPE_WEBHOOK_SECRET'];
+      delete process.env['STRIPE_PRICE_PLUS'];
+      delete process.env['STRIPE_PRICE_PRO'];
+
+      const result = configuration();
+      expect(result.billing.stripeSecretKey).toBe('');
+      expect(result.billing.stripeWebhookSecret).toBe('');
+      expect(result.billing.stripePricePlus).toBe('');
+      expect(result.billing.stripePricePro).toBe('');
+    });
+
+    it('defaults successUrl and cancelUrl when unset', () => {
+      delete process.env['BILLING_SUCCESS_URL'];
+      delete process.env['BILLING_CANCEL_URL'];
+
+      const result = configuration();
+      expect(result.billing.successUrl).toBe(
+        'https://localhost/billing/success',
+      );
+      expect(result.billing.cancelUrl).toBe('https://localhost/billing/cancel');
+    });
+  });
+});
+
+describe('configValidationSchema — STRIPE_SECRET_KEY', () => {
+  function validateKey(key: string | undefined) {
+    const env: Record<string, string> = {
+      DATABASE_URL: 'postgres://host/db',
+      REDIS_HOST: 'localhost',
+      REDIS_PORT: '6379',
+      JWT_SECRET: 'a'.repeat(16),
+      BASIC_AUTH: 'admin',
+      BASIC_PASSWORD: 'secret',
+      LANGUEE_NLP_BASE_URL: 'http://localhost:8000',
+      LANGUEE_NLP_BASIC_AUTH_LOGIN: 'login',
+      LANGUEE_NLP_BASIC_AUTH_PASSWORD: 'pass',
+    };
+    if (key !== undefined) env['STRIPE_SECRET_KEY'] = key;
+    return configValidationSchema.validate(env, { abortEarly: false });
+  }
+
+  it('accepts a test-mode key ("sk_test_")', () => {
+    const { error } = validateKey('sk_test_abc123');
+    expect(error).toBeUndefined();
+  });
+
+  it('rejects a live key ("sk_live_") with a clear sandbox-only message', () => {
+    const { error } = validateKey('sk_live_abc123');
+    expect(error).toBeDefined();
+    expect(error?.message).toContain('sandbox-only');
+  });
+
+  it('rejects a key with neither prefix', () => {
+    const { error } = validateKey('not-a-stripe-key');
+    expect(error).toBeDefined();
+    expect(error?.message).toContain('sk_test_');
+  });
+
+  it('is fine when the key is absent entirely', () => {
+    const { error } = validateKey(undefined);
+    expect(error).toBeUndefined();
   });
 });
