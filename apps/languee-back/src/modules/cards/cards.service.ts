@@ -173,4 +173,26 @@ export class CardsService {
       },
     });
   }
+
+  findCardsWithoutReviewState(
+    userId: string,
+    deckId?: string,
+    limit?: number,
+  ): Promise<
+    Array<CardWithDefinitionAndWord & { deck: { id: string; name: string } }>
+  > {
+    return this.prisma.card.findMany({
+      where: {
+        userId,
+        ...(deckId !== undefined ? { deckId } : {}),
+        reviewState: { is: null },
+      },
+      include: {
+        definition: { include: { word: true } },
+        deck: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      ...(limit !== undefined ? { take: limit } : {}),
+    });
+  }
 }

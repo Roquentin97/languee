@@ -1,0 +1,22 @@
+meta {
+  name: Get Summary
+  type: http
+  seq: 1
+  tags: [
+    reviews
+  ]
+}
+
+get {
+  url: {{base_url}}/api/v1/reviews/summary
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns due and new counts", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.dueCount).to.be.a("number");
+    expect(res.body.newCount).to.be.a("number");
+  });
+}
