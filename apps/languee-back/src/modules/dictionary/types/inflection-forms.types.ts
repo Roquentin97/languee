@@ -23,10 +23,16 @@ export type NounInflections = {
   plural?: string;
 };
 
+export type ExpressionInflections = {
+  type: 'expression';
+  contextForm: string;
+};
+
 export type InflectionForms =
   | AdjectiveInflections
   | VerbInflections
-  | NounInflections;
+  | NounInflections
+  | ExpressionInflections;
 
 export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
   nullable: true,
@@ -61,6 +67,14 @@ export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
         type: { type: 'string', enum: ['noun'] },
         singular: { type: 'string', example: 'owl' },
         plural: { type: 'string', example: 'owls' },
+      },
+    },
+    {
+      type: 'object',
+      required: ['type', 'contextForm'],
+      properties: {
+        type: { type: 'string', enum: ['expression'] },
+        contextForm: { type: 'string', example: 'ran into' },
       },
     },
   ],

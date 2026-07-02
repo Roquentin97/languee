@@ -942,6 +942,57 @@ describe('VocabularyService', () => {
         expect(result.meta.expressionContextFound).toBe(true);
       });
 
+      it('populates expression inflectionForms with the matched context form when it differs from canonical', async () => {
+        mockNlpService.analyzeExpression.mockResolvedValue({
+          ...defaultExpressionAnalysis,
+          contextMatch: {
+            found: true,
+            matchedText: 'ran into',
+            confidence: 'high',
+          },
+        });
+        mockDictionaryService.lookup.mockResolvedValue(expressionBaseOutput);
+        mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
+          [],
+        );
+
+        const result = await service.lookup({
+          word: 'ran into',
+          language: 'en',
+          userId: 'user-id-1',
+          context: 'I ran into an old friend.',
+        });
+
+        expect(result.definitions[0].inflectionForms).toEqual({
+          type: 'expression',
+          contextForm: 'ran into',
+        });
+      });
+
+      it('leaves expression inflectionForms null when the matched context form equals the canonical form', async () => {
+        mockNlpService.analyzeExpression.mockResolvedValue({
+          ...defaultExpressionAnalysis,
+          contextMatch: {
+            found: true,
+            matchedText: 'run into',
+            confidence: 'high',
+          },
+        });
+        mockDictionaryService.lookup.mockResolvedValue(expressionBaseOutput);
+        mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
+          [],
+        );
+
+        const result = await service.lookup({
+          word: 'run into',
+          language: 'en',
+          userId: 'user-id-1',
+          context: 'I run into problems daily.',
+        });
+
+        expect(result.definitions[0].inflectionForms).toBeNull();
+      });
+
       it('expressionContextFound is null when no context is provided', async () => {
         mockNlpService.analyzeExpression.mockResolvedValue(
           defaultExpressionAnalysis,

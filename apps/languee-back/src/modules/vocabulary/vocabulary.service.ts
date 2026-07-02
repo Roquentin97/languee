@@ -25,6 +25,7 @@ import type {
   LookupVocabularyOutput,
 } from './types/lookup-vocabulary.types';
 import type { LookupWordOutput } from '../dictionary/types/lookup-word.types';
+import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 const USER_DEFINITION_PROVIDER = 'user';
 
@@ -269,6 +270,22 @@ export class VocabularyService {
       decksByDefinition.set(card.definitionId, existing);
     }
 
+    const hasContext = Boolean(input.context?.trim());
+    const expressionContextFound = hasContext
+      ? (analysis.contextMatch?.found ?? null)
+      : null;
+
+    // Carry the inflected surface form found in the context (e.g. "ran into"
+    // for canonical "run into") so cards created from this lookup can mask it
+    // in review prompts and accept it as a typed answer.
+    const matchedText = analysis.contextMatch?.matchedText;
+    const contextInflections: InflectionForms | null =
+      analysis.contextMatch?.found === true &&
+      typeof matchedText === 'string' &&
+      matchedText.trim().toLowerCase() !== analysis.canonical
+        ? { type: 'expression', contextForm: matchedText.trim() }
+        : null;
+
     const definitions: EnrichedDefinitionResult[] = baseOutput.definitions.map(
       (def) => ({
         id: def.id,
@@ -277,15 +294,10 @@ export class VocabularyService {
         example: def.example,
         provider: def.provider,
         hasIrregularForms: def.hasIrregularForms,
-        inflectionForms: def.inflectionForms,
+        inflectionForms: def.inflectionForms ?? contextInflections,
         decks: decksByDefinition.get(def.id) ?? [],
       }),
     );
-
-    const hasContext = Boolean(input.context?.trim());
-    const expressionContextFound = hasContext
-      ? (analysis.contextMatch?.found ?? null)
-      : null;
 
     this.logger.log({
       message: 'expression lookup complete',
