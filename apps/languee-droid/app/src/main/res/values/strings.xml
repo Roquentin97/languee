@@ -229,4 +229,30 @@
     <string name="chat_suggestions_empty">No suggestions yet — keep chatting!</string>
     <string name="chat_suggestions_refresh_description">Refresh suggestions</string>
     <string name="error_chat_suggestions_load_failed">Failed to load suggestions</string>
+
+    <!-- Chat: progress entry point -->
+    <string name="chat_progress_entry_description">Progress</string>
+
+    <!-- Progress screen -->
+    <string name="progress_screen_title">Progress</string>
+    <string name="progress_resolved_caption">suggestions resolved</string>
+    <string name="progress_stat_raised_label">Raised</string>
+    <string name="progress_stat_resolution_rate_label">Resolution rate</string>
+    <string name="progress_stat_messages_label">Messages sent</string>
+    <string name="progress_resolution_rate_value">%1$d%%</string>
+    <string name="progress_resolution_rate_unknown">—</string>
+    <string name="progress_by_type_title">By type</string>
+    <string name="progress_type_overused_word">word variety</string>
+    <string name="progress_type_grammar">grammar</string>
+    <string name="progress_type_style">style</string>
+    <string name="progress_type_ratio">%1$d/%2$d</string>
+    <string name="progress_type_bar_description">%1$s: %2$d of %3$d resolved</string>
+    <string name="progress_weekly_title">Last weeks</string>
+    <string name="progress_week_bar_description">Week of %1$s: %2$d raised, %3$d resolved</string>
+    <string name="progress_empty_state">No progress yet — chat with the practice bot and act on its suggestions.</string>
+    <string name="progress_empty_button">Back to chat</string>
+    <string name="progress_updated_footer">Updated %1$s</string>
+    <string name="progress_not_computed_footer">Not computed yet</string>
+    <string name="error_progress_load_failed">Failed to load progress</string>
+    <string name="progress_retry_button">Retry</string>
 </resources>

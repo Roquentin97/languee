@@ -72,3 +72,31 @@ data class SuggestionsResponseDto(
     val suggestions: List<ChatSuggestionDto>,
     val analyzedAt: String?,
 )
+
+data class ChatProgressTotalsDto(
+    val suggestionsRaised: Int,
+    val suggestionsResolved: Int,
+    val resolutionRate: Double?,
+    val userMessages: Int,
+    val activeConversations: Int,
+)
+
+data class ChatProgressByTypeDto(
+    val type: String,
+    val raised: Int,
+    val resolved: Int,
+)
+
+data class ChatProgressWeekDto(
+    val weekStart: String,
+    val raised: Int,
+    val resolved: Int,
+    val userMessages: Int,
+)
+
+data class ChatProgressResponseDto(
+    val totals: ChatProgressTotalsDto,
+    val byType: List<ChatProgressByTypeDto>,
+    val weeks: List<ChatProgressWeekDto>,
+    val computedAt: String?,
+)

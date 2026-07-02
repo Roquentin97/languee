@@ -46,3 +46,31 @@ data class SuggestionsResult(
     val analyzedAt: String?,
     val suggestions: List<ChatSuggestion>,
 )
+
+data class ProgressTotals(
+    val suggestionsRaised: Int,
+    val suggestionsResolved: Int,
+    val resolutionRate: Double?,
+    val userMessages: Int,
+    val activeConversations: Int,
+)
+
+data class ProgressByType(
+    val type: SuggestionType,
+    val raised: Int,
+    val resolved: Int,
+)
+
+data class ProgressWeek(
+    val weekStart: String,
+    val raised: Int,
+    val resolved: Int,
+    val userMessages: Int,
+)
+
+data class ChatProgress(
+    val totals: ProgressTotals,
+    val byType: List<ProgressByType>,
+    val weeks: List<ProgressWeek>,
+    val computedAt: String?,
+)

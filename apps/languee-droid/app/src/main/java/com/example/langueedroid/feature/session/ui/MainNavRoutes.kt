@@ -10,6 +10,7 @@ internal object MainNavRoutes {
     const val OFFLINE_QUEUE = "offline_queue"
     const val CHAT_LIST = "chat"
     const val CHAT_THREAD = "chat/{conversationId}"
+    const val PROGRESS = "progress"
 
     fun cardCreation(word: String, context: String?, offlineEntryId: String? = null, language: String = "en") =
         "card_creation/${encode(word)}/${encode(context ?: "")}/${encode(offlineEntryId ?: "")}/${encode(language)}"
