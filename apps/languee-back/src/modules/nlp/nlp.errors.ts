@@ -14,3 +14,10 @@ export class NlpMultiWordError extends Error {
     this.name = 'NlpMultiWordError';
   }
 }
+
+export class NlpExpressionInvalidError extends Error {
+  constructor() {
+    super('Expression input is invalid');
+    this.name = 'NlpExpressionInvalidError';
+  }
+}

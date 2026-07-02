@@ -255,7 +255,11 @@ export class AuthService {
       message: 'session expiry',
       event: 'auth.session_expiry',
       method: this.refresh.name,
-      data: { sessionId, expiresAt: session.expiresAt, remainingTtlSeconds: remainingTtl },
+      data: {
+        sessionId,
+        expiresAt: session.expiresAt,
+        remainingTtlSeconds: remainingTtl,
+      },
     });
 
     const plainRefreshToken = randomUUID();
@@ -281,7 +285,11 @@ export class AuthService {
       message: 'token rotated',
       event: 'auth.token_rotated',
       method: this.refresh.name,
-      data: { userId: session.userId, sessionId, remainingTtlSeconds: remainingTtl },
+      data: {
+        userId: session.userId,
+        sessionId,
+        remainingTtlSeconds: remainingTtl,
+      },
     });
 
     return { accessToken, plainRefreshToken };

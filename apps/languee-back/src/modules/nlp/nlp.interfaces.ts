@@ -43,3 +43,37 @@ export type NlpAnalysis = {
   isIrregular: boolean;
   inflectionForms: InflectionForms | null;
 };
+
+export type NlpExpressionKind = 'phrasal_verb' | 'expression';
+
+export type NlpExpressionToken = {
+  text: string;
+  lemma: string;
+  pos: string;
+};
+
+export type NlpExpressionContextMatch = {
+  found: boolean;
+  start: number;
+  end: number;
+  confidence: 'high' | 'low' | null;
+} & Record<'matched_text', string | null>;
+
+export type NlpExpressionResponse = {
+  canonical: string;
+  kind: NlpExpressionKind;
+  tokens: NlpExpressionToken[];
+} & Record<'input_text', string> &
+  Record<'head_lemma', string> &
+  Partial<Record<'context_match', NlpExpressionContextMatch>>;
+
+export type NlpExpressionAnalysis = {
+  canonical: string;
+  kind: NlpExpressionKind;
+  headLemma: string;
+  contextMatch: {
+    found: boolean;
+    matchedText: string | null;
+    confidence: 'high' | 'low' | null;
+  } | null;
+};

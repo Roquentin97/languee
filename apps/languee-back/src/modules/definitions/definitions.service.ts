@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import type { Definition as DbDefinition } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import type { RawDefinitionEntry } from '../dictionary/interfaces/dictionary-api-adapter.interface';
+import { DefinitionAlreadyExistsError } from './definitions.errors';
 
 export type { DbDefinition };
 
@@ -58,5 +59,36 @@ export class DefinitionService {
         }
       }),
     );
+  }
+
+  async createOne(
+    wordId: string,
+    entry: RawDefinitionEntry,
+    providerName: string,
+  ): Promise<DbDefinition> {
+    try {
+      return await this.prisma.definition.create({
+        data: {
+          wordId,
+          partOfSpeech: entry.partOfSpeech,
+          definition: entry.definition,
+          example: entry.example ?? null,
+          provider: providerName,
+          hasIrregularForms: entry.hasIrregularForms ?? false,
+          inflectionForms:
+            entry.inflectionForms != null
+              ? (entry.inflectionForms as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+        },
+      });
+    } catch (err: unknown) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new DefinitionAlreadyExistsError();
+      }
+      throw err;
+    }
   }
 }

@@ -26,6 +26,7 @@ const mockUser: CurrentUserPayload = {
 const successOutput: LookupVocabularyOutput = {
   input: 'run',
   lemma: 'run',
+  kind: 'word',
   partOfSpeech: PartOfSpeech.VERB,
   definitions: [
     {
@@ -43,6 +44,9 @@ const successOutput: LookupVocabularyOutput = {
     filteredByPos: true,
     unmatchedPos: false,
     availablePartsOfSpeech: [PartOfSpeech.VERB],
+    isExpression: false,
+    providerMiss: false,
+    expressionContextFound: null,
   },
 };
 

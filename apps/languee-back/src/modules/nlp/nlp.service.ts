@@ -1,9 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
-import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
+import {
+  NlpExpressionInvalidError,
+  NlpMultiWordError,
+  NlpUnavailableError,
+} from './nlp.errors';
 import type {
   NlpAnalysis,
+  NlpExpressionAnalysis,
+  NlpExpressionResponse,
   NlpTokenForms,
   NlpWordResponse,
 } from './nlp.interfaces';
@@ -100,6 +106,106 @@ export class NlpService {
       pos: mapSpacyPos(token.pos),
       isIrregular: token['is_irregular'],
       inflectionForms,
+    };
+  }
+
+  async analyzeExpression(
+    expression: string,
+    context?: string,
+  ): Promise<NlpExpressionAnalysis> {
+    this.logger.debug({
+      message: 'request',
+      event: 'nlp.expression_request',
+      method: this.analyzeExpression.name,
+      data: { expression, hasContext: Boolean(context?.trim()) },
+    });
+
+    const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
+    const login = this.configService.getOrThrow<string>('nlp.basicAuthLogin');
+    const password = this.configService.getOrThrow<string>(
+      'nlp.basicAuthPassword',
+    );
+
+    const credentials = Buffer.from(`${login}:${password}`).toString('base64');
+    const params = new URLSearchParams({ expression });
+    if (context?.trim()) {
+      params.set('input_text', context);
+    }
+
+    let response: Response;
+    const start = Date.now();
+    try {
+      response = await fetch(`${baseUrl}/expressions?${params.toString()}`, {
+        headers: { Authorization: `Basic ${credentials}` },
+      });
+    } catch (err: unknown) {
+      const span = trace.getActiveSpan();
+      if (err instanceof Error) {
+        span?.recordException(err);
+      }
+      span?.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: 'NLP service unavailable',
+      });
+      throw new NlpUnavailableError(err);
+    }
+
+    if (!response.ok) {
+      if (response.status === 400) {
+        trace.getActiveSpan()?.addEvent('nlp.expression_invalid', {
+          expression,
+        });
+        trace.getActiveSpan()?.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: 'NLP expression invalid',
+        });
+        this.logger.warn({
+          message: 'expression input rejected',
+          event: 'nlp.expression_invalid',
+          method: this.analyzeExpression.name,
+          data: { expression },
+        });
+        throw new NlpExpressionInvalidError();
+      }
+      trace.getActiveSpan()?.addEvent('nlp.response_error', {
+        'http.status_code': response.status,
+      });
+      trace.getActiveSpan()?.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: `NLP HTTP ${response.status}`,
+      });
+      throw new NlpUnavailableError();
+    }
+
+    const body = (await response.json()) as NlpExpressionResponse;
+    const durationMs = Date.now() - start;
+
+    const contextMatch = body.context_match
+      ? {
+          found: body.context_match.found,
+          matchedText: body.context_match.matched_text,
+          confidence: body.context_match.confidence,
+        }
+      : null;
+
+    this.logger.log({
+      message: 'expression analyzed',
+      event: 'nlp.expression_analyzed',
+      method: this.analyzeExpression.name,
+      duration_ms: durationMs,
+      data: {
+        expression,
+        canonical: body.canonical,
+        kind: body.kind,
+        headLemma: body.head_lemma,
+      },
+    });
+
+    return {
+      canonical: body.canonical,
+      kind: body.kind,
+      headLemma: body.head_lemma,
+      contextMatch,
     };
   }
 

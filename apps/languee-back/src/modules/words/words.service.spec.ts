@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
+import { LexicalKind, Prisma } from '@prisma/client';
 import { WordsService } from './words.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { Normalizer } from './nlp/normalizer';
@@ -92,7 +92,39 @@ describe('WordsService', () => {
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).toHaveBeenCalledWith({
-      data: { lemma: 'run', language: 'en' },
+      data: { lemma: 'run', language: 'en', kind: LexicalKind.word },
+    });
+  });
+
+  it('findOrCreate: defaults kind to LexicalKind.word when kind is not provided', async () => {
+    prismaMock.word.findUnique.mockResolvedValue(null);
+    prismaMock.word.create.mockResolvedValue(makeWord());
+
+    await service.ensureExistsAndReturn('run', 'en');
+
+    expect(prismaMock.word.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kind: LexicalKind.word }) as unknown,
+      }),
+    );
+  });
+
+  it('findOrCreate: sets kind on create when an explicit kind is provided', async () => {
+    prismaMock.word.findUnique.mockResolvedValue(null);
+    prismaMock.word.create.mockResolvedValue(makeWord({ lemma: 'run into' }));
+
+    await service.ensureExistsAndReturn(
+      'run into',
+      'en',
+      LexicalKind.phrasal_verb,
+    );
+
+    expect(prismaMock.word.create).toHaveBeenCalledWith({
+      data: {
+        lemma: 'run into',
+        language: 'en',
+        kind: LexicalKind.phrasal_verb,
+      },
     });
   });
 

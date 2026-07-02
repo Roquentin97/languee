@@ -9,6 +9,7 @@ import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import type { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 import type { InflectionForms } from './types/inflection-forms.types';
+import { LexicalKind } from '@prisma/client';
 
 const mockWord: Word = {
   id: 'word-id-1',
@@ -127,6 +128,7 @@ describe('DictionaryService', () => {
       expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
         'despite',
         'en',
+        undefined,
       );
       expect(result.source).toBe('provider');
       expect(result.lemma).toBe('despite');
@@ -197,6 +199,31 @@ describe('DictionaryService', () => {
       await service.lookup({ word: 'Despite', language: 'en' });
 
       expect(wordsServiceMock.canonicalise).toHaveBeenCalledWith('Despite');
+    });
+
+    it('forwards input.kind to ensureExistsAndReturn when provided', async () => {
+      wordsServiceMock.findByLemma.mockResolvedValue(null);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue({
+        ...mockWord,
+        kind: 'phrasal_verb',
+      });
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: PartOfSpeech.VERB, definition: 'to encounter' },
+      ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
+
+      await service.lookup({
+        word: 'run into',
+        lemma: 'run into',
+        language: 'en',
+        kind: LexicalKind.phrasal_verb,
+      });
+
+      expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
+        'run into',
+        'en',
+        LexicalKind.phrasal_verb,
+      );
     });
 
     it('inflectionForms and isIrregular are forwarded to createMany entries', async () => {

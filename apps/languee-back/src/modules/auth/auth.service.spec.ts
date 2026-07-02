@@ -254,7 +254,10 @@ describe('AuthService', () => {
     });
 
     it('normalizes email before lookup (trims and lowercases)', async () => {
-      const dirtyDto = { email: '  User@Example.COM  ', password: 'password123' };
+      const dirtyDto = {
+        email: '  User@Example.COM  ',
+        password: 'password123',
+      };
       mockUsersService.findByEmail.mockResolvedValue({
         id: 'user-123',
         passwordHash: 'hashed-pw',
@@ -333,7 +336,10 @@ describe('AuthService', () => {
     });
 
     it('normalizes email before lookup (trims and lowercases)', async () => {
-      const dirtyDto = { email: '  User@Example.COM  ', password: 'password123' };
+      const dirtyDto = {
+        email: '  User@Example.COM  ',
+        password: 'password123',
+      };
       mockUsersService.findByEmail.mockResolvedValue({
         id: 'user-123',
         email: 'user@example.com',
