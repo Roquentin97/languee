@@ -1,0 +1,30 @@
+meta {
+  name: List Conversations
+  type: http
+  seq: 2
+  tags: [
+    chat
+  ]
+}
+
+get {
+  url: {{base_url}}/api/v1/chat/conversations
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns conversations wrapped in an object", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.conversations).to.be.an("array");
+  });
+
+  test("each item has the list shape", function() {
+    for (const item of res.body.conversations) {
+      expect(item.id).to.be.a("string");
+      expect(item.messageCount).to.be.a("number");
+      expect(item).to.have.property("title");
+      expect(item).to.have.property("lastMessagePreview");
+    }
+  });
+}

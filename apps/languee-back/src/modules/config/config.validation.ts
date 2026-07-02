@@ -27,4 +27,6 @@ export const configValidationSchema = Joi.object({
   DICTIONARY_PROVIDER: Joi.string()
     .valid('freedictionaryapi', 'dictionaryapi_dev', 'wiktionary')
     .default('wiktionary'),
+  CHATBOT_PROVIDER: Joi.string().valid('stub').default('stub'),
+  CHAT_ANALYSIS_INTERVAL_MS: Joi.number().integer().min(1000).default(30000),
 });

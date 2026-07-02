@@ -40,4 +40,11 @@ export const configuration = () => ({
   dictionary: {
     provider: process.env['DICTIONARY_PROVIDER'] ?? 'wiktionary',
   },
+  chat: {
+    botProvider: process.env['CHATBOT_PROVIDER'] ?? 'stub',
+    analysisIntervalMs: parseInt(
+      process.env['CHAT_ANALYSIS_INTERVAL_MS'] ?? '30000',
+      10,
+    ),
+  },
 });
