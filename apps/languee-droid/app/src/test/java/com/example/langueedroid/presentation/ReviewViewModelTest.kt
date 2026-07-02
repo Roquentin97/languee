@@ -1,5 +1,6 @@
 package com.example.langueedroid.presentation
 
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.AnswerResult
@@ -40,11 +41,13 @@ class ReviewViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var reviewRepository: ReviewRepository
+    private lateinit var speaker: Speaker
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         reviewRepository = mock()
+        speaker = mock()
     }
 
     @After
@@ -52,7 +55,7 @@ class ReviewViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = ReviewViewModel(reviewRepository = reviewRepository)
+    private fun buildViewModel() = ReviewViewModel(reviewRepository = reviewRepository, speaker = speaker)
 
     // -------------------------------------------------------------------------
     // Helpers

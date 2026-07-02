@@ -1,6 +1,7 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
@@ -62,6 +63,7 @@ class CardCreationViewModelTest {
     private lateinit var ankiDroidExportRepository: AnkiDroidExportRepository
     private lateinit var ankiDroidExportService: AnkiDroidExportService
     private lateinit var prefsStore: AnkiDroidPreferencesStore
+    private lateinit var speaker: Speaker
 
     @Before
     fun setUp() {
@@ -72,6 +74,7 @@ class CardCreationViewModelTest {
         ankiDroidExportRepository = mock()
         ankiDroidExportService = mock()
         prefsStore = mock()
+        speaker = mock()
     }
 
     @After
@@ -82,15 +85,18 @@ class CardCreationViewModelTest {
     private fun buildViewModel(
         targetWord: String = "cat",
         context: String? = "I have a cat",
+        language: String = "en",
     ) = CardCreationViewModel(
         targetWord = targetWord,
         context = context,
+        language = language,
         deckRepository = deckRepository,
         vocabularyRepository = vocabularyRepository,
         cardRepository = cardRepository,
         ankiDroidExportRepository = ankiDroidExportRepository,
         ankiDroidExportService = ankiDroidExportService,
         prefsStore = prefsStore,
+        speaker = speaker,
     )
 
     // -------------------------------------------------------------------------
@@ -231,7 +237,37 @@ class CardCreationViewModelTest {
         advanceUntilIdle()
 
         assertTrue(vm.state.value.flowState is CardCreationFlowState.DefinitionsLoaded)
-        verify(vocabularyRepository).lookup(eq("cat"), anyOrNull(), eq("I have a cat"))
+        verify(vocabularyRepository).lookup(eq("cat"), eq("en"), eq("I have a cat"))
+    }
+
+    // -------------------------------------------------------------------------
+    // Lookup — assisted language is threaded through to the repository call
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `lookup is called with the assisted language`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult()))
+
+        val vm = buildViewModel(language = "es")
+        advanceUntilIdle()
+
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        verify(vocabularyRepository).lookup(eq("cat"), eq("es"), eq("I have a cat"))
+    }
+
+    @Test
+    fun `state carries the assisted language for the header speaker button`() = runTest {
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
+
+        val vm = buildViewModel(language = "de")
+        advanceUntilIdle()
+
+        assertEquals("de", vm.state.value.language)
     }
 
     // -------------------------------------------------------------------------
@@ -876,6 +912,40 @@ class CardCreationViewModelTest {
         assertEquals("def_user_1", (flowState as CardCreationFlowState.SelectingExample).selectedDefinition.id)
         assertEquals(DefinitionState.Available, flowState.definitionState)
         assertEquals(LexicalKind.PHRASAL_VERB, vm.state.value.kind)
+        verify(vocabularyRepository).createUserDefinition(
+            eq("run into"),
+            eq("expression"),
+            eq("To encounter unexpectedly."),
+            eq("en"),
+            anyOrNull(),
+        )
+    }
+
+    @Test
+    fun `submitManualDefinition passes the assisted language`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
+
+        val vm = buildViewModel(targetWord = "run into", language = "de")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+
+        verify(vocabularyRepository).createUserDefinition(
+            eq("run into"),
+            eq("expression"),
+            eq("To encounter unexpectedly."),
+            eq("de"),
+            anyOrNull(),
+        )
     }
 
     @Test

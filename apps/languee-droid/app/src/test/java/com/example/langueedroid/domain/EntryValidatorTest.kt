@@ -81,6 +81,46 @@ class EntryValidatorTest {
     }
 
     // -------------------------------------------------------------------------
+    // Unicode word boundaries — Spanish and German accented/non-ASCII letters
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `isStandaloneMatch matches a Spanish word with a tilde as a standalone token`() {
+        assertTrue(EntryValidator.isStandaloneMatch("añadir", "Voy a añadir algo"))
+    }
+
+    @Test
+    fun `isStandaloneMatch does not match a Spanish word inside a longer inflected word`() {
+        assertFalse(EntryValidator.isStandaloneMatch("año", "Han pasado muchos años"))
+    }
+
+    @Test
+    fun `isStandaloneMatch matches a Spanish word standalone even when a longer inflection also appears`() {
+        assertTrue(EntryValidator.isStandaloneMatch("año", "Este año ha sido difícil, a diferencia de otros años"))
+    }
+
+    @Test
+    fun `isStandaloneMatch matches a German word with an umlaut as a standalone token`() {
+        assertTrue(EntryValidator.isStandaloneMatch("läuft", "Der Zug läuft pünktlich"))
+    }
+
+    @Test
+    fun `isStandaloneMatch matches a German word with an eszett as a standalone token`() {
+        assertTrue(EntryValidator.isStandaloneMatch("straße", "Ich wohne in dieser straße"))
+    }
+
+    @Test
+    fun `isStandaloneMatch matches a multi-word expression among accented text`() {
+        assertTrue(EntryValidator.isStandaloneMatch("echar de menos", "Voy a echar de menos a mi familia"))
+    }
+
+    @Test
+    fun `isStandaloneMatch English regression still holds after widening to unicode letter boundaries`() {
+        assertTrue(EntryValidator.isStandaloneMatch("cat", "The cat sat on the mat"))
+        assertFalse(EntryValidator.isStandaloneMatch("cat", "concatenate"))
+    }
+
+    // -------------------------------------------------------------------------
     // isContextValid
     // -------------------------------------------------------------------------
 

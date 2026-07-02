@@ -14,6 +14,7 @@ sealed class AppState {
          */
         data class ManualCapture(
             val prefilledWord: String = "",
+            val selectedLanguage: String = "en",
         ) : Screen()
 
         /**
@@ -22,6 +23,7 @@ sealed class AppState {
          */
         data class SharedWordCapture(
             val word: String,
+            val selectedLanguage: String = "en",
         ) : Screen()
 
         /**
@@ -34,6 +36,7 @@ sealed class AppState {
             val tokens: kotlin.collections.List<Token>,
             val rawContext: String,
             val selectedIndices: kotlin.collections.List<Int> = emptyList(),
+            val selectedLanguage: String = "en",
         ) : Screen()
 
         /**
@@ -45,16 +48,20 @@ sealed class AppState {
             val context: String,
             val isMultiSentence: Boolean,
             val highlightRanges: kotlin.collections.List<IntRange>,
+            val selectedLanguage: String = "en",
         ) : Screen()
 
         /**
          * Context edit: the user edits the context for a given target word.
          * Highlight ranges mark standalone occurrences of the target word in the context.
+         * [selectedLanguage] carries the language chosen earlier in the flow through to
+         * card creation; this screen has no language UI of its own.
          */
         data class ContextEdit(
             val targetWord: String,
             val context: String,
             val highlightRanges: kotlin.collections.List<IntRange>,
+            val selectedLanguage: String = "en",
         ) : Screen()
 
     }

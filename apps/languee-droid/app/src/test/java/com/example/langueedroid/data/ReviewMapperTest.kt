@@ -77,6 +77,20 @@ class ReviewMapperTest {
     }
 
     // -------------------------------------------------------------------------
+    // ReviewPromptDto.language -> ReviewPrompt.language — tolerant parsing
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `language present on dto is mapped through`() {
+        assertEquals("es", aPromptDto(language = "es").toDomain().language)
+    }
+
+    @Test
+    fun `missing language on dto defaults to en`() {
+        assertEquals("en", aPromptDto(language = null).toDomain().language)
+    }
+
+    // -------------------------------------------------------------------------
     // ReviewItemDto -> ReviewItem
     // -------------------------------------------------------------------------
 
@@ -152,6 +166,7 @@ class ReviewMapperTest {
         example: String? = "I ____ an old friend yesterday.",
         contextMasked: String? = "Guess who I ____ at the station!",
         kind: String = "word",
+        language: String? = null,
     ) = ReviewPromptDto(
         definition = "To encounter unexpectedly.",
         example = example,
@@ -159,5 +174,6 @@ class ReviewMapperTest {
         partOfSpeech = "verb",
         kind = kind,
         lemmaLength = 8,
+        language = language,
     )
 }

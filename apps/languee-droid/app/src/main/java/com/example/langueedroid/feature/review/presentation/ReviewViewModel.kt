@@ -2,6 +2,7 @@ package com.example.langueedroid.feature.review.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.GradeAnswerResult
@@ -24,6 +25,7 @@ private const val DEFAULT_LIMIT = 20
 @HiltViewModel
 class ReviewViewModel @Inject constructor(
     private val reviewRepository: ReviewRepository,
+    val speaker: Speaker,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ReviewSessionState>(ReviewSessionState.Loading)

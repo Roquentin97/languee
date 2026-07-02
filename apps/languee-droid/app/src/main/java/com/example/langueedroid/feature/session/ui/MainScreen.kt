@@ -66,7 +66,7 @@ fun MainScreen(
 
     LaunchedEffect(mainViewModel) {
         mainViewModel.cardCreationRequest.collect { request ->
-            val route = MainNavRoutes.cardCreation(request.targetWord, request.context)
+            val route = MainNavRoutes.cardCreation(request.targetWord, request.context, language = request.language)
             navController.navigate(route) {
                 popUpTo(MainNavRoutes.CAPTURE) { inclusive = false }
             }
@@ -194,6 +194,7 @@ fun MainScreen(
                         mainViewModel.confirmSaveWithoutContext(editState.targetWord)
                     }
                 },
+                onSelectLanguage = { code -> mainViewModel.selectLanguage(code) },
             )
         }
 
@@ -203,19 +204,22 @@ fun MainScreen(
                 navArgument("word") { type = NavType.StringType },
                 navArgument("context") { type = NavType.StringType },
                 navArgument("offlineEntryId") { type = NavType.StringType },
+                navArgument("language") { type = NavType.StringType },
             ),
         ) { backStackEntry ->
             val encodedWord = backStackEntry.arguments?.getString("word") ?: ""
             val encodedContext = backStackEntry.arguments?.getString("context") ?: ""
             val encodedOfflineEntryId = backStackEntry.arguments?.getString("offlineEntryId") ?: ""
+            val encodedLanguage = backStackEntry.arguments?.getString("language") ?: ""
             val targetWord = URLDecoder.decode(encodedWord, "UTF-8")
             val context = URLDecoder.decode(encodedContext, "UTF-8").ifEmpty { null }
             val offlineEntryId = URLDecoder.decode(encodedOfflineEntryId, "UTF-8").ifEmpty { null }
+            val language = URLDecoder.decode(encodedLanguage, "UTF-8").ifEmpty { "en" }
 
             val cardCreationViewModel: CardCreationViewModel = hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
-                key = "$targetWord:$context",
+                key = "$targetWord:$context:$language",
             ) { factory ->
-                factory.create(targetWord = targetWord, context = context)
+                factory.create(targetWord = targetWord, context = context, language = language)
             }
             LaunchedEffect(cardCreationViewModel) {
                 cardCreationViewModel.unauthorizedEvent.collect {
@@ -237,6 +241,7 @@ fun MainScreen(
             val cardCreationState by cardCreationViewModel.state.collectAsState()
             CardCreationScreen(
                 state = cardCreationState,
+                speaker = cardCreationViewModel.speaker,
                 onDeckSelected = { deck -> cardCreationViewModel.onDeckSelected(deck) },
                 onDefinitionSelected = { def -> cardCreationViewModel.onDefinitionSelected(def) },
                 onExampleConfirmed = { example -> cardCreationViewModel.onExampleConfirmed(example) },
@@ -309,6 +314,7 @@ fun MainScreen(
             val reviewState by reviewViewModel.state.collectAsState()
             ReviewScreen(
                 state = reviewState,
+                speaker = reviewViewModel.speaker,
                 onInputChange = { text -> reviewViewModel.updateInput(text) },
                 onSubmit = { reviewViewModel.submitAnswer() },
                 onReveal = { reviewViewModel.reveal() },

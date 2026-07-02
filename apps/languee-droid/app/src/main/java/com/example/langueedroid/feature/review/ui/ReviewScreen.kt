@@ -44,8 +44,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.languee.droid.R
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.ReviewRating
+import com.example.langueedroid.core.ui.components.SpeakerIconButton
 import com.example.langueedroid.core.ui.theme.AmberBorder
 import com.example.langueedroid.core.ui.theme.AmberContainer
 import com.example.langueedroid.core.ui.theme.AmberWarning
@@ -64,6 +66,7 @@ import com.example.langueedroid.feature.review.presentation.ReviewSessionState
 @Composable
 fun ReviewScreen(
     state: ReviewSessionState,
+    speaker: Speaker,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onReveal: () -> Unit,
@@ -146,6 +149,8 @@ fun ReviewScreen(
                 is ReviewSessionState.Correct -> {
                     CorrectContent(
                         matchedForm = state.matchedForm,
+                        language = state.item.prompt.language,
+                        speaker = speaker,
                         onGrade = onGrade,
                     )
                 }
@@ -280,6 +285,8 @@ private fun QuestionContent(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
+                // Do NOT add a speaker to the review Question state — pronouncing the
+                // masked target would leak the answer.
                 Text(
                     text = state.item.prompt.definition,
                     style = MaterialTheme.typography.headlineSmall,
@@ -393,6 +400,8 @@ private fun QuestionContent(
 @Composable
 private fun CorrectContent(
     matchedForm: String?,
+    language: String,
+    speaker: Speaker,
     onGrade: (ReviewRating) -> Unit,
 ) {
     Column(
@@ -415,11 +424,18 @@ private fun CorrectContent(
                 )
                 if (matchedForm != null) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.review_accepted_answer, matchedForm),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.review_accepted_answer, matchedForm),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextPrimary,
+                        )
+                        SpeakerIconButton(
+                            text = matchedForm,
+                            languageCode = language,
+                            speaker = speaker,
+                        )
+                    }
                 }
             }
         }

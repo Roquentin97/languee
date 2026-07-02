@@ -35,6 +35,7 @@ sealed class AnkiExportTriggerStatus {
 data class CardCreationState(
     val targetWord: String,
     val context: String?,
+    val language: String = "en",
     val deckSelectionState: DeckSelectionState = DeckSelectionState.Loading,
     val flowState: CardCreationFlowState = CardCreationFlowState.SelectingDeck,
     val kind: LexicalKind = LexicalKind.WORD,
