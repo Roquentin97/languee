@@ -22,6 +22,7 @@ import com.example.langueedroid.core.domain.UnauthorizedException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+@HiltViewModel(assistedFactory = CardCreationViewModel.Factory::class)
 class CardCreationViewModel @AssistedInject constructor(
     @Assisted("targetWord") private val targetWord: String,
     @Assisted("context") private val context: String?,
