@@ -51,4 +51,14 @@ export const configuration = () => ({
       10,
     ),
   },
+  billing: {
+    stripeSecretKey: process.env['STRIPE_SECRET_KEY'] ?? '',
+    stripeWebhookSecret: process.env['STRIPE_WEBHOOK_SECRET'] ?? '',
+    stripePricePlus: process.env['STRIPE_PRICE_PLUS'] ?? '',
+    stripePricePro: process.env['STRIPE_PRICE_PRO'] ?? '',
+    successUrl:
+      process.env['BILLING_SUCCESS_URL'] ?? 'https://localhost/billing/success',
+    cancelUrl:
+      process.env['BILLING_CANCEL_URL'] ?? 'https://localhost/billing/cancel',
+  },
 });
