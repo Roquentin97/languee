@@ -721,9 +721,14 @@ private fun DefinitionCard(
                     color = TextSecondary,
                 )
             }
-            if (!definition.inflectionForms.isNullOrEmpty()) {
+            // Word forms are shown as metadata; the "type" discriminator and the
+            // expression context form are internal bookkeeping, not user-facing forms.
+            val displayForms = definition.inflectionForms
+                ?.takeUnless { it["type"] == "expression" }
+                ?.filterKeys { it != "type" }
+            if (!displayForms.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                definition.inflectionForms.forEach { (key, value) ->
+                displayForms.forEach { (key, value) ->
                     Text(
                         text = "$key: $value",
                         style = MaterialTheme.typography.bodySmall,
