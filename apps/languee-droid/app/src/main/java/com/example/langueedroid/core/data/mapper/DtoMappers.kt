@@ -2,6 +2,10 @@ package com.example.langueedroid.core.data.mapper
 
 import com.example.langueedroid.core.network.dto.CardResponseDto
 import com.example.langueedroid.core.network.dto.ChatMessageDto
+import com.example.langueedroid.core.network.dto.ChatProgressByTypeDto
+import com.example.langueedroid.core.network.dto.ChatProgressResponseDto
+import com.example.langueedroid.core.network.dto.ChatProgressTotalsDto
+import com.example.langueedroid.core.network.dto.ChatProgressWeekDto
 import com.example.langueedroid.core.network.dto.ChatSuggestionDto
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
 import com.example.langueedroid.core.network.dto.ConversationDetailResponseDto
@@ -20,6 +24,7 @@ import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.Card
 import com.example.langueedroid.core.domain.ChatMessage
+import com.example.langueedroid.core.domain.ChatProgress
 import com.example.langueedroid.core.domain.Conversation
 import com.example.langueedroid.core.domain.ConversationSummary
 import com.example.langueedroid.core.domain.CreatedUserDefinition
@@ -30,6 +35,9 @@ import com.example.langueedroid.core.domain.GradeOutcome
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.OverusedWordPayload
+import com.example.langueedroid.core.domain.ProgressByType
+import com.example.langueedroid.core.domain.ProgressTotals
+import com.example.langueedroid.core.domain.ProgressWeek
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
 import com.example.langueedroid.core.domain.ReviewSummary
@@ -213,4 +221,36 @@ fun ChatSuggestionDto.toDomain(): ChatSuggestion {
 fun SuggestionsResponseDto.toDomain(): SuggestionsResult = SuggestionsResult(
     analyzedAt = analyzedAt,
     suggestions = suggestions.map { it.toDomain() },
+)
+
+fun ChatProgressTotalsDto.toDomain(): ProgressTotals = ProgressTotals(
+    suggestionsRaised = suggestionsRaised,
+    suggestionsResolved = suggestionsResolved,
+    resolutionRate = resolutionRate,
+    userMessages = userMessages,
+    activeConversations = activeConversations,
+)
+
+/**
+ * Unknown suggestion types fall back to STYLE, matching the same tolerant mapping used
+ * for chat suggestions themselves.
+ */
+fun ChatProgressByTypeDto.toDomain(): ProgressByType = ProgressByType(
+    type = type.toSuggestionType() ?: SuggestionType.STYLE,
+    raised = raised,
+    resolved = resolved,
+)
+
+fun ChatProgressWeekDto.toDomain(): ProgressWeek = ProgressWeek(
+    weekStart = weekStart,
+    raised = raised,
+    resolved = resolved,
+    userMessages = userMessages,
+)
+
+fun ChatProgressResponseDto.toDomain(): ChatProgress = ChatProgress(
+    totals = totals.toDomain(),
+    byType = byType.map { it.toDomain() },
+    weeks = weeks.map { it.toDomain() },
+    computedAt = computedAt,
 )

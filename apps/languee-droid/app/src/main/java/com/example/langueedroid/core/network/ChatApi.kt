@@ -1,5 +1,6 @@
 package com.example.langueedroid.core.network
 
+import com.example.langueedroid.core.network.dto.ChatProgressResponseDto
 import com.example.langueedroid.core.network.dto.ConversationDetailResponseDto
 import com.example.langueedroid.core.network.dto.ConversationListResponseDto
 import com.example.langueedroid.core.network.dto.ConversationResponseDto
@@ -32,4 +33,7 @@ interface ChatApi {
 
     @GET("/api/v1/chat/conversations/{id}/suggestions")
     suspend fun getSuggestions(@Path("id") id: String): Response<SuggestionsResponseDto>
+
+    @GET("/api/v1/chat/progress")
+    suspend fun getProgress(): Response<ChatProgressResponseDto>
 }

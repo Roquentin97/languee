@@ -4,6 +4,10 @@ import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.Role
 import com.example.langueedroid.core.domain.SuggestionType
 import com.example.langueedroid.core.network.dto.ChatMessageDto
+import com.example.langueedroid.core.network.dto.ChatProgressByTypeDto
+import com.example.langueedroid.core.network.dto.ChatProgressResponseDto
+import com.example.langueedroid.core.network.dto.ChatProgressTotalsDto
+import com.example.langueedroid.core.network.dto.ChatProgressWeekDto
 import com.example.langueedroid.core.network.dto.ChatSuggestionDto
 import com.example.langueedroid.core.network.dto.ConversationDetailResponseDto
 import com.example.langueedroid.core.network.dto.ConversationResponseDto
@@ -195,6 +199,100 @@ class ChatMapperTest {
 
         assertNull(domain.analyzedAt)
         assertTrue(domain.suggestions.isEmpty())
+    }
+
+    // -------------------------------------------------------------------------
+    // ChatProgressResponseDto -> ChatProgress
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `full progress payload maps all fields`() {
+        val dto = ChatProgressResponseDto(
+            totals = ChatProgressTotalsDto(
+                suggestionsRaised = 12,
+                suggestionsResolved = 7,
+                resolutionRate = 0.58,
+                userMessages = 140,
+                activeConversations = 3,
+            ),
+            byType = listOf(
+                ChatProgressByTypeDto(type = "overused_word", raised = 5, resolved = 3),
+                ChatProgressByTypeDto(type = "grammar", raised = 4, resolved = 2),
+                ChatProgressByTypeDto(type = "style", raised = 3, resolved = 2),
+            ),
+            weeks = listOf(
+                ChatProgressWeekDto(weekStart = "2026-06-15", raised = 4, resolved = 1, userMessages = 30),
+            ),
+            computedAt = "2026-07-03T00:00:00.000Z",
+        )
+
+        val domain = dto.toDomain()
+
+        assertEquals(12, domain.totals.suggestionsRaised)
+        assertEquals(7, domain.totals.suggestionsResolved)
+        assertEquals(0.58, domain.totals.resolutionRate)
+        assertEquals(140, domain.totals.userMessages)
+        assertEquals(3, domain.totals.activeConversations)
+        assertEquals(3, domain.byType.size)
+        assertEquals(SuggestionType.OVERUSED_WORD, domain.byType[0].type)
+        assertEquals(5, domain.byType[0].raised)
+        assertEquals(3, domain.byType[0].resolved)
+        assertEquals(1, domain.weeks.size)
+        assertEquals("2026-06-15", domain.weeks[0].weekStart)
+        assertEquals("2026-07-03T00:00:00.000Z", domain.computedAt)
+    }
+
+    @Test
+    fun `null resolutionRate and null computedAt map to null`() {
+        val dto = ChatProgressResponseDto(
+            totals = ChatProgressTotalsDto(
+                suggestionsRaised = 0,
+                suggestionsResolved = 0,
+                resolutionRate = null,
+                userMessages = 0,
+                activeConversations = 0,
+            ),
+            byType = emptyList(),
+            weeks = emptyList(),
+            computedAt = null,
+        )
+
+        val domain = dto.toDomain()
+
+        assertNull(domain.totals.resolutionRate)
+        assertNull(domain.computedAt)
+    }
+
+    @Test
+    fun `empty weeks and byType map to empty lists`() {
+        val dto = ChatProgressResponseDto(
+            totals = ChatProgressTotalsDto(
+                suggestionsRaised = 0,
+                suggestionsResolved = 0,
+                resolutionRate = null,
+                userMessages = 0,
+                activeConversations = 0,
+            ),
+            byType = emptyList(),
+            weeks = emptyList(),
+            computedAt = null,
+        )
+
+        val domain = dto.toDomain()
+
+        assertTrue(domain.byType.isEmpty())
+        assertTrue(domain.weeks.isEmpty())
+    }
+
+    @Test
+    fun `unknown byType type falls back safely to STYLE`() {
+        val dto = ChatProgressByTypeDto(type = "some_future_type", raised = 2, resolved = 1)
+
+        val domain = dto.toDomain()
+
+        assertEquals(SuggestionType.STYLE, domain.type)
+        assertEquals(2, domain.raised)
+        assertEquals(1, domain.resolved)
     }
 
     // -------------------------------------------------------------------------

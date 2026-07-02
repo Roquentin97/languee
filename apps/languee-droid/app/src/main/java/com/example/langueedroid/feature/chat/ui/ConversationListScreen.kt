@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -59,6 +60,7 @@ fun ConversationListScreen(
     onCreateConversation: () -> Unit,
     onRetry: () -> Unit,
     onNavigateBack: () -> Unit,
+    onProgressClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -78,6 +80,15 @@ fun ConversationListScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.navigate_back_description),
+                            tint = TextPrimary,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onProgressClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = stringResource(R.string.chat_progress_entry_description),
                             tint = TextPrimary,
                         )
                     }

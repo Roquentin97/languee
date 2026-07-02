@@ -39,6 +39,8 @@ import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.feature.decks.ui.DecksScreen
 import com.example.langueedroid.feature.offline.presentation.OfflineQueueViewModel
 import com.example.langueedroid.feature.offline.ui.OfflineQueueScreen
+import com.example.langueedroid.feature.progress.presentation.ProgressViewModel
+import com.example.langueedroid.feature.progress.ui.ProgressScreen
 import com.example.langueedroid.feature.review.presentation.ReviewViewModel
 import com.example.langueedroid.feature.review.ui.ReviewScreen
 import java.net.URLDecoder
@@ -368,6 +370,7 @@ fun MainScreen(
                 onCreateConversation = { conversationListViewModel.createConversation() },
                 onRetry = { conversationListViewModel.retry() },
                 onNavigateBack = { navController.popBackStack() },
+                onProgressClick = { navController.navigate(MainNavRoutes.PROGRESS) },
             )
         }
 
@@ -399,6 +402,21 @@ fun MainScreen(
                 onSend = { chatViewModel.send() },
                 onRetry = { chatViewModel.retry() },
                 onRefreshSuggestions = { chatViewModel.loadSuggestions() },
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(MainNavRoutes.PROGRESS) {
+            val progressViewModel: ProgressViewModel = hiltViewModel()
+            LaunchedEffect(progressViewModel) {
+                progressViewModel.unauthorizedEvent.collect {
+                    onUnauthorized()
+                }
+            }
+            val progressState by progressViewModel.state.collectAsState()
+            ProgressScreen(
+                state = progressState,
+                onRetry = { progressViewModel.refresh() },
                 onNavigateBack = { navController.popBackStack() },
             )
         }

@@ -3,6 +3,7 @@ package com.example.langueedroid.core.data
 import android.util.Log
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.ChatMessage
+import com.example.langueedroid.core.domain.ChatProgress
 import com.example.langueedroid.core.domain.Conversation
 import com.example.langueedroid.core.domain.ConversationSummary
 import com.example.langueedroid.core.domain.StaleReferenceException
@@ -87,6 +88,24 @@ class ChatRepository(
             response.code() == 401 -> throw UnauthorizedException()
             response.code() == 404 -> throw StaleReferenceException()
             else -> throw Exception("Failed to fetch suggestions: HTTP ${response.code()}")
+        }
+    }
+
+    suspend fun progress(): Result<ChatProgress> = runCatching {
+        val response = chatApi.getProgress()
+        when {
+            response.isSuccessful -> {
+                val body = response.body()?.toDomain()
+                    ?: throw Exception("Empty response body from get progress")
+                Log.i(
+                    TAG,
+                    "[event=chat.progress_loaded method=progress] progress loaded | " +
+                        "raised=${body.totals.suggestionsRaised} resolved=${body.totals.suggestionsResolved}",
+                )
+                body
+            }
+            response.code() == 401 -> throw UnauthorizedException()
+            else -> throw Exception("Failed to fetch progress: HTTP ${response.code()}")
         }
     }
 }
