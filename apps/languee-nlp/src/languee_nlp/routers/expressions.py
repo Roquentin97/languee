@@ -21,6 +21,21 @@ router = APIRouter(prefix="/expressions", tags=["expressions"])
 
 _MIN_TOKENS = 2
 _MAX_TOKENS = 6
+_SUPPORTED_LANGUAGES = {"en", "es"}
+
+
+def _validate_language(language: str) -> str:
+    if language not in _SUPPORTED_LANGUAGES:
+        logger.info(
+            "unsupported language rejected",
+            extra={
+                "event": "nlp.unsupported_language",
+                "method": _validate_language.__name__,
+                "data": {"language": language},
+            },
+        )
+        raise HTTPException(status_code=400, detail="LANGUAGE_NOT_SUPPORTED")
+    return language
 
 
 def _serialize_response(response: ExpressionAnalysisResponse) -> JSONResponse:
@@ -51,6 +66,10 @@ def analyze_expression(
         str | None,
         Query(description="Optional text to validate the expression against."),
     ] = None,
+    language: Annotated[
+        str,
+        Query(description="Language of the expression: 'en' or 'es'."),
+    ] = "en",
 ) -> JSONResponse:
     logger.debug(
         "request",
@@ -59,13 +78,15 @@ def analyze_expression(
             "method": analyze_expression.__name__,
             "data": {
                 "expression": expression,
+                "language": language,
                 "has_input_text": input_text is not None and bool(input_text.strip()),
             },
         },
     )
+    validated_language = _validate_language(language)
 
     sanitized = _sanitize_expression(expression)
-    nlp = get_nlp()
+    nlp = get_nlp(validated_language)
     doc = nlp(sanitized)
 
     logger.debug(
@@ -84,7 +105,7 @@ def analyze_expression(
         )
 
     tokens = list(doc)
-    kind = classify_expression(tokens)
+    kind = classify_expression(tokens, validated_language)
     head_lemma = compute_head_lemma(tokens)
     canonical = compute_canonical(tokens, sanitized, kind, head_lemma)
 
@@ -126,6 +147,7 @@ def analyze_expression(
             canonical=canonical,
             kind=kind,
             head_lemma=head_lemma,
+            language=validated_language,
             tokens=token_results,
             context_match=context_match,
         )

@@ -432,3 +432,56 @@ def test_expressions_context_match_uses_lemma_for_inflected_non_head_token():
     assert match["found"] is True
     assert match["confidence"] == "low"
     assert match["matched_text"] == "kept the form"
+
+
+# ---------------------------------------------------------------------------
+# language parameter
+# ---------------------------------------------------------------------------
+
+
+def test_expressions_default_language_is_en():
+    expr_tokens = [
+        _make_mock_token("give", "give", "VERB", dep_="ROOT", i=0),
+        _make_mock_token("up", "up", "ADP", dep_="prt", i=1),
+    ]
+    mock_nlp = _make_routed_nlp({"give up": _make_mock_doc(expr_tokens)})
+
+    with _patch_nlp(mock_nlp):
+        response = client.get(
+            "/expressions", params={"expression": "give up"}, auth=AUTH
+        )
+
+    assert response.status_code == 200
+    assert response.json()["language"] == "en"
+
+
+def test_expressions_spanish_verb_adp_classifies_as_expression():
+    expr_tokens = [
+        _make_mock_token("hablar", "hablar", "VERB", dep_="ROOT", i=0),
+        _make_mock_token("de", "de", "ADP", dep_="", i=1),
+        _make_mock_token("política", "política", "NOUN", dep_="", i=2),
+    ]
+    mock_nlp = _make_routed_nlp({"hablar de política": _make_mock_doc(expr_tokens)})
+
+    with _patch_nlp(mock_nlp):
+        response = client.get(
+            "/expressions",
+            params={"expression": "hablar de política", "language": "es"},
+            auth=AUTH,
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["language"] == "es"
+    assert body["kind"] == "expression"
+
+
+def test_expressions_unsupported_language_returns_400():
+    response = client.get(
+        "/expressions",
+        params={"expression": "give up", "language": "fr"},
+        auth=AUTH,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "LANGUAGE_NOT_SUPPORTED"

@@ -12,9 +12,20 @@ _PARTICLE_LIKE_POS = {"ADP", "PART"}
 _MAX_GAP = 3
 
 
-def classify_expression(tokens: list[spacy.tokens.Token]) -> str:
+def classify_expression(tokens: list[spacy.tokens.Token], language: str = "en") -> str:
     """Return "phrasal_verb" when the head token is a VERB followed by a
     particle/adposition, otherwise "expression".
+
+    The ADP/PART POS fallback heuristic is English-specific: in English,
+    a preposition-like word directly forming a phrasal verb with a verb
+    (e.g. "give up", "look up") is common and not reliably tagged with the
+    Universal Dependencies "prt" relation by spaCy's English models, so the
+    POS fallback catches those cases. Spanish does not have this kind of
+    phrasal verb; verb+preposition sequences (e.g. "hablar de") are regular
+    verb phrases, not phrasal verbs, and Spanish parses essentially never
+    produce the "prt" dependency label. So for `language="es"`, only the
+    "prt" dependency check applies, and ordinary Spanish verb+ADP sequences
+    correctly fall through to "expression".
     """
     head = tokens[0]
     if head.pos_ != "VERB":
@@ -23,7 +34,7 @@ def classify_expression(tokens: list[spacy.tokens.Token]) -> str:
     later = tokens[1:]
     if any(tok.dep_ == "prt" for tok in later):
         return "phrasal_verb"
-    if any(tok.pos_ in _PARTICLE_LIKE_POS for tok in later):
+    if language == "en" and any(tok.pos_ in _PARTICLE_LIKE_POS for tok in later):
         return "phrasal_verb"
     return "expression"
 

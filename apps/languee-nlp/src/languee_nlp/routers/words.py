@@ -18,12 +18,32 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/words", tags=["words"])
 
+_SUPPORTED_LANGUAGES = {"en", "es"}
+
+
+def _validate_language(language: str) -> str:
+    if language not in _SUPPORTED_LANGUAGES:
+        logger.info(
+            "unsupported language rejected",
+            extra={
+                "event": "nlp.unsupported_language",
+                "method": _validate_language.__name__,
+                "data": {"language": language},
+            },
+        )
+        raise HTTPException(status_code=400, detail="LANGUAGE_NOT_SUPPORTED")
+    return language
+
 
 def _serialize_response(response: WordAnalysisResponse) -> JSONResponse:
-    """Serialize response omitting only top-level None fields."""
+    """Serialize response omitting top-level None fields and null
+    `extra_forms` inside each token."""
     data = response.model_dump()
     if data.get("input_text_analysis") is None:
         data.pop("input_text_analysis", None)
+    for token in data.get("tokens", []):
+        if token.get("extra_forms") is None:
+            token.pop("extra_forms", None)
     return JSONResponse(content=data)
 
 
@@ -59,9 +79,9 @@ def _sanitize_single_word(value: str) -> str:
     return sanitized
 
 
-def _analyze_isolated_word(word: str) -> JSONResponse:
+def _analyze_isolated_word(word: str, language: str) -> JSONResponse:
     sanitized = _sanitize_single_word(word)
-    doc = get_nlp()(sanitized)
+    doc = get_nlp(language)(sanitized)
 
     logger.debug(
         "tokenized",
@@ -78,11 +98,12 @@ def _analyze_isolated_word(word: str) -> JSONResponse:
             detail="word must be a single word; multi-word input is not supported",
         )
 
-    token_result = analyze_single_token(doc[0])
+    token_result = analyze_single_token(doc[0], language)
     return _serialize_response(
         WordAnalysisResponse(
             input_text=sanitized,
             is_multi_word=False,
+            language=language,
             tokens=[token_result],
         )
     )
@@ -123,17 +144,19 @@ def _find_word_span(input_text: str, word: str) -> tuple[str, int, int]:
     return context, selection_start, selection_end
 
 
-def _analyze_word_in_input_text(word: str, input_text: str) -> JSONResponse:
+def _analyze_word_in_input_text(
+    word: str, input_text: str, language: str
+) -> JSONResponse:
     context, selection_start, selection_end = _find_word_span(input_text, word)
     sanitized = _sanitize_single_word(word)
     result = resolve_token_from_context(
-        get_nlp(),
+        get_nlp(language),
         sanitized,
         context,
         selection_start,
         selection_end,
     )
-    token_result = analyze_single_token(result.token)
+    token_result = analyze_single_token(result.token, language)
     logger.info(
         "token resolved from context",
         extra={
@@ -159,6 +182,7 @@ def _analyze_word_in_input_text(word: str, input_text: str) -> JSONResponse:
         WordAnalysisResponse(
             input_text=sanitized,
             is_multi_word=False,
+            language=language,
             tokens=[token_result],
             input_text_analysis=input_text_analysis,
         )
@@ -184,6 +208,10 @@ def analyze_word(
             description="Optional text containing the word for contextual analysis.",
         ),
     ] = None,
+    language: Annotated[
+        str,
+        Query(description="Language of the word: 'en' or 'es'."),
+    ] = "en",
 ) -> JSONResponse:
     logger.debug(
         "request",
@@ -192,11 +220,13 @@ def analyze_word(
             "method": analyze_word.__name__,
             "data": {
                 "word": word,
+                "language": language,
                 "has_input_text": input_text is not None and bool(input_text.strip()),
             },
         },
     )
+    validated_language = _validate_language(language)
     if input_text is None or not input_text.strip():
-        return _analyze_isolated_word(word)
+        return _analyze_isolated_word(word, validated_language)
 
-    return _analyze_word_in_input_text(word, input_text)
+    return _analyze_word_in_input_text(word, input_text, validated_language)

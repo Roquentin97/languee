@@ -1,0 +1,25 @@
+meta {
+  name: Analyze Expression Spanish
+  type: http
+  seq: 3
+  tags: [
+    expressions
+    spanish
+  ]
+}
+
+get {
+  url: {{base_url}}/expressions?expression=hablar%20de%20politica&language=es
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns expression analysis for Spanish expression", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.language).to.equal("es");
+    expect(res.body.input_text).to.be.a("string");
+    expect(res.body.kind).to.equal("expression");
+    expect(res.body.tokens).to.be.an("array");
+  });
+}
