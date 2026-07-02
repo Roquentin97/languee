@@ -50,6 +50,7 @@ const defaultNlpAnalysis: NlpAnalysis = {
     past: 'ran',
     pastParticiple: 'run',
   },
+  extraForms: null,
 };
 
 const baseDefinition = {
@@ -341,6 +342,7 @@ describe('VocabularyService', () => {
         pos: null,
         isIrregular: false,
         inflectionForms: null,
+        extraForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       const verbDef = {
@@ -463,6 +465,7 @@ describe('VocabularyService', () => {
         pos: PartOfSpeech.ADJECTIVE,
         isIrregular: false,
         inflectionForms: null,
+        extraForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
       const adjDef = {
@@ -509,6 +512,7 @@ describe('VocabularyService', () => {
         pos: null,
         isIrregular: false,
         inflectionForms: null,
+        extraForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
@@ -663,6 +667,7 @@ describe('VocabularyService', () => {
       expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
         'walked',
         undefined,
+        'en',
       );
     });
 
@@ -680,6 +685,7 @@ describe('VocabularyService', () => {
       expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
         'saw',
         'The saw was sharp enough to cut oak.',
+        'en',
       );
     });
 
@@ -693,6 +699,7 @@ describe('VocabularyService', () => {
           base: 'walk',
           past: 'walked',
         },
+        extraForms: null,
       };
       mockNlpService.analyzeWord.mockResolvedValue(nlpResult);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
@@ -741,6 +748,115 @@ describe('VocabularyService', () => {
       ).rejects.toBeInstanceOf(NlpMultiWordError);
 
       expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
+    });
+
+    // -------------------------------------------------------------------------
+    // Non-English languages — extraForms-derived inflectionForms + language echo
+    // -------------------------------------------------------------------------
+
+    describe('lookup() — non-English extraForms and language echo', () => {
+      it('es lookup builds {type: "es", ...extraForms} inflectionForms and passes language through to NLP and dictionary', async () => {
+        mockNlpService.analyzeWord.mockResolvedValue({
+          lemma: 'correr',
+          pos: PartOfSpeech.VERB,
+          isIrregular: false,
+          inflectionForms: null,
+          extraForms: {
+            indicative_present_yo: 'corro',
+            indicative_preterite_yo: 'corrí',
+          },
+        });
+        mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+        mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
+          [],
+        );
+
+        const result = await service.lookup({
+          word: 'corro',
+          language: 'es',
+          userId: 'user-id-1',
+        });
+
+        expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+          'corro',
+          undefined,
+          'es',
+        );
+        expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
+          expect.objectContaining({
+            language: 'es',
+            inflectionForms: {
+              type: 'es',
+              indicative_present_yo: 'corro',
+              indicative_preterite_yo: 'corrí',
+            },
+          }),
+        );
+        expect(result.language).toBe('es');
+      });
+
+      it('de lookup builds {type: "de", ...extraForms} inflectionForms and passes language through to NLP and dictionary', async () => {
+        mockNlpService.analyzeWord.mockResolvedValue({
+          lemma: 'laufen',
+          pos: PartOfSpeech.VERB,
+          isIrregular: true,
+          inflectionForms: null,
+          extraForms: {
+            present_ich: 'laufe',
+            present_du: 'läufst',
+            partizip_ii: 'gelaufen',
+          },
+        });
+        mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+        mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
+          [],
+        );
+
+        const result = await service.lookup({
+          word: 'laufe',
+          language: 'de',
+          userId: 'user-id-1',
+        });
+
+        expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+          'laufe',
+          undefined,
+          'de',
+        );
+        expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
+          expect.objectContaining({
+            language: 'de',
+            inflectionForms: {
+              type: 'de',
+              present_ich: 'laufe',
+              present_du: 'läufst',
+              partizip_ii: 'gelaufen',
+            },
+          }),
+        );
+        expect(result.language).toBe('de');
+      });
+
+      it('en lookup regression — inflectionForms still comes from the lemminflect-derived shape, not extraForms', async () => {
+        mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+        mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
+          [],
+        );
+
+        const result = await service.lookup({
+          word: 'run',
+          language: 'en',
+          userId: 'user-id-1',
+        });
+
+        expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
+          expect.objectContaining({
+            language: 'en',
+            inflectionForms: defaultNlpAnalysis.inflectionForms,
+          }),
+        );
+        expect(result.language).toBe('en');
+      });
     });
 
     // -------------------------------------------------------------------------
@@ -808,6 +924,7 @@ describe('VocabularyService', () => {
         expect(mockNlpService.analyzeExpression).toHaveBeenCalledWith(
           'ran into',
           undefined,
+          'en',
         );
         expect(mockDictionaryService.lookup).toHaveBeenCalledWith({
           word: 'ran into',
@@ -938,6 +1055,7 @@ describe('VocabularyService', () => {
         expect(mockNlpService.analyzeExpression).toHaveBeenCalledWith(
           'ran into',
           'I ran into an old friend.',
+          'en',
         );
         expect(result.meta.expressionContextFound).toBe(true);
       });
@@ -1140,6 +1258,8 @@ describe('VocabularyService', () => {
 
       expect(mockNlpService.analyzeExpression).toHaveBeenCalledWith(
         'kick the bucket',
+        undefined,
+        'en',
       );
       expect(mockWordsService.ensureExistsAndReturn).toHaveBeenCalledWith(
         'kick the bucket',

@@ -16,6 +16,7 @@ export type ReviewPrompt = {
   partOfSpeech: string;
   kind: string;
   lemmaLength: number;
+  language: string;
 };
 
 export type ReviewQueueItem = {

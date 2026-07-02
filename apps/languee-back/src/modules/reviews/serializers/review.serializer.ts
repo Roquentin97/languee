@@ -31,6 +31,7 @@ function serializeQueueItem(item: ReviewQueueItem): ReviewQueueItemResponseDto {
       partOfSpeech: item.prompt.partOfSpeech,
       kind: item.prompt.kind,
       lemmaLength: item.prompt.lemmaLength,
+      language: item.prompt.language,
     },
   };
 }

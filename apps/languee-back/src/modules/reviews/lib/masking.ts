@@ -42,11 +42,12 @@ export function collectTargetForms(
 
 /**
  * Replaces every standalone occurrence of any target form in `text` with
- * `____`. Matching is case-insensitive and boundary-aware (forms may not
- * abut other letters), and forms are tried longest-first so multi-word
- * expressions are masked before any shorter form they contain. Returns the
- * text unchanged when no form matches, and returns null through for a null
- * input.
+ * `____`. Matching is case-insensitive and boundary-aware using the Unicode
+ * letter class `\p{L}` (forms may not abut other letters, including
+ * accented/non-ASCII letters such as ñ, á, ü), and forms are tried
+ * longest-first so multi-word expressions are masked before any shorter form
+ * they contain. Returns the text unchanged when no form matches, and returns
+ * null through for a null input.
  */
 export function maskText(
   text: string | null | undefined,
@@ -61,8 +62,8 @@ export function maskText(
   for (const form of sortedForms) {
     if (form.length === 0) continue;
     const pattern = new RegExp(
-      `(?<![a-zA-Z])${escapeRegExp(form)}(?![a-zA-Z])`,
-      'gi',
+      `(?<!\\p{L})${escapeRegExp(form)}(?!\\p{L})`,
+      'giu',
     );
     result = result.replace(pattern, '____');
   }

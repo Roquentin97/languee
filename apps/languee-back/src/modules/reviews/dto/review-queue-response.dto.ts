@@ -27,6 +27,12 @@ export class ReviewPromptResponseDto {
 
   @ApiProperty({ example: 8 })
   lemmaLength!: number;
+
+  @ApiProperty({
+    example: 'en',
+    description: 'ISO 639-1 language code of the card word, for TTS.',
+  })
+  language!: string;
 }
 
 export class ReviewQueueItemResponseDto {

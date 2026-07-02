@@ -56,4 +56,27 @@ describe('checkAnswer()', () => {
     const result = checkAnswer('run', ['run'], ['run']);
     expect(result).toEqual({ result: 'correct', matchedForm: 'run' });
   });
+
+  // ---------------------------------------------------------------------
+  // Spanish accents — case/whitespace-insensitive, but accents are REQUIRED.
+  // We deliberately do not strip diacritics: "está" (is, verb estar) and
+  // "esta" (this, determiner) are different Spanish words, so accepting
+  // "esta" for a card whose target form is "está" would mark a genuinely
+  // wrong answer as correct.
+  // ---------------------------------------------------------------------
+
+  it('Spanish — "hablo" and "HABLO " (case/whitespace-insensitive) both match target form "hablo"', () => {
+    const result = checkAnswer('HABLO ', ['hablo'], []);
+    expect(result).toEqual({ result: 'correct', matchedForm: 'hablo' });
+  });
+
+  it('Spanish — accents are required: "esta" does not match target form "está"', () => {
+    const result = checkAnswer('esta', ['está'], []);
+    expect(result).toEqual({ result: 'incorrect', matchedForm: null });
+  });
+
+  it('Spanish — "está" matches target form "está" exactly', () => {
+    const result = checkAnswer('está', ['está'], []);
+    expect(result).toEqual({ result: 'correct', matchedForm: 'está' });
+  });
 });

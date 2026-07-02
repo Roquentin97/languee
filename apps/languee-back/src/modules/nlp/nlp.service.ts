@@ -22,12 +22,16 @@ export class NlpService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  async analyzeWord(word: string, context?: string): Promise<NlpAnalysis> {
+  async analyzeWord(
+    word: string,
+    context?: string,
+    language = 'en',
+  ): Promise<NlpAnalysis> {
     this.logger.debug({
       message: 'request',
       event: 'nlp.request',
       method: this.analyzeWord.name,
-      data: { word, hasContext: Boolean(context?.trim()) },
+      data: { word, language, hasContext: Boolean(context?.trim()) },
     });
 
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
@@ -37,7 +41,7 @@ export class NlpService {
     );
 
     const credentials = Buffer.from(`${login}:${password}`).toString('base64');
-    const params = new URLSearchParams({ word });
+    const params = new URLSearchParams({ word, language });
     if (context?.trim()) {
       params.set('input_text', context);
     }
@@ -86,6 +90,7 @@ export class NlpService {
 
     const token = body.tokens[0];
     const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
+    const extraForms = token['extra_forms'] ?? null;
     const durationMs = Date.now() - start;
 
     this.logger.log({
@@ -95,6 +100,7 @@ export class NlpService {
       duration_ms: durationMs,
       data: {
         word,
+        language,
         lemma: token.lemma,
         pos: token.pos,
         isIrregular: token['is_irregular'],
@@ -106,18 +112,20 @@ export class NlpService {
       pos: mapSpacyPos(token.pos),
       isIrregular: token['is_irregular'],
       inflectionForms,
+      extraForms,
     };
   }
 
   async analyzeExpression(
     expression: string,
     context?: string,
+    language = 'en',
   ): Promise<NlpExpressionAnalysis> {
     this.logger.debug({
       message: 'request',
       event: 'nlp.expression_request',
       method: this.analyzeExpression.name,
-      data: { expression, hasContext: Boolean(context?.trim()) },
+      data: { expression, language, hasContext: Boolean(context?.trim()) },
     });
 
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
@@ -127,7 +135,7 @@ export class NlpService {
     );
 
     const credentials = Buffer.from(`${login}:${password}`).toString('base64');
-    const params = new URLSearchParams({ expression });
+    const params = new URLSearchParams({ expression, language });
     if (context?.trim()) {
       params.set('input_text', context);
     }
@@ -195,6 +203,7 @@ export class NlpService {
       duration_ms: durationMs,
       data: {
         expression,
+        language,
         canonical: body.canonical,
         kind: body.kind,
         headLemma: body.head_lemma,
