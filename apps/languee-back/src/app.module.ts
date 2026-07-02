@@ -16,6 +16,7 @@ import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { NlpModule } from './modules/nlp/nlp.module';
 import { AnkiDroidExportsModule } from './modules/ankidroid-exports/ankidroid-exports.module';
 import { SynonymsModule } from './modules/synonyms/synonyms.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SynonymsModule } from './modules/synonyms/synonyms.module';
     NlpModule,
     AnkiDroidExportsModule,
     SynonymsModule,
+    ReviewsModule,
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
   ],
   providers: [
