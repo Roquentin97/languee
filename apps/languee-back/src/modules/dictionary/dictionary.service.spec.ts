@@ -15,6 +15,7 @@ const mockWord: Word = {
   lemma: 'despite',
   language: 'en',
   ipa: null,
+  kind: 'word',
   createdAt: new Date(),
 };
 
