@@ -1,0 +1,26 @@
+meta {
+  name: Analyze Expression Context-Aware
+  type: http
+  seq: 2
+  tags: [
+    expressions
+    input_text
+  ]
+}
+
+get {
+  url: {{base_url}}/expressions?expression={{expression}}&input_text=He%20gave%20it%20all%20up%20yesterday.
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("context_match is present", function() {
+    expect(res.body.context_match).to.be.an("object");
+    expect(res.body.context_match.found).to.equal(true);
+  });
+}

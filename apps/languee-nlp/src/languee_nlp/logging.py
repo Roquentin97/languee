@@ -20,7 +20,16 @@ _LEVEL_MAP: dict[int, str] = {
     logging.CRITICAL: "critical",
 }
 
-_EXTRA_FIELDS = ("requestId", "request", "response", "duration", "meta", "method", "event", "data")
+_EXTRA_FIELDS = (
+    "requestId",
+    "request",
+    "response",
+    "duration",
+    "meta",
+    "method",
+    "event",
+    "data",
+)
 
 
 class JsonFormatter(logging.Formatter):
