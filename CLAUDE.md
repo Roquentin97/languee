@@ -137,7 +137,7 @@ may be left orphaned. Run `/forge-recovery` before resuming any pipeline work.
 ## Branch conventions
 
 Agents may only push to branches with these prefixes:
-`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`
+`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`, `deps/`
 
 Never push directly to `master`, `develop`, `staging`, or any environment branch - via bash or GitHub MCP.
 When using `mcp__github__push_files` or `mcp__github__create_branch`, apply the same
@@ -160,8 +160,10 @@ PR, use the GitHub MCP tools instead of `git pull`, `git push`, or `gh pr`.
 Whenever the human asks to open, create, publish, or prepare a PR, or asks to "use the
 skill" in a PR-opening context, Claude must use `.claude/skills/open-pr/SKILL.md`.
 Forge PR stages must also use that skill. The skill is required because it enforces
-GitHub MCP-only remote operations, app version bumps, `make cc <affected-service>` for
-each affected service, and PR/Notion bookkeeping.
+GitHub MCP-only remote operations, release-please-compatible PR metadata,
+`make cc <affected-service>` for each affected service, and PR/Notion bookkeeping.
+Do not manually bump app versions or changelogs in feature PRs; Release Please owns
+version and changelog updates through generated release PRs.
 
 ## Commit and PR conventions
 
@@ -171,7 +173,7 @@ All commits must follow Conventional Commits format:
 <type>(<scope>): <description>
 ```
 
-Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`
+Types: `feat`, `fix`, `deps`, `chore`, `docs`, `refactor`, `test`, `ci`
 Scope: the service, module, or area affected e.g. `auth`, `users`, `languee-nlp`,
 `languee-droid`, `docker`, `prisma`
 
@@ -182,13 +184,17 @@ Examples:
 - `feat(languee-droid): add login screen state`
 - `fix(users): handle null result from findByEmail`
 - `chore(docker): add nlp service healthcheck`
+- `deps(languee-back): update prisma`
 - `test(auth): add edge cases for expired access token`
 
 PR titles follow the same format as commit messages.
 Commit messages are enforced via `commitlint` + `husky` at the `commit-msg` hook level.
 Agents must produce valid conventional commit messages - the hook will reject anything else.
+Release Please derives release impact from these messages: `fix` and `deps` trigger patch
+releases, `feat` triggers minor releases, and `!` or a `BREAKING CHANGE` footer triggers
+major releases. Do not hide user-facing fixes or features behind `chore`.
 PR body must include: spec description, target service, affected modules/components,
-version bumps, and QA summary.
+release impact, and QA summary.
 
 ## Environment
 

@@ -20,9 +20,4 @@ describe('HealthController', () => {
     });
   });
 
-  describe('getVersion', () => {
-    it('should return application version', () => {
-      expect(healthController.getVersion()).toEqual({ version: '0.0.4' });
-    });
-  });
 });
