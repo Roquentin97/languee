@@ -4,12 +4,14 @@ import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
+import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
 import dagger.Module
 import dagger.Provides
@@ -45,4 +47,9 @@ object RepositoryModule {
     @Singleton
     fun provideAnkiDroidExportRepository(ankiDroidExportApi: AnkiDroidExportApi): AnkiDroidExportRepository =
         AnkiDroidExportRepository(ankiDroidExportApi = ankiDroidExportApi)
+
+    @Provides
+    @Singleton
+    fun provideReviewRepository(reviewsApi: ReviewsApi): ReviewRepository =
+        ReviewRepository(reviewsApi = reviewsApi)
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidApi
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.domain.UnauthorizedException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -19,6 +20,7 @@ import javax.inject.Inject
 class DecksViewModel @Inject constructor(
     private val deckRepository: DeckRepository,
     private val ankiDroidApi: AnkiDroidApi,
+    private val reviewRepository: ReviewRepository,
 ) : ViewModel() {
 
     private val _decksState = MutableStateFlow<DecksScreenState>(DecksScreenState.Loading)
@@ -30,11 +32,26 @@ class DecksViewModel @Inject constructor(
     private val _isLoadingAnkiDecks = MutableStateFlow(false)
     val isLoadingAnkiDecks: StateFlow<Boolean> = _isLoadingAnkiDecks.asStateFlow()
 
+    private val _dueReviewCount = MutableStateFlow<Int?>(null)
+    val dueReviewCount: StateFlow<Int?> = _dueReviewCount.asStateFlow()
+
     private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
 
     init {
         loadDecks()
+        loadDueReviewCount()
+    }
+
+    fun loadDueReviewCount() {
+        viewModelScope.launch {
+            reviewRepository.summary().fold(
+                onSuccess = { summary -> _dueReviewCount.value = summary.dueCount },
+                // Badge is a non-critical affordance: any failure just hides it rather than
+                // disrupting the decks screen.
+                onFailure = { _dueReviewCount.value = null },
+            )
+        }
     }
 
     fun loadDecks() {

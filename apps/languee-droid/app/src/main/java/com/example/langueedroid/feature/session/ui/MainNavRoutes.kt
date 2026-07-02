@@ -6,6 +6,7 @@ internal object MainNavRoutes {
     const val CARD_CREATION = "card_creation/{word}/{context}"
     const val ANKI_SETUP = "anki_setup"
     const val ANKI_SYNC = "anki_sync"
+    const val REVIEW = "review"
 
     fun cardCreation(word: String, context: String?) =
         "card_creation/${encode(word)}/${encode(context ?: "")}"

@@ -12,8 +12,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +55,8 @@ fun DecksScreen(
     availableAnkiDecks: List<Pair<Long, String>>? = null,
     isLoadingAnkiDecks: Boolean = false,
     onLoadAnkiDecks: () -> Unit = {},
+    onReviewClick: (() -> Unit)? = null,
+    dueReviewCount: Int? = null,
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -60,6 +65,23 @@ fun DecksScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.decks_screen_title)) },
                 actions = {
+                    if (onReviewClick != null) {
+                        IconButton(onClick = onReviewClick) {
+                            if (dueReviewCount != null && dueReviewCount > 0) {
+                                BadgedBox(badge = { Badge { Text(dueReviewCount.toString()) } }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PlayArrow,
+                                        contentDescription = stringResource(R.string.decks_review_button),
+                                    )
+                                }
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = stringResource(R.string.decks_review_button),
+                                )
+                            }
+                        }
+                    }
                     if (onIntegrationsClick != null) {
                         IconButton(onClick = onIntegrationsClick) {
                             Icon(
