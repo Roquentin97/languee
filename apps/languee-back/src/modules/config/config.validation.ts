@@ -25,6 +25,6 @@ export const configValidationSchema = Joi.object({
   OTEL_TRACES_SAMPLER: Joi.string().default('parentbased_always_on'),
   OTEL_TRACES_SAMPLER_ARG: Joi.number().min(0).max(1).default(1.0),
   DICTIONARY_PROVIDER: Joi.string()
-    .valid('freedictionaryapi', 'dictionaryapi_dev')
-    .default('freedictionaryapi'),
+    .valid('freedictionaryapi', 'dictionaryapi_dev', 'wiktionary')
+    .default('wiktionary'),
 });
