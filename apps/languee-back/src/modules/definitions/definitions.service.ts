@@ -6,12 +6,31 @@ import type { RawDefinitionEntry } from '../dictionary/interfaces/dictionary-api
 
 export type { DbDefinition };
 
+export type DefinitionSummary = {
+  id: string;
+  partOfSpeech: string;
+  definition: string;
+  word: { lemma: string; kind: string };
+};
+
 @Injectable()
 export class DefinitionService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByWordId(wordId: string): Promise<DbDefinition[]> {
     return this.prisma.definition.findMany({ where: { wordId } });
+  }
+
+  findManyByIds(ids: string[]): Promise<DefinitionSummary[]> {
+    return this.prisma.definition.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        partOfSpeech: true,
+        definition: true,
+        word: { select: { lemma: true, kind: true } },
+      },
+    });
   }
 
   async createMany(
