@@ -58,6 +58,7 @@ class TokenResult(BaseModel):
     is_irregular: bool
     morphology: MorphologyResult
     forms: FormsResult
+    extra_forms: dict[str, str] | None = None
 
 
 class InputTextAnalysis(BaseModel):
@@ -75,6 +76,7 @@ class WordAnalysisResponse(BaseModel):
 
     input_text: str
     is_multi_word: bool
+    language: str
     tokens: list[TokenResult]
     input_text_analysis: InputTextAnalysis | None = None
 
@@ -100,5 +102,6 @@ class ExpressionAnalysisResponse(BaseModel):
     canonical: str
     kind: Literal["phrasal_verb", "expression"]
     head_lemma: str
+    language: str
     tokens: list[ExpressionTokenResult]
     context_match: ContextMatch | None = None

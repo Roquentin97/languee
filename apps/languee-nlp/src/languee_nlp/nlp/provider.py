@@ -2,12 +2,26 @@ import spacy
 
 from languee_nlp.settings import settings
 
-_nlp: spacy.Language | None = None
+_SUPPORTED_LANGUAGES = {"en", "es", "de"}
+
+_nlp: dict[str, spacy.Language] = {}
 
 
-def get_nlp(model_name: str | None = None) -> spacy.Language:
-    global _nlp
-    if _nlp is None:
-        name = model_name if model_name is not None else settings.spacy_model
-        _nlp = spacy.load(name)
-    return _nlp
+def _default_model_name(language: str) -> str:
+    if language == "en":
+        return settings.spacy_model
+    if language == "es":
+        return settings.spacy_model_es
+    if language == "de":
+        return settings.spacy_model_de
+    raise ValueError(f"Unsupported language: {language}")
+
+
+def get_nlp(language: str = "en", model_name: str | None = None) -> spacy.Language:
+    if language not in _SUPPORTED_LANGUAGES:
+        raise ValueError(f"Unsupported language: {language}")
+
+    if language not in _nlp:
+        name = model_name if model_name is not None else _default_model_name(language)
+        _nlp[language] = spacy.load(name)
+    return _nlp[language]
