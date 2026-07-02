@@ -153,7 +153,8 @@ fun MainScreen(
                     ?: com.example.langueedroid.feature.capture.presentation.AppState.Screen.ManualCapture(),
                 onAddEntry = { word, context -> mainViewModel.addEntry(word, context) },
                 onStartManualAdd = { mainViewModel.startManualAdd() },
-                onSelectTargetWord = { token -> mainViewModel.selectTargetWord(token) },
+                onWordTokenTapped = { index -> mainViewModel.onWordTokenTapped(index) },
+                onConfirmWordSelection = { mainViewModel.confirmWordSelection() },
                 onConfirmTruncation = { mainViewModel.confirmTruncation() },
                 onKeepFullContext = { mainViewModel.keepFullContext() },
                 onEditContext = {
@@ -219,6 +220,9 @@ fun MainScreen(
                     mainViewModel.dismissCapture()
                     navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
                 },
+                onManualDefinitionTextChanged = { text -> cardCreationViewModel.onManualDefinitionTextChanged(text) },
+                onManualExampleTextChanged = { text -> cardCreationViewModel.onManualExampleTextChanged(text) },
+                onSubmitManualDefinition = { cardCreationViewModel.submitManualDefinition() },
             )
         }
 

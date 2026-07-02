@@ -12,9 +12,11 @@ import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.ExportPreference
+import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import dagger.assisted.Assisted
@@ -60,6 +62,7 @@ class CardCreationViewModel @AssistedInject constructor(
     val cardCreatedEvent: SharedFlow<Unit> = _cardCreatedEvent.asSharedFlow()
 
     private var createCardJob: Job? = null
+    private var manualDefinitionJob: Job? = null
 
     init {
         loadDecks()
@@ -118,7 +121,7 @@ class CardCreationViewModel @AssistedInject constructor(
         }
     }
 
-    private fun lookupVocabulary(deck: Deck) {
+    private fun lookupVocabulary(deck: Deck, notice: CardCreationError? = null) {
         viewModelScope.launch {
             _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
             vocabularyRepository.lookup(
@@ -127,24 +130,100 @@ class CardCreationViewModel @AssistedInject constructor(
             ).fold(
                 onSuccess = { result ->
                     _state.value = _state.value.copy(
-                        flowState = if (result.definitions.isEmpty()) {
-                            CardCreationFlowState.NoDefinitions(lemma = result.lemma)
-                        } else {
-                            CardCreationFlowState.DefinitionsLoaded(
+                        kind = result.kind,
+                        expressionContextFound = result.expressionContextFound,
+                        flowState = when {
+                            result.definitions.isEmpty() && result.providerMiss ->
+                                CardCreationFlowState.ManualDefinition()
+                            result.definitions.isEmpty() ->
+                                CardCreationFlowState.NoDefinitions(lemma = result.lemma)
+                            else -> CardCreationFlowState.DefinitionsLoaded(
                                 definitions = result.definitions,
                                 selectedDefinition = null,
                                 definitionState = null,
                                 lemma = result.lemma,
+                                notice = notice,
                             )
                         },
                     )
                 },
                 onFailure = { error ->
-                    if (error is UnauthorizedException) {
-                        _unauthorizedEvent.tryEmit(Unit)
-                    } else {
-                        _state.value = _state.value.copy(
+                    when (error) {
+                        is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
+                        is ExpressionTooLongException -> _state.value = _state.value.copy(
+                            flowState = CardCreationFlowState.LookupError(CardCreationError.EXPRESSION_TOO_LONG),
+                        )
+                        else -> _state.value = _state.value.copy(
                             flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_FAILED),
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    /** Called when the user edits the definition text in the manual-definition form. */
+    fun onManualDefinitionTextChanged(text: String) {
+        val current = _state.value.flowState as? CardCreationFlowState.ManualDefinition ?: return
+        _state.value = _state.value.copy(flowState = current.copy(definitionText = text, error = null))
+    }
+
+    /** Called when the user edits the optional example text in the manual-definition form. */
+    fun onManualExampleTextChanged(text: String) {
+        val current = _state.value.flowState as? CardCreationFlowState.ManualDefinition ?: return
+        _state.value = _state.value.copy(flowState = current.copy(exampleText = text, error = null))
+    }
+
+    /**
+     * Submits the manual definition entered by the user for an expression the dictionary
+     * provider does not know. On success, the returned definition becomes the selected
+     * definition and the flow proceeds to example selection exactly as if it had been
+     * picked from a provider-returned list. On 409 (an identical definition already
+     * exists), surfaces a notice and re-fetches the lookup so the existing definition
+     * appears in the normal definitions list.
+     */
+    fun submitManualDefinition() {
+        if (manualDefinitionJob?.isActive == true) return
+
+        val current = _state.value.flowState as? CardCreationFlowState.ManualDefinition ?: return
+        val definitionText = current.definitionText.trim()
+        if (definitionText.isEmpty()) return
+        val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
+
+        manualDefinitionJob = viewModelScope.launch {
+            _state.value = _state.value.copy(flowState = current.copy(isSubmitting = true, error = null))
+            vocabularyRepository.createUserDefinition(
+                text = targetWord,
+                kind = "expression",
+                definition = definitionText,
+                example = current.exampleText.trim().ifBlank { null },
+            ).fold(
+                onSuccess = { created ->
+                    val definitionResult = DefinitionResult(
+                        id = created.id,
+                        partOfSpeech = created.partOfSpeech,
+                        definition = created.definition,
+                        example = created.example,
+                        provider = created.provider,
+                        decks = emptyList(),
+                    )
+                    _state.value = _state.value.copy(
+                        kind = created.kind,
+                        flowState = CardCreationFlowState.SelectingExample(
+                            definitions = listOf(definitionResult),
+                            lemma = created.lemma,
+                            selectedDefinition = definitionResult,
+                            definitionState = resolveDefinitionState(definitionResult, selectedDeck),
+                        ),
+                    )
+                },
+                onFailure = { error ->
+                    when (error) {
+                        is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
+                        is DefinitionAlreadyExistsException ->
+                            lookupVocabulary(selectedDeck, notice = CardCreationError.DEFINITION_ALREADY_EXISTS)
+                        else -> _state.value = _state.value.copy(
+                            flowState = current.copy(isSubmitting = false, error = CardCreationError.MANUAL_DEFINITION_FAILED),
                         )
                     }
                 },

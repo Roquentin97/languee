@@ -7,6 +7,7 @@ import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.EntryValidator
+import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,15 +96,34 @@ class MainViewModel @Inject constructor(
 
     /**
      * Called when the user taps a word token in the SharedContextCapture screen.
-     * Builds a ContextReview state with highlight ranges and multi-sentence flag.
+     * Tapping a word not yet selected starts or extends a contiguous selection (up to 6
+     * words); tapping an edge of the current selection shrinks it. See
+     * [ExpressionSpanSelector] for the exact rules.
      */
-    fun selectTargetWord(token: String) {
+    fun onWordTokenTapped(index: Int) {
         val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
+        val updatedSelection = ExpressionSpanSelector.onWordTapped(
+            tokens = current.tokens,
+            currentSelection = current.selectedIndices,
+            tappedIndex = index,
+        )
+        _state.value = current.copy(selectedIndices = updatedSelection)
+    }
+
+    /**
+     * Called when the user confirms the current word selection in the SharedContextCapture
+     * screen. Joins the selected words into the target expression and navigates to
+     * ContextReview with highlight ranges and multi-sentence flag.
+     */
+    fun confirmWordSelection() {
+        val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
+        if (current.selectedIndices.isEmpty()) return
+        val targetWord = ExpressionSpanSelector.joinSelection(current.tokens, current.selectedIndices)
         val context = current.rawContext
-        val highlights = EntryValidator.findStandaloneMatches(token, context)
+        val highlights = EntryValidator.findStandaloneMatches(targetWord, context)
         val sentenceCount = EntryValidator.countSentences(context)
         _state.value = AppState.Screen.ContextReview(
-            targetWord = token,
+            targetWord = targetWord,
             context = context,
             isMultiSentence = sentenceCount > 1,
             highlightRanges = highlights,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +46,7 @@ import com.languee.droid.R
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
+import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
@@ -62,6 +64,9 @@ fun CardCreationScreen(
     onCreateCard: () -> Unit,
     onRetryLookup: () -> Unit,
     onNavigateBack: () -> Unit,
+    onManualDefinitionTextChanged: (String) -> Unit = {},
+    onManualExampleTextChanged: (String) -> Unit = {},
+    onSubmitManualDefinition: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val inExampleSelection = state.flowState is CardCreationFlowState.SelectingExample
@@ -99,6 +104,11 @@ fun CardCreationScreen(
                 onDeckSelected = onDeckSelected,
             )
 
+            ExpressionKindIndicator(
+                kind = state.kind,
+                expressionContextFound = state.expressionContextFound,
+            )
+
             when (val flowState = state.flowState) {
                 is CardCreationFlowState.SelectingDeck -> {
                     when (state.deckSelectionState) {
@@ -124,15 +134,24 @@ fun CardCreationScreen(
                 }
 
                 is CardCreationFlowState.DefinitionsLoaded -> {
-                    DefinitionsList(
-                        definitions = flowState.definitions,
-                        lemma = flowState.lemma,
-                        selectedDefinition = flowState.selectedDefinition,
-                        definitionState = flowState.definitionState,
-                        onDefinitionSelected = onDefinitionSelected,
-                        onCreateCard = onCreateCard,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (flowState.notice != null) {
+                            Text(
+                                text = stringResource(flowState.notice.toStringRes()),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        DefinitionsList(
+                            definitions = flowState.definitions,
+                            lemma = flowState.lemma,
+                            selectedDefinition = flowState.selectedDefinition,
+                            definitionState = flowState.definitionState,
+                            onDefinitionSelected = onDefinitionSelected,
+                            onCreateCard = onCreateCard,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
 
                 is CardCreationFlowState.SelectingExample -> {
@@ -148,6 +167,16 @@ fun CardCreationScreen(
                     Text(
                         text = stringResource(R.string.card_creation_no_definitions, flowState.lemma),
                         style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+
+                is CardCreationFlowState.ManualDefinition -> {
+                    ManualDefinitionForm(
+                        flowState = flowState,
+                        onDefinitionTextChanged = onManualDefinitionTextChanged,
+                        onExampleTextChanged = onManualExampleTextChanged,
+                        onSubmit = onSubmitManualDefinition,
+                        modifier = Modifier.weight(1f),
                     )
                 }
 
@@ -544,4 +573,92 @@ private fun CardCreationError.toStringRes(): Int = when (this) {
     CardCreationError.CREATE_CARD_FAILED -> R.string.error_create_card_failed
     CardCreationError.STALE_REFERENCE -> R.string.error_stale_reference
     CardCreationError.EXPORT_RECORD_FAILED -> R.string.error_export_record_failed
+    CardCreationError.EXPRESSION_TOO_LONG -> R.string.error_expression_too_long
+    CardCreationError.MANUAL_DEFINITION_FAILED -> R.string.error_manual_definition_failed
+    CardCreationError.DEFINITION_ALREADY_EXISTS -> R.string.error_definition_already_exists
+}
+
+/** Shows a kind chip ("phrasal verb" / "expression") and, when relevant, a context-not-found warning. */
+@Composable
+private fun ExpressionKindIndicator(
+    kind: LexicalKind,
+    expressionContextFound: Boolean?,
+    modifier: Modifier = Modifier,
+) {
+    val kindLabelRes = when (kind) {
+        LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+        LexicalKind.EXPRESSION -> R.string.review_kind_expression
+        LexicalKind.WORD -> null
+    }
+    if (kindLabelRes == null) return
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AssistChip(onClick = {}, enabled = false, label = { Text(stringResource(kindLabelRes)) })
+        if (expressionContextFound == false) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.card_creation_expression_context_not_found),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(12.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Form shown when the dictionary provider has no entry for the looked-up expression. */
+@Composable
+private fun ManualDefinitionForm(
+    flowState: CardCreationFlowState.ManualDefinition,
+    onDefinitionTextChanged: (String) -> Unit,
+    onExampleTextChanged: (String) -> Unit,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.card_creation_manual_definition_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        OutlinedTextField(
+            value = flowState.definitionText,
+            onValueChange = onDefinitionTextChanged,
+            label = { Text(stringResource(R.string.label_definition)) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !flowState.isSubmitting,
+        )
+        OutlinedTextField(
+            value = flowState.exampleText,
+            onValueChange = onExampleTextChanged,
+            label = { Text(stringResource(R.string.label_example_optional)) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !flowState.isSubmitting,
+        )
+        if (flowState.error != null) {
+            Text(
+                text = stringResource(flowState.error.toStringRes()),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (flowState.isSubmitting) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+        } else {
+            Button(
+                onClick = onSubmit,
+                enabled = flowState.definitionText.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.btn_submit_definition))
+            }
+        }
+    }
 }
