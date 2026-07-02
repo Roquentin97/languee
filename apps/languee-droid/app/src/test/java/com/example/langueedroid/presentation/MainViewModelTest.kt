@@ -38,6 +38,18 @@ class MainViewModelTest {
 
     private val currentState get() = viewModel.state.value
 
+    /** Taps the given words in order (by text, first unselected occurrence) and confirms the selection. */
+    private fun selectWords(vararg words: String) {
+        for (word in words) {
+            val state = currentState as AppState.Screen.SharedContextCapture
+            val index = state.tokens.withIndex().first { (idx, token) ->
+                token is Token.Word && token.text == word && idx !in state.selectedIndices
+            }.index
+            viewModel.onWordTokenTapped(index)
+        }
+        viewModel.confirmWordSelection()
+    }
+
     // -------------------------------------------------------------------------
     // Initial state
     // -------------------------------------------------------------------------
@@ -165,46 +177,98 @@ class MainViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // selectTargetWord
+    // onWordTokenTapped / confirmWordSelection — single word (unchanged behavior)
     // -------------------------------------------------------------------------
 
     @Test
-    fun `selectTargetWord navigates to ContextReview`() {
+    fun `selecting a single word and confirming navigates to ContextReview`() {
         viewModel.startSharedTextCapture("I love cats")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         assertTrue(currentState is AppState.Screen.ContextReview)
     }
 
     @Test
-    fun `selectTargetWord sets targetWord and context`() {
+    fun `selecting a single word and confirming sets targetWord and context`() {
         viewModel.startSharedTextCapture("I love cats")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         val state = currentState as AppState.Screen.ContextReview
         assertEquals("cats", state.targetWord)
         assertEquals("I love cats", state.context)
     }
 
     @Test
-    fun `selectTargetWord sets isMultiSentence false for single sentence`() {
+    fun `selecting a single word sets isMultiSentence false for single sentence`() {
         viewModel.startSharedTextCapture("I love cats")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         val state = currentState as AppState.Screen.ContextReview
         assertFalse(state.isMultiSentence)
     }
 
     @Test
-    fun `selectTargetWord sets isMultiSentence true for multi-sentence context`() {
+    fun `selecting a single word sets isMultiSentence true for multi-sentence context`() {
         viewModel.startSharedTextCapture("I love cats. Dogs are great too.")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         val state = currentState as AppState.Screen.ContextReview
         assertTrue(state.isMultiSentence)
     }
 
     @Test
-    fun `selectTargetWord does nothing when state is not SharedContextCapture`() {
+    fun `onWordTokenTapped does nothing when state is not SharedContextCapture`() {
         viewModel.startManualAdd()
-        viewModel.selectTargetWord("cats")
+        viewModel.onWordTokenTapped(0)
         assertTrue(currentState is AppState.Screen.ManualCapture)
+    }
+
+    @Test
+    fun `confirmWordSelection does nothing when no word is selected`() {
+        viewModel.startSharedTextCapture("I love cats")
+        viewModel.confirmWordSelection()
+        assertTrue(currentState is AppState.Screen.SharedContextCapture)
+    }
+
+    // -------------------------------------------------------------------------
+    // onWordTokenTapped / confirmWordSelection — multi-word expression span
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `tapping two adjacent words extends the selection`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        selectWords("ran", "into")
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("ran into", state.targetWord)
+    }
+
+    @Test
+    fun `tapping words out of order still joins them in context order`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        // tap "into" first, then the adjacent-previous "ran" — selection should still
+        // join in left-to-right context order via ExpressionSpanSelector.
+        val state1 = currentState as AppState.Screen.SharedContextCapture
+        val intoIndex = state1.tokens.indexOfFirst { it is Token.Word && it.text == "into" }
+        viewModel.onWordTokenTapped(intoIndex)
+        val state2 = currentState as AppState.Screen.SharedContextCapture
+        val ranIndex = state2.tokens.indexOfFirst { it is Token.Word && it.text == "ran" }
+        viewModel.onWordTokenTapped(ranIndex)
+        viewModel.confirmWordSelection()
+
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("ran into", state.targetWord)
+    }
+
+    @Test
+    fun `selection is capped at six words`() {
+        viewModel.startSharedTextCapture("one two three four five six seven eight")
+        selectWords("one", "two", "three", "four", "five", "six", "seven")
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("one two three four five six", state.targetWord)
+    }
+
+    @Test
+    fun `expression selected from context is standalone valid — highlight ranges non-empty`() {
+        viewModel.startSharedTextCapture("I ran into an old friend yesterday")
+        selectWords("ran", "into")
+        val state = currentState as AppState.Screen.ContextReview
+        assertTrue(state.highlightRanges.isNotEmpty())
     }
 
     // -------------------------------------------------------------------------
@@ -214,7 +278,7 @@ class MainViewModelTest {
     @Test
     fun `confirmTruncation truncates context to sentence containing word`() {
         viewModel.startSharedTextCapture("I love cats. Dogs are great too.")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         viewModel.confirmTruncation()
         val state = currentState as AppState.Screen.ContextReview
         assertTrue(state.context.contains("cats", ignoreCase = true))
@@ -249,7 +313,7 @@ class MainViewModelTest {
     @Test
     fun `keepFullContext clears isMultiSentence flag`() {
         viewModel.startSharedTextCapture("I love cats. Dogs are great too.")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         viewModel.keepFullContext()
         val state = currentState as AppState.Screen.ContextReview
         assertFalse(state.isMultiSentence)
@@ -347,6 +411,25 @@ class MainViewModelTest {
         viewModel.startContextEdit("cat", "I have a cat")
         val result = viewModel.onContextEditSave("I love my cat.")
         assertTrue(result is ContextEditSaveResult.Valid)
+    }
+
+    // -------------------------------------------------------------------------
+    // onContextEditSave — multi-word expression target
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onContextEditSave accepts a multi-word expression standalone in the context`() {
+        viewModel.startContextEdit("run into", "I always run into her at the store")
+        val result = viewModel.onContextEditSave("Yesterday I ran into her again, then I run into him too")
+        assertTrue(result is ContextEditSaveResult.Valid)
+    }
+
+    @Test
+    fun `onContextEditSave rejects a multi-word expression not standalone in the edited context`() {
+        viewModel.startContextEdit("run into", "I always run into her at the store")
+        val result = viewModel.onContextEditSave("I always bump into her at the store")
+        assertTrue(result is ContextEditSaveResult.InvalidContextBlockedSave)
+        assertEquals("run into", (result as ContextEditSaveResult.InvalidContextBlockedSave).targetWord)
     }
 
     // -------------------------------------------------------------------------

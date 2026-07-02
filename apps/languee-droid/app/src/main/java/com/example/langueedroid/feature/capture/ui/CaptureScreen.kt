@@ -31,6 +31,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import com.languee.droid.R
 import com.example.langueedroid.core.domain.EntryValidator
+import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
@@ -40,7 +41,8 @@ fun CaptureScreen(
     state: AppState.Screen,
     onAddEntry: (word: String, context: String?) -> Unit,
     onStartManualAdd: () -> Unit,
-    onSelectTargetWord: (token: String) -> Unit,
+    onWordTokenTapped: (index: Int) -> Unit,
+    onConfirmWordSelection: () -> Unit,
     onConfirmTruncation: () -> Unit,
     onKeepFullContext: () -> Unit,
     onEditContext: () -> Unit,
@@ -66,7 +68,9 @@ fun CaptureScreen(
 
             is AppState.Screen.SharedContextCapture -> SharedContextCaptureContent(
                 tokens = state.tokens,
-                onSelectWord = onSelectTargetWord,
+                selectedIndices = state.selectedIndices,
+                onWordTapped = onWordTokenTapped,
+                onConfirmSelection = onConfirmWordSelection,
                 onCancel = onDismiss,
             )
 
@@ -204,7 +208,9 @@ private fun SharedWordCaptureContent(
 @Composable
 private fun SharedContextCaptureContent(
     tokens: List<Token>,
-    onSelectWord: (String) -> Unit,
+    selectedIndices: List<Int>,
+    onWordTapped: (Int) -> Unit,
+    onConfirmSelection: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -221,13 +227,18 @@ private fun SharedContextCaptureContent(
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            tokens.forEach { token ->
+            tokens.forEachIndexed { index, token ->
                 when (token) {
                     is Token.Word -> {
+                        val isSelected = index in selectedIndices
                         Surface(
                             shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.clickable { onSelectWord(token.text) },
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            },
+                            modifier = Modifier.clickable { onWordTapped(index) },
                         ) {
                             Text(
                                 text = token.text,
@@ -246,7 +257,25 @@ private fun SharedContextCaptureContent(
                 }
             }
         }
+        if (selectedIndices.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    R.string.label_selection_preview,
+                    ExpressionSpanSelector.joinSelection(tokens, selectedIndices),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
+        if (selectedIndices.isNotEmpty()) {
+            Button(
+                onClick = onConfirmSelection,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.btn_continue_selection))
+            }
+        }
         TextButton(
             onClick = onCancel,
             modifier = Modifier.fillMaxWidth(),

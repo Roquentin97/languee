@@ -10,11 +10,16 @@
     <string name="btn_truncate_to_sentence">Truncate to sentence</string>
     <string name="btn_edit_context">Edit context</string>
     <string name="btn_add_context_manually">Add context manually</string>
+    <string name="btn_continue_selection">Continue</string>
+    <string name="btn_submit_definition">Save definition</string>
 
     <!-- Input labels -->
     <string name="label_target_word">Target word</string>
     <string name="label_context_optional">Context (optional)</string>
-    <string name="label_tap_word_to_learn">Tap the word you want to learn</string>
+    <string name="label_tap_word_to_learn">Tap a word to start. Tap adjacent words to extend the selection (up to 6 words).</string>
+    <string name="label_selection_preview">Selected: %1$s</string>
+    <string name="label_definition">Definition</string>
+    <string name="label_example_optional">Example (optional)</string>
 
     <!-- Validation messages -->
     <string name="validation_context_must_contain_word">Context must contain the target word as a standalone token</string>
@@ -84,6 +89,8 @@
     <string name="card_creation_sync_success">Synced to AnkiDroid!</string>
     <string name="card_creation_sync_failed">Failed to sync with AnkiDroid</string>
     <string name="card_creation_retry">Retry</string>
+    <string name="card_creation_expression_context_not_found">This expression was not found in your saved context.</string>
+    <string name="card_creation_manual_definition_title">No definition found — add your own</string>
 
     <!-- Example selection step -->
     <string name="card_creation_example_selection_title">Choose example sentence</string>
@@ -142,6 +149,9 @@
     <string name="error_create_card_failed">Failed to create card</string>
     <string name="error_stale_reference">Deck or definition no longer exists</string>
     <string name="error_export_record_failed">Failed to record export</string>
+    <string name="error_expression_too_long">Expression is too long (maximum 6 words)</string>
+    <string name="error_manual_definition_failed">Failed to save your definition</string>
+    <string name="error_definition_already_exists">This definition already exists</string>
 
     <!-- Review session -->
     <string name="decks_review_button">Review</string>

@@ -2,10 +2,13 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.network.VocabularyApi
+import com.example.langueedroid.core.network.dto.CreateUserDefinitionResponseDto
 import com.example.langueedroid.core.network.dto.DeckRefDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
+import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -170,6 +173,108 @@ class VocabularyRepositoryTest {
 
         assertTrue(result.isSuccess)
         assertTrue(result.getOrThrow().definitions.isEmpty())
+    }
+
+    // -------------------------------------------------------------------------
+    // lookup — 400 → ExpressionTooLongException
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `lookup 400 throws ExpressionTooLongException`() = runTest {
+        whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            .thenReturn(Response.error(400, "{}".toResponseBody()))
+
+        val result = repository.lookup(word = "one two three four five six seven")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is ExpressionTooLongException)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — happy path
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition success returns mapped CreatedUserDefinition`() = runTest {
+        val dto = CreateUserDefinitionResponseDto(
+            id = "def_123",
+            wordId = "word_123",
+            lemma = "run into",
+            kind = "phrasal_verb",
+            partOfSpeech = "phrase",
+            definition = "To encounter unexpectedly.",
+            example = "I ran into an old friend.",
+            provider = "user",
+        )
+        whenever(vocabularyApi.createUserDefinition(any())).thenReturn(Response.success(dto))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            kind = "expression",
+            definition = "To encounter unexpectedly.",
+        )
+
+        assertTrue(result.isSuccess)
+        val created = result.getOrThrow()
+        assertEquals("def_123", created.id)
+        assertEquals("run into", created.lemma)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — 409 → DefinitionAlreadyExistsException
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition 409 throws DefinitionAlreadyExistsException`() = runTest {
+        whenever(vocabularyApi.createUserDefinition(any()))
+            .thenReturn(Response.error(409, "{}".toResponseBody()))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            kind = "expression",
+            definition = "To encounter unexpectedly.",
+        )
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is DefinitionAlreadyExistsException)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — 401 → UnauthorizedException
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition 401 throws UnauthorizedException`() = runTest {
+        whenever(vocabularyApi.createUserDefinition(any()))
+            .thenReturn(Response.error(401, "{}".toResponseBody()))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            kind = "expression",
+            definition = "To encounter unexpectedly.",
+        )
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is UnauthorizedException)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — 400 → failure with message
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition 400 returns failure with message containing 400`() = runTest {
+        whenever(vocabularyApi.createUserDefinition(any()))
+            .thenReturn(Response.error(400, "{}".toResponseBody()))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            kind = "expression",
+            definition = "",
+        )
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message?.contains("400") == true)
     }
 
     // -------------------------------------------------------------------------

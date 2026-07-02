@@ -2,8 +2,13 @@ package com.example.langueedroid.core.data
 
 import android.util.Log
 import com.example.langueedroid.core.network.VocabularyApi
+import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
+import com.example.langueedroid.core.domain.CreatedUserDefinition
+import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
+import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.data.mapper.toLookupResult
 
 private const val TAG = "VocabularyRepository"
@@ -30,7 +35,43 @@ class VocabularyRepository(
                 Log.w(TAG, "[event=vocabulary.unauthorized method=lookup] unauthorized")
                 throw UnauthorizedException()
             }
+            response.code() == 400 -> throw ExpressionTooLongException()
             else -> throw Exception("Vocabulary lookup failed: HTTP ${response.code()}")
+        }
+    }
+
+    /**
+     * Submits a user-provided definition for a word or expression the dictionary provider
+     * does not know. [kind] must be one of "word", "phrasal_verb", or "expression" as
+     * defined by the languee-back contract; the backend upgrades "expression" to
+     * "phrasal_verb" automatically when detected — read [CreatedUserDefinition.kind] back.
+     */
+    suspend fun createUserDefinition(
+        text: String,
+        kind: String,
+        definition: String,
+        language: String? = null,
+        example: String? = null,
+    ): Result<CreatedUserDefinition> = runCatching {
+        val response = vocabularyApi.createUserDefinition(
+            CreateUserDefinitionRequestDto(
+                text = text,
+                kind = kind,
+                definition = definition,
+                language = language,
+                example = example,
+            ),
+        )
+        when {
+            response.isSuccessful -> {
+                val body = response.body()?.toDomain()
+                    ?: throw Exception("Empty response body from createUserDefinition")
+                Log.i(TAG, "[event=vocabulary.definition_created method=createUserDefinition] definition created | id=${body.id} kind=${body.kind}")
+                body
+            }
+            response.code() == 401 -> throw UnauthorizedException()
+            response.code() == 409 -> throw DefinitionAlreadyExistsException()
+            else -> throw Exception("Failed to create user definition: HTTP ${response.code()}")
         }
     }
 }
