@@ -8,6 +8,7 @@ import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.AuthAuthenticator
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
+import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
 import dagger.Lazy
 import dagger.Module
@@ -111,4 +112,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAnkiDroidExportApi(retrofit: Retrofit): AnkiDroidExportApi = retrofit.create(AnkiDroidExportApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideReviewsApi(retrofit: Retrofit): ReviewsApi = retrofit.create(ReviewsApi::class.java)
 }

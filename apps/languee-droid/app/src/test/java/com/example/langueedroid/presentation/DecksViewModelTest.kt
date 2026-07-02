@@ -5,13 +5,16 @@ import com.example.langueedroid.feature.decks.presentation.DecksError
 import com.example.langueedroid.feature.decks.presentation.DecksScreenState
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DeckConflictException
+import com.example.langueedroid.core.domain.ReviewSummary
 import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -33,12 +36,17 @@ class DecksViewModelTest {
 
     private lateinit var deckRepository: DeckRepository
     private lateinit var ankiDroidApi: AnkiDroidApi
+    private lateinit var reviewRepository: ReviewRepository
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         deckRepository = mock()
         ankiDroidApi = mock()
+        reviewRepository = mock()
+        runBlocking {
+            whenever(reviewRepository.summary()).thenReturn(Result.success(ReviewSummary(dueCount = 0, newCount = 0)))
+        }
     }
 
     @After
@@ -49,6 +57,7 @@ class DecksViewModelTest {
     private fun buildViewModel() = DecksViewModel(
         deckRepository = deckRepository,
         ankiDroidApi = ankiDroidApi,
+        reviewRepository = reviewRepository,
     )
 
     // -------------------------------------------------------------------------
@@ -201,5 +210,39 @@ class DecksViewModelTest {
         job.cancel()
 
         assertTrue(unauthorizedCalled)
+    }
+
+    // -------------------------------------------------------------------------
+    // dueReviewCount — summary success sets the badge value
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `review summary success — dueReviewCount is set`() = runTest {
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
+        whenever(reviewRepository.summary()).thenReturn(Result.success(ReviewSummary(dueCount = 5, newCount = 3)))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(5, vm.dueReviewCount.value)
+    }
+
+    // -------------------------------------------------------------------------
+    // dueReviewCount — summary failure hides the badge without affecting decksState
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `review summary failure — dueReviewCount stays hidden and decksState is unaffected`() = runTest {
+        val decks = listOf(Deck(id = "d1", name = "French"))
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(decks))
+        whenever(reviewRepository.summary()).thenReturn(Result.failure(RuntimeException("network failure")))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(null, vm.dueReviewCount.value)
+        val state = vm.decksState.value
+        assertTrue(state is DecksScreenState.Success)
+        assertEquals(decks, (state as DecksScreenState.Success).decks)
     }
 }

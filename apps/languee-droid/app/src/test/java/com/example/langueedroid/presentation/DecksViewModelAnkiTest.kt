@@ -5,9 +5,12 @@ import com.example.langueedroid.feature.decks.presentation.DecksError
 import com.example.langueedroid.feature.decks.presentation.DecksScreenState
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.domain.ReviewSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -35,12 +38,17 @@ class DecksViewModelAnkiTest {
 
     private lateinit var deckRepository: DeckRepository
     private lateinit var ankiDroidApi: AnkiDroidApi
+    private lateinit var reviewRepository: ReviewRepository
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         deckRepository = mock()
         ankiDroidApi = mock()
+        reviewRepository = mock()
+        runBlocking {
+            whenever(reviewRepository.summary()).thenReturn(Result.success(ReviewSummary(dueCount = 0, newCount = 0)))
+        }
     }
 
     @After
@@ -51,6 +59,7 @@ class DecksViewModelAnkiTest {
     private fun buildViewModel() = DecksViewModel(
         deckRepository = deckRepository,
         ankiDroidApi = ankiDroidApi,
+        reviewRepository = reviewRepository,
     )
 
     // -------------------------------------------------------------------------

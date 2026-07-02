@@ -33,6 +33,8 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationVi
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.feature.decks.ui.DecksScreen
+import com.example.langueedroid.feature.review.presentation.ReviewViewModel
+import com.example.langueedroid.feature.review.ui.ReviewScreen
 import java.net.URLDecoder
 
 @Composable
@@ -114,9 +116,15 @@ fun MainScreen(
                     onUnauthorized()
                 }
             }
+            // Refresh the due-review badge every time the Decks screen re-enters composition
+            // (e.g. returning from a review session), not just on first load.
+            LaunchedEffect(Unit) {
+                decksViewModel.loadDueReviewCount()
+            }
             val decksState by decksViewModel.decksState.collectAsState()
             val availableAnkiDecks by decksViewModel.availableAnkiDecks.collectAsState()
             val isLoadingAnkiDecks by decksViewModel.isLoadingAnkiDecks.collectAsState()
+            val dueReviewCount by decksViewModel.dueReviewCount.collectAsState()
             DecksScreen(
                 state = decksState,
                 onDeckClick = { _ ->
@@ -133,6 +141,8 @@ fun MainScreen(
                 availableAnkiDecks = availableAnkiDecks,
                 isLoadingAnkiDecks = isLoadingAnkiDecks,
                 onLoadAnkiDecks = { decksViewModel.loadAnkiDecks() },
+                onReviewClick = { navController.navigate(MainNavRoutes.REVIEW) },
+                dueReviewCount = dueReviewCount,
             )
         }
 
@@ -251,6 +261,27 @@ fun MainScreen(
                 onSync = { syncViewModel.sync() },
                 onDismissResult = { syncViewModel.dismissResult() },
                 onNavigateBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(MainNavRoutes.REVIEW) {
+            val reviewViewModel: ReviewViewModel = hiltViewModel()
+            LaunchedEffect(reviewViewModel) {
+                reviewViewModel.unauthorizedEvent.collect {
+                    onUnauthorized()
+                }
+            }
+            val reviewState by reviewViewModel.state.collectAsState()
+            ReviewScreen(
+                state = reviewState,
+                onInputChange = { text -> reviewViewModel.updateInput(text) },
+                onSubmit = { reviewViewModel.submitAnswer() },
+                onReveal = { reviewViewModel.reveal() },
+                onGrade = { rating -> reviewViewModel.grade(rating) },
+                onContinue = { reviewViewModel.next() },
+                onRetry = { reviewViewModel.retry() },
+                onDone = { navController.popBackStack(MainNavRoutes.DECKS, inclusive = false) },
+                onNavigateBack = { navController.popBackStack(MainNavRoutes.DECKS, inclusive = false) },
             )
         }
     }

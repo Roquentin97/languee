@@ -142,4 +142,35 @@
     <string name="error_create_card_failed">Failed to create card</string>
     <string name="error_stale_reference">Deck or definition no longer exists</string>
     <string name="error_export_record_failed">Failed to record export</string>
+
+    <!-- Review session -->
+    <string name="decks_review_button">Review</string>
+    <string name="review_screen_title">Review</string>
+    <string name="review_empty_state">No cards due for review right now.</string>
+    <string name="review_new_badge">New</string>
+    <string name="review_kind_phrasal_verb">phrasal verb</string>
+    <string name="review_kind_expression">expression</string>
+    <string name="review_progress">%1$d of %2$d</string>
+    <string name="review_answer_label">Your answer</string>
+    <string name="review_submit_button">Submit</string>
+    <string name="review_reveal_button">Reveal</string>
+    <string name="review_close_synonym_title">Close!</string>
+    <string name="review_incorrect_feedback">Not quite. Try again or reveal the answer.</string>
+    <string name="review_correct_title">Correct!</string>
+    <string name="review_accepted_answer">Accepted: %1$s</string>
+    <string name="review_rating_again">Again</string>
+    <string name="review_rating_hard">Hard</string>
+    <string name="review_rating_good">Good</string>
+    <string name="review_rating_easy">Easy</string>
+    <string name="review_revealed_title">Answer hidden</string>
+    <string name="review_revealed_message">The answer stays hidden until you recall it — this card will come back soon.</string>
+    <string name="review_next_due_info">Marked to relearn. Interval: %1$d day(s), next review %2$s.</string>
+    <string name="review_continue_button">Continue</string>
+    <string name="review_finished_title">Session complete</string>
+    <string name="review_finished_summary">You reviewed %1$d card(s).</string>
+    <string name="review_done_button">Done</string>
+    <string name="review_retry_button">Retry</string>
+    <string name="error_review_load_failed">Failed to load review queue</string>
+    <string name="error_review_submit_failed">Failed to submit answer</string>
+    <string name="error_review_grade_failed">Failed to save your review</string>
 </resources>
