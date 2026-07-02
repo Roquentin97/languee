@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.ankidroid.AnkiDroidNoteBuilder
 import com.example.langueedroid.ankidroid.NoteTypeTemplates
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
@@ -36,12 +37,14 @@ import kotlinx.coroutines.launch
 class CardCreationViewModel @AssistedInject constructor(
     @Assisted("targetWord") private val targetWord: String,
     @Assisted("context") private val context: String?,
+    @Assisted("language") private val language: String,
     private val deckRepository: DeckRepository,
     private val vocabularyRepository: VocabularyRepository,
     private val cardRepository: CardRepository,
     private val ankiDroidExportRepository: AnkiDroidExportRepository,
     private val ankiDroidExportService: AnkiDroidExportService,
     private val prefsStore: AnkiDroidPreferencesStore,
+    val speaker: Speaker,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -49,11 +52,12 @@ class CardCreationViewModel @AssistedInject constructor(
         fun create(
             @Assisted("targetWord") targetWord: String,
             @Assisted("context") context: String?,
+            @Assisted("language") language: String,
         ): CardCreationViewModel
     }
 
     private val _state = MutableStateFlow(
-        CardCreationState(targetWord = targetWord, context = context),
+        CardCreationState(targetWord = targetWord, context = context, language = language),
     )
     val state: StateFlow<CardCreationState> = _state.asStateFlow()
 
@@ -128,6 +132,7 @@ class CardCreationViewModel @AssistedInject constructor(
             _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
             vocabularyRepository.lookup(
                 word = targetWord,
+                language = language,
                 context = context,
             ).fold(
                 onSuccess = { result ->
@@ -198,6 +203,7 @@ class CardCreationViewModel @AssistedInject constructor(
                 text = targetWord,
                 kind = "expression",
                 definition = definitionText,
+                language = language,
                 example = current.exampleText.trim().ifBlank { null },
             ).fold(
                 onSuccess = { created ->

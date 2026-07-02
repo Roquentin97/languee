@@ -14,6 +14,7 @@ data class ReviewPrompt(
     val partOfSpeech: String,
     val kind: LexicalKind,
     val lemmaLength: Int,
+    val language: String = "en",
 )
 
 data class ReviewItem(

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import com.languee.droid.R
@@ -78,12 +81,15 @@ fun CaptureScreen(
     onDismiss: () -> Unit,
     onContextEditSave: (String) -> ContextEditSaveResult,
     onConfirmSaveWithoutContext: () -> Unit,
+    onSelectLanguage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         when (state) {
             is AppState.Screen.ManualCapture -> ManualCaptureContent(
                 prefilledWord = state.prefilledWord,
+                selectedLanguage = state.selectedLanguage,
+                onSelectLanguage = onSelectLanguage,
                 onSave = onAddEntry,
                 onCancel = onDismiss,
             )
@@ -98,6 +104,8 @@ fun CaptureScreen(
             is AppState.Screen.SharedContextCapture -> SharedContextCaptureContent(
                 tokens = state.tokens,
                 selectedIndices = state.selectedIndices,
+                selectedLanguage = state.selectedLanguage,
+                onSelectLanguage = onSelectLanguage,
                 onWordTapped = onWordTokenTapped,
                 onConfirmSelection = onConfirmWordSelection,
                 onCancel = onDismiss,
@@ -125,10 +133,74 @@ fun CaptureScreen(
     }
 }
 
+private val languageChips = listOf(
+    "en" to R.string.language_en,
+    "es" to R.string.language_es,
+    "de" to R.string.language_de,
+)
+
+/** Compact segmented row of EN / ES / DE chips used to pick the capture language. */
+@Composable
+private fun LanguageSelector(
+    selectedLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        languageChips.forEach { (code, labelRes) ->
+            val isSelected = code == selectedLanguage
+            // The chip text itself is the compact code (EN/ES/DE); labelRes ("English" /
+            // "Español" / "Deutsch", translatable="false") backs the accessible name so a
+            // screen reader announces the full language name regardless of app locale.
+            val accessibleName = stringResource(labelRes)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (isSelected) GreenPrimary else GreenContainer)
+                    .clickable { onLanguageSelected(code) }
+                    .semantics { contentDescription = accessibleName }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = code.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isSelected) Color.White else GreenPrimary,
+                )
+            }
+        }
+    }
+}
+
+/** Display-only language badge shown on ContextReview; the language was already chosen upstream. */
+@Composable
+private fun LanguageBadge(
+    selectedLanguage: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(GreenContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = selectedLanguage.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = GreenPrimary,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ManualCaptureContent(
     prefilledWord: String,
+    selectedLanguage: String,
+    onSelectLanguage: (String) -> Unit,
     onSave: (word: String, context: String?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
@@ -186,6 +258,11 @@ private fun ManualCaptureContent(
                 text = "Manually add a word to your vocabulary",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
+            )
+
+            LanguageSelector(
+                selectedLanguage = selectedLanguage,
+                onLanguageSelected = onSelectLanguage,
             )
 
             OutlinedTextField(
@@ -405,6 +482,8 @@ private fun SharedWordCaptureContent(
 private fun SharedContextCaptureContent(
     tokens: List<Token>,
     selectedIndices: List<Int>,
+    selectedLanguage: String,
+    onSelectLanguage: (String) -> Unit,
     onWordTapped: (Int) -> Unit,
     onConfirmSelection: () -> Unit,
     onCancel: () -> Unit,
@@ -449,7 +528,12 @@ private fun SharedContextCaptureContent(
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            LanguageSelector(
+                selectedLanguage = selectedLanguage,
+                onLanguageSelected = onSelectLanguage,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.weight(1f),
@@ -586,11 +670,17 @@ private fun ContextReviewContent(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "WORD",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "WORD",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                        )
+                        LanguageBadge(selectedLanguage = state.selectedLanguage)
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = state.targetWord,

@@ -8,6 +8,7 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationSt
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
@@ -60,6 +61,7 @@ class CardCreationViewModelAnkiTest {
     private lateinit var exportRepository: AnkiDroidExportRepository
     private lateinit var exportService: AnkiDroidExportService
     private lateinit var prefsStore: AnkiDroidPreferencesStore
+    private lateinit var speaker: Speaker
 
     @Before
     fun setUp() {
@@ -70,6 +72,7 @@ class CardCreationViewModelAnkiTest {
         exportRepository = mock()
         exportService = mock()
         prefsStore = mock()
+        speaker = mock()
     }
 
     @After
@@ -127,12 +130,14 @@ class CardCreationViewModelAnkiTest {
     private fun buildViewModel() = CardCreationViewModel(
         targetWord = "cat",
         context = "I have a cat",
+        language = "en",
         deckRepository = deckRepository,
         vocabularyRepository = vocabularyRepository,
         cardRepository = cardRepository,
         ankiDroidExportRepository = exportRepository,
         ankiDroidExportService = exportService,
         prefsStore = prefsStore,
+        speaker = speaker,
     )
 
     private suspend fun TestScope.reachDefinitionsLoaded(): Pair<CardCreationViewModel, DefinitionResult> {

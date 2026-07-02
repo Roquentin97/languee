@@ -12,6 +12,7 @@ data class ReviewPromptDto(
     val partOfSpeech: String,
     val kind: String,
     val lemmaLength: Int,
+    val language: String? = null,
 )
 
 data class ReviewItemDto(

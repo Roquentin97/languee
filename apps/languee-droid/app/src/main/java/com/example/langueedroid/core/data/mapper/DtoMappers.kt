@@ -105,6 +105,7 @@ fun ReviewPromptDto.toDomain(): ReviewPrompt = ReviewPrompt(
     partOfSpeech = partOfSpeech,
     kind = kind.toLexicalKind(),
     lemmaLength = lemmaLength,
+    language = language ?: "en",
 )
 
 fun ReviewItemDto.toDomain(): ReviewItem = ReviewItem(

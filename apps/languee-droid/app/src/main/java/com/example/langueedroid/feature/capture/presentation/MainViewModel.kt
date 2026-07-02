@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** One-shot navigation event emitted when the capture flow produces a word ready for card creation. */
-data class CardCreationRequest(val targetWord: String, val context: String?)
+data class CardCreationRequest(val targetWord: String, val context: String?, val language: String = "en")
 
 sealed class AnkiStatusNotification {
     object AnkiDroidInstalled : AnkiStatusNotification()
@@ -85,6 +85,7 @@ class MainViewModel @Inject constructor(
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
         val normalizedContext = context?.trim()?.ifBlank { null }
+        val language = currentSelectedLanguage()
         if (isOffline.value) {
             viewModelScope.launch {
                 offlineQueueRepository.add(trimmedWord, normalizedContext)
@@ -92,7 +93,28 @@ class MainViewModel @Inject constructor(
             }
             return
         }
-        _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext))
+        _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext, language))
+    }
+
+    /** Called when the user picks a language chip (EN/ES/DE) on a capture screen. */
+    fun selectLanguage(code: String) {
+        _state.value = when (val current = _state.value) {
+            is AppState.Screen.ManualCapture -> current.copy(selectedLanguage = code)
+            is AppState.Screen.SharedWordCapture -> current.copy(selectedLanguage = code)
+            is AppState.Screen.SharedContextCapture -> current.copy(selectedLanguage = code)
+            is AppState.Screen.ContextReview -> current.copy(selectedLanguage = code)
+            else -> current
+        }
+    }
+
+    /** Reads the language selected on whichever capture screen is currently displayed. */
+    private fun currentSelectedLanguage(): String = when (val current = _state.value) {
+        is AppState.Screen.ManualCapture -> current.selectedLanguage
+        is AppState.Screen.SharedWordCapture -> current.selectedLanguage
+        is AppState.Screen.SharedContextCapture -> current.selectedLanguage
+        is AppState.Screen.ContextReview -> current.selectedLanguage
+        is AppState.Screen.ContextEdit -> current.selectedLanguage
+        else -> "en"
     }
 
     /** Remove a processed entry from the offline queue (after its card was created). */
@@ -158,6 +180,7 @@ class MainViewModel @Inject constructor(
             context = context,
             isMultiSentence = sentenceCount > 1,
             highlightRanges = highlights,
+            selectedLanguage = current.selectedLanguage,
         )
     }
 
@@ -200,6 +223,7 @@ class MainViewModel @Inject constructor(
             targetWord = targetWord,
             context = context,
             highlightRanges = highlightRanges,
+            selectedLanguage = currentSelectedLanguage(),
         )
     }
 

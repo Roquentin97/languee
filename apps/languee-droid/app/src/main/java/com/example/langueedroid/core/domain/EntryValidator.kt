@@ -23,7 +23,9 @@ object EntryValidator {
      */
     fun findStandaloneMatches(word: String, context: String): List<IntRange> {
         if (word.isBlank()) return emptyList()
-        val pattern = Regex("(?<![a-zA-Z])${Regex.escape(word.lowercase())}(?![a-zA-Z])")
+        // Unicode letter boundaries (not just a-zA-Z) so accented/non-Latin words such as
+        // "añadir", "läuft" or "año" are matched (or excluded from "años") correctly.
+        val pattern = Regex("(?<!\\p{L})${Regex.escape(word.lowercase())}(?!\\p{L})")
         return pattern.findAll(context.lowercase()).map { it.range }.toList()
     }
 

@@ -57,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.languee.droid.R
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
@@ -77,11 +78,13 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationEr
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
+import com.example.langueedroid.core.ui.components.SpeakerIconButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CardCreationScreen(
     state: CardCreationState,
+    speaker: Speaker,
     onDeckSelected: (Deck) -> Unit,
     onDefinitionSelected: (DefinitionResult) -> Unit,
     onExampleConfirmed: (String?) -> Unit,
@@ -134,7 +137,10 @@ fun CardCreationScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(11.dp))
@@ -148,6 +154,11 @@ fun CardCreationScreen(
                         color = GreenPrimary,
                     )
                 }
+                SpeakerIconButton(
+                    text = state.targetWord,
+                    languageCode = state.language,
+                    speaker = speaker,
+                )
             }
 
             DeckSelector(

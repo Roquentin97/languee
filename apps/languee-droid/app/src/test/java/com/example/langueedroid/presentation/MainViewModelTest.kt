@@ -493,4 +493,91 @@ class MainViewModelTest {
         viewModel.dismissCapture()
         assertTrue(currentState is AppState.Screen.Decks)
     }
+
+    // -------------------------------------------------------------------------
+    // Language selection
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `ManualCapture defaults selectedLanguage to en`() {
+        viewModel.startManualAdd()
+        val state = currentState as AppState.Screen.ManualCapture
+        assertEquals("en", state.selectedLanguage)
+    }
+
+    @Test
+    fun `selectLanguage updates ManualCapture selectedLanguage`() {
+        viewModel.startManualAdd()
+        viewModel.selectLanguage("es")
+        val state = currentState as AppState.Screen.ManualCapture
+        assertEquals("es", state.selectedLanguage)
+    }
+
+    @Test
+    fun `selectLanguage updates SharedContextCapture selectedLanguage`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        viewModel.selectLanguage("de")
+        val state = currentState as AppState.Screen.SharedContextCapture
+        assertEquals("de", state.selectedLanguage)
+    }
+
+    @Test
+    fun `selectLanguage does nothing when state is not a capture screen`() {
+        viewModel.selectLanguage("es")
+        assertTrue(currentState is AppState.Screen.Decks)
+    }
+
+    @Test
+    fun `selected language persists from SharedContextCapture into ContextReview`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        viewModel.selectLanguage("es")
+        selectWords("ran", "into")
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("es", state.selectedLanguage)
+    }
+
+    @Test
+    fun `addEntry emits CardCreationRequest with default en language`() = runTest {
+        viewModel.startManualAdd()
+        var received: CardCreationRequest? = null
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
+
+        viewModel.addEntry("cat", "I have a cat")
+        advanceUntilIdle()
+
+        assertEquals("en", received?.language)
+    }
+
+    @Test
+    fun `addEntry emits CardCreationRequest carrying the selected language`() = runTest {
+        viewModel.startManualAdd()
+        viewModel.selectLanguage("es")
+        var received: CardCreationRequest? = null
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
+
+        viewModel.addEntry("gato", "Tengo un gato")
+        advanceUntilIdle()
+
+        assertEquals("es", received?.language)
+    }
+
+    @Test
+    fun `onContextEditSave carries the selected language into CardCreationRequest`() = runTest {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        viewModel.selectLanguage("de")
+        selectWords("ran", "into")
+        val reviewState = currentState as AppState.Screen.ContextReview
+        viewModel.startContextEdit(reviewState.targetWord, reviewState.context)
+
+        var received: CardCreationRequest? = null
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
+
+        viewModel.onContextEditSave("Yesterday I ran into her again")
+        advanceUntilIdle()
+
+        assertEquals("de", received?.language)
+    }
 }

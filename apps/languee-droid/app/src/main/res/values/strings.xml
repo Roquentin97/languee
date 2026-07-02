@@ -21,6 +21,12 @@
     <string name="label_definition">Definition</string>
     <string name="label_example_optional">Example (optional)</string>
 
+    <!-- Language selection (capture, TTS) -->
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_es" translatable="false">Español</string>
+    <string name="language_de" translatable="false">Deutsch</string>
+    <string name="tts_pronounce_description">Pronounce</string>
+
     <!-- Validation messages -->
     <string name="validation_context_must_contain_word">Context must contain the target word as a standalone token</string>
     <string name="validation_word_cannot_be_empty">Target word cannot be empty</string>
