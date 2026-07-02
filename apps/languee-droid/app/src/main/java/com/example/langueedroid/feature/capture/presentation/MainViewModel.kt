@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.OfflineQueueRepository
+import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.EntryValidator
@@ -12,9 +14,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,10 +36,23 @@ sealed class AnkiStatusNotification {
 class MainViewModel @Inject constructor(
     private val ankiDroidExportService: AnkiDroidExportService,
     private val ankiDroidPreferencesStore: AnkiDroidPreferencesStore,
+    private val offlineStateManager: OfflineStateManager,
+    private val offlineQueueRepository: OfflineQueueRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
     val state: StateFlow<AppState> = _state.asStateFlow()
+
+    /** True when the device has no network or the backend is unreachable. */
+    val isOffline: StateFlow<Boolean> = offlineStateManager.isOffline
+
+    /** Number of captures waiting in the local offline queue. */
+    val offlineQueueCount: StateFlow<Int> = offlineQueueRepository.count()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Emitted when a capture was stored in the offline queue instead of card creation. */
+    private val _offlineWordSaved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val offlineWordSaved: SharedFlow<Unit> = _offlineWordSaved.asSharedFlow()
 
     /** Emitted when the capture flow has a word ready; the UI navigates to card creation. */
     private val _cardCreationRequest = MutableSharedFlow<CardCreationRequest>(extraBufferCapacity = 1)
@@ -68,7 +85,21 @@ class MainViewModel @Inject constructor(
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
         val normalizedContext = context?.trim()?.ifBlank { null }
+        if (isOffline.value) {
+            viewModelScope.launch {
+                offlineQueueRepository.add(trimmedWord, normalizedContext)
+                _offlineWordSaved.tryEmit(Unit)
+            }
+            return
+        }
         _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext))
+    }
+
+    /** Remove a processed entry from the offline queue (after its card was created). */
+    fun removeOfflineEntry(id: String) {
+        viewModelScope.launch {
+            offlineQueueRepository.remove(id)
+        }
     }
 
     /**

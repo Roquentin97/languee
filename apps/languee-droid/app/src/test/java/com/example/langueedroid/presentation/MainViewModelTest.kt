@@ -2,6 +2,8 @@ package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.OfflineQueueRepository
+import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.Token
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
@@ -19,8 +21,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 
+import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModelTest {
@@ -28,12 +32,25 @@ class MainViewModelTest {
     private lateinit var viewModel: MainViewModel
     private lateinit var ankiDroidExportService: AnkiDroidExportService
     private lateinit var ankiDroidPreferencesStore: AnkiDroidPreferencesStore
+    private lateinit var offlineStateManager: OfflineStateManager
+    private lateinit var offlineQueueRepository: OfflineQueueRepository
 
     @Before
     fun setUp() {
         ankiDroidExportService = mock()
         ankiDroidPreferencesStore = mock()
-        viewModel = MainViewModel(ankiDroidExportService, ankiDroidPreferencesStore)
+        offlineStateManager = mock {
+            on { isOffline } doReturn MutableStateFlow(false)
+        }
+        offlineQueueRepository = mock {
+            on { count() } doReturn flowOf(0)
+        }
+        viewModel = MainViewModel(
+            ankiDroidExportService,
+            ankiDroidPreferencesStore,
+            offlineStateManager,
+            offlineQueueRepository,
+        )
     }
 
     private val currentState get() = viewModel.state.value

@@ -33,6 +33,8 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationVi
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.feature.decks.ui.DecksScreen
+import com.example.langueedroid.feature.offline.presentation.OfflineQueueViewModel
+import com.example.langueedroid.feature.offline.ui.OfflineQueueScreen
 import com.example.langueedroid.feature.review.presentation.ReviewViewModel
 import com.example.langueedroid.feature.review.ui.ReviewScreen
 import java.net.URLDecoder
@@ -58,13 +60,19 @@ fun MainScreen(
         }
     }
 
-    // Observe navigation events emitted by MainViewModel
     LaunchedEffect(mainViewModel) {
         mainViewModel.cardCreationRequest.collect { request ->
             val route = MainNavRoutes.cardCreation(request.targetWord, request.context)
             navController.navigate(route) {
                 popUpTo(MainNavRoutes.CAPTURE) { inclusive = false }
             }
+        }
+    }
+
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.offlineWordSaved.collect {
+            mainViewModel.dismissCapture()
+            navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
         }
     }
 
@@ -80,7 +88,6 @@ fun MainScreen(
         }
     }
 
-    // AnkiDroid status change detection on resume (TASK-6)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -103,6 +110,9 @@ fun MainScreen(
             },
         )
     }
+
+    val isOffline by mainViewModel.isOffline.collectAsState()
+    val offlineQueueCount by mainViewModel.offlineQueueCount.collectAsState()
 
     NavHost(
         navController = navController,
@@ -143,6 +153,9 @@ fun MainScreen(
                 onLoadAnkiDecks = { decksViewModel.loadAnkiDecks() },
                 onReviewClick = { navController.navigate(MainNavRoutes.REVIEW) },
                 dueReviewCount = dueReviewCount,
+                isOffline = isOffline,
+                offlineQueueCount = offlineQueueCount,
+                onOfflineStripClick = { navController.navigate(MainNavRoutes.OFFLINE_QUEUE) },
             )
         }
 
@@ -184,12 +197,15 @@ fun MainScreen(
             arguments = listOf(
                 navArgument("word") { type = NavType.StringType },
                 navArgument("context") { type = NavType.StringType },
+                navArgument("offlineEntryId") { type = NavType.StringType },
             ),
         ) { backStackEntry ->
             val encodedWord = backStackEntry.arguments?.getString("word") ?: ""
             val encodedContext = backStackEntry.arguments?.getString("context") ?: ""
+            val encodedOfflineEntryId = backStackEntry.arguments?.getString("offlineEntryId") ?: ""
             val targetWord = URLDecoder.decode(encodedWord, "UTF-8")
             val context = URLDecoder.decode(encodedContext, "UTF-8").ifEmpty { null }
+            val offlineEntryId = URLDecoder.decode(encodedOfflineEntryId, "UTF-8").ifEmpty { null }
 
             val cardCreationViewModel: CardCreationViewModel = hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
                 key = "$targetWord:$context",
@@ -203,8 +219,14 @@ fun MainScreen(
             }
             LaunchedEffect(cardCreationViewModel) {
                 cardCreationViewModel.cardCreatedEvent.collect {
-                    mainViewModel.dismissCapture()
-                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                    if (offlineEntryId != null) {
+                        mainViewModel.removeOfflineEntry(offlineEntryId)
+                        mainViewModel.dismissCapture()
+                        navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
+                    } else {
+                        mainViewModel.dismissCapture()
+                        navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                    }
                 }
             }
             val cardCreationState by cardCreationViewModel.state.collectAsState()
@@ -218,7 +240,11 @@ fun MainScreen(
                 onRetryLookup = { cardCreationViewModel.retryLookup() },
                 onNavigateBack = {
                     mainViewModel.dismissCapture()
-                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                    if (offlineEntryId != null) {
+                        navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
+                    } else {
+                        navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                    }
                 },
                 onManualDefinitionTextChanged = { text -> cardCreationViewModel.onManualDefinitionTextChanged(text) },
                 onManualExampleTextChanged = { text -> cardCreationViewModel.onManualExampleTextChanged(text) },
@@ -286,6 +312,27 @@ fun MainScreen(
                 onRetry = { reviewViewModel.retry() },
                 onDone = { navController.popBackStack(MainNavRoutes.DECKS, inclusive = false) },
                 onNavigateBack = { navController.popBackStack(MainNavRoutes.DECKS, inclusive = false) },
+            )
+        }
+
+        composable(MainNavRoutes.OFFLINE_QUEUE) {
+            val offlineQueueViewModel: OfflineQueueViewModel = hiltViewModel()
+            LaunchedEffect(offlineQueueViewModel) {
+                offlineQueueViewModel.navigateToCardCreation.collect { request ->
+                    val route = MainNavRoutes.cardCreation(
+                        word = request.word,
+                        context = request.context,
+                        offlineEntryId = request.entryId,
+                    )
+                    navController.navigate(route)
+                }
+            }
+            val offlineQueueState by offlineQueueViewModel.state.collectAsState()
+            OfflineQueueScreen(
+                state = offlineQueueState,
+                onEntryClick = { entry -> offlineQueueViewModel.onEntrySelected(entry) },
+                onStartReviewing = { offlineQueueViewModel.onStartReviewing() },
+                onNavigateBack = { navController.popBackStack() },
             )
         }
     }

@@ -104,7 +104,7 @@
     <!-- AnkiDroid setup -->
     <string name="ankidroid_setup_title">AnkiDroid Setup</string>
     <string name="ankidroid_setup_not_installed">AnkiDroid is not installed. Install it from the Play Store to enable export.</string>
-    <string name="ankidroid_setup_api_unavailable">AnkiDroid API is unavailable. Enable AnkiDroid API in AnkiDroid settings (Advanced > Enable AnkiDroid API).</string>
+    <string name="ankidroid_setup_api_unavailable">AnkiDroid API is unavailable. Enable AnkiDroid API in AnkiDroid settings (Advanced &gt; Enable AnkiDroid API).</string>
     <string name="ankidroid_setup_permission_denied">Languee needs permission to access AnkiDroid.</string>
     <string name="ankidroid_setup_grant_permission">Grant permission</string>
     <string name="ankidroid_setup_dedicated_deck_name_label">Subdeck name (optional)</string>
@@ -140,6 +140,18 @@
     <string name="ankidroid_status_setup_now">Set up now</string>
     <string name="ankidroid_status_not_now">Not now</string>
     <string name="ankidroid_status_ok">OK</string>
+
+    <!-- Offline queue -->
+    <string name="decks_offline_strip_offline">You\'re offline — captures are saved to your queue</string>
+    <string name="decks_offline_strip_queued">Offline · %1$d captures queued</string>
+    <string name="decks_offline_strip_back_online">Back online — %1$d queued captures ready</string>
+    <string name="offline_queue_title">Offline Queue</string>
+    <string name="offline_queue_empty">No words saved offline yet.</string>
+    <string name="offline_queue_offline_banner">Offline · reconnect to start reviewing</string>
+    <string name="offline_queue_online_banner">Back online — tap any word to pick its definition</string>
+    <string name="offline_queue_start_reviewing">Start reviewing →</string>
+    <string name="offline_queue_reconnect_to_review">Reconnect to start reviewing</string>
+    <string name="navigate_back_description">Navigate back</string>
 
     <!-- Error messages (resolved in UI from typed ViewModel errors) -->
     <string name="error_load_decks_failed">Failed to load decks</string>

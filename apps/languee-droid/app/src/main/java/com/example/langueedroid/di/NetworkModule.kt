@@ -2,6 +2,7 @@ package com.example.langueedroid.di
 
 import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.data.ServerReachabilityChecker
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.AuthApi
@@ -92,6 +93,11 @@ object NetworkModule {
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
+
+    @Provides
+    @Singleton
+    fun provideServerReachabilityChecker(okHttpClient: OkHttpClient): ServerReachabilityChecker =
+        ServerReachabilityChecker(okHttpClient, BuildConfig.BACKEND_BASE_URL)
 
     @Provides
     @Singleton
