@@ -7,12 +7,14 @@ import { SynonymsService } from '../synonyms/synonyms.service';
 import { analyzeOveruse } from './analysis/overuse.analyzer';
 import { analyzeGrammar } from './analysis/grammar.analyzer';
 import { analyzeStyle } from './analysis/style.analyzer';
+import { fingerprintOf } from './analysis/fingerprint';
+import type { ChatSuggestionType } from './chat.types';
 
 const MAX_SYNONYMS = 5;
 const SYNONYM_LANGUAGE = 'en';
 
 type SuggestionInput = {
-  type: 'overused_word' | 'grammar' | 'style';
+  type: ChatSuggestionType;
   title: string;
   detail: string;
   payload: Prisma.InputJsonValue;
@@ -103,6 +105,19 @@ export class ChatAnalysisService {
     ];
     const now = new Date();
 
+    const fingerprints = allSuggestions.map((s) =>
+      fingerprintOf({
+        type: s.type,
+        title: s.title,
+        payload: s.payload as Record<string, unknown>,
+      }),
+    );
+    const countsByType: Record<ChatSuggestionType, number> = {
+      overused_word: overuseSuggestions.length,
+      grammar: grammarSuggestions.length,
+      style: styleSuggestions.length,
+    };
+
     await this.prisma.$transaction([
       this.prisma.chatSuggestion.deleteMany({ where: { conversationId } }),
       this.prisma.chatSuggestion.createMany({
@@ -113,6 +128,14 @@ export class ChatAnalysisService {
           detail: s.detail,
           payload: s.payload,
         })),
+      }),
+      this.prisma.chatAnalysisSnapshot.create({
+        data: {
+          conversationId,
+          userMessageCount: userMessages.length,
+          fingerprints,
+          countsByType,
+        },
       }),
       this.prisma.chatConversation.update({
         where: { id: conversationId },

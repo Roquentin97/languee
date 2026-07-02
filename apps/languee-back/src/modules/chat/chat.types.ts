@@ -46,3 +46,26 @@ export type SuggestionsResult = {
   suggestions: SuggestionItem[];
   analyzedAt: Date | null;
 };
+
+export type ProgressTypeBreakdown = {
+  type: ChatSuggestionType;
+  raised: number;
+  resolved: number;
+};
+
+export type ProgressWeek = {
+  weekStart: string;
+  raised: number;
+  resolved: number;
+  userMessages: number;
+};
+
+export type ProgressResult = {
+  totalRaised: number;
+  totalResolved: number;
+  totalUserMessages: number;
+  activeConversations: number;
+  byType: ProgressTypeBreakdown[];
+  weeks: ProgressWeek[];
+  computedAt: Date | null;
+};

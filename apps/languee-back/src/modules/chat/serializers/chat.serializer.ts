@@ -4,6 +4,7 @@ import type {
   ConversationMessage,
   ConversationSummary,
   PostMessageResult,
+  ProgressResult,
   SuggestionItem,
   SuggestionsResult,
 } from '../chat.types';
@@ -15,10 +16,13 @@ import {
 } from '../dto/conversation-list-response.dto';
 import { CreateConversationResponseDto } from '../dto/create-conversation-response.dto';
 import { PostMessageResponseDto } from '../dto/post-message-response.dto';
+import { ProgressResponseDto } from '../dto/progress-response.dto';
 import {
   ChatSuggestionResponseDto,
   SuggestionsResponseDto,
 } from '../dto/suggestions-response.dto';
+
+const RESOLUTION_RATE_DECIMALS = 2;
 
 export function serializeConversationSummary(
   summary: ConversationSummary,
@@ -102,4 +106,41 @@ export function serializeSuggestions(
     suggestions: result.suggestions.map(serializeSuggestionItem),
     analyzedAt: result.analyzedAt,
   };
+}
+
+export function serializeProgress(result: ProgressResult): ProgressResponseDto {
+  const resolutionRate =
+    result.totalRaised === 0
+      ? null
+      : roundTo(
+          result.totalResolved / result.totalRaised,
+          RESOLUTION_RATE_DECIMALS,
+        );
+
+  return {
+    totals: {
+      suggestionsRaised: result.totalRaised,
+      suggestionsResolved: result.totalResolved,
+      resolutionRate,
+      userMessages: result.totalUserMessages,
+      activeConversations: result.activeConversations,
+    },
+    byType: result.byType.map((b) => ({
+      type: b.type,
+      raised: b.raised,
+      resolved: b.resolved,
+    })),
+    weeks: result.weeks.map((w) => ({
+      weekStart: w.weekStart,
+      raised: w.raised,
+      resolved: w.resolved,
+      userMessages: w.userMessages,
+    })),
+    computedAt: result.computedAt,
+  };
+}
+
+function roundTo(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
 }

@@ -15,6 +15,7 @@ model User {
   decks            Deck[]
   cards            Card[]
   chatConversations ChatConversation[]
+  chatProgressStats ChatProgressStat[]
 
   @@map("users")
 }
@@ -231,15 +232,16 @@ enum ChatSuggestionType {
 }
 
 model ChatConversation {
-  id          String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId      String            @map("user_id") @db.Uuid
-  user        User              @relation(fields: [userId], references: [id])
-  title       String?
-  analyzedAt  DateTime?         @map("analyzed_at") @db.Timestamptz
-  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz
-  messages    ChatMessage[]
-  suggestions ChatSuggestion[]
+  id                String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId            String                 @map("user_id") @db.Uuid
+  user              User                   @relation(fields: [userId], references: [id])
+  title             String?
+  analyzedAt        DateTime?              @map("analyzed_at") @db.Timestamptz
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+  messages          ChatMessage[]
+  suggestions       ChatSuggestion[]
+  analysisSnapshots ChatAnalysisSnapshot[]
 
   @@index([userId])
   @@map("chat_conversations")
@@ -269,4 +271,33 @@ model ChatSuggestion {
 
   @@index([conversationId])
   @@map("chat_suggestions")
+}
+
+model ChatAnalysisSnapshot {
+  id               String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  conversationId   String           @map("conversation_id") @db.Uuid
+  conversation     ChatConversation @relation(fields: [conversationId], references: [id])
+  userMessageCount Int              @map("user_message_count")
+  fingerprints     Json             @db.JsonB
+  countsByType     Json             @map("counts_by_type") @db.JsonB
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([conversationId, createdAt])
+  @@map("chat_analysis_snapshots")
+}
+
+model ChatProgressStat {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  user           User     @relation(fields: [userId], references: [id])
+  weekStart      DateTime @map("week_start") @db.Date
+  raised         Int
+  resolved       Int
+  resolvedByType Json     @map("resolved_by_type") @db.JsonB
+  raisedByType   Json     @map("raised_by_type") @db.JsonB
+  userMessages   Int      @map("user_messages")
+  computedAt     DateTime @map("computed_at") @db.Timestamptz
+
+  @@unique([userId, weekStart])
+  @@map("chat_progress_stats")
 }
