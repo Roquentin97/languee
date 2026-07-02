@@ -8,6 +8,7 @@ import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.AuthAuthenticator
 import com.example.langueedroid.core.network.CardsApi
+import com.example.langueedroid.core.network.ChatApi
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
@@ -122,4 +123,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideReviewsApi(retrofit: Retrofit): ReviewsApi = retrofit.create(ReviewsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideChatApi(retrofit: Retrofit): ChatApi = retrofit.create(ChatApi::class.java)
 }

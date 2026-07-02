@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.List
@@ -86,6 +87,7 @@ fun DecksScreen(
     isOffline: Boolean = false,
     offlineQueueCount: Int = 0,
     onOfflineStripClick: (() -> Unit)? = null,
+    onChatClick: (() -> Unit)? = null,
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -116,6 +118,15 @@ fun DecksScreen(
                     }
                 },
                 actions = {
+                    if (onChatClick != null) {
+                        IconButton(onClick = onChatClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = stringResource(R.string.chat_entry_point_description),
+                                tint = GreenPrimary,
+                            )
+                        }
+                    }
                     if (onReviewClick != null) {
                         IconButton(onClick = onReviewClick) {
                             if (dueReviewCount != null && dueReviewCount > 0) {

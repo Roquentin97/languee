@@ -195,4 +195,32 @@
     <string name="error_review_load_failed">Failed to load review queue</string>
     <string name="error_review_submit_failed">Failed to submit answer</string>
     <string name="error_review_grade_failed">Failed to save your review</string>
+
+    <!-- Chat: entry point and conversation list -->
+    <string name="chat_entry_point_description">Practice chat</string>
+    <string name="chat_list_title">Practice chat</string>
+    <string name="chat_list_empty">No conversations yet. Tap + to start practicing.</string>
+    <string name="chat_list_new_conversation_button">New conversation</string>
+    <string name="chat_list_new_conversation_fallback">New conversation</string>
+    <string name="chat_list_message_count">%1$d messages</string>
+    <string name="chat_retry_button">Retry</string>
+    <string name="error_chat_list_load_failed">Failed to load conversations</string>
+    <string name="error_chat_list_create_failed">Failed to start a new conversation</string>
+
+    <!-- Chat: conversation thread -->
+    <string name="chat_screen_title_fallback">Practice chat</string>
+    <string name="chat_input_label">Message</string>
+    <string name="chat_send_description">Send message</string>
+    <string name="chat_typing_indicator">Typing…</string>
+    <string name="error_chat_load_failed">Failed to load conversation</string>
+    <string name="error_chat_send_failed">Failed to send message. Try again.</string>
+
+    <!-- Chat: suggestions -->
+    <string name="chat_suggestions_description">Suggestions</string>
+    <string name="chat_suggestions_title">Suggestions</string>
+    <string name="chat_suggestions_analyzed_just_now">Analyzed just now</string>
+    <string name="chat_suggestions_not_analyzed">Not analyzed yet</string>
+    <string name="chat_suggestions_empty">No suggestions yet — keep chatting!</string>
+    <string name="chat_suggestions_refresh_description">Refresh suggestions</string>
+    <string name="error_chat_suggestions_load_failed">Failed to load suggestions</string>
 </resources>
