@@ -322,8 +322,18 @@ describe('ChatController (e2e)', () => {
     });
 
     it('returns analyzedAt null before analysis has run', async () => {
+      // Use a dedicated conversation that never receives a message, so the
+      // fire-and-forget analysis triggered by posting is never scheduled for
+      // it — otherwise this races the shared conversation's async analysis.
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/chat/conversations')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ title: 'unanalyzed' })
+        .expect(201);
+      const unanalyzedId = (created.body as { id: string }).id;
+
       const res = await request(app.getHttpServer())
-        .get(`/api/v1/chat/conversations/${conversationId}/suggestions`)
+        .get(`/api/v1/chat/conversations/${unanalyzedId}/suggestions`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 

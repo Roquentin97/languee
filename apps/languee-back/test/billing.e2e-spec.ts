@@ -227,9 +227,12 @@ describe('BillingController (e2e) — configured (webhook signature verification
         type: 'checkout.session.completed',
         data: {
           object: {
-            id: 'cs_test_e2e_1',
-            customer: 'cus_e2e_1',
-            subscription: 'sub_e2e_1',
+            id: `cs_test_${userId}`,
+            // Stripe IDs must be unique per run: the dev DB is shared, so a
+            // hardcoded customer id collides with a prior run's leftover
+            // Subscription row on the stripe_customer_id unique constraint.
+            customer: `cus_${userId}`,
+            subscription: `sub_${userId}`,
             client_reference_id: userId,
             metadata: { userId, tier: 'plus' },
           },
@@ -263,9 +266,9 @@ describe('BillingController (e2e) — configured (webhook signature verification
         type: 'checkout.session.completed',
         data: {
           object: {
-            id: 'cs_test_e2e_1',
-            customer: 'cus_e2e_1',
-            subscription: 'sub_e2e_1',
+            id: `cs_test_${userId}`,
+            customer: `cus_${userId}`,
+            subscription: `sub_${userId}`,
             client_reference_id: userId,
             metadata: { userId, tier: 'pro' },
           },
