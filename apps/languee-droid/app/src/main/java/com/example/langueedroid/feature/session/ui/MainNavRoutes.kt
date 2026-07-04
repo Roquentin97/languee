@@ -8,14 +8,9 @@ internal object MainNavRoutes {
     const val ANKI_SYNC = "anki_sync"
     const val REVIEW = "review"
     const val OFFLINE_QUEUE = "offline_queue"
-    const val CHAT_LIST = "chat"
-    const val CHAT_THREAD = "chat/{conversationId}"
-    const val PROGRESS = "progress"
 
     fun cardCreation(word: String, context: String?, offlineEntryId: String? = null, language: String = "en") =
         "card_creation/${encode(word)}/${encode(context ?: "")}/${encode(offlineEntryId ?: "")}/${encode(language)}"
-
-    fun chatThread(conversationId: String) = "chat/${encode(conversationId)}"
 
     private fun encode(value: String): String =
         java.net.URLEncoder.encode(value, "UTF-8")

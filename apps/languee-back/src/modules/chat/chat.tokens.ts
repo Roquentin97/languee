@@ -1,1 +1,0 @@
-export const CHAT_BOT_ADAPTER = 'CHAT_BOT_ADAPTER';

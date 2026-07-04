@@ -31,16 +31,10 @@ import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
-import com.example.langueedroid.feature.chat.presentation.ChatViewModel
-import com.example.langueedroid.feature.chat.presentation.ConversationListViewModel
-import com.example.langueedroid.feature.chat.ui.ChatScreen
-import com.example.langueedroid.feature.chat.ui.ConversationListScreen
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
 import com.example.langueedroid.feature.decks.ui.DecksScreen
 import com.example.langueedroid.feature.offline.presentation.OfflineQueueViewModel
 import com.example.langueedroid.feature.offline.ui.OfflineQueueScreen
-import com.example.langueedroid.feature.progress.presentation.ProgressViewModel
-import com.example.langueedroid.feature.progress.ui.ProgressScreen
 import com.example.langueedroid.feature.review.presentation.ReviewViewModel
 import com.example.langueedroid.feature.review.ui.ReviewScreen
 import java.net.URLDecoder
@@ -162,7 +156,6 @@ fun MainScreen(
                 isOffline = isOffline,
                 offlineQueueCount = offlineQueueCount,
                 onOfflineStripClick = { navController.navigate(MainNavRoutes.OFFLINE_QUEUE) },
-                onChatClick = { navController.navigate(MainNavRoutes.CHAT_LIST) },
             )
         }
 
@@ -345,78 +338,6 @@ fun MainScreen(
                 state = offlineQueueState,
                 onEntryClick = { entry -> offlineQueueViewModel.onEntrySelected(entry) },
                 onStartReviewing = { offlineQueueViewModel.onStartReviewing() },
-                onNavigateBack = { navController.popBackStack() },
-            )
-        }
-
-        composable(MainNavRoutes.CHAT_LIST) {
-            val conversationListViewModel: ConversationListViewModel = hiltViewModel()
-            LaunchedEffect(conversationListViewModel) {
-                conversationListViewModel.unauthorizedEvent.collect {
-                    onUnauthorized()
-                }
-            }
-            LaunchedEffect(conversationListViewModel) {
-                conversationListViewModel.conversationCreated.collect { conversationId ->
-                    navController.navigate(MainNavRoutes.chatThread(conversationId))
-                }
-            }
-            val conversationListState by conversationListViewModel.state.collectAsState()
-            ConversationListScreen(
-                state = conversationListState,
-                onConversationClick = { conversation ->
-                    navController.navigate(MainNavRoutes.chatThread(conversation.id))
-                },
-                onCreateConversation = { conversationListViewModel.createConversation() },
-                onRetry = { conversationListViewModel.retry() },
-                onNavigateBack = { navController.popBackStack() },
-                onProgressClick = { navController.navigate(MainNavRoutes.PROGRESS) },
-            )
-        }
-
-        composable(
-            route = MainNavRoutes.CHAT_THREAD,
-            arguments = listOf(
-                navArgument("conversationId") { type = NavType.StringType },
-            ),
-        ) { backStackEntry ->
-            val encodedConversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-            val conversationId = URLDecoder.decode(encodedConversationId, "UTF-8")
-
-            val chatViewModel: ChatViewModel = hiltViewModel<ChatViewModel, ChatViewModel.Factory>(
-                key = conversationId,
-            ) { factory ->
-                factory.create(conversationId = conversationId)
-            }
-            LaunchedEffect(chatViewModel) {
-                chatViewModel.unauthorizedEvent.collect {
-                    onUnauthorized()
-                }
-            }
-            val chatState by chatViewModel.state.collectAsState()
-            val suggestionsState by chatViewModel.suggestionsState.collectAsState()
-            ChatScreen(
-                state = chatState,
-                suggestionsState = suggestionsState,
-                onInputChange = { text -> chatViewModel.updateInput(text) },
-                onSend = { chatViewModel.send() },
-                onRetry = { chatViewModel.retry() },
-                onRefreshSuggestions = { chatViewModel.loadSuggestions() },
-                onNavigateBack = { navController.popBackStack() },
-            )
-        }
-
-        composable(MainNavRoutes.PROGRESS) {
-            val progressViewModel: ProgressViewModel = hiltViewModel()
-            LaunchedEffect(progressViewModel) {
-                progressViewModel.unauthorizedEvent.collect {
-                    onUnauthorized()
-                }
-            }
-            val progressState by progressViewModel.state.collectAsState()
-            ProgressScreen(
-                state = progressState,
-                onRetry = { progressViewModel.refresh() },
                 onNavigateBack = { navController.popBackStack() },
             )
         }

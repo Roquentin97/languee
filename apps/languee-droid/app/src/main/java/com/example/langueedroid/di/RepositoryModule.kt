@@ -3,7 +3,6 @@ package com.example.langueedroid.di
 import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.CardRepository
-import com.example.langueedroid.core.data.ChatRepository
 import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.data.VocabularyRepository
@@ -11,7 +10,6 @@ import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.CardsApi
-import com.example.langueedroid.core.network.ChatApi
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
@@ -54,9 +52,4 @@ object RepositoryModule {
     @Singleton
     fun provideReviewRepository(reviewsApi: ReviewsApi): ReviewRepository =
         ReviewRepository(reviewsApi = reviewsApi)
-
-    @Provides
-    @Singleton
-    fun provideChatRepository(chatApi: ChatApi): ChatRepository =
-        ChatRepository(chatApi = chatApi)
 }
