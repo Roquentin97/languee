@@ -18,14 +18,6 @@ Architect -> Implementer -> Auto-lint -> [Linter agent if needed] -> QA -> open-
 Never skip a stage. Never dispatch the next agent if the current one returns
 `needs_revision` or `pending_more_info`.
 
-## Subagent model policy
-
-- Architect uses Claude Opus 4.8 for planning, ambiguity gating, contracts, and
-  persistence design.
-- Implementer uses Claude Fable 5 for long-horizon execution of the Architect plan.
-- Linter and QA use the model declared in their agent prompt unless the human overrides
-  it for a specific run.
-
 ## Notion status mapping
 
 | Agent output status | Notion status       |
@@ -448,7 +440,7 @@ Do not duplicate or bypass the skill's checklist.
   "stages": [
     {
       "agent": "architect",
-      "model": "claude-opus-4-8",
+      "model": "claude-sonnet-4-6",
       "status": "done",
       "input_tokens": 4821,
       "output_tokens": 1204,
@@ -457,7 +449,7 @@ Do not duplicate or bypass the skill's checklist.
     },
     {
       "agent": "implementer",
-      "model": "claude-fable-5",
+      "model": "claude-sonnet-4-6",
       "status": "done",
       "input_tokens": 12043,
       "output_tokens": 3891,

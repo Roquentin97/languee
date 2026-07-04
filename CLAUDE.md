@@ -231,42 +231,6 @@ Never assume environment variables are already exported - always use the wrapper
   outputs or forwarding data to another agent
 - When a task touches the DB, validate migration runs cleanly on a fresh schema
 
-## Model-specific prompting
-
-Forge distinguishes planning from implementation by model and role:
-
-- **Architect / Opus**: use Claude Opus 4.8 for ambiguity gating, cross-service contract
-  design, persistence design, risk analysis, and exact implementation plans. Architect
-  does not write code. It must stop with `pending_more_info` when the spec requires an
-  unstated contract, ownership decision, business rule, timeout, error mapping, or data
-  shape.
-- **Implementer / Fable**: use Claude Fable 5 for long-horizon execution of the
-  Architect plan. Implementer should act once enough information is available, follow the
-  plan exactly, avoid unrequested refactors or abstractions, and return `needs_revision`
-  instead of inventing missing design.
-
-Fable-optimized rules:
-
-- Read `.claude/memory/` at the start of a Forge run and apply only notes relevant to
-  the current role and target service.
-- Before reporting progress or completion, ground each claim in tool results from the
-  current session. If lint, tests, coverage, migrations, or docs were not run or were
-  unavailable, say that explicitly.
-- Do not re-derive settled facts, re-litigate decisions already made by the user or
-  Architect, or survey options that will not be pursued. Give the recommendation or
-  result directly.
-- Keep scope tight. Do not add features, cleanup, fallback paths, compatibility shims,
-  or abstractions unless the spec or Architect plan requires them.
-- Pause only for destructive or irreversible actions, real scope changes, or input only
-  the human can provide. Reversible actions implied by the original task should proceed.
-- Do not ask the model to reproduce private reasoning. Use concise user-facing progress
-  and JSON handoffs instead.
-
-Memory files live in `.claude/memory/`. Store one lesson per file with a one-line
-summary at the top. Record corrections and confirmed approaches, including why they
-mattered. Do not duplicate facts already present in the repo or chat history; update an
-existing note instead of creating a duplicate, and delete notes that prove wrong.
-
 ## Forge pipeline
 
 | Pipeline | Command           | Agent chain                                                   |
@@ -283,8 +247,8 @@ Feedback pipeline additionally queries `needs-revision` and `pending-more-info` 
 ### Agent roles
 
 - **Lead**: orchestrates the feature pipeline, reads Notion, selects target service, persists outputs, opens PR through the open-pr skill
-- **Architect**: Opus planning gate; reviews spec, designs service-specific contracts and persistence changes, writes implementation plan - no code
-- **Implementer**: Fable execution agent; executes Architect's plan, writes target-service code and persistence artifacts - no tests, no lint
+- **Architect**: reviews spec, designs service-specific contracts and persistence changes, writes implementation plan - no code
+- **Implementer**: executes Architect's plan, writes target-service code and persistence artifacts - no tests, no lint
 - **Linter**: runs target-service lint/format commands, fixes lint errors - no logic changes
 - **QA**: writes tests, verifies lint, validates persistence artifacts, reviews code - no fixes
 - **Restructurer**: renames, moves, import updates - Haiku, no logic changes

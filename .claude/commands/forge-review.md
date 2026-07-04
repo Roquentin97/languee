@@ -20,8 +20,8 @@ Useful for auditing what each agent decided and tuning prompts accordingly.
 
    | Stage       | Model             | Input tokens | Output tokens | Total      | Duration |
    | ----------- | ----------------- | ------------ | ------------- | ---------- | -------- |
-   | architect   | claude-opus-4-8   | 4,821        | 1,204         | 6,025      | 38s      |
-   | implementer | claude-fable-5    | 12,043       | 3,891         | 15,934     | 187s     |
+   | architect   | claude-sonnet-4-6 | 4,821        | 1,204         | 6,025      | 38s      |
+   | implementer | claude-sonnet-4-6 | 12,043       | 3,891         | 15,934     | 187s     |
    | linter      | claude-haiku-4-5  | 3,201        | 412           | 3,613      | 22s      |
    | qa          | claude-sonnet-4-6 | 18,204       | 5,103         | 23,307     | 265s     |
    | **total**   |                   | **38,269**   | **10,610**    | **48,879** | **512s** |
