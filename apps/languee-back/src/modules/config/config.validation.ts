@@ -27,33 +27,4 @@ export const configValidationSchema = Joi.object({
   DICTIONARY_PROVIDER: Joi.string()
     .valid('freedictionaryapi', 'dictionaryapi_dev', 'wiktionary')
     .default('wiktionary'),
-  CHATBOT_PROVIDER: Joi.string().valid('stub').default('stub'),
-  CHAT_ANALYSIS_INTERVAL_MS: Joi.number().integer().min(1000).default(30000),
-  CHAT_PROGRESS_INTERVAL_MS: Joi.number().integer().min(1000).default(60000),
-  STRIPE_SECRET_KEY: Joi.string()
-    .optional()
-    .custom((value: string, helpers) => {
-      if (value.startsWith('sk_live_')) {
-        return helpers.message({
-          custom:
-            'STRIPE_SECRET_KEY must not be a live key ("sk_live_"): billing is sandbox-only (Stripe test-mode only)',
-        });
-      }
-      if (!value.startsWith('sk_test_')) {
-        return helpers.message({
-          custom:
-            'STRIPE_SECRET_KEY must start with "sk_test_" (test-mode only)',
-        });
-      }
-      return value;
-    }, 'Stripe test-mode secret key'),
-  STRIPE_WEBHOOK_SECRET: Joi.string().optional(),
-  STRIPE_PRICE_PLUS: Joi.string().optional(),
-  STRIPE_PRICE_PRO: Joi.string().optional(),
-  BILLING_SUCCESS_URL: Joi.string()
-    .uri()
-    .default('https://localhost/billing/success'),
-  BILLING_CANCEL_URL: Joi.string()
-    .uri()
-    .default('https://localhost/billing/cancel'),
 });
