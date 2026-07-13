@@ -16,6 +16,7 @@ import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { NlpModule } from './modules/nlp/nlp.module';
 import { AnkiDroidExportsModule } from './modules/ankidroid-exports/ankidroid-exports.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { MS_PER_MINUTE } from './modules/core/time/time.constants';
 
 @Module({
   imports: [
@@ -33,7 +34,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     NlpModule,
     AnkiDroidExportsModule,
     ReviewsModule,
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: MS_PER_MINUTE, limit: 10 }]),
   ],
   providers: [
     {

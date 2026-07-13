@@ -9,7 +9,7 @@ export type LookupWordInput = {
   pos?: string;
   isIrregular?: boolean;
   inflectionForms?: InflectionForms | null;
-  kind?: LexicalKind;
+  kind: LexicalKind;
 };
 
 export type DefinitionResult = {

@@ -31,7 +31,7 @@ export class WordsService {
   async ensureExistsAndReturn(
     lemma: string,
     language: string,
-    kind: LexicalKind = LexicalKind.word,
+    kind: LexicalKind,
   ) {
     const existing = await this.prisma.word.findUnique({
       where: { lemma_language: { lemma, language } },

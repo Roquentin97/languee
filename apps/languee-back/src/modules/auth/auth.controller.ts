@@ -32,8 +32,9 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { MS_PER_DAY, MS_PER_MINUTE } from '../core/time/time.constants';
 
-const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+const REFRESH_TOKEN_MAX_AGE = 30 * MS_PER_DAY;
 
 type AuthUser = { userId: string; sessionId: string };
 
@@ -46,7 +47,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: MS_PER_MINUTE, limit: 5 } })
   @ApiOperation({ summary: 'Register with email and password' })
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({
@@ -60,7 +61,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: MS_PER_MINUTE, limit: 5 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
@@ -89,7 +90,7 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: MS_PER_MINUTE, limit: 10 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
   @ApiOkResponse({

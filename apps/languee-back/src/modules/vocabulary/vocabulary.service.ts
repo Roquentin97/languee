@@ -93,6 +93,7 @@ export class VocabularyService {
       word: input.word,
       lemma: nlpResult.lemma,
       language: input.language,
+      kind: LexicalKind.word,
       pos: nlpResult.pos ?? undefined,
       isIrregular: nlpResult.isIrregular,
       inflectionForms,

@@ -1,4 +1,5 @@
 import type { ReviewCardState, ReviewRating } from '@prisma/client';
+import { MS_PER_DAY, MS_PER_MINUTE } from '../../core/time/time.constants';
 
 /**
  * Pure SM-2 variant scheduler. Takes the card's current review state and a
@@ -8,8 +9,6 @@ import type { ReviewCardState, ReviewRating } from '@prisma/client';
 
 export const MIN_EASE_FACTOR = 1.3;
 
-const MS_PER_MINUTE = 60_000;
-const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 const RELEARNING_MINUTES = 10;
 
 export interface Sm2Input {

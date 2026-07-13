@@ -77,7 +77,11 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
-      const result = await service.lookup({ word: 'despite', language: 'en' });
+      const result = await service.lookup({
+        word: 'despite',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(adapterMock.fetch.mock.calls).toHaveLength(0);
       expect(definitionServiceMock.createMany).not.toHaveBeenCalled();
@@ -102,7 +106,11 @@ describe('DictionaryService', () => {
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
-      const result = await service.lookup({ word: 'despite', language: 'en' });
+      const result = await service.lookup({
+        word: 'despite',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(adapterMock.fetch.mock.calls).toContainEqual(['despite', 'en']);
       expect(definitionServiceMock.createMany).toHaveBeenCalledWith(
@@ -123,12 +131,16 @@ describe('DictionaryService', () => {
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
-      const result = await service.lookup({ word: 'despite', language: 'en' });
+      const result = await service.lookup({
+        word: 'despite',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(wordsServiceMock.ensureExistsAndReturn).toHaveBeenCalledWith(
         'despite',
         'en',
-        undefined,
+        LexicalKind.word,
       );
       expect(result.source).toBe('provider');
       expect(result.lemma).toBe('despite');
@@ -143,7 +155,11 @@ describe('DictionaryService', () => {
       );
 
       await expect(
-        service.lookup({ word: 'despite', language: 'en' }),
+        service.lookup({
+          word: 'despite',
+          language: 'en',
+          kind: LexicalKind.word,
+        }),
       ).rejects.toBeInstanceOf(ProviderUnavailableError);
     });
 
@@ -153,7 +169,11 @@ describe('DictionaryService', () => {
       adapterMock.fetch.mockResolvedValue([]);
 
       await expect(
-        service.lookup({ word: 'despite', language: 'en' }),
+        service.lookup({
+          word: 'despite',
+          language: 'en',
+          kind: LexicalKind.word,
+        }),
       ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
     });
   });
@@ -163,7 +183,11 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([mockDefinitionRow]);
 
-      await service.lookup({ word: '  Despite  ', language: 'en' });
+      await service.lookup({
+        word: '  Despite  ',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(wordsServiceMock.canonicalise).toHaveBeenCalledWith('  Despite  ');
       expect(wordsServiceMock.findByLemma).toHaveBeenCalledWith(
@@ -182,7 +206,12 @@ describe('DictionaryService', () => {
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
-      await service.lookup({ word: 'walked', lemma: 'walk', language: 'en' });
+      await service.lookup({
+        word: 'walked',
+        lemma: 'walk',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(wordsServiceMock.canonicalise).not.toHaveBeenCalled();
       expect(wordsServiceMock.findByLemma).toHaveBeenCalledWith('walk', 'en');
@@ -196,7 +225,11 @@ describe('DictionaryService', () => {
       ]);
       definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
 
-      await service.lookup({ word: 'Despite', language: 'en' });
+      await service.lookup({
+        word: 'Despite',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(wordsServiceMock.canonicalise).toHaveBeenCalledWith('Despite');
     });
@@ -247,6 +280,7 @@ describe('DictionaryService', () => {
         word: 'walked',
         lemma: 'walk',
         language: 'en',
+        kind: LexicalKind.word,
         isIrregular: false,
         inflectionForms,
       });
@@ -288,6 +322,7 @@ describe('DictionaryService', () => {
         word: 'walked',
         lemma: 'walk',
         language: 'en',
+        kind: LexicalKind.word,
         isIrregular: true,
         inflectionForms,
       });
@@ -314,6 +349,7 @@ describe('DictionaryService', () => {
       const result = await service.lookup({
         word: 'despite',
         language: 'en',
+        kind: LexicalKind.word,
       });
 
       expect(result.source).toBe('cache');
@@ -330,7 +366,11 @@ describe('DictionaryService', () => {
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([cachedRow]);
 
-      const result = await service.lookup({ word: 'despite', language: 'en' });
+      const result = await service.lookup({
+        word: 'despite',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
 
       expect(result.definitions[0].inflectionForms).toBeNull();
     });

@@ -73,22 +73,30 @@ describe('WordsService', () => {
     await module.close();
   });
 
-  it('findOrCreate: returns existing word without creating', async () => {
+  it('ensureExistsAndReturn: returns existing word without creating', async () => {
     const row = makeWord();
     prismaMock.word.findUnique.mockResolvedValue(row);
 
-    const result = await service.ensureExistsAndReturn('run', 'en');
+    const result = await service.ensureExistsAndReturn(
+      'run',
+      'en',
+      LexicalKind.word,
+    );
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).not.toHaveBeenCalled();
   });
 
-  it('findOrCreate: creates word when not found and returns it', async () => {
+  it('ensureExistsAndReturn: creates word when not found and returns it', async () => {
     const row = makeWord();
     prismaMock.word.findUnique.mockResolvedValue(null);
     prismaMock.word.create.mockResolvedValue(row);
 
-    const result = await service.ensureExistsAndReturn('run', 'en');
+    const result = await service.ensureExistsAndReturn(
+      'run',
+      'en',
+      LexicalKind.word,
+    );
 
     expect(result).toEqual(row);
     expect(prismaMock.word.create).toHaveBeenCalledWith({
@@ -96,20 +104,7 @@ describe('WordsService', () => {
     });
   });
 
-  it('findOrCreate: defaults kind to LexicalKind.word when kind is not provided', async () => {
-    prismaMock.word.findUnique.mockResolvedValue(null);
-    prismaMock.word.create.mockResolvedValue(makeWord());
-
-    await service.ensureExistsAndReturn('run', 'en');
-
-    expect(prismaMock.word.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ kind: LexicalKind.word }) as unknown,
-      }),
-    );
-  });
-
-  it('findOrCreate: sets kind on create when an explicit kind is provided', async () => {
+  it('ensureExistsAndReturn: sets kind on create when an explicit kind is provided', async () => {
     prismaMock.word.findUnique.mockResolvedValue(null);
     prismaMock.word.create.mockResolvedValue(makeWord({ lemma: 'run into' }));
 
@@ -128,7 +123,7 @@ describe('WordsService', () => {
     });
   });
 
-  it('findOrCreate: P2002 race on create falls back to findUniqueOrThrow', async () => {
+  it('ensureExistsAndReturn: P2002 race on create falls back to findUniqueOrThrow', async () => {
     const row = makeWord();
     prismaMock.word.findUnique.mockResolvedValue(null);
 
@@ -139,7 +134,11 @@ describe('WordsService', () => {
     prismaMock.word.create.mockRejectedValue(p2002);
     prismaMock.word.findUniqueOrThrow.mockResolvedValue(row);
 
-    const result = await service.ensureExistsAndReturn('run', 'en');
+    const result = await service.ensureExistsAndReturn(
+      'run',
+      'en',
+      LexicalKind.word,
+    );
 
     expect(result).toEqual(row);
     expect(prismaMock.word.findUniqueOrThrow).toHaveBeenCalledWith({
@@ -147,7 +146,7 @@ describe('WordsService', () => {
     });
   });
 
-  it('findOrCreate: non-P2002 error on create is re-thrown', async () => {
+  it('ensureExistsAndReturn: non-P2002 error on create is re-thrown', async () => {
     prismaMock.word.findUnique.mockResolvedValue(null);
 
     const p2025 = new Prisma.PrismaClientKnownRequestError('Not found', {
@@ -156,7 +155,9 @@ describe('WordsService', () => {
     });
     prismaMock.word.create.mockRejectedValue(p2025);
 
-    await expect(service.ensureExistsAndReturn('run', 'en')).rejects.toThrow();
+    await expect(
+      service.ensureExistsAndReturn('run', 'en', LexicalKind.word),
+    ).rejects.toThrow();
   });
 
   describe('canonicalise', () => {
