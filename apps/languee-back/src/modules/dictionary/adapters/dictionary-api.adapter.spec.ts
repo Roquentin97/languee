@@ -6,6 +6,7 @@ import {
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+import { RequestService } from '../../core/http/request.service';
 
 function mockFetchOk(body: unknown) {
   return jest.fn().mockResolvedValue({
@@ -19,6 +20,7 @@ function mockFetchStatus(status: number) {
   return jest.fn().mockResolvedValue({
     ok: false,
     status,
+    text: jest.fn().mockResolvedValue(''),
     json: jest.fn(),
   } as unknown as Response);
 }
@@ -30,7 +32,7 @@ describe('DictionaryApiAdapter', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     module = await Test.createTestingModule({
-      providers: [DictionaryApiAdapter],
+      providers: [DictionaryApiAdapter, RequestService],
     }).compile();
     adapter = module.get<DictionaryApiAdapter>(DictionaryApiAdapter);
   });
@@ -67,6 +69,7 @@ describe('DictionaryApiAdapter', () => {
     });
     expect(global.fetch).toHaveBeenCalledWith(
       `${DICTIONARY_API_BASE_URL}/en/run`,
+      expect.anything(),
     );
   });
 
@@ -75,6 +78,7 @@ describe('DictionaryApiAdapter', () => {
     await adapter.fetch('hello', 'en');
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining(DICTIONARY_API_BASE_URL),
+      expect.anything(),
     );
   });
 

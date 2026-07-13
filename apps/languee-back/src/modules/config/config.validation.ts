@@ -27,4 +27,9 @@ export const configValidationSchema = Joi.object({
   DICTIONARY_PROVIDER: Joi.string()
     .valid('freedictionaryapi', 'dictionaryapi_dev', 'wiktionary')
     .default('wiktionary'),
+  DICTIONARY_WIKTIONARY_USER_AGENT: Joi.string()
+    .min(1)
+    .default(
+      'languee (https://github.com/Roquentin97/languee; dictionary lookup)',
+    ),
 });

@@ -6,6 +6,7 @@ import {
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+import { RequestService } from '../../core/http/request.service';
 
 function mockFetchOk(body: unknown) {
   return jest.fn().mockResolvedValue({
@@ -19,6 +20,7 @@ function mockFetchStatus(status: number) {
   return jest.fn().mockResolvedValue({
     ok: false,
     status,
+    text: jest.fn().mockResolvedValue(''),
     json: jest.fn(),
   } as unknown as Response);
 }
@@ -57,7 +59,7 @@ describe('FreeDictionaryApiAdapter', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     module = await Test.createTestingModule({
-      providers: [FreeDictionaryApiAdapter],
+      providers: [FreeDictionaryApiAdapter, RequestService],
     }).compile();
     adapter = module.get<FreeDictionaryApiAdapter>(FreeDictionaryApiAdapter);
   });
@@ -175,6 +177,7 @@ describe('FreeDictionaryApiAdapter', () => {
       await adapter.fetch('hello', 'en');
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining(FREE_DICTIONARY_API_BASE_URL),
+        expect.anything(),
       );
     });
 
@@ -183,6 +186,7 @@ describe('FreeDictionaryApiAdapter', () => {
       await adapter.fetch('hello', 'en');
       expect(global.fetch).toHaveBeenCalledWith(
         `${FREE_DICTIONARY_API_BASE_URL}/entries/en/hello`,
+        expect.anything(),
       );
     });
 
@@ -191,6 +195,7 @@ describe('FreeDictionaryApiAdapter', () => {
       await adapter.fetch('bonjour', 'fr');
       expect(global.fetch).toHaveBeenCalledWith(
         `${FREE_DICTIONARY_API_BASE_URL}/entries/fr/bonjour`,
+        expect.anything(),
       );
     });
   });

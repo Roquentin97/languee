@@ -16,6 +16,7 @@ import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { DictionaryController } from './dictionary.controller';
+import { RequestService } from '../core/http/request.service';
 
 function buildAdapterFactory() {
   return {
@@ -49,6 +50,9 @@ async function compileWithProvider(
       if (key === 'dictionary.provider') return providerValue;
       return undefined;
     }),
+    getOrThrow: jest
+      .fn()
+      .mockReturnValue('languee-test (contact: test@example.com)'),
   };
 
   return Test.createTestingModule({
@@ -56,6 +60,7 @@ async function compileWithProvider(
       DictionaryApiAdapter,
       FreeDictionaryApiAdapter,
       WiktionaryApiAdapter,
+      RequestService,
       { provide: ConfigService, useValue: mockConfigService },
       buildAdapterFactory(),
     ],
@@ -101,6 +106,7 @@ describe('DictionaryModule — provider selection via factory', () => {
         DictionaryApiAdapter,
         FreeDictionaryApiAdapter,
         WiktionaryApiAdapter,
+        RequestService,
         { provide: ConfigService, useValue: mockConfigService },
         buildAdapterFactory(),
       ],
@@ -120,6 +126,7 @@ describe('DictionaryModule — provider selection via factory', () => {
         DictionaryApiAdapter,
         FreeDictionaryApiAdapter,
         WiktionaryApiAdapter,
+        RequestService,
         { provide: ConfigService, useValue: mockConfigService },
         buildAdapterFactory(),
       ],

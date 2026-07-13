@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
+import { RequestFailure, RequestService } from '../core/http/request.service';
 import {
   NlpExpressionInvalidError,
   NlpMultiWordError,
@@ -20,7 +21,10 @@ import type { InflectionForms } from '../dictionary/types/inflection-forms.types
 export class NlpService {
   private readonly logger = new Logger(NlpService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly request: RequestService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async analyzeWord(
     word: string,
@@ -46,36 +50,19 @@ export class NlpService {
       params.set('input_text', context);
     }
 
-    let response: Response;
     const start = Date.now();
+    let body: NlpWordResponse;
     try {
-      response = await fetch(`${baseUrl}/words?${params.toString()}`, {
-        headers: { Authorization: `Basic ${credentials}` },
-      });
+      body = await this.request.getJson<NlpWordResponse>(
+        `${baseUrl}/words?${params.toString()}`,
+        {
+          target: 'nlp',
+          headers: { Authorization: `Basic ${credentials}` },
+        },
+      );
     } catch (err: unknown) {
-      const span = trace.getActiveSpan();
-      if (err instanceof Error) {
-        span?.recordException(err);
-      }
-      span?.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: 'NLP service unavailable',
-      });
       throw new NlpUnavailableError(err);
     }
-
-    if (!response.ok) {
-      trace.getActiveSpan()?.addEvent('nlp.response_error', {
-        'http.status_code': response.status,
-      });
-      trace.getActiveSpan()?.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: `NLP HTTP ${response.status}`,
-      });
-      throw new NlpUnavailableError();
-    }
-
-    const body = (await response.json()) as NlpWordResponse;
 
     if (body['is_multi_word'] || body.tokens.length !== 1) {
       trace.getActiveSpan()?.addEvent('nlp.multi_word_rejected', { word });
@@ -140,33 +127,20 @@ export class NlpService {
       params.set('input_text', context);
     }
 
-    let response: Response;
     const start = Date.now();
+    let body: NlpExpressionResponse;
     try {
-      response = await fetch(`${baseUrl}/expressions?${params.toString()}`, {
-        headers: { Authorization: `Basic ${credentials}` },
-      });
+      body = await this.request.getJson<NlpExpressionResponse>(
+        `${baseUrl}/expressions?${params.toString()}`,
+        {
+          target: 'nlp',
+          headers: { Authorization: `Basic ${credentials}` },
+        },
+      );
     } catch (err: unknown) {
-      const span = trace.getActiveSpan();
-      if (err instanceof Error) {
-        span?.recordException(err);
-      }
-      span?.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: 'NLP service unavailable',
-      });
-      throw new NlpUnavailableError(err);
-    }
-
-    if (!response.ok) {
-      if (response.status === 400) {
-        trace.getActiveSpan()?.addEvent('nlp.expression_invalid', {
-          expression,
-        });
-        trace.getActiveSpan()?.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: 'NLP expression invalid',
-        });
+      // NLP owns expression validity: a 400 means it rejected the input
+      // (token count, unsupported language), not that the service is down.
+      if (err instanceof RequestFailure && err.status === 400) {
         this.logger.warn({
           message: 'expression input rejected',
           event: 'nlp.expression_invalid',
@@ -175,17 +149,8 @@ export class NlpService {
         });
         throw new NlpExpressionInvalidError();
       }
-      trace.getActiveSpan()?.addEvent('nlp.response_error', {
-        'http.status_code': response.status,
-      });
-      trace.getActiveSpan()?.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: `NLP HTTP ${response.status}`,
-      });
-      throw new NlpUnavailableError();
+      throw new NlpUnavailableError(err);
     }
-
-    const body = (await response.json()) as NlpExpressionResponse;
     const durationMs = Date.now() - start;
 
     const contextMatch = body.context_match

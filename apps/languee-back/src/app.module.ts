@@ -16,11 +16,13 @@ import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { NlpModule } from './modules/nlp/nlp.module';
 import { AnkiDroidExportsModule } from './modules/ankidroid-exports/ankidroid-exports.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { HttpModule } from './modules/core/http/http.module';
 import { MS_PER_MINUTE } from './modules/core/time/time.constants';
 
 @Module({
   imports: [
     AppConfigModule,
+    HttpModule,
     PrismaModule,
     RedisModule,
     RequestContextModule,

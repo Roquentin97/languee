@@ -6,6 +6,8 @@ import {
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
+import { RequestService } from '../../core/http/request.service';
+import { ConfigService } from '@nestjs/config';
 
 function mockFetchOk(body: unknown) {
   return jest.fn().mockResolvedValue({
@@ -19,6 +21,7 @@ function mockFetchStatus(status: number) {
   return jest.fn().mockResolvedValue({
     ok: false,
     status,
+    text: jest.fn().mockResolvedValue(''),
     json: jest.fn(),
   } as unknown as Response);
 }
@@ -30,7 +33,19 @@ describe('WiktionaryApiAdapter', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     module = await Test.createTestingModule({
-      providers: [WiktionaryApiAdapter],
+      providers: [
+        WiktionaryApiAdapter,
+        RequestService,
+        {
+          provide: ConfigService,
+          useValue: {
+            getOrThrow: jest
+              .fn()
+              .mockReturnValue('languee-test (contact: test@example.com)'),
+            get: jest.fn().mockReturnValue('wiktionary'),
+          },
+        },
+      ],
     }).compile();
     adapter = module.get<WiktionaryApiAdapter>(WiktionaryApiAdapter);
   });

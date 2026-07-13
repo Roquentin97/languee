@@ -39,5 +39,8 @@ export const configuration = () => ({
   },
   dictionary: {
     provider: process.env['DICTIONARY_PROVIDER'] ?? 'wiktionary',
+    wiktionaryUserAgent:
+      process.env['DICTIONARY_WIKTIONARY_USER_AGENT'] ??
+      'languee (https://github.com/Roquentin97/languee; dictionary lookup)',
   },
 });

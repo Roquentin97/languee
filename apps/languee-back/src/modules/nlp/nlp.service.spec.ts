@@ -8,6 +8,7 @@ import {
 import { NlpService } from './nlp.service';
 import type { NlpExpressionResponse, NlpWordResponse } from './nlp.interfaces';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
+import { RequestFailure, RequestService } from '../core/http/request.service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -176,6 +177,7 @@ describe('NlpService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NlpService,
+        RequestService,
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -455,6 +457,7 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 503,
+        text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
       global.fetch = mockFetch as unknown as typeof fetch;
@@ -480,7 +483,10 @@ describe('NlpService', () => {
 
       const err = await service.analyzeWord('walk').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(NlpUnavailableError);
-      expect((err as NlpUnavailableError).cause).toBe(cause);
+      const failure = (err as NlpUnavailableError).cause;
+      expect(failure).toBeInstanceOf(RequestFailure);
+      expect((failure as RequestFailure).kind).toBe('network');
+      expect((failure as RequestFailure).cause).toBe(cause);
     });
 
     it('is_multi_word=true throws NlpMultiWordError', async () => {
@@ -794,6 +800,7 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 400,
+        text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
       global.fetch = mockFetch as unknown as typeof fetch;
@@ -807,6 +814,7 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 503,
+        text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
       global.fetch = mockFetch as unknown as typeof fetch;
@@ -834,7 +842,10 @@ describe('NlpService', () => {
         .analyzeExpression('ran into')
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(NlpUnavailableError);
-      expect((err as NlpUnavailableError).cause).toBe(cause);
+      const failure = (err as NlpUnavailableError).cause;
+      expect(failure).toBeInstanceOf(RequestFailure);
+      expect((failure as RequestFailure).kind).toBe('network');
+      expect((failure as RequestFailure).cause).toBe(cause);
     });
 
     it('blank context is omitted from the NLP request', async () => {

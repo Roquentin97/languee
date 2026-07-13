@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
 import {
   FREE_DICTIONARY_API_BASE_URL,
   FREE_DICTIONARY_API_PROVIDER_NAME,
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
+import {
+  RequestFailure,
+  RequestService,
+} from '../../core/http/request.service';
 import {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
@@ -42,32 +46,22 @@ interface FreeDictionaryApiResponse {
 export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
   readonly providerName = FREE_DICTIONARY_API_PROVIDER_NAME;
 
+  constructor(private readonly request: RequestService) {}
+
   async fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]> {
-    let response: Response;
+    let data: FreeDictionaryApiResponse;
     try {
-      response = await fetch(
+      data = await this.request.getJson<FreeDictionaryApiResponse>(
         `${FREE_DICTIONARY_API_BASE_URL}/entries/${language}/${encodeURIComponent(lemma)}`,
+        { target: this.providerName },
       );
     } catch (err: unknown) {
-      throw new ProviderUnavailableError(this.providerName, err);
-    }
-
-    if (!response.ok) {
-      if (response.status === 404) {
+      if (err instanceof RequestFailure && err.status === 404) {
         trace.getActiveSpan()?.addEvent('dictionary.not_found', { lemma });
         return [];
       }
-      trace.getActiveSpan()?.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: `Dictionary HTTP ${response.status}`,
-      });
-      throw new ProviderUnavailableError(
-        this.providerName,
-        new Error(`HTTP ${response.status}`),
-      );
+      throw new ProviderUnavailableError(this.providerName, err);
     }
-
-    const data = (await response.json()) as FreeDictionaryApiResponse;
 
     if (!data.entries || data.entries.length === 0) {
       return [];
