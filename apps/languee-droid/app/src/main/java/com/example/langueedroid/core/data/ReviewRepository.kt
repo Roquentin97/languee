@@ -102,7 +102,6 @@ class ReviewRepository(
 
     private fun GradeAnswerResult.toWireValue(): String = when (this) {
         GradeAnswerResult.CORRECT -> "correct"
-        GradeAnswerResult.CLOSE_SYNONYM -> "close_synonym"
         GradeAnswerResult.INCORRECT -> "incorrect"
         GradeAnswerResult.REVEALED -> "revealed"
     }

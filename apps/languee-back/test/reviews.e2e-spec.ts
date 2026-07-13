@@ -49,9 +49,8 @@ interface QueueApiResponse {
 }
 
 interface AnswerApiResponse {
-  result: 'correct' | 'close_synonym' | 'incorrect';
+  result: 'correct' | 'incorrect';
   matchedForm: string | null;
-  hint: string | null;
 }
 
 interface GradeApiResponse {
@@ -164,7 +163,6 @@ describe('ReviewsController (e2e)', () => {
   let otherAccessToken: string;
   let emptyAccessToken: string;
   let word: string;
-  let synonymWord: string;
   let cardId: string;
   let foreignCardId: string;
 
@@ -180,7 +178,6 @@ describe('ReviewsController (e2e)', () => {
     emptyAccessToken = await getAccessToken(app, emptyEmail, testPassword);
 
     word = randomWord('encounter');
-    synonymWord = randomWord('bumpinto');
 
     const definitionId = await seedDefinitionId(
       app,
@@ -189,23 +186,6 @@ describe('ReviewsController (e2e)', () => {
       'to meet or find unexpectedly',
       `I ${word} an old friend yesterday.`,
     );
-    const synonymDefinitionId = await seedDefinitionId(
-      app,
-      accessToken,
-      synonymWord,
-      'to meet someone by chance',
-    );
-
-    await request(app.getHttpServer())
-      .post('/api/v1/synonyms')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({
-        definitionAId: definitionId,
-        definitionBId: synonymDefinitionId,
-        relationType: 'synonym',
-      })
-      .expect(201);
-
     const deckId = await createDeck(
       app,
       accessToken,
@@ -326,21 +306,7 @@ describe('ReviewsController (e2e)', () => {
       expect(res.body as AnswerApiResponse).toEqual({
         result: 'correct',
         matchedForm: word,
-        hint: null,
       });
-    });
-
-    it('returns close_synonym with a hint when a synonym lemma is typed', async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/api/v1/reviews/${cardId}/answer`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({ typedAnswer: synonymWord })
-        .expect(200);
-
-      const body = res.body as AnswerApiResponse;
-      expect(body.result).toBe('close_synonym');
-      expect(body.matchedForm).toBeNull();
-      expect(body.hint).toEqual(expect.any(String));
     });
 
     it('returns incorrect when the typed answer matches nothing', async () => {
@@ -353,7 +319,6 @@ describe('ReviewsController (e2e)', () => {
       expect(res.body as AnswerApiResponse).toEqual({
         result: 'incorrect',
         matchedForm: null,
-        hint: null,
       });
     });
 

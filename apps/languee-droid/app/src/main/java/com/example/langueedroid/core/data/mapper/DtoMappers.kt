@@ -104,7 +104,6 @@ fun ReviewItemDto.toDomain(): ReviewItem = ReviewItem(
 
 private fun String.toAnswerResult(): AnswerResult = when (this) {
     "correct" -> AnswerResult.CORRECT
-    "close_synonym" -> AnswerResult.CLOSE_SYNONYM
     "incorrect" -> AnswerResult.INCORRECT
     else -> AnswerResult.INCORRECT
 }
@@ -112,7 +111,6 @@ private fun String.toAnswerResult(): AnswerResult = when (this) {
 fun CheckAnswerResponseDto.toDomain(): AnswerCheck = AnswerCheck(
     result = result.toAnswerResult(),
     matchedForm = matchedForm,
-    hint = hint,
 )
 
 fun GradeResponseDto.toDomain(): GradeOutcome = GradeOutcome(

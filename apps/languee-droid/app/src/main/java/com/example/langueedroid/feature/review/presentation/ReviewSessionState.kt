@@ -6,7 +6,6 @@ enum class ReviewError { LOAD_FAILED, SUBMIT_FAILED, GRADE_FAILED }
 
 sealed class QuestionFeedback {
     object None : QuestionFeedback()
-    data class CloseHint(val hint: String?) : QuestionFeedback()
     object Incorrect : QuestionFeedback()
 }
 

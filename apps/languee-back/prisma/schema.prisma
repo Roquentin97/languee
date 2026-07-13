@@ -7,13 +7,13 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  email            String            @unique
-  passwordHash     String            @map("password_hash")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-  decks            Deck[]
-  cards            Card[]
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  decks        Deck[]
+  cards        Card[]
 
   @@map("users")
 }
@@ -39,20 +39,18 @@ model Word {
 }
 
 model Definition {
-  id                 String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  wordId             String   @map("word_id") @db.Uuid
-  word               Word     @relation(fields: [wordId], references: [id])
-  partOfSpeech       String   @map("part_of_speech")
-  definition         String
-  example            String?
-  provider           String
-  gapFillMetadata    Json?    @map("gap_fill_metadata") @db.JsonB
-  hasIrregularForms  Boolean  @default(false) @map("has_irregular_forms")
-  inflectionForms    Json?    @map("inflection_forms") @db.JsonB
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
-  cards              Card[]
-  meaningLinksA      MeaningLink[] @relation("MeaningLinkDefinitionA")
-  meaningLinksB      MeaningLink[] @relation("MeaningLinkDefinitionB")
+  id                String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  wordId            String   @map("word_id") @db.Uuid
+  word              Word     @relation(fields: [wordId], references: [id])
+  partOfSpeech      String   @map("part_of_speech")
+  definition        String
+  example           String?
+  provider          String
+  gapFillMetadata   Json?    @map("gap_fill_metadata") @db.JsonB
+  hasIrregularForms Boolean  @default(false) @map("has_irregular_forms")
+  inflectionForms   Json?    @map("inflection_forms") @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  cards             Card[]
 
   @@unique([wordId, partOfSpeech, definition])
   @@index([wordId])
@@ -75,17 +73,17 @@ model Deck {
 }
 
 model Card {
-  id              String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  deckId          String                  @map("deck_id") @db.Uuid
-  deck            Deck                    @relation(fields: [deckId], references: [id])
-  userId          String                  @map("user_id") @db.Uuid
-  user            User                    @relation(fields: [userId], references: [id])
-  definitionId    String                  @map("definition_id") @db.Uuid
-  definition      Definition              @relation(fields: [definitionId], references: [id])
+  id              String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  deckId          String               @map("deck_id") @db.Uuid
+  deck            Deck                 @relation(fields: [deckId], references: [id])
+  userId          String               @map("user_id") @db.Uuid
+  user            User                 @relation(fields: [userId], references: [id])
+  definitionId    String               @map("definition_id") @db.Uuid
+  definition      Definition           @relation(fields: [definitionId], references: [id])
   context         String?
-  inflectionForms Json?                   @map("inflection_forms") @db.JsonB
-  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  inflectionForms Json?                @map("inflection_forms") @db.JsonB
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
   ankidroidExport CardAnkiDroidExport?
   reviewState     CardReviewState?
   reviewLogs      ReviewLog[]
@@ -101,23 +99,23 @@ enum CardAnkiDroidExportStatus {
 }
 
 model CardAnkiDroidExport {
-  id                     String                       @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  cardId                 String                       @unique @map("card_id") @db.Uuid
-  card                   Card                         @relation(fields: [cardId], references: [id])
-  status                 CardAnkiDroidExportStatus    @default(pending)
-  failureReason          String?                      @map("failure_reason")
-  failureMessage         String?                      @map("failure_message")
-  ankiNoteId             String?                      @map("anki_note_id")
-  ankiDeckId             String?                      @map("anki_deck_id")
-  ankiDeckNameSnapshot   String?                      @map("anki_deck_name_snapshot")
-  ankiModelId            String?                      @map("anki_model_id")
-  ankiModelNameSnapshot  String?                      @map("anki_model_name_snapshot")
-  templateVersion        String?                      @map("template_version")
-  lastAttemptedAt        DateTime?                    @map("last_attempted_at") @db.Timestamptz
-  completedAt            DateTime?                    @map("completed_at") @db.Timestamptz
-  attempts               CardAnkiDroidExportAttempt[]
-  createdAt              DateTime                     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime                     @updatedAt @map("updated_at") @db.Timestamptz
+  id                    String                       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  cardId                String                       @unique @map("card_id") @db.Uuid
+  card                  Card                         @relation(fields: [cardId], references: [id])
+  status                CardAnkiDroidExportStatus    @default(pending)
+  failureReason         String?                      @map("failure_reason")
+  failureMessage        String?                      @map("failure_message")
+  ankiNoteId            String?                      @map("anki_note_id")
+  ankiDeckId            String?                      @map("anki_deck_id")
+  ankiDeckNameSnapshot  String?                      @map("anki_deck_name_snapshot")
+  ankiModelId           String?                      @map("anki_model_id")
+  ankiModelNameSnapshot String?                      @map("anki_model_name_snapshot")
+  templateVersion       String?                      @map("template_version")
+  lastAttemptedAt       DateTime?                    @map("last_attempted_at") @db.Timestamptz
+  completedAt           DateTime?                    @map("completed_at") @db.Timestamptz
+  attempts              CardAnkiDroidExportAttempt[]
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                     @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([status])
   @@index([cardId])
@@ -137,32 +135,6 @@ model CardAnkiDroidExportAttempt {
   @@map("card_ankidroid_export_attempts")
 }
 
-enum MeaningLinkType {
-  synonym
-  related
-}
-
-enum MeaningLinkSource {
-  user
-  provider
-}
-
-model MeaningLink {
-  id             String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  definitionAId  String            @map("definition_a_id") @db.Uuid
-  definitionA    Definition        @relation("MeaningLinkDefinitionA", fields: [definitionAId], references: [id])
-  definitionBId  String            @map("definition_b_id") @db.Uuid
-  definitionB    Definition        @relation("MeaningLinkDefinitionB", fields: [definitionBId], references: [id])
-  relationType   MeaningLinkType   @map("relation_type")
-  source         MeaningLinkSource @default(user)
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
-
-  @@unique([definitionAId, definitionBId, relationType])
-  @@index([definitionAId])
-  @@index([definitionBId])
-  @@map("meaning_links")
-}
-
 enum ReviewCardState {
   new
   learning
@@ -178,7 +150,6 @@ enum ReviewRating {
 
 enum ReviewAnswerResult {
   correct
-  close_synonym
   incorrect
   revealed
 }

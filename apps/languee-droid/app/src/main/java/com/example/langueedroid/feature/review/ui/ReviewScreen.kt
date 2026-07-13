@@ -312,30 +312,7 @@ private fun QuestionContent(
             }
         }
 
-        when (val feedback = state.feedback) {
-            is QuestionFeedback.CloseHint -> {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = AmberContainer),
-                    border = BorderStroke(1.5.dp, AmberBorder),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = stringResource(R.string.review_close_synonym_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = AmberWarning,
-                        )
-                        if (feedback.hint != null) {
-                            Text(
-                                text = feedback.hint,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = AmberWarning,
-                            )
-                        }
-                    }
-                }
-            }
+        when (state.feedback) {
             is QuestionFeedback.Incorrect -> {
                 Card(
                     shape = RoundedCornerShape(14.dp),

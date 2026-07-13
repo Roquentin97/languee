@@ -28,9 +28,8 @@ export type ReviewQueueItem = {
 };
 
 export type AnswerCheckOutcome = {
-  result: 'correct' | 'close_synonym' | 'incorrect';
+  result: 'correct' | 'incorrect';
   matchedForm: string | null;
-  hint: string | null;
 };
 
 export type GradeInput = {

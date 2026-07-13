@@ -182,7 +182,6 @@
     <string name="review_answer_label">Your answer</string>
     <string name="review_submit_button">Submit</string>
     <string name="review_reveal_button">Reveal</string>
-    <string name="review_close_synonym_title">Close!</string>
     <string name="review_incorrect_feedback">Not quite. Try again or reveal the answer.</string>
     <string name="review_correct_title">Correct!</string>
     <string name="review_accepted_answer">Accepted: %1$s</string>

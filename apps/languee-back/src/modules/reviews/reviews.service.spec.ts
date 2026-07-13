@@ -10,7 +10,6 @@ import type {
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
 import { DecksService } from '../decks/decks.service';
-import { SynonymsService } from '../synonyms/synonyms.service';
 import { ReviewsService } from './reviews.service';
 import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
 
@@ -110,10 +109,6 @@ const mockDecksService = {
   findOneByIdAndUserId: jest.fn(),
 };
 
-const mockSynonymsService = {
-  findSynonymAnswersForDefinition: jest.fn(),
-};
-
 describe('ReviewsService', () => {
   let service: ReviewsService;
 
@@ -127,7 +122,6 @@ describe('ReviewsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: CardsService, useValue: mockCardsService },
         { provide: DecksService, useValue: mockDecksService },
-        { provide: SynonymsService, useValue: mockSynonymsService },
       ],
     }).compile();
 
@@ -307,7 +301,6 @@ describe('ReviewsService', () => {
       mockCardsService.findOneByIdAndUserId.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockSynonymsService.findSynonymAnswersForDefinition.mockResolvedValue([]);
 
       const result = await service.checkTypedAnswer(
         'user-id-1',
@@ -318,7 +311,6 @@ describe('ReviewsService', () => {
       expect(result).toEqual({
         result: 'correct',
         matchedForm: 'run into',
-        hint: null,
       });
     });
 
@@ -326,7 +318,6 @@ describe('ReviewsService', () => {
       mockCardsService.findOneByIdAndUserId.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockSynonymsService.findSynonymAnswersForDefinition.mockResolvedValue([]);
 
       const result = await service.checkTypedAnswer(
         'user-id-1',
@@ -337,33 +328,6 @@ describe('ReviewsService', () => {
       expect(result).toEqual({
         result: 'correct',
         matchedForm: 'ran into',
-        hint: null,
-      });
-    });
-
-    it('happy path — close_synonym via synonym lemma', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
-        mockCardWithAnkiDroidExport,
-      );
-      mockSynonymsService.findSynonymAnswersForDefinition.mockResolvedValue([
-        {
-          definitionId: 'def-id-2',
-          lemma: 'bump into',
-          kind: 'phrasal_verb',
-          relationType: 'synonym',
-        },
-      ]);
-
-      const result = await service.checkTypedAnswer(
-        'user-id-1',
-        'card-id-1',
-        'bump into',
-      );
-
-      expect(result).toEqual({
-        result: 'close_synonym',
-        matchedForm: null,
-        hint: "Close — that's a related expression. This prompt asks for a different one.",
       });
     });
 
@@ -371,7 +335,6 @@ describe('ReviewsService', () => {
       mockCardsService.findOneByIdAndUserId.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockSynonymsService.findSynonymAnswersForDefinition.mockResolvedValue([]);
 
       const result = await service.checkTypedAnswer(
         'user-id-1',
@@ -382,7 +345,6 @@ describe('ReviewsService', () => {
       expect(result).toEqual({
         result: 'incorrect',
         matchedForm: null,
-        hint: null,
       });
     });
 
@@ -390,7 +352,6 @@ describe('ReviewsService', () => {
       mockCardsService.findOneByIdAndUserId.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockSynonymsService.findSynonymAnswersForDefinition.mockResolvedValue([]);
 
       const result = await service.checkTypedAnswer(
         'user-id-1',

@@ -34,7 +34,6 @@ data class CheckAnswerRequest(
 data class CheckAnswerResponseDto(
     val result: String,
     val matchedForm: String?,
-    val hint: String?,
 )
 
 data class GradeRequest(

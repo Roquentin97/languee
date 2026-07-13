@@ -88,9 +88,6 @@ class ReviewViewModel @Inject constructor(
                             total = current.total,
                             matchedForm = check.matchedForm,
                         )
-                        AnswerResult.CLOSE_SYNONYM -> current.copy(
-                            feedback = QuestionFeedback.CloseHint(check.hint),
-                        )
                         AnswerResult.INCORRECT -> current.copy(
                             typedAnswer = "",
                             feedback = QuestionFeedback.Incorrect,

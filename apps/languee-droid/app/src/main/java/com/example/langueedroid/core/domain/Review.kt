@@ -25,12 +25,11 @@ data class ReviewItem(
     val prompt: ReviewPrompt,
 )
 
-enum class AnswerResult { CORRECT, CLOSE_SYNONYM, INCORRECT }
+enum class AnswerResult { CORRECT, INCORRECT }
 
 data class AnswerCheck(
     val result: AnswerResult,
     val matchedForm: String?,
-    val hint: String?,
 )
 
 enum class ReviewRating { AGAIN, HARD, GOOD, EASY }
@@ -40,7 +39,7 @@ enum class ReviewRating { AGAIN, HARD, GOOD, EASY }
  * which the answer-check endpoint never returns — it only exists as a grade-time signal
  * for cards the user gave up on via the Reveal action.
  */
-enum class GradeAnswerResult { CORRECT, CLOSE_SYNONYM, INCORRECT, REVEALED }
+enum class GradeAnswerResult { CORRECT, INCORRECT, REVEALED }
 
 data class GradeOutcome(
     val nextDueAt: String,

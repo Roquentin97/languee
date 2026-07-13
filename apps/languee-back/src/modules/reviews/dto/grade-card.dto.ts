@@ -6,7 +6,6 @@ export type ReviewRatingInput = (typeof REVIEW_RATINGS)[number];
 
 export const REVIEW_ANSWER_RESULTS = [
   'correct',
-  'close_synonym',
   'incorrect',
   'revealed',
 ] as const;

@@ -2,10 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AnswerCardResponseDto {
   @ApiProperty({
-    enum: ['correct', 'close_synonym', 'incorrect'],
+    enum: ['correct', 'incorrect'],
     example: 'correct',
   })
-  result!: 'correct' | 'close_synonym' | 'incorrect';
+  result!: 'correct' | 'incorrect';
 
   @ApiPropertyOptional({
     description: 'The accepted form as stored, only present when correct',
@@ -13,10 +13,4 @@ export class AnswerCardResponseDto {
     nullable: true,
   })
   matchedForm!: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Guidance shown for a close_synonym result',
-    nullable: true,
-  })
-  hint!: string | null;
 }

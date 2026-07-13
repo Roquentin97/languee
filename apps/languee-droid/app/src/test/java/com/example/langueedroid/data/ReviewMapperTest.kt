@@ -119,27 +119,20 @@ class ReviewMapperTest {
 
     @Test
     fun `result correct maps to CORRECT`() {
-        val domain = CheckAnswerResponseDto(result = "correct", matchedForm = "come across", hint = null).toDomain()
+        val domain = CheckAnswerResponseDto(result = "correct", matchedForm = "come across").toDomain()
         assertEquals(AnswerResult.CORRECT, domain.result)
         assertEquals("come across", domain.matchedForm)
     }
 
     @Test
-    fun `result close_synonym maps to CLOSE_SYNONYM`() {
-        val domain = CheckAnswerResponseDto(result = "close_synonym", matchedForm = null, hint = "close").toDomain()
-        assertEquals(AnswerResult.CLOSE_SYNONYM, domain.result)
-        assertEquals("close", domain.hint)
-    }
-
-    @Test
     fun `result incorrect maps to INCORRECT`() {
-        val domain = CheckAnswerResponseDto(result = "incorrect", matchedForm = null, hint = null).toDomain()
+        val domain = CheckAnswerResponseDto(result = "incorrect", matchedForm = null).toDomain()
         assertEquals(AnswerResult.INCORRECT, domain.result)
     }
 
     @Test
     fun `unknown result string falls back safely to INCORRECT`() {
-        val domain = CheckAnswerResponseDto(result = "some_future_result", matchedForm = null, hint = null).toDomain()
+        val domain = CheckAnswerResponseDto(result = "some_future_result", matchedForm = null).toDomain()
         assertEquals(AnswerResult.INCORRECT, domain.result)
     }
 

@@ -158,7 +158,6 @@ describe('ReviewsController', () => {
       mockReviewsService.checkTypedAnswer.mockResolvedValue({
         result: 'correct',
         matchedForm: 'run into',
-        hint: null,
       });
 
       const result = await controller.answer(
@@ -170,7 +169,6 @@ describe('ReviewsController', () => {
       expect(result).toEqual({
         result: 'correct',
         matchedForm: 'run into',
-        hint: null,
       });
       expect(mockReviewsService.checkTypedAnswer).toHaveBeenCalledWith(
         'user-id-1',

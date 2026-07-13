@@ -48,7 +48,6 @@ export function serializeAnswerResult(
   return {
     result: outcome.result,
     matchedForm: outcome.matchedForm,
-    hint: outcome.hint,
   };
 }
 

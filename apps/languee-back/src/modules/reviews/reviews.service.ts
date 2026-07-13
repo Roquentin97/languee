@@ -4,7 +4,6 @@ import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
 import type { CardWithDefinitionAndWord } from '../cards/cards.service';
 import { DecksService } from '../decks/decks.service';
-import { SynonymsService } from '../synonyms/synonyms.service';
 import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
 import { collectTargetForms, maskText } from './lib/masking';
@@ -18,9 +17,6 @@ import type {
   ReviewQueueItem,
   ReviewSummary,
 } from './reviews.types';
-
-const CLOSE_SYNONYM_HINT =
-  "Close — that's a related expression. This prompt asks for a different one.";
 
 const DEFAULT_REVIEW_STATE: Pick<
   CardReviewState,
@@ -45,7 +41,6 @@ export class ReviewsService {
     private readonly prisma: PrismaService,
     private readonly cardsService: CardsService,
     private readonly decksService: DecksService,
-    private readonly synonymsService: SynonymsService,
   ) {}
 
   async getSummary(userId: string): Promise<ReviewSummary> {
@@ -128,28 +123,12 @@ export class ReviewsService {
     if (card === null) throw new CardOwnershipError();
 
     const forms = this.targetFormsForCard(card);
-    const synonyms = await this.synonymsService.findSynonymAnswersForDefinition(
-      card.definitionId,
-    );
-    const synonymLemmas = synonyms.map((s) => s.lemma);
-
-    const outcome = checkAnswer(typedAnswer, forms, synonymLemmas);
+    const outcome = checkAnswer(typedAnswer, forms);
 
     if (outcome.result === 'correct') {
-      return {
-        result: 'correct',
-        matchedForm: outcome.matchedForm,
-        hint: null,
-      };
+      return { result: 'correct', matchedForm: outcome.matchedForm };
     }
-    if (outcome.result === 'close_synonym') {
-      return {
-        result: 'close_synonym',
-        matchedForm: null,
-        hint: CLOSE_SYNONYM_HINT,
-      };
-    }
-    return { result: 'incorrect', matchedForm: null, hint: null };
+    return { result: 'incorrect', matchedForm: null };
   }
 
   async gradeCard(

@@ -128,7 +128,7 @@ class ReviewViewModelTest {
         val item2 = anItem(cardId = "card-2")
         whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item1, item2)))
         whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "come across")).thenReturn(
-            Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across", hint = null)),
+            Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
         )
         whenever(
             reviewRepository.grade(
@@ -160,48 +160,6 @@ class ReviewViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // submitAnswer — close_synonym → hint shown, input preserved, retry then correct
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `close synonym answer — hint shown and input preserved, retry succeeds`() = runTest {
-        val item = anItem(cardId = "card-1")
-        whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
-        whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "run into")).thenReturn(
-            Result.success(
-                AnswerCheck(
-                    result = AnswerResult.CLOSE_SYNONYM,
-                    matchedForm = null,
-                    hint = "Close — that's a related expression. This prompt asks for a different one.",
-                ),
-            ),
-        )
-
-        val vm = buildViewModel()
-        advanceUntilIdle()
-
-        vm.updateInput("run into")
-        vm.submitAnswer()
-        advanceUntilIdle()
-
-        val hintState = vm.state.value
-        assertTrue(hintState is ReviewSessionState.Question)
-        val question = hintState as ReviewSessionState.Question
-        assertTrue(question.feedback is QuestionFeedback.CloseHint)
-        assertEquals("run into", question.typedAnswer)
-
-        // Retry with the correct answer.
-        whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "come across")).thenReturn(
-            Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across", hint = null)),
-        )
-        vm.updateInput("come across")
-        vm.submitAnswer()
-        advanceUntilIdle()
-
-        assertTrue(vm.state.value is ReviewSessionState.Correct)
-    }
-
-    // -------------------------------------------------------------------------
     // submitAnswer — incorrect → feedback shown, input cleared, then reveal grades
     // again+revealed and moves to Revealed
     // -------------------------------------------------------------------------
@@ -211,7 +169,7 @@ class ReviewViewModelTest {
         val item = anItem(cardId = "card-1")
         whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
         whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "wrong")).thenReturn(
-            Result.success(AnswerCheck(result = AnswerResult.INCORRECT, matchedForm = null, hint = null)),
+            Result.success(AnswerCheck(result = AnswerResult.INCORRECT, matchedForm = null)),
         )
 
         val vm = buildViewModel()
@@ -254,7 +212,7 @@ class ReviewViewModelTest {
         val item = anItem(cardId = "card-1")
         whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
         whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "come across")).thenReturn(
-            Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across", hint = null)),
+            Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
         )
         whenever(
             reviewRepository.grade(
@@ -288,7 +246,7 @@ class ReviewViewModelTest {
         val item = anItem(cardId = "card-1")
         whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
         whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "wrong")).thenReturn(
-            Result.success(AnswerCheck(result = AnswerResult.INCORRECT, matchedForm = null, hint = null)),
+            Result.success(AnswerCheck(result = AnswerResult.INCORRECT, matchedForm = null)),
         )
         whenever(
             reviewRepository.grade(

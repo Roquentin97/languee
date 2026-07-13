@@ -1,6 +1,7 @@
 package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.ReviewRepository
+import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.UnauthorizedException
@@ -96,13 +97,14 @@ class ReviewRepositoryTest {
     @Test
     fun `checkAnswer success returns mapped AnswerCheck`() = runTest {
         whenever(reviewsApi.checkAnswer(cardId = eq("card-1"), body = any())).thenReturn(
-            Response.success(CheckAnswerResponseDto(result = "close_synonym", matchedForm = null, hint = "close")),
+            Response.success(CheckAnswerResponseDto(result = "correct", matchedForm = "run into")),
         )
 
         val result = repository.checkAnswer(cardId = "card-1", typedAnswer = "run into")
 
         assertTrue(result.isSuccess)
-        assertEquals("close", result.getOrNull()?.hint)
+        assertEquals(AnswerResult.CORRECT, result.getOrNull()?.result)
+        assertEquals("run into", result.getOrNull()?.matchedForm)
     }
 
     @Test
