@@ -250,7 +250,7 @@ describe('ReviewsService', () => {
       expect(mockPrismaService.cardReviewState.findMany).not.toHaveBeenCalled();
     });
 
-    it('prompt building — masks example and context, derives kind/partOfSpeech/lemmaLength', async () => {
+    it('prompt building — masks the captured context, derives kind/partOfSpeech/lemmaLength', async () => {
       mockPrismaService.cardReviewState.findMany.mockResolvedValue([
         { ...mockReviewState, card: mockCardWithDeck },
       ]);
@@ -265,8 +265,7 @@ describe('ReviewsService', () => {
         isNew: false,
         prompt: {
           definition: 'To encounter unexpectedly.',
-          example: 'I ____ an old friend yesterday.',
-          contextMasked: 'Guess who I ____ at the station!',
+          maskedSentence: 'Guess who I ____ at the station!',
           partOfSpeech: 'verb',
           kind: 'phrasal_verb',
           lemmaLength: 'run into'.length,

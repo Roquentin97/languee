@@ -11,8 +11,7 @@ export type ReviewSummary = {
 
 export type ReviewPrompt = {
   definition: string;
-  example: string | null;
-  contextMasked: string | null;
+  maskedSentence: string | null;
   partOfSpeech: string;
   kind: string;
   lemmaLength: number;

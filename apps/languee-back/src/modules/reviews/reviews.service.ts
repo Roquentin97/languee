@@ -228,8 +228,9 @@ export class ReviewsService {
 
     const prompt: ReviewPrompt = {
       definition: card.definition.definition,
-      example: maskText(card.definition.example, forms),
-      contextMasked: maskText(card.context, forms),
+      maskedSentence:
+        maskText(card.context, forms) ??
+        maskText(card.definition.example, forms),
       partOfSpeech: card.definition.partOfSpeech,
       kind: word.kind,
       lemmaLength: word.lemma.length,

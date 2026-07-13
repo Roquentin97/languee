@@ -26,8 +26,7 @@ function serializeQueueItem(item: ReviewQueueItem): ReviewQueueItemResponseDto {
     isNew: item.isNew,
     prompt: {
       definition: item.prompt.definition,
-      example: item.prompt.example,
-      contextMasked: item.prompt.contextMasked,
+      maskedSentence: item.prompt.maskedSentence,
       partOfSpeech: item.prompt.partOfSpeech,
       kind: item.prompt.kind,
       lemmaLength: item.prompt.lemmaLength,

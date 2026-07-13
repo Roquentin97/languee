@@ -86,8 +86,7 @@ private fun String?.toLexicalKind(): LexicalKind = when (this) {
 
 fun ReviewPromptDto.toDomain(): ReviewPrompt = ReviewPrompt(
     definition = definition,
-    example = example,
-    contextMasked = contextMasked,
+    maskedSentence = maskedSentence,
     partOfSpeech = partOfSpeech,
     kind = kind.toLexicalKind(),
     lemmaLength = lemmaLength,

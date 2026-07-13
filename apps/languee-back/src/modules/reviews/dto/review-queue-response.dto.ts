@@ -5,16 +5,12 @@ export class ReviewPromptResponseDto {
   definition!: string;
 
   @ApiPropertyOptional({
-    example: 'I ____ an old friend yesterday.',
-    nullable: true,
-  })
-  example!: string | null;
-
-  @ApiPropertyOptional({
+    description:
+      "The sentence to test in, with every form of the target masked. The learner's own captured context when they have one, otherwise the dictionary example.",
     example: 'Guess who I ____ at the station!',
     nullable: true,
   })
-  contextMasked!: string | null;
+  maskedSentence!: string | null;
 
   @ApiProperty({ example: 'verb' })
   partOfSpeech!: string;

@@ -9,8 +9,7 @@ data class ReviewSummary(
 
 data class ReviewPrompt(
     val definition: String,
-    val example: String?,
-    val contextMasked: String?,
+    val maskedSentence: String?,
     val partOfSpeech: String,
     val kind: LexicalKind,
     val lemmaLength: Int,

@@ -63,8 +63,7 @@ class ReviewViewModelTest {
 
     private fun aPrompt(kind: LexicalKind = LexicalKind.WORD) = ReviewPrompt(
         definition = "To encounter unexpectedly.",
-        example = "I ____ an old friend yesterday.",
-        contextMasked = "Guess who I ____ at the station!",
+        maskedSentence = "Guess who I ____ at the station!",
         partOfSpeech = "verb",
         kind = kind,
         lemmaLength = 8,

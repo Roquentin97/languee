@@ -7,8 +7,7 @@ data class ReviewSummaryDto(
 
 data class ReviewPromptDto(
     val definition: String,
-    val example: String?,
-    val contextMasked: String?,
+    val maskedSentence: String?,
     val partOfSpeech: String,
     val kind: String,
     val lemmaLength: Int,

@@ -96,8 +96,7 @@ describe('ReviewsController', () => {
           isNew: false,
           prompt: {
             definition: 'To encounter unexpectedly.',
-            example: 'I ____ an old friend yesterday.',
-            contextMasked: 'Guess who I ____ at the station!',
+            maskedSentence: 'Guess who I ____ at the station!',
             partOfSpeech: 'verb',
             kind: 'phrasal_verb',
             lemmaLength: 8,
@@ -117,8 +116,7 @@ describe('ReviewsController', () => {
             isNew: false,
             prompt: {
               definition: 'To encounter unexpectedly.',
-              example: 'I ____ an old friend yesterday.',
-              contextMasked: 'Guess who I ____ at the station!',
+              maskedSentence: 'Guess who I ____ at the station!',
               partOfSpeech: 'verb',
               kind: 'phrasal_verb',
               lemmaLength: 8,

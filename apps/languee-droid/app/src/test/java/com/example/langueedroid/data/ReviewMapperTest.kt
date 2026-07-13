@@ -29,27 +29,25 @@ class ReviewMapperTest {
     }
 
     // -------------------------------------------------------------------------
-    // ReviewPromptDto -> ReviewPrompt — nullable example/contextMasked preserved
+    // ReviewPromptDto -> ReviewPrompt — nullable maskedSentence preserved
     // -------------------------------------------------------------------------
 
     @Test
-    fun `ReviewPromptDto with example and contextMasked present — both preserved`() {
-        val dto = aPromptDto(example = "I ____ an old friend yesterday.", contextMasked = "Guess who I ____ at the station!")
+    fun `ReviewPromptDto with maskedSentence present — preserved`() {
+        val dto = aPromptDto(maskedSentence = "Guess who I ____ at the station!")
 
         val domain = dto.toDomain()
 
-        assertEquals("I ____ an old friend yesterday.", domain.example)
-        assertEquals("Guess who I ____ at the station!", domain.contextMasked)
+        assertEquals("Guess who I ____ at the station!", domain.maskedSentence)
     }
 
     @Test
-    fun `ReviewPromptDto with null example and contextMasked — both null in domain`() {
-        val dto = aPromptDto(example = null, contextMasked = null)
+    fun `ReviewPromptDto with null maskedSentence — null in domain`() {
+        val dto = aPromptDto(maskedSentence = null)
 
         val domain = dto.toDomain()
 
-        assertNull(domain.example)
-        assertNull(domain.contextMasked)
+        assertNull(domain.maskedSentence)
     }
 
     // -------------------------------------------------------------------------
@@ -156,14 +154,12 @@ class ReviewMapperTest {
     // -------------------------------------------------------------------------
 
     private fun aPromptDto(
-        example: String? = "I ____ an old friend yesterday.",
-        contextMasked: String? = "Guess who I ____ at the station!",
+        maskedSentence: String? = "Guess who I ____ at the station!",
         kind: String = "word",
         language: String? = null,
     ) = ReviewPromptDto(
         definition = "To encounter unexpectedly.",
-        example = example,
-        contextMasked = contextMasked,
+        maskedSentence = maskedSentence,
         partOfSpeech = "verb",
         kind = kind,
         lemmaLength = 8,

@@ -292,7 +292,7 @@ private fun QuestionContent(
                     style = MaterialTheme.typography.headlineSmall,
                     color = TextPrimary,
                 )
-                val maskedText = state.item.prompt.contextMasked ?: state.item.prompt.example
+                val maskedText = state.item.prompt.maskedSentence
                 if (maskedText != null) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(
