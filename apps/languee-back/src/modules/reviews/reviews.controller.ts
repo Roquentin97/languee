@@ -145,7 +145,7 @@ export class ReviewsController {
   @Post(':cardId/grade')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Grade a review and schedule the next due date via SM-2',
+    summary: 'Grade a review and schedule the next due date via FSRS',
   })
   @ApiParam({
     name: 'cardId',

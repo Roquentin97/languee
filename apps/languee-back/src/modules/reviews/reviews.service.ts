@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { CardReviewState } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
 import type { CardWithDefinitionAndWord } from '../cards/cards.service';
@@ -8,7 +7,7 @@ import type { InflectionForms } from '../dictionary/types/inflection-forms.types
 import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
 import { collectTargetForms, maskText } from './lib/masking';
 import { checkAnswer } from './lib/answer-matching';
-import { scheduleReview } from './lib/sm2';
+import { NEW_CARD_SCHEDULING_STATE, scheduleReview } from './lib/scheduler';
 import type {
   AnswerCheckOutcome,
   GradeInput,
@@ -17,17 +16,6 @@ import type {
   ReviewQueueItem,
   ReviewSummary,
 } from './reviews.types';
-
-const DEFAULT_REVIEW_STATE: Pick<
-  CardReviewState,
-  'state' | 'intervalDays' | 'easeFactor' | 'repetitions' | 'lapses'
-> = {
-  state: 'new',
-  intervalDays: 0,
-  easeFactor: 2.5,
-  repetitions: 0,
-  lapses: 0,
-};
 
 type CardWithDeck = CardWithDefinitionAndWord & {
   deck: { id: string; name: string };
@@ -142,41 +130,27 @@ export class ReviewsService {
     const existingState = await this.prisma.cardReviewState.findUnique({
       where: { cardId },
     });
-    const currentState = existingState ?? DEFAULT_REVIEW_STATE;
+    const currentState = existingState ?? NEW_CARD_SCHEDULING_STATE;
 
     const now = new Date();
-    const scheduled = scheduleReview({
-      state: currentState.state,
-      intervalDays: currentState.intervalDays,
-      easeFactor: currentState.easeFactor,
-      repetitions: currentState.repetitions,
-      lapses: currentState.lapses,
-      rating: input.rating,
-      now,
-    });
+    const scheduled = scheduleReview(currentState, input.rating, now);
+    const persisted = {
+      state: scheduled.state,
+      dueAt: scheduled.dueAt,
+      stability: scheduled.stability,
+      difficulty: scheduled.difficulty,
+      scheduledDays: scheduled.scheduledDays,
+      learningSteps: scheduled.learningSteps,
+      reps: scheduled.reps,
+      lapses: scheduled.lapses,
+      lastReviewedAt: scheduled.lastReviewedAt,
+    };
 
     const [updatedState] = await this.prisma.$transaction([
       this.prisma.cardReviewState.upsert({
         where: { cardId },
-        create: {
-          cardId,
-          state: scheduled.state,
-          dueAt: scheduled.dueAt,
-          intervalDays: scheduled.intervalDays,
-          easeFactor: scheduled.easeFactor,
-          repetitions: scheduled.repetitions,
-          lapses: scheduled.lapses,
-          lastReviewedAt: now,
-        },
-        update: {
-          state: scheduled.state,
-          dueAt: scheduled.dueAt,
-          intervalDays: scheduled.intervalDays,
-          easeFactor: scheduled.easeFactor,
-          repetitions: scheduled.repetitions,
-          lapses: scheduled.lapses,
-          lastReviewedAt: now,
-        },
+        create: { cardId, ...persisted },
+        update: persisted,
       }),
       this.prisma.reviewLog.create({
         data: {
@@ -184,9 +158,11 @@ export class ReviewsService {
           rating: input.rating,
           typedAnswer: input.typedAnswer ?? null,
           answerResult: input.answerResult ?? null,
-          previousIntervalDays: currentState.intervalDays,
-          newIntervalDays: scheduled.intervalDays,
-          easeFactorAfter: scheduled.easeFactor,
+          stateBefore: currentState.state,
+          previousIntervalDays: currentState.scheduledDays,
+          newIntervalDays: scheduled.scheduledDays,
+          stabilityAfter: scheduled.stability,
+          difficultyAfter: scheduled.difficulty,
           dueAtAfter: scheduled.dueAt,
         },
       }),
@@ -201,13 +177,15 @@ export class ReviewsService {
         cardId,
         rating: input.rating,
         newState: updatedState.state,
-        intervalDays: updatedState.intervalDays,
+        intervalDays: updatedState.scheduledDays,
+        stability: updatedState.stability,
+        difficulty: updatedState.difficulty,
       },
     });
 
     return {
       nextDueAt: updatedState.dueAt,
-      intervalDays: updatedState.intervalDays,
+      intervalDays: updatedState.scheduledDays,
       state: updatedState.state,
     };
   }

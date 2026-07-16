@@ -7,6 +7,7 @@ import type {
   Deck,
   Word,
 } from '@prisma/client';
+import { MS_PER_MINUTE } from '../core/time/time.constants';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
 import { DecksService } from '../decks/decks.service';
@@ -76,9 +77,11 @@ const mockReviewState: CardReviewState = {
   cardId: 'card-id-1',
   state: 'review',
   dueAt: new Date('2026-07-01T00:00:00.000Z'),
-  intervalDays: 10,
-  easeFactor: 2.5,
-  repetitions: 3,
+  stability: 10,
+  difficulty: 5,
+  scheduledDays: 10,
+  learningSteps: 0,
+  reps: 3,
   lapses: 0,
   lastReviewedAt: new Date('2026-06-20T00:00:00.000Z'),
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -371,19 +374,19 @@ describe('ReviewsService', () => {
   });
 
   describe('gradeCard()', () => {
-    it('happy path — starts a new card from SM-2 defaults and writes both rows in a transaction', async () => {
+    it('happy path — starts an unseen card from FSRS defaults and writes both rows in a transaction', async () => {
+      const dueAt = new Date(NOW.getTime() + 10 * MS_PER_MINUTE);
       mockCardsService.findOneByIdAndUserId.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
       mockPrismaService.cardReviewState.findUnique.mockResolvedValue(null);
       mockPrismaService.cardReviewState.upsert.mockResolvedValue({
         ...mockReviewState,
-        state: 'review',
-        intervalDays: 1,
-        easeFactor: 2.5,
-        repetitions: 1,
+        state: 'learning',
+        scheduledDays: 0,
+        reps: 1,
         lapses: 0,
-        dueAt: new Date(NOW.getTime() + 24 * 60 * 60_000),
+        dueAt,
       });
       mockPrismaService.reviewLog.create.mockResolvedValue({});
 
@@ -392,9 +395,9 @@ describe('ReviewsService', () => {
       });
 
       expect(result).toEqual({
-        nextDueAt: new Date(NOW.getTime() + 24 * 60 * 60_000),
-        intervalDays: 1,
-        state: 'review',
+        nextDueAt: dueAt,
+        intervalDays: 0,
+        state: 'learning',
       });
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
       expect(mockPrismaService.cardReviewState.upsert).toHaveBeenCalledWith(
@@ -403,11 +406,11 @@ describe('ReviewsService', () => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           create: expect.objectContaining({
             cardId: 'card-id-1',
-            state: 'review',
-            intervalDays: 1,
-            easeFactor: 2.5,
-            repetitions: 1,
+            state: 'learning',
+            scheduledDays: 0,
+            reps: 1,
             lapses: 0,
+            dueAt,
           }),
         }),
       );
@@ -419,9 +422,13 @@ describe('ReviewsService', () => {
             rating: 'good',
             typedAnswer: null,
             answerResult: null,
+            stateBefore: 'new',
             previousIntervalDays: 0,
-            newIntervalDays: 1,
-            easeFactorAfter: 2.5,
+            newIntervalDays: 0,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            stabilityAfter: expect.closeTo(2.3065, 3),
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            difficultyAfter: expect.closeTo(2.1181, 3),
           }),
         }),
       );
@@ -436,8 +443,8 @@ describe('ReviewsService', () => {
       );
       mockPrismaService.cardReviewState.upsert.mockResolvedValue({
         ...mockReviewState,
-        intervalDays: 25,
-        repetitions: 4,
+        scheduledDays: 35,
+        reps: 4,
       });
       mockPrismaService.reviewLog.create.mockResolvedValue({});
 
@@ -447,8 +454,9 @@ describe('ReviewsService', () => {
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           update: expect.objectContaining({
-            intervalDays: 25,
-            repetitions: 4,
+            state: 'review',
+            scheduledDays: 35,
+            reps: 4,
           }),
         }),
       );
@@ -456,8 +464,9 @@ describe('ReviewsService', () => {
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           data: expect.objectContaining({
+            stateBefore: 'review',
             previousIntervalDays: 10,
-            newIntervalDays: 25,
+            newIntervalDays: 35,
           }),
         }),
       );

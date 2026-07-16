@@ -139,6 +139,7 @@ enum ReviewCardState {
   new
   learning
   review
+  relearning
 }
 
 enum ReviewRating {
@@ -160,9 +161,11 @@ model CardReviewState {
   card           Card            @relation(fields: [cardId], references: [id])
   state          ReviewCardState @default(new)
   dueAt          DateTime        @default(now()) @map("due_at") @db.Timestamptz
-  intervalDays   Float           @default(0) @map("interval_days")
-  easeFactor     Float           @default(2.5) @map("ease_factor")
-  repetitions    Int             @default(0)
+  stability      Float           @default(0)
+  difficulty     Float           @default(0)
+  scheduledDays  Int             @default(0) @map("scheduled_days")
+  learningSteps  Int             @default(0) @map("learning_steps")
+  reps           Int             @default(0)
   lapses         Int             @default(0)
   lastReviewedAt DateTime?       @map("last_reviewed_at") @db.Timestamptz
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
@@ -179,9 +182,13 @@ model ReviewLog {
   rating               ReviewRating
   typedAnswer          String?             @map("typed_answer")
   answerResult         ReviewAnswerResult? @map("answer_result")
-  previousIntervalDays Float               @map("previous_interval_days")
-  newIntervalDays      Float               @map("new_interval_days")
-  easeFactorAfter      Float               @map("ease_factor_after")
+  /// State the card was in when this review was answered. FSRS parameter
+  /// fitting needs it, and it cannot be recovered from the row alone.
+  stateBefore          ReviewCardState     @map("state_before")
+  previousIntervalDays Int                 @map("previous_interval_days")
+  newIntervalDays      Int                 @map("new_interval_days")
+  stabilityAfter       Float               @map("stability_after")
+  difficultyAfter      Float               @map("difficulty_after")
   dueAtAfter           DateTime            @map("due_at_after") @db.Timestamptz
   reviewedAt           DateTime            @default(now()) @map("reviewed_at") @db.Timestamptz
 

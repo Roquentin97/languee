@@ -6,10 +6,14 @@ export class GradeCardResponseDto {
 
   @ApiProperty({
     example: 6,
-    description: 'Integer-valued interval in days (0 for relearning)',
+    description:
+      'Whole days until the card is next due (0 while it is still in learning or relearning steps)',
   })
   intervalDays!: number;
 
-  @ApiProperty({ enum: ['learning', 'review'], example: 'review' })
-  state!: 'learning' | 'review';
+  @ApiProperty({
+    enum: ['learning', 'review', 'relearning'],
+    example: 'review',
+  })
+  state!: 'learning' | 'review' | 'relearning';
 }

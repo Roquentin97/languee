@@ -2,7 +2,7 @@
 CREATE TYPE "LexicalKind" AS ENUM ('word', 'phrasal_verb', 'expression');
 
 -- CreateEnum
-CREATE TYPE "ReviewCardState" AS ENUM ('new', 'learning', 'review');
+CREATE TYPE "ReviewCardState" AS ENUM ('new', 'learning', 'review', 'relearning');
 
 -- CreateEnum
 CREATE TYPE "ReviewRating" AS ENUM ('again', 'hard', 'good', 'easy');
@@ -19,9 +19,11 @@ CREATE TABLE "card_review_states" (
     "card_id" UUID NOT NULL,
     "state" "ReviewCardState" NOT NULL DEFAULT 'new',
     "due_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "interval_days" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "ease_factor" DOUBLE PRECISION NOT NULL DEFAULT 2.5,
-    "repetitions" INTEGER NOT NULL DEFAULT 0,
+    "stability" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "difficulty" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "scheduled_days" INTEGER NOT NULL DEFAULT 0,
+    "learning_steps" INTEGER NOT NULL DEFAULT 0,
+    "reps" INTEGER NOT NULL DEFAULT 0,
     "lapses" INTEGER NOT NULL DEFAULT 0,
     "last_reviewed_at" TIMESTAMPTZ,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -37,9 +39,11 @@ CREATE TABLE "review_logs" (
     "rating" "ReviewRating" NOT NULL,
     "typed_answer" TEXT,
     "answer_result" "ReviewAnswerResult",
-    "previous_interval_days" DOUBLE PRECISION NOT NULL,
-    "new_interval_days" DOUBLE PRECISION NOT NULL,
-    "ease_factor_after" DOUBLE PRECISION NOT NULL,
+    "state_before" "ReviewCardState" NOT NULL,
+    "previous_interval_days" INTEGER NOT NULL,
+    "new_interval_days" INTEGER NOT NULL,
+    "stability_after" DOUBLE PRECISION NOT NULL,
+    "difficulty_after" DOUBLE PRECISION NOT NULL,
     "due_at_after" TIMESTAMPTZ NOT NULL,
     "reviewed_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
