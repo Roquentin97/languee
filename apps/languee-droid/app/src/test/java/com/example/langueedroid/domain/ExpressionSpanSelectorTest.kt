@@ -94,7 +94,7 @@ class ExpressionSpanSelectorTest {
     }
 
     @Test
-    fun `tapping an inner word of a three-word selection restarts the selection there`() {
+    fun `tapping an inner word of a three-word selection deselects just that word`() {
         val tokens = tokensOf("I ran into a friend")
         val ranIndex = 2
         val intoIndex = 4
@@ -103,8 +103,47 @@ class ExpressionSpanSelectorTest {
         selection = ExpressionSpanSelector.onWordTapped(tokens, selection, intoIndex)
         selection = ExpressionSpanSelector.onWordTapped(tokens, selection, aIndex)
 
-        val restarted = ExpressionSpanSelector.onWordTapped(tokens, selection, intoIndex)
-        assertEquals(listOf(intoIndex), restarted)
+        val discontiguous = ExpressionSpanSelector.onWordTapped(tokens, selection, intoIndex)
+        assertEquals(listOf(ranIndex, aIndex), discontiguous)
+    }
+
+    @Test
+    fun `tapping an unselected word between the edges re-adds it in word order`() {
+        val tokens = tokensOf("I ran into a friend")
+        val ranIndex = 2
+        val intoIndex = 4
+        val aIndex = 6
+        val discontiguous = listOf(ranIndex, aIndex)
+
+        val readded = ExpressionSpanSelector.onWordTapped(tokens, discontiguous, intoIndex)
+        assertEquals(listOf(ranIndex, intoIndex, aIndex), readded)
+    }
+
+    @Test
+    fun `a discontiguous selection still extends at its edges`() {
+        val tokens = tokensOf("I ran into a friend")
+        val ranIndex = 2
+        val aIndex = 6
+        val friendIndex = 8
+        val discontiguous = listOf(ranIndex, aIndex)
+
+        val extended = ExpressionSpanSelector.onWordTapped(tokens, discontiguous, friendIndex)
+        assertEquals(listOf(ranIndex, aIndex, friendIndex), extended)
+    }
+
+    @Test
+    fun `tapping a non-adjacent word outside a discontiguous selection restarts it`() {
+        val tokens = tokensOf("He looked the long word up very quickly")
+        val wordIndices = tokens.withIndex()
+            .filter { it.value is Token.Word }
+            .map { it.index }
+        val lookedIndex = wordIndices[1]
+        val upIndex = wordIndices[5]
+        val quicklyIndex = wordIndices[7]
+        val discontiguous = listOf(lookedIndex, upIndex)
+
+        val restarted = ExpressionSpanSelector.onWordTapped(tokens, discontiguous, quicklyIndex)
+        assertEquals(listOf(quicklyIndex), restarted)
     }
 
     // -------------------------------------------------------------------------
@@ -125,6 +164,26 @@ class ExpressionSpanSelectorTest {
 
         assertEquals(6, selection.size)
         assertEquals(wordIndices.take(6), selection)
+    }
+
+    @Test
+    fun `re-adding a gap word is refused when the selection is already at six words`() {
+        val tokens = tokensOf("one two three four five six seven eight")
+        val wordIndices = tokens.withIndex()
+            .filter { it.value is Token.Word }
+            .map { it.index }
+
+        var selection = emptyList<Int>()
+        for (index in wordIndices.take(6)) {
+            selection = ExpressionSpanSelector.onWordTapped(tokens, selection, index)
+        }
+        // drop word 3 (gap), then extend right edge to word 7 -> back at six, with a gap
+        selection = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[2])
+        selection = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[6])
+        assertEquals(6, selection.size)
+
+        val unchanged = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[2])
+        assertEquals(selection, unchanged)
     }
 
     @Test
@@ -160,6 +219,17 @@ class ExpressionSpanSelectorTest {
             .map { it.index }
         // ran, into are the 2nd and 3rd words
         assertEquals("ran into", ExpressionSpanSelector.joinSelection(tokens, listOf(wordIndices[1], wordIndices[2])))
+    }
+
+    @Test
+    fun `joinSelection joins a discontiguous selection skipping deselected words`() {
+        val tokens = tokensOf("He looked the word up")
+        val wordIndices = tokens.withIndex()
+            .filter { it.value is Token.Word }
+            .map { it.index }
+        val lookedIndex = wordIndices[1]
+        val upIndex = wordIndices[4]
+        assertEquals("looked up", ExpressionSpanSelector.joinSelection(tokens, listOf(lookedIndex, upIndex)))
     }
 
     @Test

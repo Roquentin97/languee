@@ -273,6 +273,23 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `deselecting interior words yields a discontiguous expression`() {
+        viewModel.startSharedTextCapture("He looked the word up")
+        val capture = currentState as AppState.Screen.SharedContextCapture
+        fun indexOf(word: String) = capture.tokens.indexOfFirst { it is Token.Word && it.text == word }
+        viewModel.onWordTokenTapped(indexOf("looked"))
+        viewModel.onWordTokenTapped(indexOf("the"))
+        viewModel.onWordTokenTapped(indexOf("word"))
+        viewModel.onWordTokenTapped(indexOf("up"))
+        viewModel.onWordTokenTapped(indexOf("the"))
+        viewModel.onWordTokenTapped(indexOf("word"))
+        viewModel.confirmWordSelection()
+
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("looked up", state.targetWord)
+    }
+
+    @Test
     fun `selection is capped at six words`() {
         viewModel.startSharedTextCapture("one two three four five six seven eight")
         selectWords("one", "two", "three", "four", "five", "six", "seven")

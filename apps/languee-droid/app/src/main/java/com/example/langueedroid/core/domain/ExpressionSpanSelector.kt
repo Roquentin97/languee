@@ -1,14 +1,16 @@
 package com.example.langueedroid.core.domain
 
 /**
- * Builds a contiguous multi-word selection (1–6 words) from a tapped-token interaction over
- * a [Token] list, for capturing idioms and phrasal verbs from shared text.
+ * Builds a multi-word selection (1–6 words) from a tapped-token interaction over a [Token]
+ * list, for capturing idioms and phrasal verbs from shared text.
  *
  * Selection is tracked as an ordered list of indices into the original [Token] list, always
  * referring to [Token.Word] entries. Tapping a word extends the selection when the tapped
  * word is immediately adjacent (in word order, ignoring separators) to either edge of the
- * current selection; tapping an edge word again shrinks the selection; tapping anywhere else
- * restarts the selection at the tapped word.
+ * current selection; tapping a selected word deselects just that word, so the selection may
+ * become discontiguous — the user can drop words that are not part of the expression
+ * ("looked the word up" -> "looked up"); tapping an unselected word between the selection
+ * edges re-adds it; tapping anywhere else restarts the selection at the tapped word.
  */
 object ExpressionSpanSelector {
 
@@ -31,16 +33,15 @@ object ExpressionSpanSelector {
 
         val first = currentSelection.first()
         val last = currentSelection.last()
+        val extendsSelection = tappedIndex in first..last ||
+            tappedIndex == nextWordIndex(tokens, last) ||
+            tappedIndex == previousWordIndex(tokens, first)
 
         return when {
-            tappedIndex == first && tappedIndex == last -> emptyList()
-            tappedIndex == first -> currentSelection - tappedIndex
-            tappedIndex == last -> currentSelection - tappedIndex
-            tappedIndex in currentSelection -> listOf(tappedIndex)
-            tappedIndex == nextWordIndex(tokens, last) ->
-                if (currentSelection.size >= MAX_SPAN_WORDS) currentSelection else currentSelection + tappedIndex
-            tappedIndex == previousWordIndex(tokens, first) ->
-                if (currentSelection.size >= MAX_SPAN_WORDS) currentSelection else listOf(tappedIndex) + currentSelection
+            tappedIndex in currentSelection -> currentSelection - tappedIndex
+            extendsSelection && currentSelection.size < MAX_SPAN_WORDS ->
+                (currentSelection + tappedIndex).sorted()
+            extendsSelection -> currentSelection
             else -> listOf(tappedIndex)
         }
     }

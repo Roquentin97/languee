@@ -149,9 +149,9 @@ class MainViewModel @Inject constructor(
 
     /**
      * Called when the user taps a word token in the SharedContextCapture screen.
-     * Tapping a word not yet selected starts or extends a contiguous selection (up to 6
-     * words); tapping an edge of the current selection shrinks it. See
-     * [ExpressionSpanSelector] for the exact rules.
+     * Tapping a word not yet selected starts or extends the selection (up to 6 words);
+     * tapping a selected word deselects just that word, allowing a discontiguous
+     * selection. See [ExpressionSpanSelector] for the exact rules.
      */
     fun onWordTokenTapped(index: Int) {
         val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
