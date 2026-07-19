@@ -7,8 +7,6 @@ _VALID_LOG_LEVELS = {"debug", "info", "warning", "warn", "error", "critical"}
 
 class Settings(BaseSettings):
     spacy_model: str = "en_core_web_md"
-    spacy_model_es: str = "es_core_news_md"
-    spacy_model_de: str = "de_core_news_md"
     basic_login: str = Field(min_length=1, validation_alias="BASIC_LOGIN")
     basic_password: str = Field(min_length=1, validation_alias="BASIC_PASSWORD")
     log_format: str = "json"

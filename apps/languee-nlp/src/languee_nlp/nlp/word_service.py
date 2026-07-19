@@ -3,14 +3,6 @@ import logging
 import spacy.tokens
 from lemminflect import getInflection
 
-from languee_nlp.nlp.german_inflections import (
-    build_german_extra_forms,
-    is_irregular_de,
-)
-from languee_nlp.nlp.spanish_inflections import (
-    build_spanish_extra_forms,
-    is_irregular_es,
-)
 from languee_nlp.schemas import FormsResult, MorphologyResult, TokenResult
 
 logger = logging.getLogger(__name__)
@@ -171,41 +163,15 @@ def _is_irregular(token: spacy.tokens.Token) -> bool:
     return False
 
 
-def analyze_single_token(
-    token: spacy.tokens.Token, language: str = "en"
-) -> TokenResult:
-    if language == "es":
-        morph: dict[str, str] = token.morph.to_dict()
-        result = TokenResult(
-            text=token.text,
-            lemma=token.lemma_,
-            pos=token.pos_,
-            is_irregular=is_irregular_es(token.text, token.lemma_, morph),
-            morphology=_build_morphology(token),
-            forms=_null_forms(),
-            extra_forms=build_spanish_extra_forms(token.lemma_, token.pos_, morph),
-        )
-    elif language == "de":
-        de_morph: dict[str, str] = token.morph.to_dict()
-        result = TokenResult(
-            text=token.text,
-            lemma=token.lemma_,
-            pos=token.pos_,
-            is_irregular=is_irregular_de(token.text, token.lemma_, de_morph),
-            morphology=_build_morphology(token),
-            forms=_null_forms(),
-            extra_forms=build_german_extra_forms(token.lemma_, token.pos_, de_morph),
-        )
-    else:
-        result = TokenResult(
-            text=token.text,
-            lemma=token.lemma_,
-            pos=token.pos_,
-            is_irregular=_is_irregular(token),
-            morphology=_build_morphology(token),
-            forms=_build_forms(token),
-            extra_forms=None,
-        )
+def analyze_single_token(token: spacy.tokens.Token) -> TokenResult:
+    result = TokenResult(
+        text=token.text,
+        lemma=token.lemma_,
+        pos=token.pos_,
+        is_irregular=_is_irregular(token),
+        morphology=_build_morphology(token),
+        forms=_build_forms(token),
+    )
     logger.info(
         "token analyzed",
         extra={
@@ -216,7 +182,6 @@ def analyze_single_token(
                 "lemma": result.lemma,
                 "pos": result.pos,
                 "is_irregular": result.is_irregular,
-                "language": language,
             },
         },
     )

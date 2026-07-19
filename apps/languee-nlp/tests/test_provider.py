@@ -51,37 +51,9 @@ def test_get_nlp_accepts_model_name_override():
     mock_load.assert_called_once_with("en_core_web_sm")
 
 
-def test_get_nlp_uses_spanish_model_name_for_es():
-    mock_model = MagicMock()
-    with patch(
-        "languee_nlp.nlp.provider.spacy.load", return_value=mock_model
-    ) as mock_load:
+def test_get_nlp_rejects_formerly_supported_es():
+    with pytest.raises(ValueError):
         get_nlp("es")
-    mock_load.assert_called_once_with("es_core_news_md")
-
-
-def test_get_nlp_caches_en_and_es_independently():
-    en_model = MagicMock()
-    es_model = MagicMock()
-    with patch(
-        "languee_nlp.nlp.provider.spacy.load", side_effect=[en_model, es_model]
-    ) as mock_load:
-        first_en = get_nlp("en")
-        first_es = get_nlp("es")
-        second_en = get_nlp("en")
-        second_es = get_nlp("es")
-    assert mock_load.call_count == 2
-    assert first_en is second_en is en_model
-    assert first_es is second_es is es_model
-
-
-def test_get_nlp_uses_german_model_name_for_de():
-    mock_model = MagicMock()
-    with patch(
-        "languee_nlp.nlp.provider.spacy.load", return_value=mock_model
-    ) as mock_load:
-        get_nlp("de")
-    mock_load.assert_called_once_with("de_core_news_md")
 
 
 def test_get_nlp_rejects_unsupported_language():

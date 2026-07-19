@@ -549,7 +549,7 @@ def test_words_missing_word_param_returns_422():
 # --- language parameter ---
 
 
-def test_words_default_language_is_en_and_omits_extra_forms():
+def test_words_default_language_is_en():
     mock_nlp = _make_mock_nlp(
         text="running",
         lemma="run",
@@ -564,79 +564,17 @@ def test_words_default_language_is_en_and_omits_extra_forms():
     assert response.status_code == 200
     body = response.json()
     assert body["language"] == "en"
-    assert "extra_forms" not in body["tokens"][0]
 
 
-def test_words_spanish_language_echoes_and_returns_extra_forms():
-    mock_nlp = _make_mock_nlp(
-        text="hablo",
-        lemma="hablar",
-        pos="VERB",
-        morph_dict={"Tense": "Pres", "Person": "1", "Number": "Sing"},
+def test_words_spanish_language_returns_400():
+    response = client.get(
+        "/analyze",
+        params={"text": "hablo", "language": "es"},
+        auth=AUTH,
     )
 
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        response = client.get(
-            "/analyze",
-            params={"text": "hablo", "language": "es"},
-            auth=AUTH,
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["language"] == "es"
-    token = body["tokens"][0]
-    assert token["is_irregular"] is False
-    assert token["forms"]["verb_base"] is None
-    assert token["forms"]["noun_singular"] is None
-    assert token["extra_forms"]["present_yo"] == "hablo"
-    assert token["extra_forms"]["gerund"] == "hablando"
-
-
-def test_words_german_language_echoes_and_returns_extra_forms():
-    mock_nlp = _make_mock_nlp(
-        text="mache",
-        lemma="machen",
-        pos="VERB",
-        morph_dict={"Tense": "Pres", "Person": "1", "Number": "Sing"},
-    )
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        response = client.get(
-            "/analyze",
-            params={"text": "mache", "language": "de"},
-            auth=AUTH,
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["language"] == "de"
-    token = body["tokens"][0]
-    assert token["is_irregular"] is False
-    assert token["forms"]["verb_base"] is None
-    assert token["forms"]["noun_singular"] is None
-    assert token["extra_forms"]["present_ich"] == "mache"
-    assert token["extra_forms"]["partizip_ii"] == "gemacht"
-
-
-def test_words_german_noun_extra_forms_singular_only():
-    mock_nlp = _make_mock_nlp(
-        text="haus",
-        lemma="Haus",
-        pos="NOUN",
-        morph_dict={"Number": "Sing"},
-    )
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        response = client.get(
-            "/analyze",
-            params={"text": "haus", "language": "de"},
-            auth=AUTH,
-        )
-
-    assert response.status_code == 200
-    token = response.json()["tokens"][0]
-    assert token["extra_forms"] == {"singular": "Haus"}
+    assert response.status_code == 400
+    assert response.json()["detail"] == "LANGUAGE_NOT_SUPPORTED"
 
 
 def test_words_unsupported_language_returns_400():

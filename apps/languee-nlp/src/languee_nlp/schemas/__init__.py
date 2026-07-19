@@ -58,7 +58,6 @@ class TokenResult(BaseModel):
     is_irregular: bool
     morphology: MorphologyResult
     forms: FormsResult
-    extra_forms: dict[str, str] | None = None
 
 
 class InputTextAnalysis(BaseModel):

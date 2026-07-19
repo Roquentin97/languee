@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
 _MAX_TOKENS = 6
-_SUPPORTED_LANGUAGES = {"en", "es", "de"}
+_SUPPORTED_LANGUAGES = {"en"}
 _TOKEN_COUNT_DETAIL = "text must contain between 1 and 6 tokens"
 
 
@@ -52,14 +52,10 @@ def _sanitize_text(value: str) -> str:
 
 
 def _serialize_word_response(response: WordAnalysisResponse) -> JSONResponse:
-    """Serialize response omitting top-level None fields and null
-    `extra_forms` inside each token."""
+    """Serialize response omitting top-level None fields."""
     data = response.model_dump()
     if data.get("input_text_analysis") is None:
         data.pop("input_text_analysis", None)
-    for token in data.get("tokens", []):
-        if token.get("extra_forms") is None:
-            token.pop("extra_forms", None)
     return JSONResponse(content=data)
 
 
@@ -110,7 +106,7 @@ def _find_word_span(input_text: str, word: str) -> tuple[str, int, int]:
 def _analyze_isolated_word(
     doc: spacy.tokens.Doc, sanitized: str, language: str
 ) -> JSONResponse:
-    token_result = analyze_single_token(doc[0], language)
+    token_result = analyze_single_token(doc[0])
     return _serialize_word_response(
         WordAnalysisResponse(
             input_text=sanitized,
@@ -132,7 +128,7 @@ def _analyze_word_in_input_text(
         selection_start,
         selection_end,
     )
-    token_result = analyze_single_token(result.token, language)
+    token_result = analyze_single_token(result.token)
     logger.info(
         "token resolved from context",
         extra={
@@ -173,7 +169,7 @@ def _analyze_expression(
     language: str,
 ) -> JSONResponse:
     tokens = list(doc)
-    kind = classify_expression(tokens, language)
+    kind = classify_expression(tokens)
     head_lemma = compute_head_lemma(tokens)
     canonical = compute_canonical(tokens, sanitized, kind, head_lemma)
 
@@ -239,7 +235,7 @@ def analyze(
     ] = None,
     language: Annotated[
         str,
-        Query(description="Language of the text: 'en', 'es', or 'de'."),
+        Query(description="Language of the text. Only 'en' is supported."),
     ] = "en",
 ) -> JSONResponse:
     logger.debug(

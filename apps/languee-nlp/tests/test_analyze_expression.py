@@ -443,66 +443,15 @@ def test_expressions_default_language_is_en():
     assert response.json()["language"] == "en"
 
 
-def test_expressions_spanish_verb_adp_classifies_as_expression():
-    expr_tokens = [
-        _make_mock_token("hablar", "hablar", "VERB", dep_="ROOT", i=0),
-        _make_mock_token("de", "de", "ADP", dep_="", i=1),
-        _make_mock_token("política", "política", "NOUN", dep_="", i=2),
-    ]
-    mock_nlp = _make_routed_nlp({"hablar de política": _make_mock_doc(expr_tokens)})
+def test_expressions_german_language_returns_400():
+    response = client.get(
+        "/analyze",
+        params={"text": "gab auf", "language": "de"},
+        auth=AUTH,
+    )
 
-    with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/analyze",
-            params={"text": "hablar de política", "language": "es"},
-            auth=AUTH,
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["language"] == "es"
-    assert body["kind"] == "expression"
-
-
-def test_expressions_german_separable_verb_prt_dep_classifies_as_phrasal_verb():
-    expr_tokens = [
-        _make_mock_token("gab", "geben", "VERB", dep_="ROOT", i=0),
-        _make_mock_token("auf", "auf", "ADP", dep_="prt", i=1),
-    ]
-    mock_nlp = _make_routed_nlp({"gab auf": _make_mock_doc(expr_tokens)})
-
-    with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/analyze",
-            params={"text": "gab auf", "language": "de"},
-            auth=AUTH,
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["language"] == "de"
-    assert body["kind"] == "phrasal_verb"
-
-
-def test_expressions_german_verb_adp_without_prt_classifies_as_expression():
-    expr_tokens = [
-        _make_mock_token("warten", "warten", "VERB", dep_="ROOT", i=0),
-        _make_mock_token("auf", "auf", "ADP", dep_="", i=1),
-        _make_mock_token("dich", "du", "PRON", dep_="", i=2),
-    ]
-    mock_nlp = _make_routed_nlp({"warten auf dich": _make_mock_doc(expr_tokens)})
-
-    with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/analyze",
-            params={"text": "warten auf dich", "language": "de"},
-            auth=AUTH,
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["language"] == "de"
-    assert body["kind"] == "expression"
+    assert response.status_code == 400
+    assert response.json()["detail"] == "LANGUAGE_NOT_SUPPORTED"
 
 
 def test_expressions_unsupported_language_returns_400():
