@@ -131,7 +131,7 @@ export class VocabularyController {
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiBadRequestResponse({
     description:
-      'Validation failure, token count mismatch, missing partOfSpeech, or invalid expression',
+      'Validation failure, declared kind not matching the text, missing partOfSpeech, or input rejected by NLP',
   })
   @ApiConflictResponse({ description: 'Definition already exists' })
   @ApiBadGatewayResponse({

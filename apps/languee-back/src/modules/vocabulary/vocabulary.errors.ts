@@ -8,7 +8,7 @@ export class TextMustBeSingleWordError extends Error {
 export class TextMustBeExpressionError extends Error {
   constructor() {
     super(
-      'Text must contain 2 to 6 words for kind "phrasal_verb" or "expression"',
+      'Text must be a multi-word expression for kind "phrasal_verb" or "expression"',
     );
     this.name = 'TextMustBeExpressionError';
   }

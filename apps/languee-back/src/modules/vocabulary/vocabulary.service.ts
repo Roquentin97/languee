@@ -346,13 +346,14 @@ export class VocabularyService {
   async createUserDefinition(
     input: CreateUserDefinitionInput,
   ): Promise<CreateUserDefinitionOutput> {
-    const tokens = input.text.trim().split(/\s+/).filter(Boolean);
-
     let canonical: string;
     let effectiveKind: LexicalKind;
     let partOfSpeech: PartOfSpeech;
 
     if (input.kind === 'word') {
+      // The word path never reaches NLP (canonicalisation is local), so the
+      // declared-kind shape check has to live here.
+      const tokens = input.text.trim().split(/\s+/).filter(Boolean);
       if (tokens.length !== 1) {
         throw new TextMustBeSingleWordError();
       }
@@ -363,9 +364,8 @@ export class VocabularyService {
       effectiveKind = LexicalKind.word;
       partOfSpeech = input.partOfSpeech;
     } else {
-      if (tokens.length < 2 || tokens.length > 6) {
-        throw new TextMustBeExpressionError();
-      }
+      // NLP owns expression validity (token bounds included); the backend only
+      // checks that the result matches the declared kind.
       const analysis = await this.nlpService.analyze(
         input.text,
         undefined,

@@ -1284,7 +1284,16 @@ describe('VocabularyService', () => {
       ).rejects.toBeInstanceOf(TextMustBeSingleWordError);
     });
 
-    it('kind="phrasal_verb" with a single-token text throws TextMustBeExpressionError', async () => {
+    it('kind="phrasal_verb" with text NLP analyzes as a single word throws TextMustBeExpressionError', async () => {
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
+        lemma: 'run',
+        pos: PartOfSpeech.VERB,
+        isIrregular: false,
+        inflectionForms: null,
+        extraForms: null,
+      });
+
       await expect(
         service.createUserDefinition({
           text: 'run',
@@ -1295,7 +1304,9 @@ describe('VocabularyService', () => {
       ).rejects.toBeInstanceOf(TextMustBeExpressionError);
     });
 
-    it('kind="expression" with a 7-token text throws TextMustBeExpressionError', async () => {
+    it('kind="expression" with text NLP rejects propagates NlpInputInvalidError', async () => {
+      mockNlpService.analyze.mockRejectedValue(new NlpInputInvalidError());
+
       await expect(
         service.createUserDefinition({
           text: 'one two three four five six seven',
@@ -1303,7 +1314,9 @@ describe('VocabularyService', () => {
           kind: 'expression',
           definition: 'means nothing',
         }),
-      ).rejects.toBeInstanceOf(TextMustBeExpressionError);
+      ).rejects.toBeInstanceOf(NlpInputInvalidError);
+
+      expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
 
     it('NLP analyzing the expression text as kind="word" throws TextMustBeExpressionError', async () => {
