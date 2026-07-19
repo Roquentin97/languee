@@ -10,7 +10,6 @@ import {
   NotFoundException,
   Post,
   Query,
-  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -25,7 +24,6 @@ import {
   ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
-  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { API_V1_PREFIX } from '../core/api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -36,13 +34,8 @@ import {
   ProviderUnavailableError,
 } from '../definitions/definitions.errors';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
+import { NlpInputInvalidError, NlpUnavailableError } from '../nlp/nlp.errors';
 import {
-  NlpExpressionInvalidError,
-  NlpMultiWordError,
-  NlpUnavailableError,
-} from '../nlp/nlp.errors';
-import {
-  ExpressionTooLongError,
   PartOfSpeechRequiredError,
   TextMustBeExpressionError,
   TextMustBeSingleWordError,
@@ -92,10 +85,10 @@ export class VocabularyController {
   @ApiOkResponse({ type: LookupVocabularyResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiNotFoundResponse({ description: 'Definitions not found' })
-  @ApiUnprocessableEntityResponse({
-    description: 'Multi-word input is not supported',
+  @ApiBadRequestResponse({
+    description:
+      'Input rejected: more than 6 whitespace tokens, or NLP rejected the input (token count, unsupported language)',
   })
-  @ApiBadRequestResponse({ description: 'Expression exceeds 6 tokens' })
   @ApiBadGatewayResponse({
     description: 'NLP service or dictionary provider unavailable',
   })
@@ -115,13 +108,8 @@ export class VocabularyController {
       if (err instanceof NlpUnavailableError) {
         throw new BadGatewayException('NLP_UNAVAILABLE');
       }
-      if (err instanceof NlpMultiWordError) {
-        throw new UnprocessableEntityException(
-          'MULTI_WORD_INPUT_NOT_SUPPORTED',
-        );
-      }
-      if (err instanceof ExpressionTooLongError) {
-        throw new BadRequestException('EXPRESSION_TOO_LONG');
+      if (err instanceof NlpInputInvalidError) {
+        throw new BadRequestException('INPUT_INVALID');
       }
       if (err instanceof DefinitionsNotFoundException) {
         throw new NotFoundException('DEFINITIONS_NOT_FOUND');
@@ -171,8 +159,8 @@ export class VocabularyController {
       if (err instanceof PartOfSpeechRequiredError) {
         throw new BadRequestException('PART_OF_SPEECH_REQUIRED');
       }
-      if (err instanceof NlpExpressionInvalidError) {
-        throw new BadRequestException('EXPRESSION_INVALID');
+      if (err instanceof NlpInputInvalidError) {
+        throw new BadRequestException('INPUT_INVALID');
       }
       if (err instanceof DefinitionAlreadyExistsError) {
         throw new ConflictException('DEFINITION_ALREADY_EXISTS');

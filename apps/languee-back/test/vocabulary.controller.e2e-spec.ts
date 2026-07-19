@@ -30,11 +30,8 @@ const mockAdapter: jest.Mocked<IDictionaryApiAdapter> = {
   fetch: jest.fn(),
 };
 
-const mockNlpService: jest.Mocked<
-  Pick<NlpService, 'analyzeWord' | 'analyzeExpression'>
-> = {
-  analyzeWord: jest.fn(),
-  analyzeExpression: jest.fn(),
+const mockNlpService: jest.Mocked<Pick<NlpService, 'analyze'>> = {
+  analyze: jest.fn(),
 };
 
 async function createApp(): Promise<INestApplication<App>> {
@@ -91,8 +88,7 @@ describe('VocabularyController (e2e)', () => {
 
   beforeEach(() => {
     mockAdapter.fetch.mockReset();
-    mockNlpService.analyzeWord.mockReset();
-    mockNlpService.analyzeExpression.mockReset();
+    mockNlpService.analyze.mockReset();
   });
 
   describe('GET /api/v1/vocabulary/lookup — expression meta fields', () => {
@@ -112,7 +108,8 @@ describe('VocabularyController (e2e)', () => {
     });
 
     it('returns 200 with kind="word" and isExpression=false for a single-token word', async () => {
-      mockNlpService.analyzeWord.mockResolvedValue({
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
         lemma: 'run',
         pos: PartOfSpeech.VERB,
         isIrregular: true,
@@ -134,11 +131,12 @@ describe('VocabularyController (e2e)', () => {
       expect(res.body.meta.providerMiss).toBe(false);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.meta.expressionContextFound).toBeNull();
-      expect(mockNlpService.analyzeExpression).not.toHaveBeenCalled();
+      expect(mockNlpService.analyze).toHaveBeenCalledTimes(1);
     });
 
     it('returns 200 with language="es" echoed back for a Spanish word lookup', async () => {
-      mockNlpService.analyzeWord.mockResolvedValue({
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
         lemma: 'correr',
         pos: PartOfSpeech.VERB,
         isIrregular: false,
@@ -154,7 +152,7 @@ describe('VocabularyController (e2e)', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.language).toBe('es');
-      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+      expect(mockNlpService.analyze).toHaveBeenCalledWith(
         'corro',
         undefined,
         'es',
@@ -162,9 +160,9 @@ describe('VocabularyController (e2e)', () => {
     });
 
     it('returns 200 with expression meta fields for a 2-token word', async () => {
-      mockNlpService.analyzeExpression.mockResolvedValue({
-        canonical: 'run into',
+      mockNlpService.analyze.mockResolvedValue({
         kind: 'phrasal_verb',
+        canonical: 'run into',
         headLemma: 'run',
         contextMatch: null,
       });
@@ -187,13 +185,13 @@ describe('VocabularyController (e2e)', () => {
       expect(res.body.meta.filteredByPos).toBe(false);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.meta.providerMiss).toBe(false);
-      expect(mockNlpService.analyzeWord).not.toHaveBeenCalled();
+      expect(mockNlpService.analyze).toHaveBeenCalledTimes(1);
     });
 
     it('returns providerMiss=true with empty definitions when the dictionary provider has no entry for the expression', async () => {
-      mockNlpService.analyzeExpression.mockResolvedValue({
-        canonical: 'kick the bucket',
+      mockNlpService.analyze.mockResolvedValue({
         kind: 'expression',
+        canonical: 'kick the bucket',
         headLemma: 'kick',
         contextMatch: null,
       });
@@ -268,13 +266,13 @@ describe('VocabularyController (e2e)', () => {
       expect(res.body.definition).toBe('a made-up test definition');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.provider).toBe('user');
-      expect(mockNlpService.analyzeExpression).not.toHaveBeenCalled();
+      expect(mockNlpService.analyze).not.toHaveBeenCalled();
     });
 
     it('returns 201 with the created definition shape for kind="phrasal_verb", using the NLP-derived canonical and kind', async () => {
-      mockNlpService.analyzeExpression.mockResolvedValue({
-        canonical: `phony phrase ${Date.now()}`,
+      mockNlpService.analyze.mockResolvedValue({
         kind: 'expression',
+        canonical: `phony phrase ${Date.now()}`,
         headLemma: 'phony',
         contextMatch: null,
       });

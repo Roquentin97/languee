@@ -1,10 +1,3 @@
-export class ExpressionTooLongError extends Error {
-  constructor() {
-    super('Expression exceeds the maximum supported token count');
-    this.name = 'ExpressionTooLongError';
-  }
-}
-
 export class TextMustBeSingleWordError extends Error {
   constructor() {
     super('Text must be a single word for kind "word"');

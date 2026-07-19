@@ -1,18 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { trace } from '@opentelemetry/api';
 import { RequestFailure, RequestService } from '../core/http/request.service';
-import {
-  NlpExpressionInvalidError,
-  NlpMultiWordError,
-  NlpUnavailableError,
-} from './nlp.errors';
+import { NlpInputInvalidError, NlpUnavailableError } from './nlp.errors';
 import type {
-  NlpAnalysis,
-  NlpExpressionAnalysis,
-  NlpExpressionResponse,
+  NlpAnalyzeResponse,
+  NlpAnalyzeResult,
   NlpTokenForms,
-  NlpWordResponse,
 } from './nlp.interfaces';
 import { mapSpacyPos } from './mappers/spacy-pos.mapper';
 import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
@@ -26,16 +19,16 @@ export class NlpService {
     private readonly configService: ConfigService,
   ) {}
 
-  async analyzeWord(
-    word: string,
+  async analyze(
+    text: string,
     context?: string,
     language = 'en',
-  ): Promise<NlpAnalysis> {
+  ): Promise<NlpAnalyzeResult> {
     this.logger.debug({
       message: 'request',
       event: 'nlp.request',
-      method: this.analyzeWord.name,
-      data: { word, language, hasContext: Boolean(context?.trim()) },
+      method: this.analyze.name,
+      data: { text, language, hasContext: Boolean(context?.trim()) },
     });
 
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
@@ -45,113 +38,75 @@ export class NlpService {
     );
 
     const credentials = Buffer.from(`${login}:${password}`).toString('base64');
-    const params = new URLSearchParams({ word, language });
+    const params = new URLSearchParams({ text, language });
     if (context?.trim()) {
       params.set('input_text', context);
     }
 
     const start = Date.now();
-    let body: NlpWordResponse;
+    let body: NlpAnalyzeResponse;
     try {
-      body = await this.request.getJson<NlpWordResponse>(
-        `${baseUrl}/words?${params.toString()}`,
+      body = await this.request.getJson<NlpAnalyzeResponse>(
+        `${baseUrl}/analyze?${params.toString()}`,
         {
           target: 'nlp',
           headers: { Authorization: `Basic ${credentials}` },
         },
       );
     } catch (err: unknown) {
-      throw new NlpUnavailableError(err);
-    }
-
-    if (body['is_multi_word'] || body.tokens.length !== 1) {
-      trace.getActiveSpan()?.addEvent('nlp.multi_word_rejected', { word });
-      this.logger.warn({
-        message: 'multi-word input rejected',
-        event: 'nlp.multi_word_rejected',
-        method: this.analyzeWord.name,
-        data: { word, tokenCount: body.tokens.length },
-      });
-      throw new NlpMultiWordError();
-    }
-
-    const token = body.tokens[0];
-    const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
-    const extraForms = token['extra_forms'] ?? null;
-    const durationMs = Date.now() - start;
-
-    this.logger.log({
-      message: 'word analyzed',
-      event: 'nlp.word_analyzed',
-      method: this.analyzeWord.name,
-      duration_ms: durationMs,
-      data: {
-        word,
-        language,
-        lemma: token.lemma,
-        pos: token.pos,
-        isIrregular: token['is_irregular'],
-      },
-    });
-
-    return {
-      lemma: token.lemma,
-      pos: mapSpacyPos(token.pos),
-      isIrregular: token['is_irregular'],
-      inflectionForms,
-      extraForms,
-    };
-  }
-
-  async analyzeExpression(
-    expression: string,
-    context?: string,
-    language = 'en',
-  ): Promise<NlpExpressionAnalysis> {
-    this.logger.debug({
-      message: 'request',
-      event: 'nlp.expression_request',
-      method: this.analyzeExpression.name,
-      data: { expression, language, hasContext: Boolean(context?.trim()) },
-    });
-
-    const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
-    const login = this.configService.getOrThrow<string>('nlp.basicAuthLogin');
-    const password = this.configService.getOrThrow<string>(
-      'nlp.basicAuthPassword',
-    );
-
-    const credentials = Buffer.from(`${login}:${password}`).toString('base64');
-    const params = new URLSearchParams({ expression, language });
-    if (context?.trim()) {
-      params.set('input_text', context);
-    }
-
-    const start = Date.now();
-    let body: NlpExpressionResponse;
-    try {
-      body = await this.request.getJson<NlpExpressionResponse>(
-        `${baseUrl}/expressions?${params.toString()}`,
-        {
-          target: 'nlp',
-          headers: { Authorization: `Basic ${credentials}` },
-        },
-      );
-    } catch (err: unknown) {
-      // NLP owns expression validity: a 400 means it rejected the input
-      // (token count, unsupported language), not that the service is down.
-      if (err instanceof RequestFailure && err.status === 400) {
+      // NLP owns input validity: a 400/422 means it rejected the input
+      // (token count, unsupported language, selection not in context), not
+      // that the service is down.
+      if (
+        err instanceof RequestFailure &&
+        (err.status === 400 || err.status === 422)
+      ) {
         this.logger.warn({
-          message: 'expression input rejected',
-          event: 'nlp.expression_invalid',
-          method: this.analyzeExpression.name,
-          data: { expression },
+          message: 'input rejected',
+          event: 'nlp.input_invalid',
+          method: this.analyze.name,
+          data: { text, status: err.status },
         });
-        throw new NlpExpressionInvalidError();
+        throw new NlpInputInvalidError();
       }
       throw new NlpUnavailableError(err);
     }
     const durationMs = Date.now() - start;
+
+    if (body.kind === 'word') {
+      const token = body.tokens[0];
+      if (!token) {
+        throw new NlpUnavailableError(
+          new Error('NLP word analysis returned no tokens'),
+        );
+      }
+
+      const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
+      const extraForms = token['extra_forms'] ?? null;
+
+      this.logger.log({
+        message: 'word analyzed',
+        event: 'nlp.word_analyzed',
+        method: this.analyze.name,
+        duration_ms: durationMs,
+        data: {
+          text,
+          language,
+          lemma: token.lemma,
+          pos: token.pos,
+          isIrregular: token['is_irregular'],
+        },
+      });
+
+      return {
+        kind: 'word',
+        lemma: token.lemma,
+        pos: mapSpacyPos(token.pos),
+        isIrregular: token['is_irregular'],
+        inflectionForms,
+        extraForms,
+      };
+    }
 
     const contextMatch = body.context_match
       ? {
@@ -164,10 +119,10 @@ export class NlpService {
     this.logger.log({
       message: 'expression analyzed',
       event: 'nlp.expression_analyzed',
-      method: this.analyzeExpression.name,
+      method: this.analyze.name,
       duration_ms: durationMs,
       data: {
-        expression,
+        text,
         language,
         canonical: body.canonical,
         kind: body.kind,
@@ -176,8 +131,8 @@ export class NlpService {
     });
 
     return {
-      canonical: body.canonical,
       kind: body.kind,
+      canonical: body.canonical,
       headLemma: body.head_lemma,
       contextMatch,
     };

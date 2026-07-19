@@ -8,11 +8,13 @@ import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
 import { DefinitionAlreadyExistsError } from '../definitions/definitions.errors';
-import { NlpMultiWordError, NlpUnavailableError } from '../nlp/nlp.errors';
-import type { NlpAnalysis, NlpExpressionAnalysis } from '../nlp/nlp.interfaces';
+import { NlpInputInvalidError, NlpUnavailableError } from '../nlp/nlp.errors';
+import type {
+  NlpExpressionAnalysis,
+  NlpWordAnalysis,
+} from '../nlp/nlp.interfaces';
 import { PartOfSpeech } from './enums/part-of-speech.enum';
 import {
-  ExpressionTooLongError,
   PartOfSpeechRequiredError,
   TextMustBeExpressionError,
   TextMustBeSingleWordError,
@@ -27,8 +29,7 @@ const mockCardsService = {
 };
 
 const mockNlpService = {
-  analyzeWord: jest.fn(),
-  analyzeExpression: jest.fn(),
+  analyze: jest.fn(),
 };
 
 const mockWordsService = {
@@ -40,7 +41,8 @@ const mockDefinitionService = {
   createOne: jest.fn(),
 };
 
-const defaultNlpAnalysis: NlpAnalysis = {
+const defaultNlpAnalysis: NlpWordAnalysis = {
+  kind: 'word',
   lemma: 'run',
   pos: PartOfSpeech.VERB,
   isIrregular: true,
@@ -79,7 +81,7 @@ describe('VocabularyService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockNlpService.analyzeWord.mockResolvedValue(defaultNlpAnalysis);
+    mockNlpService.analyze.mockResolvedValue(defaultNlpAnalysis);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -337,14 +339,15 @@ describe('VocabularyService', () => {
     });
 
     it('POS filtering — all definitions returned when NLP pos is null', async () => {
-      const nullPosNlp: NlpAnalysis = {
+      const nullPosNlp: NlpWordAnalysis = {
+        kind: 'word',
         lemma: 'run',
         pos: null,
         isIrregular: false,
         inflectionForms: null,
         extraForms: null,
       };
-      mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
+      mockNlpService.analyze.mockResolvedValue(nullPosNlp);
       const verbDef = {
         id: 'def-id-1',
         partOfSpeech: PartOfSpeech.VERB,
@@ -460,14 +463,15 @@ describe('VocabularyService', () => {
     });
 
     it('POS filtering — only adjective definitions returned when NLP maps to ADJ', async () => {
-      const adjNlp: NlpAnalysis = {
+      const adjNlp: NlpWordAnalysis = {
+        kind: 'word',
         lemma: 'fast',
         pos: PartOfSpeech.ADJECTIVE,
         isIrregular: false,
         inflectionForms: null,
         extraForms: null,
       };
-      mockNlpService.analyzeWord.mockResolvedValue(adjNlp);
+      mockNlpService.analyze.mockResolvedValue(adjNlp);
       const adjDef = {
         id: 'def-id-1',
         partOfSpeech: PartOfSpeech.ADJECTIVE,
@@ -507,14 +511,15 @@ describe('VocabularyService', () => {
     });
 
     it('meta.unmatchedPos is false when filteredByPos is false', async () => {
-      const nullPosNlp: NlpAnalysis = {
+      const nullPosNlp: NlpWordAnalysis = {
+        kind: 'word',
         lemma: 'run',
         pos: null,
         isIrregular: false,
         inflectionForms: null,
         extraForms: null,
       };
-      mockNlpService.analyzeWord.mockResolvedValue(nullPosNlp);
+      mockNlpService.analyze.mockResolvedValue(nullPosNlp);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
@@ -654,7 +659,7 @@ describe('VocabularyService', () => {
     // NLP integration tests
     // -------------------------------------------------------------------------
 
-    it('NLP analyzeWord() is called with input.word before dictionary lookup', async () => {
+    it('NLP analyze() is called with input.word before dictionary lookup', async () => {
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
@@ -664,14 +669,14 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+      expect(mockNlpService.analyze).toHaveBeenCalledWith(
         'walked',
         undefined,
         'en',
       );
     });
 
-    it('passes optional context to NLP analyzeWord()', async () => {
+    it('passes optional context to NLP analyze()', async () => {
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
@@ -682,7 +687,7 @@ describe('VocabularyService', () => {
         context: 'The saw was sharp enough to cut oak.',
       });
 
-      expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+      expect(mockNlpService.analyze).toHaveBeenCalledWith(
         'saw',
         'The saw was sharp enough to cut oak.',
         'en',
@@ -690,7 +695,8 @@ describe('VocabularyService', () => {
     });
 
     it('dictionaryService.lookup() is called with NLP lemma, pos, and inflection data', async () => {
-      const nlpResult: NlpAnalysis = {
+      const nlpResult: NlpWordAnalysis = {
+        kind: 'word',
         lemma: 'walk',
         pos: PartOfSpeech.VERB,
         isIrregular: false,
@@ -701,7 +707,7 @@ describe('VocabularyService', () => {
         },
         extraForms: null,
       };
-      mockNlpService.analyzeWord.mockResolvedValue(nlpResult);
+      mockNlpService.analyze.mockResolvedValue(nlpResult);
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
@@ -727,7 +733,7 @@ describe('VocabularyService', () => {
     });
 
     it('NlpService throws NlpUnavailableError — propagates from service without calling dictionaryService', async () => {
-      mockNlpService.analyzeWord.mockRejectedValue(new NlpUnavailableError());
+      mockNlpService.analyze.mockRejectedValue(new NlpUnavailableError());
 
       await expect(
         service.lookup({ word: 'walk', language: 'en', userId: 'user-id-1' }),
@@ -736,8 +742,8 @@ describe('VocabularyService', () => {
       expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
     });
 
-    it('NlpService throws NlpMultiWordError — propagates from service without calling dictionaryService (single-token input that spaCy splits into multiple tokens)', async () => {
-      mockNlpService.analyzeWord.mockRejectedValue(new NlpMultiWordError());
+    it('NlpService throws NlpInputInvalidError — propagates from service without calling dictionaryService (NLP rejected the input)', async () => {
+      mockNlpService.analyze.mockRejectedValue(new NlpInputInvalidError());
 
       await expect(
         service.lookup({
@@ -745,7 +751,7 @@ describe('VocabularyService', () => {
           language: 'en',
           userId: 'user-id-1',
         }),
-      ).rejects.toBeInstanceOf(NlpMultiWordError);
+      ).rejects.toBeInstanceOf(NlpInputInvalidError);
 
       expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
     });
@@ -756,7 +762,8 @@ describe('VocabularyService', () => {
 
     describe('lookup() — non-English extraForms and language echo', () => {
       it('es lookup builds {type: "es", ...extraForms} inflectionForms and passes language through to NLP and dictionary', async () => {
-        mockNlpService.analyzeWord.mockResolvedValue({
+        mockNlpService.analyze.mockResolvedValue({
+          kind: 'word',
           lemma: 'correr',
           pos: PartOfSpeech.VERB,
           isIrregular: false,
@@ -777,7 +784,7 @@ describe('VocabularyService', () => {
           userId: 'user-id-1',
         });
 
-        expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+        expect(mockNlpService.analyze).toHaveBeenCalledWith(
           'corro',
           undefined,
           'es',
@@ -796,7 +803,8 @@ describe('VocabularyService', () => {
       });
 
       it('de lookup builds {type: "de", ...extraForms} inflectionForms and passes language through to NLP and dictionary', async () => {
-        mockNlpService.analyzeWord.mockResolvedValue({
+        mockNlpService.analyze.mockResolvedValue({
+          kind: 'word',
           lemma: 'laufen',
           pos: PartOfSpeech.VERB,
           isIrregular: true,
@@ -818,7 +826,7 @@ describe('VocabularyService', () => {
           userId: 'user-id-1',
         });
 
-        expect(mockNlpService.analyzeWord).toHaveBeenCalledWith(
+        expect(mockNlpService.analyze).toHaveBeenCalledWith(
           'laufe',
           undefined,
           'de',
@@ -903,13 +911,11 @@ describe('VocabularyService', () => {
         expect(result.meta.isExpression).toBe(false);
         expect(result.meta.providerMiss).toBe(false);
         expect(result.meta.expressionContextFound).toBeNull();
-        expect(mockNlpService.analyzeExpression).not.toHaveBeenCalled();
+        expect(mockNlpService.analyze).toHaveBeenCalledTimes(1);
       });
 
-      it('2-token input calls analyzeExpression and passes canonical lemma + mapped kind to dictionaryService', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue(
-          defaultExpressionAnalysis,
-        );
+      it('2-token input calls analyze() and passes canonical lemma + mapped kind to dictionaryService', async () => {
+        mockNlpService.analyze.mockResolvedValue(defaultExpressionAnalysis);
         mockDictionaryService.lookup.mockResolvedValue(expressionBaseOutput);
         mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
           [],
@@ -921,7 +927,7 @@ describe('VocabularyService', () => {
           userId: 'user-id-1',
         });
 
-        expect(mockNlpService.analyzeExpression).toHaveBeenCalledWith(
+        expect(mockNlpService.analyze).toHaveBeenCalledWith(
           'ran into',
           undefined,
           'en',
@@ -939,7 +945,7 @@ describe('VocabularyService', () => {
       });
 
       it('NLP kind "expression" maps to LexicalKind.expression for the dictionary lookup', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue({
+        mockNlpService.analyze.mockResolvedValue({
           ...defaultExpressionAnalysis,
           kind: 'expression',
         });
@@ -963,9 +969,7 @@ describe('VocabularyService', () => {
       });
 
       it('POS filtering is always bypassed for expressions — filteredByPos false and partOfSpeech null even with mixed POS definitions and context', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue(
-          defaultExpressionAnalysis,
-        );
+        mockNlpService.analyze.mockResolvedValue(defaultExpressionAnalysis);
         const otherDef = {
           ...expressionDefinition,
           id: 'def-expr-2',
@@ -993,9 +997,7 @@ describe('VocabularyService', () => {
       });
 
       it('providerMiss=true and definitions=[] when dictionaryService throws DefinitionsNotFoundException (expression path only)', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue(
-          defaultExpressionAnalysis,
-        );
+        mockNlpService.analyze.mockResolvedValue(defaultExpressionAnalysis);
         mockDictionaryService.lookup.mockRejectedValue(
           new DefinitionsNotFoundException('run into', 'en'),
         );
@@ -1015,9 +1017,7 @@ describe('VocabularyService', () => {
       });
 
       it('non-DefinitionsNotFoundException errors from dictionaryService propagate', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue(
-          defaultExpressionAnalysis,
-        );
+        mockNlpService.analyze.mockResolvedValue(defaultExpressionAnalysis);
         mockDictionaryService.lookup.mockRejectedValue(
           new NlpUnavailableError(),
         );
@@ -1032,7 +1032,7 @@ describe('VocabularyService', () => {
       });
 
       it('expressionContextFound reflects NLP contextMatch.found when context is provided', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue({
+        mockNlpService.analyze.mockResolvedValue({
           ...defaultExpressionAnalysis,
           contextMatch: {
             found: true,
@@ -1052,7 +1052,7 @@ describe('VocabularyService', () => {
           context: 'I ran into an old friend.',
         });
 
-        expect(mockNlpService.analyzeExpression).toHaveBeenCalledWith(
+        expect(mockNlpService.analyze).toHaveBeenCalledWith(
           'ran into',
           'I ran into an old friend.',
           'en',
@@ -1061,7 +1061,7 @@ describe('VocabularyService', () => {
       });
 
       it('populates expression inflectionForms with the matched context form when it differs from canonical', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue({
+        mockNlpService.analyze.mockResolvedValue({
           ...defaultExpressionAnalysis,
           contextMatch: {
             found: true,
@@ -1088,7 +1088,7 @@ describe('VocabularyService', () => {
       });
 
       it('leaves expression inflectionForms null when the matched context form equals the canonical form', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue({
+        mockNlpService.analyze.mockResolvedValue({
           ...defaultExpressionAnalysis,
           contextMatch: {
             found: true,
@@ -1112,9 +1112,7 @@ describe('VocabularyService', () => {
       });
 
       it('expressionContextFound is null when no context is provided', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue(
-          defaultExpressionAnalysis,
-        );
+        mockNlpService.analyze.mockResolvedValue(defaultExpressionAnalysis);
         mockDictionaryService.lookup.mockResolvedValue(expressionBaseOutput);
         mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue(
           [],
@@ -1130,9 +1128,7 @@ describe('VocabularyService', () => {
       });
 
       it('deck enrichment applies to expression definitions', async () => {
-        mockNlpService.analyzeExpression.mockResolvedValue(
-          defaultExpressionAnalysis,
-        );
+        mockNlpService.analyze.mockResolvedValue(defaultExpressionAnalysis);
         mockDictionaryService.lookup.mockResolvedValue(expressionBaseOutput);
         mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([
           {
@@ -1152,17 +1148,22 @@ describe('VocabularyService', () => {
         ]);
       });
 
-      it('7+ tokens throws ExpressionTooLongError without calling NLP or dictionary services', async () => {
+      it('NLP rejects an over-long input via NlpInputInvalidError — propagates without calling dictionaryService (no local token-count check remains)', async () => {
+        mockNlpService.analyze.mockRejectedValue(new NlpInputInvalidError());
+
         await expect(
           service.lookup({
             word: 'one two three four five six seven',
             language: 'en',
             userId: 'user-id-1',
           }),
-        ).rejects.toBeInstanceOf(ExpressionTooLongError);
+        ).rejects.toBeInstanceOf(NlpInputInvalidError);
 
-        expect(mockNlpService.analyzeExpression).not.toHaveBeenCalled();
-        expect(mockNlpService.analyzeWord).not.toHaveBeenCalled();
+        expect(mockNlpService.analyze).toHaveBeenCalledWith(
+          'one two three four five six seven',
+          undefined,
+          'en',
+        );
         expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
       });
     });
@@ -1224,13 +1225,13 @@ describe('VocabularyService', () => {
         example: null,
         provider: 'user',
       });
-      expect(mockNlpService.analyzeExpression).not.toHaveBeenCalled();
+      expect(mockNlpService.analyze).not.toHaveBeenCalled();
     });
 
     it('expression happy path — NLP-derived canonical and kind override the declared kind', async () => {
-      mockNlpService.analyzeExpression.mockResolvedValue({
-        canonical: 'kick the bucket',
+      mockNlpService.analyze.mockResolvedValue({
         kind: 'expression',
+        canonical: 'kick the bucket',
         headLemma: 'kick',
         contextMatch: null,
       });
@@ -1256,7 +1257,7 @@ describe('VocabularyService', () => {
         definition: 'to die',
       });
 
-      expect(mockNlpService.analyzeExpression).toHaveBeenCalledWith(
+      expect(mockNlpService.analyze).toHaveBeenCalledWith(
         'kick the bucket',
         undefined,
         'en',
@@ -1305,6 +1306,28 @@ describe('VocabularyService', () => {
       ).rejects.toBeInstanceOf(TextMustBeExpressionError);
     });
 
+    it('NLP analyzing the expression text as kind="word" throws TextMustBeExpressionError', async () => {
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
+        lemma: 'run',
+        pos: PartOfSpeech.VERB,
+        isIrregular: false,
+        inflectionForms: null,
+        extraForms: null,
+      });
+
+      await expect(
+        service.createUserDefinition({
+          text: 'run fast now',
+          language: 'en',
+          kind: 'phrasal_verb',
+          definition: 'to move fast',
+        }),
+      ).rejects.toBeInstanceOf(TextMustBeExpressionError);
+
+      expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
+    });
+
     it('missing partOfSpeech for kind="word" throws PartOfSpeechRequiredError', async () => {
       await expect(
         service.createUserDefinition({
@@ -1317,9 +1340,9 @@ describe('VocabularyService', () => {
     });
 
     it('partOfSpeech defaults to PHRASE for expressions when not provided', async () => {
-      mockNlpService.analyzeExpression.mockResolvedValue({
-        canonical: 'run into',
+      mockNlpService.analyze.mockResolvedValue({
         kind: 'phrasal_verb',
+        canonical: 'run into',
         headLemma: 'run',
         contextMatch: null,
       });

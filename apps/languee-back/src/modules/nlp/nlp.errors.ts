@@ -8,16 +8,9 @@ export class NlpUnavailableError extends Error {
   }
 }
 
-export class NlpMultiWordError extends Error {
+export class NlpInputInvalidError extends Error {
   constructor() {
-    super('Multi-word input is not supported');
-    this.name = 'NlpMultiWordError';
-  }
-}
-
-export class NlpExpressionInvalidError extends Error {
-  constructor() {
-    super('Expression input is invalid');
-    this.name = 'NlpExpressionInvalidError';
+    super('NLP rejected the input as invalid');
+    this.name = 'NlpInputInvalidError';
   }
 }

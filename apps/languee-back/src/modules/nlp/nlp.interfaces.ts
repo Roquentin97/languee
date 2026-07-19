@@ -34,6 +34,7 @@ export type NlpToken = {
   Partial<Record<'extra_forms', Record<string, string> | null>>;
 
 export type NlpWordResponse = {
+  kind: 'word';
   tokens: NlpToken[];
 } & Record<'input_text', string> &
   Record<'is_multi_word', boolean> &
@@ -46,6 +47,8 @@ export type NlpAnalysis = {
   inflectionForms: InflectionForms | null;
   extraForms: Record<string, string> | null;
 };
+
+export type NlpWordAnalysis = { kind: 'word' } & NlpAnalysis;
 
 export type NlpExpressionKind = 'phrasal_verb' | 'expression';
 
@@ -81,3 +84,7 @@ export type NlpExpressionAnalysis = {
     confidence: 'high' | 'low' | null;
   } | null;
 };
+
+export type NlpAnalyzeResponse = NlpWordResponse | NlpExpressionResponse;
+
+export type NlpAnalyzeResult = NlpWordAnalysis | NlpExpressionAnalysis;

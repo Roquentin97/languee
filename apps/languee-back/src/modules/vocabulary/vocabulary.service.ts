@@ -8,11 +8,14 @@ import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import { PartOfSpeech } from './enums/part-of-speech.enum';
 import {
-  ExpressionTooLongError,
   PartOfSpeechRequiredError,
   TextMustBeExpressionError,
   TextMustBeSingleWordError,
 } from './vocabulary.errors';
+import type {
+  NlpExpressionAnalysis,
+  NlpWordAnalysis,
+} from '../nlp/nlp.interfaces';
 import type {
   CreateUserDefinitionInput,
   CreateUserDefinitionOutput,
@@ -42,28 +45,25 @@ export class VocabularyService {
   ) {}
 
   async lookup(input: LookupVocabularyInput): Promise<LookupVocabularyOutput> {
-    const tokens = input.word.trim().split(/\s+/).filter(Boolean);
-
-    if (tokens.length >= 7) {
-      throw new ExpressionTooLongError();
-    }
-
-    if (tokens.length >= 2) {
-      return this.lookupExpression(input);
-    }
-
-    return this.lookupSingleWord(input);
-  }
-
-  private async lookupSingleWord(
-    input: LookupVocabularyInput,
-  ): Promise<LookupVocabularyOutput> {
-    const nlpResult = await this.nlpService.analyzeWord(
+    // NLP owns the word-vs-expression decision: it tokenizes with the actual
+    // language model and returns a discriminated result.
+    const analysis = await this.nlpService.analyze(
       input.word,
       input.context,
       input.language,
     );
 
+    if (analysis.kind === 'word') {
+      return this.lookupSingleWord(input, analysis);
+    }
+
+    return this.lookupExpression(input, analysis);
+  }
+
+  private async lookupSingleWord(
+    input: LookupVocabularyInput,
+    nlpResult: NlpWordAnalysis,
+  ): Promise<LookupVocabularyOutput> {
     this.logger.debug({
       message: 'nlp result',
       event: 'vocabulary.nlp_result',
@@ -81,13 +81,12 @@ export class VocabularyService {
     // lemminflect-derived inflectionForms shape. `type` is the language code
     // itself so masking/answer-matching can treat every non-`type` key as an
     // accepted form regardless of its name — no per-language branching.
-    const inflectionForms: InflectionForms | null =
-      nlpResult.extraForms !== null
-        ? ({
-            type: input.language as 'es' | 'de',
-            ...nlpResult.extraForms,
-          } as InflectionForms)
-        : nlpResult.inflectionForms;
+    const inflectionForms: InflectionForms | null = nlpResult.extraForms
+      ? ({
+          type: input.language as 'es' | 'de',
+          ...nlpResult.extraForms,
+        } as InflectionForms)
+      : nlpResult.inflectionForms;
 
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
@@ -216,13 +215,9 @@ export class VocabularyService {
 
   private async lookupExpression(
     input: LookupVocabularyInput,
+    analysis: NlpExpressionAnalysis,
   ): Promise<LookupVocabularyOutput> {
     const trimmedWord = input.word.trim();
-    const analysis = await this.nlpService.analyzeExpression(
-      trimmedWord,
-      input.context,
-      input.language,
-    );
 
     this.logger.debug({
       message: 'nlp expression result',
@@ -361,7 +356,7 @@ export class VocabularyService {
       if (tokens.length !== 1) {
         throw new TextMustBeSingleWordError();
       }
-      if (input.partOfSpeech === undefined) {
+      if (!input.partOfSpeech) {
         throw new PartOfSpeechRequiredError();
       }
       canonical = this.wordsService.canonicalise(input.text);
@@ -371,11 +366,14 @@ export class VocabularyService {
       if (tokens.length < 2 || tokens.length > 6) {
         throw new TextMustBeExpressionError();
       }
-      const analysis = await this.nlpService.analyzeExpression(
+      const analysis = await this.nlpService.analyze(
         input.text,
         undefined,
         input.language,
       );
+      if (analysis.kind === 'word') {
+        throw new TextMustBeExpressionError();
+      }
       canonical = analysis.canonical;
       effectiveKind =
         analysis.kind === 'phrasal_verb'
