@@ -105,41 +105,43 @@ describe('maskText()', () => {
   });
 
   // ---------------------------------------------------------------------
-  // Unicode word boundaries (ñ, accented letters, umlauts)
+  // Unicode word boundaries (accented letters, diacritics in loanwords)
   // ---------------------------------------------------------------------
 
-  it('Unicode — masks an accented Spanish lemma in an accented context', () => {
-    expect(maskText('Voy a añadir algo a la lista.', ['añadir'])).toBe(
-      'Voy a ____ algo a la lista.',
+  it('Unicode — masks an accented loanword in context', () => {
+    expect(maskText('They serve espresso at the café.', ['café'])).toBe(
+      'They serve espresso at the ____.',
     );
   });
 
-  it('Unicode — masks a multi-word accented Spanish expression', () => {
+  it('Unicode — masks a multi-word accented expression', () => {
+    expect(maskText('It felt like déjà vu all over again.', ['déjà vu'])).toBe(
+      'It felt like ____ all over again.',
+    );
+  });
+
+  it('Unicode — does not mask "cafés" as a standalone occurrence of lemma "café" (plural is a different form not in the list)', () => {
+    expect(maskText('We visited two cafés.', ['café'])).toBe(
+      'We visited two cafés.',
+    );
+  });
+
+  it('Unicode — masks "cafés" when it is itself a listed form', () => {
+    expect(maskText('We visited two cafés.', ['café', 'cafés'])).toBe(
+      'We visited two ____.',
+    );
+  });
+
+  it('Unicode — masks a diacritic form as a standalone occurrence', () => {
     expect(
-      maskText('Vamos a darse cuenta de la verdad.', ['darse cuenta']),
-    ).toBe('Vamos a ____ de la verdad.');
+      maskText('He met his doppelgänger yesterday.', ['doppelgänger']),
+    ).toBe('He met his ____ yesterday.');
   });
 
-  it('Unicode — does not mask "años" as a standalone occurrence of lemma "año" (plural is a different form not in the list)', () => {
-    expect(maskText('Tiene cinco años.', ['año'])).toBe('Tiene cinco años.');
-  });
-
-  it('Unicode — masks "años" when it is itself a listed form', () => {
-    expect(maskText('Tiene cinco años.', ['año', 'años'])).toBe(
-      'Tiene cinco ____.',
-    );
-  });
-
-  it('Unicode — masks a German umlaut form ("läuft") as a standalone occurrence', () => {
-    expect(maskText('Er läuft jeden Morgen.', ['laufen', 'läuft'])).toBe(
-      'Er ____ jeden Morgen.',
-    );
-  });
-
-  it('Unicode — a German umlaut form does not mask a longer word merely containing it', () => {
-    expect(maskText('Er läuft schnell.', ['läuft'])).toBe('Er ____ schnell.');
-    expect(maskText('Der Verläufter existiert nicht.', ['läuft'])).toBe(
-      'Der Verläufter existiert nicht.',
+  it('Unicode — a diacritic form does not mask a longer word merely containing it', () => {
+    expect(maskText('She is naïve.', ['naïve'])).toBe('She is ____.');
+    expect(maskText('Her naïveté was charming.', ['naïve'])).toBe(
+      'Her naïveté was charming.',
     );
   });
 

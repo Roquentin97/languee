@@ -30,8 +30,7 @@ export type NlpToken = {
   pos: string;
   morphology: NlpTokenMorphology;
   forms: NlpTokenForms;
-} & Record<'is_irregular', boolean> &
-  Partial<Record<'extra_forms', Record<string, string> | null>>;
+} & Record<'is_irregular', boolean>;
 
 export type NlpWordResponse = {
   kind: 'word';
@@ -45,7 +44,6 @@ export type NlpAnalysis = {
   pos: PartOfSpeech | null;
   isIrregular: boolean;
   inflectionForms: InflectionForms | null;
-  extraForms: Record<string, string> | null;
 };
 
 export type NlpWordAnalysis = { kind: 'word' } & NlpAnalysis;

@@ -280,7 +280,7 @@ describe('ReviewsService', () => {
       });
     });
 
-    it('prompt building — prompt.language reflects the card word language (Spanish)', async () => {
+    it('prompt building — prompt.language echoes the stored word language verbatim', async () => {
       const spanishWord: Word = {
         ...mockWord,
         language: 'es',

@@ -114,7 +114,6 @@ describe('VocabularyController (e2e)', () => {
         pos: PartOfSpeech.VERB,
         isIrregular: true,
         inflectionForms: null,
-        extraForms: null,
       });
       mockAdapter.fetch.mockResolvedValue(MOCK_WORD_DEFINITIONS);
 
@@ -132,31 +131,6 @@ describe('VocabularyController (e2e)', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.meta.expressionContextFound).toBeNull();
       expect(mockNlpService.analyze).toHaveBeenCalledTimes(1);
-    });
-
-    it('returns 200 with language="es" echoed back for a Spanish word lookup', async () => {
-      mockNlpService.analyze.mockResolvedValue({
-        kind: 'word',
-        lemma: 'correr',
-        pos: PartOfSpeech.VERB,
-        isIrregular: false,
-        inflectionForms: null,
-        extraForms: { indicative_present_yo: 'corro' },
-      });
-      mockAdapter.fetch.mockResolvedValue(MOCK_WORD_DEFINITIONS);
-
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/vocabulary/lookup?word=corro&language=es')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(res.body.language).toBe('es');
-      expect(mockNlpService.analyze).toHaveBeenCalledWith(
-        'corro',
-        undefined,
-        'es',
-      );
     });
 
     it('returns 200 with expression meta fields for a 2-token word', async () => {

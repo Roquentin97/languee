@@ -28,22 +28,11 @@ export type ExpressionInflections = {
   contextForm: string;
 };
 
-/**
- * Inflection forms sourced directly from the NLP service's `extra_forms` map
- * for languages the English lemminflect-derived shapes don't cover (Spanish,
- * German). `type` carries the language code so masking/answer-matching can
- * treat every non-`type` key as an accepted form regardless of its name.
- */
-export type LanguageExtraInflections = { type: 'es' | 'de' } & {
-  [form: string]: string;
-};
-
 export type InflectionForms =
   | AdjectiveInflections
   | VerbInflections
   | NounInflections
-  | ExpressionInflections
-  | LanguageExtraInflections;
+  | ExpressionInflections;
 
 export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
   nullable: true,
@@ -87,14 +76,6 @@ export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
         type: { type: 'string', enum: ['expression'] },
         contextForm: { type: 'string', example: 'ran into' },
       },
-    },
-    {
-      type: 'object',
-      required: ['type'],
-      properties: {
-        type: { type: 'string', enum: ['es', 'de'] },
-      },
-      additionalProperties: { type: 'string' },
     },
   ],
   discriminator: { propertyName: 'type' },

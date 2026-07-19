@@ -53,25 +53,25 @@ describe('checkAnswer()', () => {
   });
 
   // ---------------------------------------------------------------------
-  // Spanish accents — case/whitespace-insensitive, but accents are REQUIRED.
-  // We deliberately do not strip diacritics: "está" (is, verb estar) and
-  // "esta" (this, determiner) are different Spanish words, so accepting
-  // "esta" for a card whose target form is "está" would mark a genuinely
-  // wrong answer as correct.
+  // Accents — case/whitespace-insensitive, but accents are REQUIRED.
+  // We deliberately do not strip diacritics: "résumé" and "resume" are
+  // different words, so accepting a diacritic-stripped answer for a card
+  // whose target form carries accents would mark a genuinely wrong answer
+  // as correct.
   // ---------------------------------------------------------------------
 
-  it('Spanish — "hablo" and "HABLO " (case/whitespace-insensitive) both match target form "hablo"', () => {
-    const result = checkAnswer('HABLO ', ['hablo']);
-    expect(result).toEqual({ result: 'correct', matchedForm: 'hablo' });
+  it('accents — "café" and "CAFÉ " (case/whitespace-insensitive) both match target form "café"', () => {
+    const result = checkAnswer('CAFÉ ', ['café']);
+    expect(result).toEqual({ result: 'correct', matchedForm: 'café' });
   });
 
-  it('Spanish — accents are required: "esta" does not match target form "está"', () => {
-    const result = checkAnswer('esta', ['está']);
+  it('accents — accents are required: "cafe" does not match target form "café"', () => {
+    const result = checkAnswer('cafe', ['café']);
     expect(result).toEqual({ result: 'incorrect', matchedForm: null });
   });
 
-  it('Spanish — "está" matches target form "está" exactly', () => {
-    const result = checkAnswer('está', ['está']);
-    expect(result).toEqual({ result: 'correct', matchedForm: 'está' });
+  it('accents — "café" matches target form "café" exactly', () => {
+    const result = checkAnswer('café', ['café']);
+    expect(result).toEqual({ result: 'correct', matchedForm: 'café' });
   });
 });

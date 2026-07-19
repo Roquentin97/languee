@@ -76,17 +76,7 @@ export class VocabularyService {
       },
     });
 
-    // Non-English languages (Spanish, German, ...) carry their inflected
-    // forms in extraForms (keyed by form name) rather than the English
-    // lemminflect-derived inflectionForms shape. `type` is the language code
-    // itself so masking/answer-matching can treat every non-`type` key as an
-    // accepted form regardless of its name — no per-language branching.
-    const inflectionForms: InflectionForms | null = nlpResult.extraForms
-      ? ({
-          type: input.language as 'es' | 'de',
-          ...nlpResult.extraForms,
-        } as InflectionForms)
-      : nlpResult.inflectionForms;
+    const inflectionForms: InflectionForms | null = nlpResult.inflectionForms;
 
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,

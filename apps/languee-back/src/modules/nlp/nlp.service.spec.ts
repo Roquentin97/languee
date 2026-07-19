@@ -339,10 +339,10 @@ describe('NlpService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Language param and extraForms (Spanish, German)
+  // Language param forwarding
   // -------------------------------------------------------------------------
 
-  describe('analyze() — word language param and extraForms', () => {
+  describe('analyze() — language param', () => {
     it('defaults to language=en in the request URL when language is omitted', async () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -356,106 +356,18 @@ describe('NlpService', () => {
       expect(url.searchParams.get('language')).toBe('en');
     });
 
-    it('appends language=es to the request URL when language is "es"', async () => {
+    it('forwards an explicit language param unchanged (NLP owns validity)', async () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(makeVerbResponse()),
       }) as jest.MockedFunction<typeof fetch>;
       global.fetch = mockFetch;
 
-      await service.analyze('corro', undefined, 'es');
+      await service.analyze('walked', undefined, 'fr');
 
       const url = getFirstFetchUrl(mockFetch);
-      expect(url.searchParams.get('text')).toBe('corro');
-      expect(url.searchParams.get('language')).toBe('es');
-    });
-
-    it('appends language=de to the request URL when language is "de"', async () => {
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(makeVerbResponse()),
-      }) as jest.MockedFunction<typeof fetch>;
-      global.fetch = mockFetch;
-
-      await service.analyze('laufe', undefined, 'de');
-
-      const url = getFirstFetchUrl(mockFetch);
-      expect(url.searchParams.get('language')).toBe('de');
-    });
-
-    it('maps extra_forms from the NLP response into NlpAnalysis.extraForms for Spanish', async () => {
-      const response = makeVerbResponse();
-      response.tokens[0].extra_forms = {
-        indicative_present_yo: 'corro',
-        indicative_preterite_yo: 'corrí',
-      };
-
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(response),
-      });
-      global.fetch = mockFetch as unknown as typeof fetch;
-
-      const result = await service.analyze('corro', undefined, 'es');
-
-      if (result.kind !== 'word') throw new Error('expected word result');
-      expect(result.extraForms).toEqual({
-        indicative_present_yo: 'corro',
-        indicative_preterite_yo: 'corrí',
-      });
-    });
-
-    it('maps extra_forms from the NLP response into NlpAnalysis.extraForms for German', async () => {
-      const response = makeVerbResponse();
-      response.tokens[0].extra_forms = {
-        present_ich: 'laufe',
-        present_du: 'läufst',
-        partizip_ii: 'gelaufen',
-      };
-
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(response),
-      });
-      global.fetch = mockFetch as unknown as typeof fetch;
-
-      const result = await service.analyze('laufe', undefined, 'de');
-
-      if (result.kind !== 'word') throw new Error('expected word result');
-      expect(result.extraForms).toEqual({
-        present_ich: 'laufe',
-        present_du: 'läufst',
-        partizip_ii: 'gelaufen',
-      });
-    });
-
-    it('extraForms is null when the NLP response omits extra_forms (English)', async () => {
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(makeVerbResponse()),
-      }) as jest.MockedFunction<typeof fetch>;
-      global.fetch = mockFetch;
-
-      const result = await service.analyze('walked');
-
-      if (result.kind !== 'word') throw new Error('expected word result');
-      expect(result.extraForms).toBeNull();
-    });
-
-    it('extraForms is null when the NLP response sets extra_forms to null', async () => {
-      const response = makeVerbResponse();
-      response.tokens[0].extra_forms = null;
-
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(response),
-      });
-      global.fetch = mockFetch as unknown as typeof fetch;
-
-      const result = await service.analyze('walked');
-
-      if (result.kind !== 'word') throw new Error('expected word result');
-      expect(result.extraForms).toBeNull();
+      expect(url.searchParams.get('text')).toBe('walked');
+      expect(url.searchParams.get('language')).toBe('fr');
     });
   });
 

@@ -82,7 +82,6 @@ export class NlpService {
       }
 
       const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
-      const extraForms = token['extra_forms'] ?? null;
 
       this.logger.log({
         message: 'word analyzed',
@@ -104,7 +103,6 @@ export class NlpService {
         pos: mapSpacyPos(token.pos),
         isIrregular: token['is_irregular'],
         inflectionForms,
-        extraForms,
       };
     }
 
