@@ -96,6 +96,109 @@ def test_expressions_phrasal_verb_canonicalizes_inflected_head():
     assert "context_match" not in body
 
 
+def test_expressions_phrasal_verb_drops_pronoun_object():
+    expr_tokens = [
+        _make_mock_token("turn", "turn", "VERB", dep_="ROOT", i=0),
+        _make_mock_token("it", "it", "PRON", dep_="dobj", i=1),
+        _make_mock_token("off", "off", "ADP", dep_="prt", i=2),
+    ]
+    mock_nlp = _make_routed_nlp({"turn it off": _make_mock_doc(expr_tokens)})
+
+    with _patch_nlp(mock_nlp):
+        response = client.get("/analyze", params={"text": "turn it off"}, auth=AUTH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "phrasal_verb"
+    assert body["canonical"] == "turn off"
+
+
+def test_expressions_phrasal_verb_drops_determined_noun_object():
+    look = _make_mock_token("look", "look", "VERB", dep_="ROOT", i=0)
+    the = _make_mock_token("the", "the", "DET", dep_="det", i=1)
+    word = _make_mock_token("word", "word", "NOUN", dep_="dobj", i=2)
+    up = _make_mock_token("up", "up", "ADP", dep_="prt", i=3)
+    the.head = word
+    word.head = look
+    up.head = look
+    mock_nlp = _make_routed_nlp(
+        {"look the word up": _make_mock_doc([look, the, word, up])}
+    )
+
+    with _patch_nlp(mock_nlp):
+        response = client.get(
+            "/analyze", params={"text": "look the word up"}, auth=AUTH
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "phrasal_verb"
+    assert body["canonical"] == "look up"
+
+
+def test_expressions_phrasal_verb_keeps_bare_noun_in_verb_pattern():
+    take = _make_mock_token("take", "take", "VERB", dep_="ROOT", i=0)
+    care = _make_mock_token("care", "care", "NOUN", dep_="dobj", i=1)
+    of = _make_mock_token("of", "of", "ADP", dep_="prep", i=2)
+    care.head = take
+    of.head = take
+    mock_nlp = _make_routed_nlp({"take care of": _make_mock_doc([take, care, of])})
+
+    with _patch_nlp(mock_nlp):
+        response = client.get("/analyze", params={"text": "take care of"}, auth=AUTH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "phrasal_verb"
+    assert body["canonical"] == "take care of"
+
+
+def test_expressions_phrasal_verb_drops_trailing_pronoun_after_particles():
+    put = _make_mock_token("put", "put", "VERB", dep_="ROOT", i=0)
+    up = _make_mock_token("up", "up", "ADP", dep_="prt", i=1)
+    with_tok = _make_mock_token("with", "with", "ADP", dep_="prep", i=2)
+    it = _make_mock_token("it", "it", "PRON", dep_="pobj", i=3)
+    up.head = put
+    with_tok.head = put
+    it.head = with_tok
+    mock_nlp = _make_routed_nlp(
+        {"put up with it": _make_mock_doc([put, up, with_tok, it])}
+    )
+
+    with _patch_nlp(mock_nlp):
+        response = client.get("/analyze", params={"text": "put up with it"}, auth=AUTH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "phrasal_verb"
+    assert body["canonical"] == "put up with"
+
+
+def test_expressions_phrasal_verb_keeps_noun_phrase_after_last_particle():
+    look = _make_mock_token("look", "look", "VERB", dep_="ROOT", i=0)
+    at = _make_mock_token("at", "at", "ADP", dep_="prep", i=1)
+    the = _make_mock_token("the", "the", "DET", dep_="det", i=2)
+    bright = _make_mock_token("bright", "bright", "ADJ", dep_="amod", i=3)
+    side = _make_mock_token("side", "side", "NOUN", dep_="pobj", i=4)
+    at.head = look
+    the.head = side
+    bright.head = side
+    side.head = at
+    mock_nlp = _make_routed_nlp(
+        {"look at the bright side": _make_mock_doc([look, at, the, bright, side])}
+    )
+
+    with _patch_nlp(mock_nlp):
+        response = client.get(
+            "/analyze", params={"text": "look at the bright side"}, auth=AUTH
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "phrasal_verb"
+    assert body["canonical"] == "look at the bright side"
+
+
 def test_expressions_idiom_kept_verbatim_not_lemma_joined():
     expr_tokens = [
         _make_mock_token("spill", "spill", "VERB", dep_="ROOT", i=0),

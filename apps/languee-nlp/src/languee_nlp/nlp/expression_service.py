@@ -9,6 +9,7 @@ from languee_nlp.schemas import ContextMatch
 logger = logging.getLogger(__name__)
 
 _PARTICLE_LIKE_POS = {"ADP", "PART"}
+_OBJECT_NP_POS = {"NOUN", "PROPN"}
 _MAX_GAP = 3
 
 
@@ -47,13 +48,67 @@ def compute_canonical(
     kind: str,
     head_lemma: str,
 ) -> str:
-    """Head-verb lemma joined with remaining token text for phrasal verbs;
-    the sanitized expression unchanged for idioms/expressions.
+    """Head-verb lemma joined with the remaining non-object token text for
+    phrasal verbs; the sanitized expression unchanged for idioms/expressions.
+
+    For phrasal verbs, separated-object tokens are stripped so a selection
+    like "turn it off" or "look the word up" canonicalises to the dictionary
+    form ("turn off", "look up"). If stripping would leave nothing after the
+    verb, the full remainder is kept unchanged.
     """
     if kind == "phrasal_verb":
-        remainder = [tok.text for tok in tokens[1:]]
-        return " ".join([head_lemma, *remainder])
+        remainder = tokens[1:]
+        kept = _strip_object_tokens(remainder) or remainder
+        return " ".join([head_lemma, *(tok.text for tok in kept)])
     return sanitized_expression
+
+
+def _is_particle_like(tok: spacy.tokens.Token) -> bool:
+    return tok.dep_ == "prt" or tok.pos_ in _PARTICLE_LIKE_POS
+
+
+def _strip_object_tokens(
+    tokens: list[spacy.tokens.Token],
+) -> list[spacy.tokens.Token]:
+    """Drop object tokens from a phrasal-verb remainder.
+
+    Rules:
+    - pronouns are always dropped ("put up with it" -> "put up with");
+    - a noun is dropped only when a particle/adposition follows it in the
+      selection (it sits between verb and particle, so it is a separated
+      object: "turn the lights off") and it is either a proper noun or has a
+      determiner/pronoun attached — a bare noun that is part of the verb
+      pattern survives ("take care of");
+    - tokens syntactically headed by a dropped token are dropped with it
+      (the determiner and adjectives go away with "lights").
+    """
+    dropped: set[int] = set()
+    for position, tok in enumerate(tokens):
+        if tok.pos_ == "PRON":
+            dropped.add(tok.i)
+            continue
+        if tok.pos_ not in _OBJECT_NP_POS:
+            continue
+        particle_follows = any(
+            _is_particle_like(later) for later in tokens[position + 1 :]
+        )
+        if not particle_follows:
+            continue
+        has_determiner = any(
+            other.pos_ in {"DET", "PRON"} and other.head is tok for other in tokens
+        )
+        if tok.pos_ == "PROPN" or has_determiner:
+            dropped.add(tok.i)
+
+    changed = True
+    while changed:
+        changed = False
+        for tok in tokens:
+            if tok.i not in dropped and tok.head.i in dropped:
+                dropped.add(tok.i)
+                changed = True
+
+    return [tok for tok in tokens if tok.i not in dropped]
 
 
 def find_context_match(
