@@ -22,14 +22,14 @@ def test_openapi_schema_describes_health_routes():
     assert data["info"]["version"] == "0.1.0"
     assert "/health" in data["paths"]
     assert "/ready" in data["paths"]
-    assert "/words" in data["paths"]
+    assert "/analyze" in data["paths"]
     assert data["paths"]["/health"]["get"]["tags"] == ["health"]
-    assert data["paths"]["/words"]["get"]["tags"] == ["words"]
-    assert "post" not in data["paths"]["/words"]
+    assert data["paths"]["/analyze"]["get"]["tags"] == ["analyze"]
+    assert "post" not in data["paths"]["/analyze"]
 
-    parameters = data["paths"]["/words"]["get"]["parameters"]
+    parameters = data["paths"]["/analyze"]["get"]["parameters"]
     assert [parameter["name"] for parameter in parameters] == [
-        "word",
+        "text",
         "input_text",
         "language",
     ]

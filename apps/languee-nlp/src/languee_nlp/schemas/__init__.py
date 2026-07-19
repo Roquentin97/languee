@@ -74,6 +74,7 @@ class InputTextAnalysis(BaseModel):
 class WordAnalysisResponse(BaseModel):
     model_config = ConfigDict(exclude_none=True)
 
+    kind: Literal["word"] = "word"
     input_text: str
     is_multi_word: bool
     language: str

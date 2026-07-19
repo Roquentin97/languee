@@ -1,4 +1,4 @@
-"""Tests for contextual GET /words behavior."""
+"""Tests for contextual GET /analyze single-word behavior."""
 
 from unittest.mock import MagicMock, patch
 
@@ -62,7 +62,7 @@ def _make_single_token_nlp(
 
 def test_get_words_missing_word_with_input_text_returns_422():
     response = client.get(
-        "/words",
+        "/analyze",
         params={"input_text": "I went to a meeting"},
         auth=AUTH,
     )
@@ -75,7 +75,7 @@ def test_get_words_missing_word_with_input_text_returns_422():
 
 
 def test_post_words_is_removed():
-    response = client.post("/words", json={"word": "run"}, auth=AUTH)
+    response = client.post("/analyze", json={"word": "run"}, auth=AUTH)
     assert response.status_code == 405
 
 
@@ -86,8 +86,8 @@ def test_post_words_is_removed():
 
 def test_get_words_word_missing_from_input_text_returns_422():
     response = client.get(
-        "/words",
-        params={"word": "lesson", "input_text": "I went to a meeting"},
+        "/analyze",
+        params={"text": "lesson", "input_text": "I went to a meeting"},
         auth=AUTH,
     )
     assert response.status_code == 422
@@ -102,9 +102,9 @@ def test_get_words_word_missing_from_input_text_returns_422():
 def test_get_words_without_input_text_omits_input_text_analysis():
     mock_nlp = _make_single_token_nlp(text="run", lemma="run", pos="VERB")
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "run"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "run"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -116,38 +116,27 @@ def test_get_words_without_input_text_omits_input_text_analysis():
 # ===========================================================================
 
 
-def test_get_words_no_input_text_zero_tokens_returns_400():
+def test_get_analyze_no_input_text_zero_tokens_returns_400():
     doc = MagicMock()
     doc.__len__ = MagicMock(return_value=0)
     mock_nlp = MagicMock(return_value=doc)
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
-        response = client.get("/words", params={"word": "xyz"}, auth=AUTH)
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
+        response = client.get("/analyze", params={"text": "xyz"}, auth=AUTH)
 
     assert response.status_code == 400
-    assert "single word" in response.json()["detail"]
+    assert "between 1 and 6 tokens" in response.json()["detail"]
 
 
 # ===========================================================================
-# Edge case 12: no selection, multi-word word → 400
+# Edge case 13: empty text after normalization → 400
 # ===========================================================================
 
 
-def test_get_words_no_input_text_multiword_word_returns_400():
-    response = client.get("/words", params={"word": "look up"}, auth=AUTH)
+def test_get_analyze_empty_text_after_normalization_returns_400():
+    response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
     assert response.status_code == 400
-    assert "single word" in response.json()["detail"]
-
-
-# ===========================================================================
-# Edge case 13: empty word after normalization → 400
-# ===========================================================================
-
-
-def test_get_words_empty_word_after_normalization_returns_400():
-    response = client.get("/words", params={"word": "   "}, auth=AUTH)
-    assert response.status_code == 400
-    assert "single word" in response.json()["detail"]
+    assert "between 1 and 6 tokens" in response.json()["detail"]
 
 
 # ===========================================================================
@@ -158,11 +147,11 @@ def test_get_words_empty_word_after_normalization_returns_400():
 def test_get_words_blank_input_text_falls_back_to_word():
     mock_nlp = _make_single_token_nlp(text="run", lemma="run", pos="VERB")
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
             response = client.get(
-                "/words",
-                params={"word": "run", "input_text": "   "},
+                "/analyze",
+                params={"text": "run", "input_text": "   "},
                 auth=AUTH,
             )
 
@@ -178,9 +167,9 @@ def test_get_words_blank_input_text_falls_back_to_word():
 def test_get_words_still_handles_simple_word_analysis():
     mock_nlp = _make_single_token_nlp(text="run", lemma="run", pos="VERB")
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "run"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "run"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -198,7 +187,7 @@ def test_get_words_still_handles_simple_word_analysis():
 
 
 def test_get_words_without_auth_returns_401():
-    response = client.get("/words", params={"word": "run"})
+    response = client.get("/analyze", params={"text": "run"})
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Basic"
 
@@ -210,8 +199,8 @@ def test_get_words_without_auth_returns_401():
 
 def test_get_words_with_wrong_auth_returns_401():
     response = client.get(
-        "/words",
-        params={"word": "run"},
+        "/analyze",
+        params={"text": "run"},
         auth=("admin", "wrong-password"),
     )
     assert response.status_code == 401
@@ -245,12 +234,13 @@ def test_get_words_input_text_with_word_no_phrasal_verb():
 
     mock_doc = MagicMock()
     mock_doc.__iter__ = MagicMock(return_value=iter([mock_token]))
-    mock_doc.__len__ = MagicMock(return_value=4)
+    mock_doc.__len__ = MagicMock(return_value=1)
+    mock_doc.__getitem__ = MagicMock(return_value=mock_token)
     mock_nlp = MagicMock(return_value=mock_doc)
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch(
-            "languee_nlp.routers.words.resolve_token_from_context"
+            "languee_nlp.routers.analyze.resolve_token_from_context"
         ) as mock_resolver:
             from languee_nlp.nlp.context_resolver import ContextResolverResult
 
@@ -264,8 +254,8 @@ def test_get_words_input_text_with_word_no_phrasal_verb():
             )
             with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
                 response = client.get(
-                    "/words",
-                    params={"word": word, "input_text": full_text},
+                    "/analyze",
+                    params={"text": word, "input_text": full_text},
                     auth=AUTH,
                 )
 

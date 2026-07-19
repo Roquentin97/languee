@@ -9,7 +9,7 @@ AUTH = ("admin", "changeme")
 
 
 def _patch_nlp(mock_nlp: MagicMock):
-    return patch("languee_nlp.routers.expressions.get_nlp", return_value=mock_nlp)
+    return patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp)
 
 
 # ---------------------------------------------------------------------------
@@ -81,9 +81,7 @@ def test_expressions_phrasal_verb_canonicalizes_inflected_head():
     mock_nlp = _make_routed_nlp({"ran into": _make_mock_doc(expr_tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/expressions", params={"expression": "ran into"}, auth=AUTH
-        )
+        response = client.get("/analyze", params={"text": "ran into"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -107,9 +105,7 @@ def test_expressions_idiom_kept_verbatim_not_lemma_joined():
     mock_nlp = _make_routed_nlp({"spill the beans": _make_mock_doc(expr_tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/expressions", params={"expression": "spill the beans"}, auth=AUTH
-        )
+        response = client.get("/analyze", params={"text": "spill the beans"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -123,38 +119,38 @@ def test_expressions_idiom_kept_verbatim_not_lemma_joined():
 # ---------------------------------------------------------------------------
 
 
-def test_expressions_rejects_single_token():
-    mock_nlp = _make_routed_nlp(
-        {"hello": _make_mock_doc([_make_mock_token("hello", "hello", "INTJ")])}
-    )
+def test_analyze_single_token_routes_to_word_analysis():
+    tok = _make_mock_token("hello", "hello", "INTJ")
+    tok.morph.to_dict.return_value = {}
+    mock_nlp = _make_routed_nlp({"hello": _make_mock_doc([tok])})
 
     with _patch_nlp(mock_nlp):
-        response = client.get("/expressions", params={"expression": "hello"}, auth=AUTH)
+        with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
+            response = client.get("/analyze", params={"text": "hello"}, auth=AUTH)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "expression must contain between 2 and 6 tokens"
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "word"
+    assert body["tokens"][0]["lemma"] == "hello"
 
 
-def test_expressions_rejects_seven_tokens():
+def test_analyze_rejects_seven_tokens():
     text = "one two three four five six seven"
     tokens = [_make_mock_token(w, w, "NOUN", i=i) for i, w in enumerate(text.split())]
     mock_nlp = _make_routed_nlp({text: _make_mock_doc(tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get("/expressions", params={"expression": text}, auth=AUTH)
+        response = client.get("/analyze", params={"text": text}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "expression must contain between 2 and 6 tokens"
+    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
 
 
-def test_expressions_rejects_blank_expression():
-    mock_nlp = _make_routed_nlp({"": _make_mock_doc([])})
-
-    with _patch_nlp(mock_nlp):
-        response = client.get("/expressions", params={"expression": "   "}, auth=AUTH)
+def test_analyze_rejects_blank_text():
+    response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "expression must contain between 2 and 6 tokens"
+    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +159,7 @@ def test_expressions_rejects_blank_expression():
 
 
 def test_expressions_requires_basic_auth():
-    response = client.get("/expressions", params={"expression": "give up"})
+    response = client.get("/analyze", params={"text": "give up"})
 
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Basic"
@@ -184,8 +180,8 @@ def test_expressions_exact_context_match_with_offsets():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "give up", "input_text": input_text},
+            "/analyze",
+            params={"text": "give up", "input_text": input_text},
             auth=AUTH,
         )
 
@@ -231,8 +227,8 @@ def test_expressions_inflected_head_context_match_is_low_confidence():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "run into", "input_text": input_text},
+            "/analyze",
+            params={"text": "run into", "input_text": input_text},
             auth=AUTH,
         )
 
@@ -274,8 +270,8 @@ def test_expressions_separated_phrasal_verb_within_gap_window():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "give up", "input_text": input_text},
+            "/analyze",
+            params={"text": "give up", "input_text": input_text},
             auth=AUTH,
         )
 
@@ -314,8 +310,8 @@ def test_expressions_gap_window_exceeded_returns_not_found():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "give up", "input_text": input_text},
+            "/analyze",
+            params={"text": "give up", "input_text": input_text},
             auth=AUTH,
         )
 
@@ -341,9 +337,7 @@ def test_expressions_no_input_text_omits_context_match():
     mock_nlp = _make_routed_nlp({"give up": _make_mock_doc(expr_tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/expressions", params={"expression": "give up"}, auth=AUTH
-        )
+        response = client.get("/analyze", params={"text": "give up"}, auth=AUTH)
 
     assert response.status_code == 200
     assert "context_match" not in response.json()
@@ -362,9 +356,7 @@ def test_expressions_pos_fallback_classifies_phrasal_verb_without_prt_dep():
     mock_nlp = _make_routed_nlp({"sort out": _make_mock_doc(expr_tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/expressions", params={"expression": "sort out"}, auth=AUTH
-        )
+        response = client.get("/analyze", params={"text": "sort out"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -381,9 +373,7 @@ def test_expressions_head_lemma_falls_back_to_first_token_when_no_verb():
     mock_nlp = _make_routed_nlp({"over the top": _make_mock_doc(expr_tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/expressions", params={"expression": "over the top"}, auth=AUTH
-        )
+        response = client.get("/analyze", params={"text": "over the top"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -422,8 +412,8 @@ def test_expressions_context_match_uses_lemma_for_inflected_non_head_token():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "keep forms", "input_text": input_text},
+            "/analyze",
+            params={"text": "keep forms", "input_text": input_text},
             auth=AUTH,
         )
 
@@ -447,9 +437,7 @@ def test_expressions_default_language_is_en():
     mock_nlp = _make_routed_nlp({"give up": _make_mock_doc(expr_tokens)})
 
     with _patch_nlp(mock_nlp):
-        response = client.get(
-            "/expressions", params={"expression": "give up"}, auth=AUTH
-        )
+        response = client.get("/analyze", params={"text": "give up"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["language"] == "en"
@@ -465,8 +453,8 @@ def test_expressions_spanish_verb_adp_classifies_as_expression():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "hablar de política", "language": "es"},
+            "/analyze",
+            params={"text": "hablar de política", "language": "es"},
             auth=AUTH,
         )
 
@@ -485,8 +473,8 @@ def test_expressions_german_separable_verb_prt_dep_classifies_as_phrasal_verb():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "gab auf", "language": "de"},
+            "/analyze",
+            params={"text": "gab auf", "language": "de"},
             auth=AUTH,
         )
 
@@ -506,8 +494,8 @@ def test_expressions_german_verb_adp_without_prt_classifies_as_expression():
 
     with _patch_nlp(mock_nlp):
         response = client.get(
-            "/expressions",
-            params={"expression": "warten auf dich", "language": "de"},
+            "/analyze",
+            params={"text": "warten auf dich", "language": "de"},
             auth=AUTH,
         )
 
@@ -519,8 +507,8 @@ def test_expressions_german_verb_adp_without_prt_classifies_as_expression():
 
 def test_expressions_unsupported_language_returns_400():
     response = client.get(
-        "/expressions",
-        params={"expression": "give up", "language": "fr"},
+        "/analyze",
+        params={"text": "give up", "language": "fr"},
         auth=AUTH,
     )
 

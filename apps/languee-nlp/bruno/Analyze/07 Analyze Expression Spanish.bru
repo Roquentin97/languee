@@ -1,15 +1,15 @@
 meta {
   name: Analyze Expression Spanish
   type: http
-  seq: 3
+  seq: 7
   tags: [
-    expressions
+    analyze
     spanish
   ]
 }
 
 get {
-  url: {{base_url}}/expressions?expression=hablar%20de%20politica&language=es
+  url: {{base_url}}/analyze?text=hablar%20de%20politica&language=es
   body: none
   auth: inherit
 }

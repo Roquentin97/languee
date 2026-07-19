@@ -51,12 +51,13 @@ def test_words_returns_analysis_for_single_word():
         morph_dict={"Tense": "Pres", "VerbForm": "Part"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "running"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "running"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
+    assert body["kind"] == "word"
     assert body["input_text"] == "running"
     assert body["is_multi_word"] is False
     assert len(body["tokens"]) == 1
@@ -70,9 +71,9 @@ def test_words_returns_analysis_for_single_word():
 def test_words_sanitizes_input_trim_lowercase_nfc():
     mock_nlp = _make_mock_nlp(text="child", lemma="child", pos="NOUN", morph_dict={})
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": " Child "}, auth=AUTH)
+            response = client.get("/analyze", params={"text": " Child "}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -80,24 +81,44 @@ def test_words_sanitizes_input_trim_lowercase_nfc():
     mock_nlp.assert_called_once_with("child")
 
 
-def test_words_rejects_empty_input():
-    response = client.get("/words", params={"word": "   "}, auth=AUTH)
+def test_analyze_rejects_empty_input():
+    response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
 
     assert response.status_code == 400
-    assert (
-        response.json()["detail"]
-        == "word must be a single word; multi-word input is not supported"
-    )
+    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
 
 
-def test_words_rejects_multiple_words():
-    response = client.get("/words", params={"word": "look up"}, auth=AUTH)
+def test_analyze_routes_multiple_words_to_expression_analysis():
+    def _expr_token(text: str, lemma: str, pos: str, dep: str, i: int) -> MagicMock:
+        tok = MagicMock()
+        tok.text = text
+        tok.lemma_ = lemma
+        tok.pos_ = pos
+        tok.dep_ = dep
+        tok.i = i
+        return tok
 
-    assert response.status_code == 400
+    tokens = [
+        _expr_token("look", "look", "VERB", "ROOT", 0),
+        _expr_token("up", "up", "ADP", "prt", 1),
+    ]
+    mock_doc = MagicMock()
+    mock_doc.__len__ = MagicMock(return_value=2)
+    mock_doc.__iter__ = MagicMock(side_effect=lambda: iter(tokens))
+    mock_doc.__getitem__ = MagicMock(side_effect=lambda i: tokens[i])
+    mock_nlp = MagicMock(return_value=mock_doc)
+
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
+        response = client.get("/analyze", params={"text": "look up"}, auth=AUTH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "phrasal_verb"
+    assert body["canonical"] == "look up"
 
 
 def test_words_requires_basic_auth():
-    response = client.get("/words", params={"word": "running"})
+    response = client.get("/analyze", params={"text": "running"})
 
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Basic"
@@ -105,8 +126,8 @@ def test_words_requires_basic_auth():
 
 def test_words_rejects_invalid_basic_auth():
     response = client.get(
-        "/words",
-        params={"word": "running"},
+        "/analyze",
+        params={"text": "running"},
         auth=("admin", "wrong-password"),
     )
 
@@ -121,9 +142,9 @@ def test_words_irregular_verb_detected():
         morph_dict={"Tense": "Past"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "ran"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "ran"}, auth=AUTH)
 
     assert response.status_code == 200
     token = response.json()["tokens"][0]
@@ -138,9 +159,9 @@ def test_words_regular_verb_not_irregular():
         morph_dict={"Tense": "Past"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "walked"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "walked"}, auth=AUTH)
 
     assert response.status_code == 200
     token = response.json()["tokens"][0]
@@ -155,9 +176,9 @@ def test_words_morphology_fields_populated():
         morph_dict={"Tense": "Past", "VerbForm": "Fin", "Number": "Sing"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "ran"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "ran"}, auth=AUTH)
 
     assert response.status_code == 200
     morphology = response.json()["tokens"][0]["morphology"]
@@ -175,9 +196,9 @@ def test_words_non_verb_noun_adj_has_null_verb_forms():
         morph_dict={},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "quickly"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "quickly"}, auth=AUTH)
 
     assert response.status_code == 200
     forms = response.json()["tokens"][0]["forms"]
@@ -190,30 +211,48 @@ def test_words_non_verb_noun_adj_has_null_verb_forms():
 # --- Zero / multiple spaCy tokens ---
 
 
-def test_words_rejects_zero_spacy_tokens():
+def test_analyze_rejects_zero_spacy_tokens():
     mock_doc = MagicMock()
     mock_doc.__len__ = MagicMock(return_value=0)
     mock_nlp = MagicMock(return_value=mock_doc)
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
-        response = client.get("/words", params={"word": "xyz"}, auth=AUTH)
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
+        response = client.get("/analyze", params={"text": "xyz"}, auth=AUTH)
 
     assert response.status_code == 400
-    assert (
-        response.json()["detail"]
-        == "word must be a single word; multi-word input is not supported"
-    )
+    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
 
 
-def test_words_rejects_multiple_spacy_tokens():
+def test_analyze_spacy_split_of_single_whitespace_token_becomes_expression():
+    """A single whitespace-delimited token that spaCy splits into several
+    tokens (e.g. hyphenations, contractions) is analyzed as an expression
+    instead of being rejected."""
+
+    def _expr_token(text: str, lemma: str, pos: str, dep: str, i: int) -> MagicMock:
+        tok = MagicMock()
+        tok.text = text
+        tok.lemma_ = lemma
+        tok.pos_ = pos
+        tok.dep_ = dep
+        tok.i = i
+        return tok
+
+    tokens = [
+        _expr_token("state", "state", "NOUN", "ROOT", 0),
+        _expr_token("-", "-", "PUNCT", "punct", 1),
+        _expr_token("of", "of", "ADP", "prep", 2),
+    ]
     mock_doc = MagicMock()
-    mock_doc.__len__ = MagicMock(return_value=2)
+    mock_doc.__len__ = MagicMock(return_value=3)
+    mock_doc.__iter__ = MagicMock(side_effect=lambda: iter(tokens))
+    mock_doc.__getitem__ = MagicMock(side_effect=lambda i: tokens[i])
     mock_nlp = MagicMock(return_value=mock_doc)
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
-        response = client.get("/words", params={"word": "lookup"}, auth=AUTH)
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
+        response = client.get("/analyze", params={"text": "state-of"}, auth=AUTH)
 
-    assert response.status_code == 400
+    assert response.status_code == 200
+    assert response.json()["kind"] == "expression"
 
 
 # --- Verb past-participle irregularity ---
@@ -227,9 +266,9 @@ def test_words_irregular_past_participle_verb():
         morph_dict={"VerbForm": "Part"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "broken"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "broken"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is True
@@ -246,9 +285,9 @@ def test_words_regular_noun_plural():
         morph_dict={"Number": "Plur"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "cats"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "cats"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is False
@@ -262,9 +301,9 @@ def test_words_irregular_noun_plural():
         morph_dict={"Number": "Plur"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "mice"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "mice"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is True
@@ -278,9 +317,9 @@ def test_words_noun_es_plural_not_irregular():
         morph_dict={"Number": "Plur"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "boxes"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "boxes"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is False
@@ -294,9 +333,9 @@ def test_words_noun_y_ies_plural_not_irregular():
         morph_dict={"Number": "Plur"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "babies"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "babies"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is False
@@ -313,9 +352,9 @@ def test_words_adj_regular_comparative_not_irregular():
         morph_dict={"Degree": "Cmp"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "taller"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "taller"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is False
@@ -329,9 +368,9 @@ def test_words_adj_irregular_comparative():
         morph_dict={"Degree": "Cmp"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "better"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "better"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is True
@@ -348,9 +387,9 @@ def test_words_adv_irregular_superlative():
         morph_dict={"Degree": "Sup"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "worst"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "worst"}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["tokens"][0]["is_irregular"] is True
@@ -367,9 +406,9 @@ def test_words_other_pos_all_forms_null_and_not_irregular():
         morph_dict={},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "the"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "the"}, auth=AUTH)
 
     assert response.status_code == 200
     token = response.json()["tokens"][0]
@@ -402,11 +441,11 @@ def test_words_get_inflection_empty_tuple_produces_null_forms():
         morph_dict={},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch(
             "languee_nlp.nlp.word_service.getInflection", return_value=()
         ) as mock_infl:
-            response = client.get("/words", params={"word": "run"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "run"}, auth=AUTH)
             assert mock_infl.called
 
     assert response.status_code == 200
@@ -430,9 +469,9 @@ def test_words_morphology_all_null_when_morph_dict_empty():
         morph_dict={},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "run"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "run"}, auth=AUTH)
 
     assert response.status_code == 200
     morph = response.json()["tokens"][0]["morphology"]
@@ -455,9 +494,9 @@ def test_words_nfc_unicode_normalization():
 
     mock_nlp = _make_mock_nlp(text=nfc_word, lemma=nfc_word, pos="NOUN", morph_dict={})
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": nfd_word}, auth=AUTH)
+            response = client.get("/analyze", params={"text": nfd_word}, auth=AUTH)
 
     assert response.status_code == 200
     assert response.json()["input_text"] == nfc_word
@@ -483,11 +522,11 @@ def test_words_adv_populates_adj_fields_not_verb_or_noun():
         }
         return mapping.get(tag, ())
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch(
             "languee_nlp.nlp.word_service.getInflection", side_effect=fake_inflection
         ):
-            response = client.get("/words", params={"word": "faster"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "faster"}, auth=AUTH)
 
     assert response.status_code == 200
     forms = response.json()["tokens"][0]["forms"]
@@ -502,7 +541,7 @@ def test_words_adv_populates_adj_fields_not_verb_or_noun():
 
 
 def test_words_missing_word_param_returns_422():
-    response = client.get("/words", auth=AUTH)
+    response = client.get("/analyze", auth=AUTH)
 
     assert response.status_code == 422
 
@@ -518,9 +557,9 @@ def test_words_default_language_is_en_and_omits_extra_forms():
         morph_dict={"Tense": "Pres", "VerbForm": "Part"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/words", params={"word": "running"}, auth=AUTH)
+            response = client.get("/analyze", params={"text": "running"}, auth=AUTH)
 
     assert response.status_code == 200
     body = response.json()
@@ -536,10 +575,10 @@ def test_words_spanish_language_echoes_and_returns_extra_forms():
         morph_dict={"Tense": "Pres", "Person": "1", "Number": "Sing"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         response = client.get(
-            "/words",
-            params={"word": "hablo", "language": "es"},
+            "/analyze",
+            params={"text": "hablo", "language": "es"},
             auth=AUTH,
         )
 
@@ -562,10 +601,10 @@ def test_words_german_language_echoes_and_returns_extra_forms():
         morph_dict={"Tense": "Pres", "Person": "1", "Number": "Sing"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         response = client.get(
-            "/words",
-            params={"word": "mache", "language": "de"},
+            "/analyze",
+            params={"text": "mache", "language": "de"},
             auth=AUTH,
         )
 
@@ -588,10 +627,10 @@ def test_words_german_noun_extra_forms_singular_only():
         morph_dict={"Number": "Sing"},
     )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=mock_nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
         response = client.get(
-            "/words",
-            params={"word": "haus", "language": "de"},
+            "/analyze",
+            params={"text": "haus", "language": "de"},
             auth=AUTH,
         )
 
@@ -602,8 +641,8 @@ def test_words_german_noun_extra_forms_singular_only():
 
 def test_words_unsupported_language_returns_400():
     response = client.get(
-        "/words",
-        params={"word": "hablo", "language": "fr"},
+        "/analyze",
+        params={"text": "hablo", "language": "fr"},
         auth=AUTH,
     )
 

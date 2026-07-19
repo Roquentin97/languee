@@ -3,20 +3,21 @@ meta {
   type: http
   seq: 4
   tags: [
-    words
+    analyze
     german
   ]
 }
 
 get {
-  url: {{base_url}}/words?word=mache&language=de
+  url: {{base_url}}/analyze?text=mache&language=de
   body: none
   auth: inherit
 }
 
 tests {
-  test("returns token analysis for German word", function() {
+  test("returns word analysis for German word", function() {
     expect(res.status).to.equal(200);
+    expect(res.body.kind).to.equal("word");
     expect(res.body.language).to.equal("de");
     expect(res.body.tokens).to.be.an("array").with.length(1);
     expect(res.body.tokens[0].lemma).to.be.a("string");
