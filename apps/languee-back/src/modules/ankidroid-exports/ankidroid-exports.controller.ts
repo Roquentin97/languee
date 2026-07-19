@@ -25,10 +25,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AnkiDroidExportsService } from './ankidroid-exports.service';
-import {
-  CardNotFoundOrNotOwnedError,
-  ExportNotFoundError,
-} from './ankidroid-exports.errors';
+import { CardNotFoundError } from '../cards/cards.errors';
+import { ExportNotFoundError } from './ankidroid-exports.errors';
 import { RecordAttemptDto } from './dto/create-export-attempt.dto';
 import { AnkiDroidExportResponseDto } from './dto/ankidroid-export-response.dto';
 import { AnkiDroidExportDetailResponseDto } from './dto/ankidroid-export-detail-response.dto';
@@ -72,7 +70,7 @@ export class AnkiDroidExportsController {
       res.status(result.created ? 201 : 200);
       return serializeExport(result.export);
     } catch (err: unknown) {
-      if (err instanceof CardNotFoundOrNotOwnedError) {
+      if (err instanceof CardNotFoundError) {
         throw new NotFoundException('CARD_NOT_FOUND');
       }
       throw err;
@@ -92,7 +90,7 @@ export class AnkiDroidExportsController {
       id,
       user.userId,
     );
-    if (record === null) {
+    if (!record) {
       throw new NotFoundException('EXPORT_NOT_FOUND');
     }
     return serializeExportDetail(record);

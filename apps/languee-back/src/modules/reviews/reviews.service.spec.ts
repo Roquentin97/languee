@@ -10,9 +10,10 @@ import type {
 import { MS_PER_MINUTE } from '../core/time/time.constants';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
+import { CardNotFoundError } from '../cards/cards.errors';
 import { DecksService } from '../decks/decks.service';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import { ReviewsService } from './reviews.service';
-import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
 
 const NOW = new Date('2026-07-02T12:00:00.000Z');
 
@@ -104,12 +105,12 @@ const mockPrismaService = {
 };
 
 const mockCardsService = {
-  findOneByIdAndUserId: jest.fn(),
+  findOwnedOrThrow: jest.fn(),
   findCardsWithoutReviewState: jest.fn(),
 };
 
 const mockDecksService = {
-  findOneByIdAndUserId: jest.fn(),
+  findOneOrThrow: jest.fn(),
 };
 
 describe('ReviewsService', () => {
@@ -215,7 +216,7 @@ describe('ReviewsService', () => {
     });
 
     it('deck filter — validates ownership and filters both due and new queries by deckId', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockPrismaService.cardReviewState.findMany.mockResolvedValue([]);
       mockCardsService.findCardsWithoutReviewState.mockResolvedValue([]);
 
@@ -224,7 +225,7 @@ describe('ReviewsService', () => {
         limit: 20,
       });
 
-      expect(mockDecksService.findOneByIdAndUserId).toHaveBeenCalledWith(
+      expect(mockDecksService.findOneOrThrow).toHaveBeenCalledWith(
         'deck-id-1',
         'user-id-1',
       );
@@ -243,12 +244,14 @@ describe('ReviewsService', () => {
       );
     });
 
-    it('edge case — deck not owned by user throws DeckOwnershipError, no queries run', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(null);
+    it('edge case — deck not owned by user throws DeckNotFoundError, no queries run', async () => {
+      mockDecksService.findOneOrThrow.mockRejectedValue(
+        new DeckNotFoundError(),
+      );
 
       await expect(
         service.getQueue('user-id-1', { deckId: 'deck-id-other', limit: 20 }),
-      ).rejects.toBeInstanceOf(DeckOwnershipError);
+      ).rejects.toBeInstanceOf(DeckNotFoundError);
 
       expect(mockPrismaService.cardReviewState.findMany).not.toHaveBeenCalled();
     });
@@ -300,7 +303,7 @@ describe('ReviewsService', () => {
 
   describe('checkTypedAnswer()', () => {
     it('happy path — correct via lemma', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
 
@@ -317,7 +320,7 @@ describe('ReviewsService', () => {
     });
 
     it('happy path — correct via inflection form', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
 
@@ -334,7 +337,7 @@ describe('ReviewsService', () => {
     });
 
     it('happy path — incorrect when nothing matches', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
 
@@ -351,7 +354,7 @@ describe('ReviewsService', () => {
     });
 
     it('edge case — case/whitespace-insensitive correct match', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
 
@@ -364,19 +367,21 @@ describe('ReviewsService', () => {
       expect(result.result).toBe('correct');
     });
 
-    it('edge case — card not found throws CardOwnershipError', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(null);
+    it('edge case — card not found throws CardNotFoundError', async () => {
+      mockCardsService.findOwnedOrThrow.mockRejectedValue(
+        new CardNotFoundError(),
+      );
 
       await expect(
         service.checkTypedAnswer('user-id-1', 'card-id-1', 'run into'),
-      ).rejects.toBeInstanceOf(CardOwnershipError);
+      ).rejects.toBeInstanceOf(CardNotFoundError);
     });
   });
 
   describe('gradeCard()', () => {
     it('happy path — starts an unseen card from FSRS defaults and writes both rows in a transaction', async () => {
       const dueAt = new Date(NOW.getTime() + 10 * MS_PER_MINUTE);
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
       mockPrismaService.cardReviewState.findUnique.mockResolvedValue(null);
@@ -435,7 +440,7 @@ describe('ReviewsService', () => {
     });
 
     it('happy path — continues scheduling from an existing review state', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
       mockPrismaService.cardReviewState.findUnique.mockResolvedValue(
@@ -473,7 +478,7 @@ describe('ReviewsService', () => {
     });
 
     it('happy path — persists typedAnswer and answerResult when provided', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
       mockPrismaService.cardReviewState.findUnique.mockResolvedValue(null);
@@ -499,12 +504,14 @@ describe('ReviewsService', () => {
       );
     });
 
-    it('edge case — card not found throws CardOwnershipError before touching review state', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(null);
+    it('edge case — card not found throws CardNotFoundError before touching review state', async () => {
+      mockCardsService.findOwnedOrThrow.mockRejectedValue(
+        new CardNotFoundError(),
+      );
 
       await expect(
         service.gradeCard('user-id-1', 'card-id-1', { rating: 'good' }),
-      ).rejects.toBeInstanceOf(CardOwnershipError);
+      ).rejects.toBeInstanceOf(CardNotFoundError);
 
       expect(
         mockPrismaService.cardReviewState.findUnique,

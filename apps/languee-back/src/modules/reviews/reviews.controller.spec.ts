@@ -3,7 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
+import { CardNotFoundError } from '../cards/cards.errors';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
 const mockUser: CurrentUserPayload = {
@@ -127,8 +128,8 @@ describe('ReviewsController', () => {
       });
     });
 
-    it('edge case — DeckOwnershipError maps to 404 NotFoundException with DECK_NOT_FOUND', async () => {
-      mockReviewsService.getQueue.mockRejectedValue(new DeckOwnershipError());
+    it('edge case — DeckNotFoundError maps to 404 NotFoundException with DECK_NOT_FOUND', async () => {
+      mockReviewsService.getQueue.mockRejectedValue(new DeckNotFoundError());
 
       const err = await controller
         .queue({ deckId: 'deck-id-other' }, mockUser)
@@ -175,9 +176,9 @@ describe('ReviewsController', () => {
       );
     });
 
-    it('edge case — CardOwnershipError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
+    it('edge case — CardNotFoundError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
       mockReviewsService.checkTypedAnswer.mockRejectedValue(
-        new CardOwnershipError(),
+        new CardNotFoundError(),
       );
 
       const err = await controller
@@ -252,8 +253,8 @@ describe('ReviewsController', () => {
       );
     });
 
-    it('edge case — CardOwnershipError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
-      mockReviewsService.gradeCard.mockRejectedValue(new CardOwnershipError());
+    it('edge case — CardNotFoundError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
+      mockReviewsService.gradeCard.mockRejectedValue(new CardNotFoundError());
 
       const err = await controller
         .grade('card-id-1', { rating: 'good' }, mockUser)

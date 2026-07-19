@@ -2,10 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { DecksService } from '../decks/decks.service';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import { CardsService } from './cards.service';
 import {
   CardAlreadyExistsError,
-  DeckOwnershipError,
+  CardNotFoundError,
   DefinitionNotFoundError,
 } from './cards.errors';
 import type {
@@ -101,7 +102,7 @@ const mockPrismaService = {
 };
 
 const mockDecksService = {
-  findOneByIdAndUserId: jest.fn(),
+  findOneOrThrow: jest.fn(),
 };
 
 describe('CardsService', () => {
@@ -127,14 +128,14 @@ describe('CardsService', () => {
 
   describe('create()', () => {
     it('happy path — returns card with definition and word relations', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockPrismaService.card.create.mockResolvedValue(mockCardWithRelations);
 
       const result = await service.create('user-id-1', 'deck-id-1', 'def-id-1');
 
       expect(result).toEqual(mockCardWithRelations);
       expect(result.definition.word.lemma).toBe('run');
-      expect(mockDecksService.findOneByIdAndUserId).toHaveBeenCalledWith(
+      expect(mockDecksService.findOneOrThrow).toHaveBeenCalledWith(
         'deck-id-1',
         'user-id-1',
       );
@@ -153,7 +154,7 @@ describe('CardsService', () => {
     it('happy path — context and inflectionForms are persisted when provided', async () => {
       const context = 'She walked to the store.';
       const inflectionForms = { base: 'walk', past: 'walked' };
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockPrismaService.card.create.mockResolvedValue(mockCardWithRelations);
 
       await service.create(
@@ -176,18 +177,20 @@ describe('CardsService', () => {
       });
     });
 
-    it('edge case — deckId belongs to another user throws DeckOwnershipError', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(null);
+    it('edge case — deckId belongs to another user throws DeckNotFoundError', async () => {
+      mockDecksService.findOneOrThrow.mockRejectedValue(
+        new DeckNotFoundError(),
+      );
 
       await expect(
         service.create('user-id-1', 'deck-id-other', 'def-id-1'),
-      ).rejects.toBeInstanceOf(DeckOwnershipError);
+      ).rejects.toBeInstanceOf(DeckNotFoundError);
 
       expect(mockPrismaService.card.create).not.toHaveBeenCalled();
     });
 
     it('edge case — duplicate deckId+definitionId throws CardAlreadyExistsError on P2002', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
         { code: 'P2002', clientVersion: '6.0.0' },
@@ -200,7 +203,7 @@ describe('CardsService', () => {
     });
 
     it('edge case — missing definitionId FK (P2003 with definition_id) throws DefinitionNotFoundError', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Foreign key constraint failed',
         {
@@ -216,8 +219,8 @@ describe('CardsService', () => {
       ).rejects.toBeInstanceOf(DefinitionNotFoundError);
     });
 
-    it('edge case — P2003 without definition_id in field_name throws DeckOwnershipError', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+    it('edge case — P2003 without definition_id in field_name throws DeckNotFoundError', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Foreign key constraint failed',
         {
@@ -230,11 +233,11 @@ describe('CardsService', () => {
 
       await expect(
         service.create('user-id-1', 'deck-id-1', 'def-id-1'),
-      ).rejects.toBeInstanceOf(DeckOwnershipError);
+      ).rejects.toBeInstanceOf(DeckNotFoundError);
     });
 
     it('edge case — unexpected error is re-thrown', async () => {
-      mockDecksService.findOneByIdAndUserId.mockResolvedValue(mockDeck);
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockPrismaService.card.create.mockRejectedValue(
         new Error('Network failure'),
       );
@@ -443,6 +446,33 @@ describe('CardsService', () => {
       );
 
       expect(result?.ankidroidExport).toEqual(mockAnkiDroidExport);
+    });
+  });
+
+  describe('findOwnedOrThrow()', () => {
+    it('happy path — returns card with definition, word, and ankidroidExport when found', async () => {
+      mockPrismaService.card.findFirst.mockResolvedValue(
+        mockCardWithAnkiDroidExport,
+      );
+
+      const result = await service.findOwnedOrThrow('card-id-1', 'user-id-1');
+
+      expect(result).toEqual(mockCardWithAnkiDroidExport);
+      expect(mockPrismaService.card.findFirst).toHaveBeenCalledWith({
+        where: { id: 'card-id-1', userId: 'user-id-1' },
+        include: {
+          definition: { include: { word: true } },
+          ankidroidExport: true,
+        },
+      });
+    });
+
+    it('edge case — card not found or not owned throws CardNotFoundError', async () => {
+      mockPrismaService.card.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findOwnedOrThrow('card-id-1', 'other-user'),
+      ).rejects.toBeInstanceOf(CardNotFoundError);
     });
   });
 

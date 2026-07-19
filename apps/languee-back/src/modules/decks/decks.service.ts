@@ -34,7 +34,7 @@ export class DecksService {
 
   async findOneOrThrow(id: string, userId: string): Promise<Deck> {
     const deck = await this.findOneByIdAndUserId(id, userId);
-    if (deck === null) throw new DeckNotFoundError();
+    if (!deck) throw new DeckNotFoundError();
     return deck;
   }
 }

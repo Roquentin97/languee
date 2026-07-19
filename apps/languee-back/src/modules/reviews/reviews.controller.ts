@@ -27,7 +27,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { ReviewsService } from './reviews.service';
-import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
+import { CardNotFoundError } from '../cards/cards.errors';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import { AnswerCardDto } from './dto/answer-card.dto';
 import { GradeCardDto } from './dto/grade-card.dto';
 import { ReviewQueueQueryDto } from './dto/review-queue-query.dto';
@@ -100,7 +101,7 @@ export class ReviewsController {
       });
       return serializeQueue(items);
     } catch (err: unknown) {
-      if (err instanceof DeckOwnershipError) {
+      if (err instanceof DeckNotFoundError) {
         throw new NotFoundException('DECK_NOT_FOUND');
       }
       throw err;
@@ -135,7 +136,7 @@ export class ReviewsController {
       );
       return serializeAnswerResult(outcome);
     } catch (err: unknown) {
-      if (err instanceof CardOwnershipError) {
+      if (err instanceof CardNotFoundError) {
         throw new NotFoundException('CARD_NOT_FOUND');
       }
       throw err;
@@ -169,7 +170,7 @@ export class ReviewsController {
       });
       return serializeGradeResult(result);
     } catch (err: unknown) {
-      if (err instanceof CardOwnershipError) {
+      if (err instanceof CardNotFoundError) {
         throw new NotFoundException('CARD_NOT_FOUND');
       }
       throw err;

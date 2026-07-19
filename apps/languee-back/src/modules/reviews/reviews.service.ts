@@ -4,7 +4,6 @@ import { CardsService } from '../cards/cards.service';
 import type { CardWithDefinitionAndWord } from '../cards/cards.service';
 import { DecksService } from '../decks/decks.service';
 import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
-import { CardOwnershipError, DeckOwnershipError } from './reviews.errors';
 import { collectTargetForms, maskText } from './lib/masking';
 import { checkAnswer } from './lib/answer-matching';
 import { NEW_CARD_SCHEDULING_STATE, scheduleReview } from './lib/scheduler';
@@ -49,9 +48,8 @@ export class ReviewsService {
   ): Promise<ReviewQueueItem[]> {
     const { deckId, limit } = options;
 
-    if (deckId !== undefined) {
-      const deck = await this.decksService.findOneByIdAndUserId(deckId, userId);
-      if (deck === null) throw new DeckOwnershipError();
+    if (deckId) {
+      await this.decksService.findOneOrThrow(deckId, userId);
     }
 
     const now = new Date();
@@ -59,7 +57,7 @@ export class ReviewsService {
     const dueStates = await this.prisma.cardReviewState.findMany({
       where: {
         dueAt: { lte: now },
-        card: { userId, ...(deckId !== undefined ? { deckId } : {}) },
+        card: { userId, ...(deckId ? { deckId } : {}) },
       },
       include: {
         card: {
@@ -107,8 +105,7 @@ export class ReviewsService {
     cardId: string,
     typedAnswer: string,
   ): Promise<AnswerCheckOutcome> {
-    const card = await this.cardsService.findOneByIdAndUserId(cardId, userId);
-    if (card === null) throw new CardOwnershipError();
+    const card = await this.cardsService.findOwnedOrThrow(cardId, userId);
 
     const forms = this.targetFormsForCard(card);
     const outcome = checkAnswer(typedAnswer, forms);
@@ -124,8 +121,7 @@ export class ReviewsService {
     cardId: string,
     input: GradeInput,
   ): Promise<GradeOutcome> {
-    const card = await this.cardsService.findOneByIdAndUserId(cardId, userId);
-    if (card === null) throw new CardOwnershipError();
+    await this.cardsService.findOwnedOrThrow(cardId, userId);
 
     const existingState = await this.prisma.cardReviewState.findUnique({
       where: { cardId },

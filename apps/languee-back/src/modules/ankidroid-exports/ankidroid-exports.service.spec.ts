@@ -2,11 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
+import { CardNotFoundError } from '../cards/cards.errors';
 import { AnkiDroidExportsService } from './ankidroid-exports.service';
-import {
-  CardNotFoundOrNotOwnedError,
-  ExportNotFoundError,
-} from './ankidroid-exports.errors';
+import { ExportNotFoundError } from './ankidroid-exports.errors';
 import type {
   Card,
   CardAnkiDroidExport,
@@ -100,6 +98,7 @@ const mockPrismaService = {
 
 const mockCardsService = {
   findOneByIdAndUserId: jest.fn(),
+  findOwnedOrThrow: jest.fn(),
 };
 
 describe('AnkiDroidExportsService', () => {
@@ -125,7 +124,7 @@ describe('AnkiDroidExportsService', () => {
 
   describe('getOrCreateExportForCard()', () => {
     it('happy path — creates and returns a new export when none exists', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithRelations,
       );
       mockPrismaService.cardAnkiDroidExport.findUnique.mockResolvedValue(null);
@@ -147,7 +146,7 @@ describe('AnkiDroidExportsService', () => {
     });
 
     it('happy path — returns existing export when one already exists', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithRelations,
       );
       mockPrismaService.cardAnkiDroidExport.findUnique.mockResolvedValue(
@@ -165,12 +164,14 @@ describe('AnkiDroidExportsService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('edge case — cardId belonging to another user throws CardNotFoundOrNotOwnedError', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(null);
+    it('edge case — cardId belonging to another user throws CardNotFoundError', async () => {
+      mockCardsService.findOwnedOrThrow.mockRejectedValue(
+        new CardNotFoundError(),
+      );
 
       await expect(
         service.getOrCreateExportForCard('user-id-1', 'card-id-other'),
-      ).rejects.toBeInstanceOf(CardNotFoundOrNotOwnedError);
+      ).rejects.toBeInstanceOf(CardNotFoundError);
 
       expect(
         mockPrismaService.cardAnkiDroidExport.findUnique,
@@ -178,7 +179,7 @@ describe('AnkiDroidExportsService', () => {
     });
 
     it('edge case — concurrent creation P2002 re-fetches and returns existing export', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithRelations,
       );
       // First findUnique returns null (no export yet)
@@ -206,7 +207,7 @@ describe('AnkiDroidExportsService', () => {
     });
 
     it('edge case — concurrent creation P2002 but re-fetch also returns null re-throws original error', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithRelations,
       );
       mockPrismaService.cardAnkiDroidExport.findUnique
@@ -227,7 +228,7 @@ describe('AnkiDroidExportsService', () => {
     });
 
     it('edge case — non-P2002 Prisma error on create is re-thrown', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithRelations,
       );
       mockPrismaService.cardAnkiDroidExport.findUnique.mockResolvedValue(null);

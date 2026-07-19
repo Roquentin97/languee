@@ -24,9 +24,9 @@ import { API_V1_PREFIX } from '../core/api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import {
   CardAlreadyExistsError,
-  DeckOwnershipError,
   DefinitionNotFoundError,
 } from './cards.errors';
 import { CreateCardDto } from './dto/create-card.dto';
@@ -76,7 +76,7 @@ export class CardsController {
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<CardDetailResponseDto> {
     const card = await this.cardsService.findOneByIdAndUserId(id, user.userId);
-    if (card === null) {
+    if (!card) {
       throw new NotFoundException('CARD_NOT_FOUND');
     }
     return serializeCardDetail(card);
@@ -103,7 +103,7 @@ export class CardsController {
       );
       return serializeCard(card);
     } catch (err: unknown) {
-      if (err instanceof DeckOwnershipError) {
+      if (err instanceof DeckNotFoundError) {
         throw new NotFoundException('DECK_NOT_FOUND');
       }
       if (err instanceof CardAlreadyExistsError) {
