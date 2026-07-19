@@ -18,6 +18,7 @@ import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.ExportPreference
 import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import dagger.assisted.Assisted
@@ -159,6 +160,9 @@ class CardCreationViewModel @AssistedInject constructor(
                         is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
                         is ExpressionTooLongException -> _state.value = _state.value.copy(
                             flowState = CardCreationFlowState.LookupError(CardCreationError.EXPRESSION_TOO_LONG),
+                        )
+                        is LookupInputInvalidException -> _state.value = _state.value.copy(
+                            flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_INPUT_INVALID),
                         )
                         else -> _state.value = _state.value.copy(
                             flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_FAILED),

@@ -6,6 +6,7 @@ import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
 import com.example.langueedroid.core.domain.CreatedUserDefinition
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.data.mapper.toDomain
@@ -35,7 +36,16 @@ class VocabularyRepository(
                 Log.w(TAG, "[event=vocabulary.unauthorized method=lookup] unauthorized")
                 throw UnauthorizedException()
             }
-            response.code() == 400 -> throw ExpressionTooLongException()
+            response.code() == 400 -> {
+                // The backend returns 400 for more than one reason; the error code in
+                // the body tells them apart (EXPRESSION_TOO_LONG vs INPUT_INVALID).
+                val errorBody = response.errorBody()?.string().orEmpty()
+                if (errorBody.contains("EXPRESSION_TOO_LONG")) {
+                    throw ExpressionTooLongException()
+                }
+                Log.w(TAG, "[event=vocabulary.input_invalid method=lookup] lookup input rejected | body=$errorBody")
+                throw LookupInputInvalidException()
+            }
             else -> throw Exception("Vocabulary lookup failed: HTTP ${response.code()}")
         }
     }

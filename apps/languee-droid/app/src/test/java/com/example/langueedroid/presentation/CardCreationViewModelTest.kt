@@ -22,6 +22,7 @@ import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.StaleReferenceException
@@ -849,6 +850,23 @@ class CardCreationViewModelTest {
         val flowState = vm.state.value.flowState
         assertTrue(flowState is CardCreationFlowState.LookupError)
         assertEquals(CardCreationError.EXPRESSION_TOO_LONG, (flowState as CardCreationFlowState.LookupError).type)
+    }
+
+    @Test
+    fun `vocabulary lookup LookupInputInvalidException — LookupError with LOOKUP_INPUT_INVALID`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.failure(LookupInputInvalidException()))
+
+        val vm = buildViewModel(targetWord = "state-of-the-art")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState
+        assertTrue(flowState is CardCreationFlowState.LookupError)
+        assertEquals(CardCreationError.LOOKUP_INPUT_INVALID, (flowState as CardCreationFlowState.LookupError).type)
     }
 
     // -------------------------------------------------------------------------

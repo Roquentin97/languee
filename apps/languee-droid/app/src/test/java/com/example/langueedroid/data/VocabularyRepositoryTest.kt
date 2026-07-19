@@ -9,6 +9,7 @@ import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -176,18 +177,31 @@ class VocabularyRepositoryTest {
     }
 
     // -------------------------------------------------------------------------
-    // lookup — 400 → ExpressionTooLongException
+    // lookup — 400 mapped by error code in the body
     // -------------------------------------------------------------------------
 
     @Test
-    fun `lookup 400 throws ExpressionTooLongException`() = runTest {
+    fun `lookup 400 with EXPRESSION_TOO_LONG body throws ExpressionTooLongException`() = runTest {
+        val body = """{"message":["EXPRESSION_TOO_LONG"],"error":"Bad Request","statusCode":400}"""
         whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
-            .thenReturn(Response.error(400, "{}".toResponseBody()))
+            .thenReturn(Response.error(400, body.toResponseBody()))
 
         val result = repository.lookup(word = "one two three four five six seven")
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is ExpressionTooLongException)
+    }
+
+    @Test
+    fun `lookup 400 with INPUT_INVALID body throws LookupInputInvalidException`() = runTest {
+        val body = """{"message":"INPUT_INVALID","error":"Bad Request","statusCode":400}"""
+        whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            .thenReturn(Response.error(400, body.toResponseBody()))
+
+        val result = repository.lookup(word = "state-of-the-art-like-hyphen-chain")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is LookupInputInvalidException)
     }
 
     // -------------------------------------------------------------------------

@@ -11,3 +11,5 @@ class DeckConflictException(message: String = "A deck with this name already exi
 class DefinitionAlreadyExistsException(message: String = "Definition already exists") : Exception(message)
 
 class ExpressionTooLongException(message: String = "Expression exceeds the maximum supported token count") : Exception(message)
+
+class LookupInputInvalidException(message: String = "Lookup input was rejected as invalid") : Exception(message)

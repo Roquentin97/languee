@@ -758,6 +758,7 @@ private fun CardCreationError.toStringRes(): Int = when (this) {
     CardCreationError.STALE_REFERENCE -> R.string.error_stale_reference
     CardCreationError.EXPORT_RECORD_FAILED -> R.string.error_export_record_failed
     CardCreationError.EXPRESSION_TOO_LONG -> R.string.error_expression_too_long
+    CardCreationError.LOOKUP_INPUT_INVALID -> R.string.error_lookup_input_invalid
     CardCreationError.MANUAL_DEFINITION_FAILED -> R.string.error_manual_definition_failed
     CardCreationError.DEFINITION_ALREADY_EXISTS -> R.string.error_definition_already_exists
 }
