@@ -36,11 +36,11 @@ interface QueueItemApiResponse {
   isNew: boolean;
   prompt: {
     definition: string;
-    example: string | null;
-    contextMasked: string | null;
+    maskedSentence: string | null;
     partOfSpeech: string;
     kind: string;
     lemmaLength: number;
+    language: string;
   };
 }
 
@@ -279,10 +279,10 @@ describe('ReviewsController (e2e)', () => {
       const item = body.items.find((i) => i.cardId === cardId);
       expect(item).toBeDefined();
       expect(item?.isNew).toBe(true);
-      expect(item?.prompt.contextMasked).toBe(
+      expect(item?.prompt.maskedSentence).toBe(
         'Guess who I ____ at the station!',
       );
-      expect(item?.prompt.example).toBe('I ____ an old friend yesterday.');
+      expect(item?.prompt.language).toBe('en');
       expect(item?.prompt.kind).toBe('word');
       expect(item?.prompt.lemmaLength).toBe(word.length);
     });
@@ -361,7 +361,7 @@ describe('ReviewsController (e2e)', () => {
       expect(new Date(body.nextDueAt).getTime()).toBeGreaterThan(Date.now());
     });
 
-    it('grades "hard" and moves the card to review', async () => {
+    it('grades "hard" and keeps the card in learning (FSRS learning steps)', async () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/reviews/${cardId}/grade`)
         .set('Authorization', `Bearer ${accessToken}`)
@@ -369,12 +369,12 @@ describe('ReviewsController (e2e)', () => {
         .expect(200);
 
       const body = res.body as GradeApiResponse;
-      expect(body.state).toBe('review');
-      expect(Number.isInteger(body.intervalDays)).toBe(true);
-      expect(body.intervalDays).toBeGreaterThanOrEqual(1);
+      expect(body.state).toBe('learning');
+      expect(body.intervalDays).toBe(0);
+      expect(new Date(body.nextDueAt).getTime()).toBeGreaterThan(Date.now());
     });
 
-    it('grades "good" and keeps the card in review', async () => {
+    it('grades "good" and keeps the card in learning until steps complete', async () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/reviews/${cardId}/grade`)
         .set('Authorization', `Bearer ${accessToken}`)
@@ -382,9 +382,9 @@ describe('ReviewsController (e2e)', () => {
         .expect(200);
 
       const body = res.body as GradeApiResponse;
-      expect(body.state).toBe('review');
-      expect(Number.isInteger(body.intervalDays)).toBe(true);
-      expect(body.intervalDays).toBeGreaterThanOrEqual(1);
+      expect(body.state).toBe('learning');
+      expect(body.intervalDays).toBe(0);
+      expect(new Date(body.nextDueAt).getTime()).toBeGreaterThan(Date.now());
     });
 
     it('grades "easy" and extends the interval further', async () => {
