@@ -23,8 +23,6 @@
 
     <!-- Language selection (capture, TTS) -->
     <string name="language_en" translatable="false">English</string>
-    <string name="language_es" translatable="false">Español</string>
-    <string name="language_de" translatable="false">Deutsch</string>
     <string name="tts_pronounce_description">Pronounce</string>
 
     <!-- Validation messages -->

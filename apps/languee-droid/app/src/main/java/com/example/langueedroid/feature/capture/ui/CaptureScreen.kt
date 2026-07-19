@@ -133,13 +133,13 @@ fun CaptureScreen(
     }
 }
 
+// Only English is supported end to end for now; the selector stays as the seam
+// for reintroducing languages behind a proper design.
 private val languageChips = listOf(
     "en" to R.string.language_en,
-    "es" to R.string.language_es,
-    "de" to R.string.language_de,
 )
 
-/** Compact segmented row of EN / ES / DE chips used to pick the capture language. */
+/** Compact segmented row of language chips used to pick the capture language. */
 @Composable
 private fun LanguageSelector(
     selectedLanguage: String,
