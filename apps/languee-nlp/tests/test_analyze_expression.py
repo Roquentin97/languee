@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from languee_nlp.main import app
+from languee_nlp.routers.analyze import _MAX_TOKENS, _TOKEN_COUNT_DETAIL
 
 client = TestClient(app)
 AUTH = ("admin", "changeme")
@@ -237,24 +238,29 @@ def test_analyze_single_token_routes_to_word_analysis():
     assert body["tokens"][0]["lemma"] == "hello"
 
 
-def test_analyze_rejects_eleven_tokens():
-    text = "one two three four five six seven eight nine ten eleven"
-    tokens = [_make_mock_token(w, w, "NOUN", i=i) for i, w in enumerate(text.split())]
+def _filler_words(count: int) -> list[str]:
+    """Distinct alphabetic filler words, so no word is a substring of another."""
+    return [chr(ord("a") + i) * 2 for i in range(count)]
+
+
+def test_analyze_rejects_one_token_over_the_limit():
+    words = _filler_words(_MAX_TOKENS + 1)
+    text = " ".join(words)
+    tokens = [_make_mock_token(w, w, "NOUN", i=i) for i, w in enumerate(words)]
     mock_nlp = _make_routed_nlp({text: _make_mock_doc(tokens)})
 
     with _patch_nlp(mock_nlp):
         response = client.get("/analyze", params={"text": text}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
+    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
 
 
-def test_analyze_accepts_ten_tokens():
-    """Ten tokens is the upper bound and must still be analyzed, not rejected."""
-    text = "one two three four five six seven eight nine ten"
-    specs = [
-        (w, w, "NOUN", "ROOT" if i == 0 else "") for i, w in enumerate(text.split())
-    ]
+def test_analyze_accepts_exactly_the_limit():
+    """The limit itself must be analyzed, not rejected."""
+    words = _filler_words(_MAX_TOKENS)
+    text = " ".join(words)
+    specs = [(w, w, "NOUN", "ROOT" if i == 0 else "") for i, w in enumerate(words)]
     mock_nlp = _make_routed_nlp(
         {text: _make_mock_doc(_tokens_with_offsets(text, specs))}
     )
@@ -270,7 +276,7 @@ def test_analyze_rejects_blank_text():
     response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
+    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
 
 
 # ---------------------------------------------------------------------------

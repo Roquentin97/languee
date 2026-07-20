@@ -1,13 +1,11 @@
 package com.example.langueedroid.core.domain
 
 /**
- * Client-side bound on how many words a lookup target may contain.
+ * Maximum number of words a lookup target may contain.
  *
- * The authoritative limit lives in the NLP service, which counts spaCy tokens rather than
- * whitespace-separated words — the two can disagree ("don't give up" is three words but four
- * tokens). This mirror exists only so the app can fail fast with a specific message instead of
- * spending a round trip to learn the input was too long; NLP still has the final say, and an
- * input that passes here may still be rejected as invalid by the server.
+ * Enforced here so an over-long selection is refused immediately, with a message naming the
+ * limit, instead of costing a round trip. The server validates independently, so input that
+ * passes this check can still be rejected.
  */
 object ExpressionLimits {
 

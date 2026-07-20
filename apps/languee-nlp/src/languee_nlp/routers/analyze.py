@@ -27,7 +27,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
-_MAX_TOKENS = 10
+# This endpoint analyzes words and short phrases, not sentences. The bound counts spaCy
+# tokens, which split further than whitespace does ("don't" -> 2, "state-of-the-art" ->
+# 7), so it is set above the intended phrase length rather than at it.
+_MAX_TOKENS = 15
 _SUPPORTED_LANGUAGES = {"en"}
 _TOKEN_COUNT_DETAIL = f"text must contain between 1 and {_MAX_TOKENS} tokens"
 

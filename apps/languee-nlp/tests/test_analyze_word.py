@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from languee_nlp.main import app
+from languee_nlp.routers.analyze import _TOKEN_COUNT_DETAIL
 
 client = TestClient(app)
 AUTH = ("admin", "changeme")
@@ -85,7 +86,7 @@ def test_analyze_rejects_empty_input():
     response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
+    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
 
 
 def test_analyze_routes_multiple_words_to_expression_analysis():
@@ -220,7 +221,7 @@ def test_analyze_rejects_zero_spacy_tokens():
         response = client.get("/analyze", params={"text": "xyz"}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
+    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
 
 
 def test_analyze_spacy_split_of_single_whitespace_token_becomes_expression():
