@@ -1,7 +1,8 @@
 package com.example.langueedroid.core.domain
 
 /**
- * Builds a multi-word selection (1–6 words) from a tapped-token interaction over a [Token]
+ * Builds a multi-word selection (1–[ExpressionLimits.MAX_WORDS] words) from a tapped-token
+ * interaction over a [Token]
  * list, for capturing idioms and phrasal verbs from shared text.
  *
  * Selection is tracked as an ordered list of indices into the original [Token] list, always
@@ -14,7 +15,7 @@ package com.example.langueedroid.core.domain
  */
 object ExpressionSpanSelector {
 
-    const val MAX_SPAN_WORDS = 6
+    const val MAX_SPAN_WORDS = ExpressionLimits.MAX_WORDS
 
     /**
      * Returns the updated selection after the user taps the word token at [tappedIndex].

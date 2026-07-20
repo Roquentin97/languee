@@ -86,8 +86,7 @@ export class VocabularyController {
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiNotFoundResponse({ description: 'Definitions not found' })
   @ApiBadRequestResponse({
-    description:
-      'Input rejected: more than 6 whitespace tokens, or NLP rejected the input (token count, unsupported language)',
+    description: 'NLP rejected the input (token count, unsupported language)',
   })
   @ApiBadGatewayResponse({
     description: 'NLP service or dictionary provider unavailable',

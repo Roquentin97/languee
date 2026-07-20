@@ -147,40 +147,49 @@ class ExpressionSpanSelectorTest {
     }
 
     // -------------------------------------------------------------------------
-    // onWordTapped — 6-word cap
+    // onWordTapped — word cap
     // -------------------------------------------------------------------------
 
+    private val max = ExpressionSpanSelector.MAX_SPAN_WORDS
+
+    /**
+     * A sentence with comfortably more words than the cap allows. Alphabetic only — the
+     * tokenizer splits on non-letters, so "w1" would not be a single word token.
+     */
+    private fun cappedTokens(): List<Token> =
+        tokensOf(('a'..'z').take(max + 2).joinToString(" ") { "$it$it" })
+
     @Test
-    fun `selection cannot grow beyond six words`() {
-        val tokens = tokensOf("one two three four five six seven eight")
+    fun `selection cannot grow beyond the word cap`() {
+        val tokens = cappedTokens()
         val wordIndices = tokens.withIndex()
             .filter { it.value is Token.Word }
             .map { it.index }
 
         var selection = emptyList<Int>()
-        for (index in wordIndices.take(7)) {
+        for (index in wordIndices.take(max + 1)) {
             selection = ExpressionSpanSelector.onWordTapped(tokens, selection, index)
         }
 
-        assertEquals(6, selection.size)
-        assertEquals(wordIndices.take(6), selection)
+        assertEquals(max, selection.size)
+        assertEquals(wordIndices.take(max), selection)
     }
 
     @Test
-    fun `re-adding a gap word is refused when the selection is already at six words`() {
-        val tokens = tokensOf("one two three four five six seven eight")
+    fun `re-adding a gap word is refused when the selection is already at the cap`() {
+        val tokens = cappedTokens()
         val wordIndices = tokens.withIndex()
             .filter { it.value is Token.Word }
             .map { it.index }
 
         var selection = emptyList<Int>()
-        for (index in wordIndices.take(6)) {
+        for (index in wordIndices.take(max)) {
             selection = ExpressionSpanSelector.onWordTapped(tokens, selection, index)
         }
-        // drop word 3 (gap), then extend right edge to word 7 -> back at six, with a gap
+        // drop word 3 (gap), then extend the right edge -> back at the cap, with a gap
         selection = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[2])
-        selection = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[6])
-        assertEquals(6, selection.size)
+        selection = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[max])
+        assertEquals(max, selection.size)
 
         val unchanged = ExpressionSpanSelector.onWordTapped(tokens, selection, wordIndices[2])
         assertEquals(selection, unchanged)

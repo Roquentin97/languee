@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
-_MAX_TOKENS = 6
+_MAX_TOKENS = 10
 _SUPPORTED_LANGUAGES = {"en"}
-_TOKEN_COUNT_DETAIL = "text must contain between 1 and 6 tokens"
+_TOKEN_COUNT_DETAIL = f"text must contain between 1 and {_MAX_TOKENS} tokens"
 
 
 def _validate_language(language: str) -> str:

@@ -752,7 +752,7 @@ describe('VocabularyService', () => {
     });
 
     // -------------------------------------------------------------------------
-    // Expression-aware lookup (2-6 tokens)
+    // Expression-aware lookup (multi-token input)
     // -------------------------------------------------------------------------
 
     const defaultExpressionAnalysis: NlpExpressionAnalysis = {

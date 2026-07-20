@@ -125,7 +125,7 @@ def test_get_analyze_no_input_text_zero_tokens_returns_400():
         response = client.get("/analyze", params={"text": "xyz"}, auth=AUTH)
 
     assert response.status_code == 400
-    assert "between 1 and 6 tokens" in response.json()["detail"]
+    assert "between 1 and 10 tokens" in response.json()["detail"]
 
 
 # ===========================================================================
@@ -136,7 +136,7 @@ def test_get_analyze_no_input_text_zero_tokens_returns_400():
 def test_get_analyze_empty_text_after_normalization_returns_400():
     response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
     assert response.status_code == 400
-    assert "between 1 and 6 tokens" in response.json()["detail"]
+    assert "between 1 and 10 tokens" in response.json()["detail"]
 
 
 # ===========================================================================

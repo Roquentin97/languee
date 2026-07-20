@@ -165,7 +165,7 @@
     <string name="error_create_card_failed">Failed to create card</string>
     <string name="error_stale_reference">Deck or definition no longer exists</string>
     <string name="error_export_record_failed">Failed to record export</string>
-    <string name="error_expression_too_long">Expression is too long (maximum 6 words)</string>
+    <string name="error_expression_too_long">Expression is too long (maximum 10 words)</string>
     <string name="error_lookup_input_invalid">This selection can\'t be analyzed — try a shorter or simpler selection</string>
     <string name="error_manual_definition_failed">Failed to save your definition</string>
     <string name="error_definition_already_exists">This definition already exists</string>

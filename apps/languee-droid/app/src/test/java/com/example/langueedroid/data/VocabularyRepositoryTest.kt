@@ -8,6 +8,7 @@ import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
+import com.example.langueedroid.core.domain.ExpressionLimits
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.UnauthorizedException
@@ -19,7 +20,10 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import retrofit2.Response
 
@@ -177,19 +181,30 @@ class VocabularyRepositoryTest {
     }
 
     // -------------------------------------------------------------------------
-    // lookup — 400 mapped by error code in the body
+    // lookup — client-side word cap, then 400s mapped by error code in the body
     // -------------------------------------------------------------------------
 
     @Test
-    fun `lookup 400 with EXPRESSION_TOO_LONG body throws ExpressionTooLongException`() = runTest {
-        val body = """{"message":["EXPRESSION_TOO_LONG"],"error":"Bad Request","statusCode":400}"""
-        whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
-            .thenReturn(Response.error(400, body.toResponseBody()))
+    fun `lookup over the word cap fails locally without calling the API`() = runTest {
+        val tooLong = (1..ExpressionLimits.MAX_WORDS + 1).joinToString(" ") { "w$it" }
 
-        val result = repository.lookup(word = "one two three four five six seven")
+        val result = repository.lookup(word = tooLong)
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is ExpressionTooLongException)
+        verify(vocabularyApi, never()).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `lookup at exactly the word cap calls the API`() = runTest {
+        val atCap = (1..ExpressionLimits.MAX_WORDS).joinToString(" ") { "w$it" }
+        whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            .thenReturn(Response.success(aLookupResponseDto()))
+
+        val result = repository.lookup(word = atCap)
+
+        assertTrue(result.isSuccess)
+        verify(vocabularyApi).lookup(eq(atCap), anyOrNull(), anyOrNull(), anyOrNull())
     }
 
     @Test

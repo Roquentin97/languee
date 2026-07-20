@@ -237,8 +237,8 @@ def test_analyze_single_token_routes_to_word_analysis():
     assert body["tokens"][0]["lemma"] == "hello"
 
 
-def test_analyze_rejects_seven_tokens():
-    text = "one two three four five six seven"
+def test_analyze_rejects_eleven_tokens():
+    text = "one two three four five six seven eight nine ten eleven"
     tokens = [_make_mock_token(w, w, "NOUN", i=i) for i, w in enumerate(text.split())]
     mock_nlp = _make_routed_nlp({text: _make_mock_doc(tokens)})
 
@@ -246,14 +246,31 @@ def test_analyze_rejects_seven_tokens():
         response = client.get("/analyze", params={"text": text}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
+    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
+
+
+def test_analyze_accepts_ten_tokens():
+    """Ten tokens is the upper bound and must still be analyzed, not rejected."""
+    text = "one two three four five six seven eight nine ten"
+    specs = [
+        (w, w, "NOUN", "ROOT" if i == 0 else "") for i, w in enumerate(text.split())
+    ]
+    mock_nlp = _make_routed_nlp(
+        {text: _make_mock_doc(_tokens_with_offsets(text, specs))}
+    )
+
+    with _patch_nlp(mock_nlp):
+        response = client.get("/analyze", params={"text": text}, auth=AUTH)
+
+    assert response.status_code == 200
+    assert response.json()["kind"] == "expression"
 
 
 def test_analyze_rejects_blank_text():
     response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
+    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
 
 
 # ---------------------------------------------------------------------------

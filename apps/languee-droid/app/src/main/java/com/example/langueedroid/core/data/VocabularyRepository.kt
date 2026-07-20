@@ -5,6 +5,7 @@ import com.example.langueedroid.core.network.VocabularyApi
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
 import com.example.langueedroid.core.domain.CreatedUserDefinition
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
+import com.example.langueedroid.core.domain.ExpressionLimits
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
@@ -23,6 +24,12 @@ class VocabularyRepository(
         language: String? = null,
         context: String? = null,
     ): Result<LookupResult> = runCatching {
+        // Fail fast on obviously-too-long input so the user gets a specific message without a
+        // round trip. NLP still owns the real limit — see [ExpressionLimits].
+        if (ExpressionLimits.exceedsMaxWords(word)) {
+            Log.i(TAG, "[event=vocabulary.expression_too_long method=lookup] input exceeds ${ExpressionLimits.MAX_WORDS} words")
+            throw ExpressionTooLongException()
+        }
         val response = vocabularyApi.lookup(word = word, language = language, context = context)
         when {
             response.isSuccessful -> {
@@ -37,12 +44,7 @@ class VocabularyRepository(
                 throw UnauthorizedException()
             }
             response.code() == 400 -> {
-                // The backend returns 400 for more than one reason; the error code in
-                // the body tells them apart (EXPRESSION_TOO_LONG vs INPUT_INVALID).
                 val errorBody = response.errorBody()?.string().orEmpty()
-                if (errorBody.contains("EXPRESSION_TOO_LONG")) {
-                    throw ExpressionTooLongException()
-                }
                 Log.w(TAG, "[event=vocabulary.input_invalid method=lookup] lookup input rejected | body=$errorBody")
                 throw LookupInputInvalidException()
             }

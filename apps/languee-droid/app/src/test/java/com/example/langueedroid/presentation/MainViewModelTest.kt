@@ -4,6 +4,7 @@ import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
+import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
@@ -290,11 +291,17 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `selection is capped at six words`() {
-        viewModel.startSharedTextCapture("one two three four five six seven eight")
-        selectWords("one", "two", "three", "four", "five", "six", "seven")
+    fun `selection is capped at the maximum span length`() {
+        val max = ExpressionSpanSelector.MAX_SPAN_WORDS
+        // Alphabetic only — the tokenizer splits on non-letters, so "w1" is not one word.
+        val words = ('a'..'z').take(max + 2).map { "$it$it" }
+        viewModel.startSharedTextCapture(words.joinToString(" "))
+
+        // Tap one more word than the cap allows; the last tap must be ignored.
+        selectWords(*words.take(max + 1).toTypedArray())
+
         val state = currentState as AppState.Screen.ContextReview
-        assertEquals("one two three four five six", state.targetWord)
+        assertEquals(words.take(max).joinToString(" "), state.targetWord)
     }
 
     @Test

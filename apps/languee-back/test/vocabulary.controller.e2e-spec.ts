@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { DICTIONARY_API_ADAPTER } from '../src/modules/dictionary/dictionary.tokens';
 import type { IDictionaryApiAdapter } from '../src/modules/dictionary/interfaces/dictionary-api-adapter.interface';
 import { NlpService } from '../src/modules/nlp/nlp.service';
+import { NlpInputInvalidError } from '../src/modules/nlp/nlp.errors';
 import { PartOfSpeech } from '../src/modules/vocabulary/enums/part-of-speech.enum';
 
 const MOCK_WORD_DEFINITIONS = [
@@ -98,13 +99,21 @@ describe('VocabularyController (e2e)', () => {
         .expect(401);
     });
 
-    it('returns 400 when the word exceeds 6 whitespace-separated tokens', async () => {
-      await request(app.getHttpServer())
+    it('forwards long input to NLP and returns 400 INPUT_INVALID when NLP rejects it', async () => {
+      // The token-count limit belongs to NLP alone — the backend does not
+      // pre-check length, it just surfaces NLP's rejection.
+      mockNlpService.analyze.mockRejectedValue(new NlpInputInvalidError());
+
+      const res = await request(app.getHttpServer())
         .get(
-          '/api/v1/vocabulary/lookup?word=one%20two%20three%20four%20five%20six%20seven',
+          '/api/v1/vocabulary/lookup?word=one%20two%20three%20four%20five%20six%20seven%20eight%20nine%20ten%20eleven',
         )
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(400);
+
+      expect(mockNlpService.analyze).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.message).toBe('INPUT_INVALID');
     });
 
     it('returns 200 with kind="word" and isExpression=false for a single-token word', async () => {

@@ -85,7 +85,7 @@ def test_analyze_rejects_empty_input():
     response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
+    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
 
 
 def test_analyze_routes_multiple_words_to_expression_analysis():
@@ -220,7 +220,7 @@ def test_analyze_rejects_zero_spacy_tokens():
         response = client.get("/analyze", params={"text": "xyz"}, auth=AUTH)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "text must contain between 1 and 6 tokens"
+    assert response.json()["detail"] == "text must contain between 1 and 10 tokens"
 
 
 def test_analyze_spacy_split_of_single_whitespace_token_becomes_expression():
