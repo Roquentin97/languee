@@ -913,7 +913,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
-        whenever(vocabularyRepository.createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
 
         val vm = buildViewModel(targetWord = "run into")
@@ -932,7 +932,6 @@ class CardCreationViewModelTest {
         assertEquals(LexicalKind.PHRASAL_VERB, vm.state.value.kind)
         verify(vocabularyRepository).createUserDefinition(
             eq("run into"),
-            eq("expression"),
             eq("To encounter unexpectedly."),
             eq("en"),
             anyOrNull(),
@@ -945,7 +944,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
-        whenever(vocabularyRepository.createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
 
         val vm = buildViewModel(targetWord = "run into", language = "de")
@@ -959,7 +958,6 @@ class CardCreationViewModelTest {
 
         verify(vocabularyRepository).createUserDefinition(
             eq("run into"),
-            eq("expression"),
             eq("To encounter unexpectedly."),
             eq("de"),
             anyOrNull(),
@@ -981,7 +979,7 @@ class CardCreationViewModelTest {
         vm.submitManualDefinition()
         advanceUntilIdle()
 
-        verify(vocabularyRepository, never()).createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull())
+        verify(vocabularyRepository, never()).createUserDefinition(any(), any(), anyOrNull(), anyOrNull())
         assertTrue(vm.state.value.flowState is CardCreationFlowState.ManualDefinition)
     }
 
@@ -996,7 +994,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
-        whenever(vocabularyRepository.createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(DefinitionAlreadyExistsException()))
 
         val vm = buildViewModel(targetWord = "run into")
@@ -1024,7 +1022,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
-        whenever(vocabularyRepository.createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(UnauthorizedException()))
 
         val vm = buildViewModel(targetWord = "run into")
@@ -1048,7 +1046,7 @@ class CardCreationViewModelTest {
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
         whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
-        whenever(vocabularyRepository.createUserDefinition(any(), any(), any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.failure(RuntimeException("HTTP 500")))
 
         val vm = buildViewModel(targetWord = "run into")

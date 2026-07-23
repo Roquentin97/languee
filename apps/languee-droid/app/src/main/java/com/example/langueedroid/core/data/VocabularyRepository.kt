@@ -54,13 +54,11 @@ class VocabularyRepository(
 
     /**
      * Submits a user-provided definition for a word or expression the dictionary provider
-     * does not know. [kind] must be one of "word", "phrasal_verb", or "expression" as
-     * defined by the languee-back contract; the backend upgrades "expression" to
-     * "phrasal_verb" automatically when detected — read [CreatedUserDefinition.kind] back.
+     * does not know. The server classifies the text and returns the resulting kind — read
+     * [CreatedUserDefinition.kind] back rather than assuming it.
      */
     suspend fun createUserDefinition(
         text: String,
-        kind: String,
         definition: String,
         language: String? = null,
         example: String? = null,
@@ -68,7 +66,6 @@ class VocabularyRepository(
         val response = vocabularyApi.createUserDefinition(
             CreateUserDefinitionRequestDto(
                 text = text,
-                kind = kind,
                 definition = definition,
                 language = language,
                 example = example,

@@ -205,7 +205,6 @@ class CardCreationViewModel @AssistedInject constructor(
             _state.value = _state.value.copy(flowState = current.copy(isSubmitting = true, error = null))
             vocabularyRepository.createUserDefinition(
                 text = targetWord,
-                kind = "expression",
                 definition = definitionText,
                 language = language,
                 example = current.exampleText.trim().ifBlank { null },

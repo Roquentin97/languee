@@ -7,11 +7,7 @@ import { NlpService } from '../nlp/nlp.service';
 import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import { PartOfSpeech } from './enums/part-of-speech.enum';
-import {
-  PartOfSpeechRequiredError,
-  TextMustBeExpressionError,
-  TextMustBeSingleWordError,
-} from './vocabulary.errors';
+import { PartOfSpeechRequiredError } from './vocabulary.errors';
 import type {
   NlpExpressionAnalysis,
   NlpWordAnalysis,
@@ -336,34 +332,29 @@ export class VocabularyService {
   async createUserDefinition(
     input: CreateUserDefinitionInput,
   ): Promise<CreateUserDefinitionOutput> {
+    // NLP owns the word-vs-expression classification, exactly as in lookup().
+    // The caller supplies only the text; the kind and canonical form come from
+    // the analysis, never from the request.
+    const analysis = await this.nlpService.analyze(
+      input.text,
+      undefined,
+      input.language,
+    );
+
     let canonical: string;
     let effectiveKind: LexicalKind;
     let partOfSpeech: PartOfSpeech;
 
-    if (input.kind === 'word') {
-      // The word path never reaches NLP (canonicalisation is local), so the
-      // declared-kind shape check has to live here.
-      const tokens = input.text.trim().split(/\s+/).filter(Boolean);
-      if (tokens.length !== 1) {
-        throw new TextMustBeSingleWordError();
-      }
+    if (analysis.kind === 'word') {
+      // A single word still needs a part of speech: the dictionary provider that
+      // would normally supply one has already missed, so the caller must give it.
       if (!input.partOfSpeech) {
         throw new PartOfSpeechRequiredError();
       }
-      canonical = this.wordsService.canonicalise(input.text);
+      canonical = analysis.lemma;
       effectiveKind = LexicalKind.word;
       partOfSpeech = input.partOfSpeech;
     } else {
-      // NLP owns expression validity (token bounds included); the backend only
-      // checks that the result matches the declared kind.
-      const analysis = await this.nlpService.analyze(
-        input.text,
-        undefined,
-        input.language,
-      );
-      if (analysis.kind === 'word') {
-        throw new TextMustBeExpressionError();
-      }
       canonical = analysis.canonical;
       effectiveKind =
         analysis.kind === 'phrasal_verb'

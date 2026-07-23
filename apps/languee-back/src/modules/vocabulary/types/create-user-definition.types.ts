@@ -5,7 +5,6 @@ export type CreateUserDefinitionKind = 'word' | 'phrasal_verb' | 'expression';
 export type CreateUserDefinitionInput = {
   text: string;
   language: string;
-  kind: CreateUserDefinitionKind;
   definition: string;
   example?: string;
   partOfSpeech?: PartOfSpeech;

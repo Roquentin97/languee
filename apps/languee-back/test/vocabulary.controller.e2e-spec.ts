@@ -198,7 +198,6 @@ describe('VocabularyController (e2e)', () => {
         .post('/api/v1/vocabulary/definitions')
         .send({
           text: 'run',
-          kind: 'word',
           definition: 'to move fast',
           partOfSpeech: PartOfSpeech.VERB,
         })
@@ -209,31 +208,45 @@ describe('VocabularyController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/vocabulary/definitions')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ kind: 'word' })
+        .send({ definition: 'no text supplied' })
         .expect(400);
     });
 
-    it('returns 400 when kind="word" is missing partOfSpeech', async () => {
+    it('returns 400 when a single word is missing partOfSpeech', async () => {
+      const word = `solo${Date.now()}`;
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
+        lemma: word,
+        pos: PartOfSpeech.NOUN,
+        isIrregular: false,
+        inflectionForms: null,
+      });
+
       await request(app.getHttpServer())
         .post('/api/v1/vocabulary/definitions')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
-          text: `solo-${Date.now()}`,
-          kind: 'word',
+          text: word,
           definition: 'a made-up test word',
         })
         .expect(400);
     });
 
-    it('returns 201 with the created definition shape for kind="word"', async () => {
+    it('returns 201 with the created definition shape for a single word', async () => {
       const word = `soloword${Date.now()}`;
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
+        lemma: word,
+        pos: PartOfSpeech.NOUN,
+        isIrregular: false,
+        inflectionForms: null,
+      });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/vocabulary/definitions')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           text: word,
-          kind: 'word',
           definition: 'a made-up test definition',
           partOfSpeech: PartOfSpeech.NOUN,
         })
@@ -249,10 +262,10 @@ describe('VocabularyController (e2e)', () => {
       expect(res.body.definition).toBe('a made-up test definition');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.provider).toBe('user');
-      expect(mockNlpService.analyze).not.toHaveBeenCalled();
+      expect(mockNlpService.analyze).toHaveBeenCalled();
     });
 
-    it('returns 201 with the created definition shape for kind="phrasal_verb", using the NLP-derived canonical and kind', async () => {
+    it('returns 201 with the created definition shape for an expression, using the NLP-derived canonical and kind', async () => {
       mockNlpService.analyze.mockResolvedValue({
         kind: 'expression',
         canonical: `phony phrase ${Date.now()}`,
@@ -265,7 +278,6 @@ describe('VocabularyController (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           text: 'phony phrase input',
-          kind: 'phrasal_verb',
           definition: 'a made-up test expression definition',
         })
         .expect(201);
@@ -280,9 +292,15 @@ describe('VocabularyController (e2e)', () => {
 
     it('returns 409 when the same word/partOfSpeech/definition already exists', async () => {
       const word = `dupword${Date.now()}`;
+      mockNlpService.analyze.mockResolvedValue({
+        kind: 'word',
+        lemma: word,
+        pos: PartOfSpeech.ADJECTIVE,
+        isIrregular: false,
+        inflectionForms: null,
+      });
       const body = {
         text: word,
-        kind: 'word',
         definition: 'duplicate test definition',
         partOfSpeech: PartOfSpeech.ADJECTIVE,
       };

@@ -35,11 +35,7 @@ import {
 } from '../definitions/definitions.errors';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
 import { NlpInputInvalidError, NlpUnavailableError } from '../nlp/nlp.errors';
-import {
-  PartOfSpeechRequiredError,
-  TextMustBeExpressionError,
-  TextMustBeSingleWordError,
-} from './vocabulary.errors';
+import { PartOfSpeechRequiredError } from './vocabulary.errors';
 import { LookupVocabularyDto } from './dto/lookup-vocabulary.dto';
 import { LookupVocabularyResponseDto } from './dto/lookup-vocabulary-response.dto';
 import { CreateUserDefinitionDto } from './dto/create-user-definition.dto';
@@ -130,7 +126,7 @@ export class VocabularyController {
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiBadRequestResponse({
     description:
-      'Validation failure, declared kind not matching the text, missing partOfSpeech, or input rejected by NLP',
+      'Validation failure, missing partOfSpeech for a single word, or input rejected by NLP',
   })
   @ApiConflictResponse({ description: 'Definition already exists' })
   @ApiBadGatewayResponse({
@@ -143,18 +139,11 @@ export class VocabularyController {
       return await this.vocabularyService.createUserDefinition({
         text: body.text,
         language: body.language ?? 'en',
-        kind: body.kind,
         definition: body.definition,
         example: body.example,
         partOfSpeech: body.partOfSpeech,
       });
     } catch (err: unknown) {
-      if (err instanceof TextMustBeSingleWordError) {
-        throw new BadRequestException('TEXT_MUST_BE_SINGLE_WORD');
-      }
-      if (err instanceof TextMustBeExpressionError) {
-        throw new BadRequestException('TEXT_MUST_BE_EXPRESSION');
-      }
       if (err instanceof PartOfSpeechRequiredError) {
         throw new BadRequestException('PART_OF_SPEECH_REQUIRED');
       }

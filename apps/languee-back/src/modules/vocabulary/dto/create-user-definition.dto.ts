@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
-  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -9,7 +8,6 @@ import {
   Matches,
 } from 'class-validator';
 import { PartOfSpeech } from '../enums/part-of-speech.enum';
-import type { CreateUserDefinitionKind } from '../types/create-user-definition.types';
 
 export class CreateUserDefinitionDto {
   @ApiProperty({
@@ -38,13 +36,6 @@ export class CreateUserDefinitionDto {
   language?: string;
 
   @ApiProperty({
-    enum: ['word', 'phrasal_verb', 'expression'],
-    example: 'phrasal_verb',
-  })
-  @IsIn(['word', 'phrasal_verb', 'expression'], { message: 'INVALID_KIND' })
-  kind!: CreateUserDefinitionKind;
-
-  @ApiProperty({
     example: 'To encounter someone or something unexpectedly.',
     minLength: 1,
     maxLength: 500,
@@ -63,7 +54,12 @@ export class CreateUserDefinitionDto {
   @Length(0, 500, { message: 'EXAMPLE_LENGTH_INVALID' })
   example?: string;
 
-  @ApiPropertyOptional({ enum: PartOfSpeech, example: PartOfSpeech.PHRASE })
+  @ApiPropertyOptional({
+    enum: PartOfSpeech,
+    example: PartOfSpeech.PHRASE,
+    description:
+      'Required when the text is a single word; expressions default to "phrase".',
+  })
   @IsOptional()
   @IsEnum(PartOfSpeech, { message: 'INVALID_PART_OF_SPEECH' })
   partOfSpeech?: PartOfSpeech;

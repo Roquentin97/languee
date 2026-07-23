@@ -239,7 +239,6 @@ class VocabularyRepositoryTest {
 
         val result = repository.createUserDefinition(
             text = "run into",
-            kind = "expression",
             definition = "To encounter unexpectedly.",
         )
 
@@ -260,7 +259,6 @@ class VocabularyRepositoryTest {
 
         val result = repository.createUserDefinition(
             text = "run into",
-            kind = "expression",
             definition = "To encounter unexpectedly.",
         )
 
@@ -279,7 +277,6 @@ class VocabularyRepositoryTest {
 
         val result = repository.createUserDefinition(
             text = "run into",
-            kind = "expression",
             definition = "To encounter unexpectedly.",
         )
 
@@ -298,7 +295,6 @@ class VocabularyRepositoryTest {
 
         val result = repository.createUserDefinition(
             text = "run into",
-            kind = "expression",
             definition = "",
         )
 

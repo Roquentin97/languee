@@ -37,7 +37,6 @@ data class LookupVocabularyResponseDto(
 
 data class CreateUserDefinitionRequestDto(
     val text: String,
-    val kind: String,
     val definition: String,
     val language: String? = null,
     val example: String? = null,

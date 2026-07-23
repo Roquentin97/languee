@@ -14,11 +14,7 @@ import type {
   NlpWordAnalysis,
 } from '../nlp/nlp.interfaces';
 import { PartOfSpeech } from './enums/part-of-speech.enum';
-import {
-  PartOfSpeechRequiredError,
-  TextMustBeExpressionError,
-  TextMustBeSingleWordError,
-} from './vocabulary.errors';
+import { PartOfSpeechRequiredError } from './vocabulary.errors';
 
 const mockDictionaryService = {
   lookup: jest.fn(),
@@ -1058,13 +1054,16 @@ describe('VocabularyService', () => {
   // ---------------------------------------------------------------------------
 
   describe('createUserDefinition()', () => {
-    beforeEach(() => {
-      mockWordsService.canonicalise.mockImplementation((raw: string) =>
-        raw.trim().toLowerCase(),
-      );
+    const wordAnalysis = (lemma: string): NlpWordAnalysis => ({
+      kind: 'word',
+      lemma,
+      pos: PartOfSpeech.VERB,
+      isIrregular: false,
+      inflectionForms: null,
     });
 
-    it('word happy path — canonicalises text, sets kind=word, persists via DefinitionService with provider "user"', async () => {
+    it('word path — NLP classifies as word, canonical comes from the lemma, persists with provider "user"', async () => {
+      mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
       mockWordsService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-1',
         lemma: 'run',
@@ -1083,12 +1082,15 @@ describe('VocabularyService', () => {
       const result = await service.createUserDefinition({
         text: 'Run',
         language: 'en',
-        kind: 'word',
         definition: 'to move fast',
         partOfSpeech: PartOfSpeech.VERB,
       });
 
-      expect(mockWordsService.canonicalise).toHaveBeenCalledWith('Run');
+      expect(mockNlpService.analyze).toHaveBeenCalledWith(
+        'Run',
+        undefined,
+        'en',
+      );
       expect(mockWordsService.ensureExistsAndReturn).toHaveBeenCalledWith(
         'run',
         'en',
@@ -1109,10 +1111,9 @@ describe('VocabularyService', () => {
         example: null,
         provider: 'user',
       });
-      expect(mockNlpService.analyze).not.toHaveBeenCalled();
     });
 
-    it('expression happy path — NLP-derived canonical and kind override the declared kind', async () => {
+    it('expression path — NLP-derived canonical and kind decide the entry', async () => {
       mockNlpService.analyze.mockResolvedValue({
         kind: 'expression',
         canonical: 'kick the bucket',
@@ -1137,7 +1138,6 @@ describe('VocabularyService', () => {
       const result = await service.createUserDefinition({
         text: 'kick the bucket',
         language: 'en',
-        kind: 'phrasal_verb',
         definition: 'to die',
       });
 
@@ -1153,48 +1153,15 @@ describe('VocabularyService', () => {
       );
       expect(result.kind).toBe(LexicalKind.expression);
       expect(result.partOfSpeech).toBe('phrase');
-      expect(mockWordsService.canonicalise).not.toHaveBeenCalled();
     });
 
-    it('kind="word" with multi-token text throws TextMustBeSingleWordError', async () => {
-      await expect(
-        service.createUserDefinition({
-          text: 'run fast',
-          language: 'en',
-          kind: 'word',
-          definition: 'to move fast',
-          partOfSpeech: PartOfSpeech.VERB,
-        }),
-      ).rejects.toBeInstanceOf(TextMustBeSingleWordError);
-    });
-
-    it('kind="phrasal_verb" with text NLP analyzes as a single word throws TextMustBeExpressionError', async () => {
-      mockNlpService.analyze.mockResolvedValue({
-        kind: 'word',
-        lemma: 'run',
-        pos: PartOfSpeech.VERB,
-        isIrregular: false,
-        inflectionForms: null,
-      });
-
-      await expect(
-        service.createUserDefinition({
-          text: 'run',
-          language: 'en',
-          kind: 'phrasal_verb',
-          definition: 'to move fast',
-        }),
-      ).rejects.toBeInstanceOf(TextMustBeExpressionError);
-    });
-
-    it('kind="expression" with text NLP rejects propagates NlpInputInvalidError', async () => {
+    it('NLP rejecting the text propagates NlpInputInvalidError without persisting', async () => {
       mockNlpService.analyze.mockRejectedValue(new NlpInputInvalidError());
 
       await expect(
         service.createUserDefinition({
           text: 'one two three four five six seven',
           language: 'en',
-          kind: 'expression',
           definition: 'means nothing',
         }),
       ).rejects.toBeInstanceOf(NlpInputInvalidError);
@@ -1202,36 +1169,18 @@ describe('VocabularyService', () => {
       expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
 
-    it('NLP analyzing the expression text as kind="word" throws TextMustBeExpressionError', async () => {
-      mockNlpService.analyze.mockResolvedValue({
-        kind: 'word',
-        lemma: 'run',
-        pos: PartOfSpeech.VERB,
-        isIrregular: false,
-        inflectionForms: null,
-      });
+    it('missing partOfSpeech for a single word throws PartOfSpeechRequiredError', async () => {
+      mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
 
-      await expect(
-        service.createUserDefinition({
-          text: 'run fast now',
-          language: 'en',
-          kind: 'phrasal_verb',
-          definition: 'to move fast',
-        }),
-      ).rejects.toBeInstanceOf(TextMustBeExpressionError);
-
-      expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
-    });
-
-    it('missing partOfSpeech for kind="word" throws PartOfSpeechRequiredError', async () => {
       await expect(
         service.createUserDefinition({
           text: 'run',
           language: 'en',
-          kind: 'word',
           definition: 'to move fast',
         }),
       ).rejects.toBeInstanceOf(PartOfSpeechRequiredError);
+
+      expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
     });
 
     it('partOfSpeech defaults to PHRASE for expressions when not provided', async () => {
@@ -1259,7 +1208,6 @@ describe('VocabularyService', () => {
       await service.createUserDefinition({
         text: 'run into',
         language: 'en',
-        kind: 'phrasal_verb',
         definition: 'to encounter',
       });
 
@@ -1271,6 +1219,7 @@ describe('VocabularyService', () => {
     });
 
     it('duplicate definition — DefinitionAlreadyExistsError from DefinitionService.createOne propagates', async () => {
+      mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
       mockWordsService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-1',
         lemma: 'run',
@@ -1285,7 +1234,6 @@ describe('VocabularyService', () => {
         service.createUserDefinition({
           text: 'run',
           language: 'en',
-          kind: 'word',
           definition: 'to move fast',
           partOfSpeech: PartOfSpeech.VERB,
         }),
@@ -1293,6 +1241,7 @@ describe('VocabularyService', () => {
     });
 
     it('example is forwarded to DefinitionService.createOne when provided, omitted when absent', async () => {
+      mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
       mockWordsService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-1',
         lemma: 'run',
@@ -1311,7 +1260,6 @@ describe('VocabularyService', () => {
       await service.createUserDefinition({
         text: 'run',
         language: 'en',
-        kind: 'word',
         definition: 'to move fast',
         example: 'She runs daily.',
         partOfSpeech: PartOfSpeech.VERB,
