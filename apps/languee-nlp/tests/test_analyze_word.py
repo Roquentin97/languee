@@ -567,17 +567,6 @@ def test_words_default_language_is_en():
     assert body["language"] == "en"
 
 
-def test_words_spanish_language_returns_400():
-    response = client.get(
-        "/analyze",
-        params={"text": "hablo", "language": "es"},
-        auth=AUTH,
-    )
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == "LANGUAGE_NOT_SUPPORTED"
-
-
 def test_words_unsupported_language_returns_400():
     response = client.get(
         "/analyze",

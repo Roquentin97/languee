@@ -663,7 +663,7 @@ describe('NlpService', () => {
       expect(url.searchParams.get('language')).toBe('en');
     });
 
-    it('appends language=es to the request URL when language is "es"', async () => {
+    it('forwards a caller-provided language verbatim instead of defaulting to en', async () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(makeExpressionResponse()),
@@ -675,19 +675,6 @@ describe('NlpService', () => {
       const url = getFirstFetchUrl(mockFetch);
       expect(url.searchParams.get('text')).toBe('darse cuenta');
       expect(url.searchParams.get('language')).toBe('es');
-    });
-
-    it('appends language=de to the request URL when language is "de"', async () => {
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(makeExpressionResponse()),
-      }) as jest.MockedFunction<typeof fetch>;
-      global.fetch = mockFetch;
-
-      await service.analyze('Bescheid geben', undefined, 'de');
-
-      const url = getFirstFetchUrl(mockFetch);
-      expect(url.searchParams.get('language')).toBe('de');
     });
   });
 

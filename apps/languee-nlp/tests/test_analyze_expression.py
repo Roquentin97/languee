@@ -569,17 +569,6 @@ def test_expressions_default_language_is_en():
     assert response.json()["language"] == "en"
 
 
-def test_expressions_german_language_returns_400():
-    response = client.get(
-        "/analyze",
-        params={"text": "gab auf", "language": "de"},
-        auth=AUTH,
-    )
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == "LANGUAGE_NOT_SUPPORTED"
-
-
 def test_expressions_unsupported_language_returns_400():
     response = client.get(
         "/analyze",

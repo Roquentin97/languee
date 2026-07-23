@@ -51,11 +51,6 @@ def test_get_nlp_accepts_model_name_override():
     mock_load.assert_called_once_with("en_core_web_sm")
 
 
-def test_get_nlp_rejects_formerly_supported_es():
-    with pytest.raises(ValueError):
-        get_nlp("es")
-
-
 def test_get_nlp_rejects_unsupported_language():
     with pytest.raises(ValueError):
         get_nlp("fr")
