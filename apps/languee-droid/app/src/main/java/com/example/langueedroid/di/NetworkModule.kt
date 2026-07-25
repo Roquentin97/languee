@@ -2,12 +2,14 @@ package com.example.langueedroid.di
 
 import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.AuthRepository
+import com.example.langueedroid.core.data.ServerReachabilityChecker
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.AuthAuthenticator
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
+import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
 import dagger.Lazy
 import dagger.Module
@@ -94,6 +96,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideServerReachabilityChecker(okHttpClient: OkHttpClient): ServerReachabilityChecker =
+        ServerReachabilityChecker(okHttpClient, BuildConfig.BACKEND_BASE_URL)
+
+    @Provides
+    @Singleton
     fun provideAuthApi(retrofit: Retrofit): AuthApi = retrofit.create(AuthApi::class.java)
 
     @Provides
@@ -111,4 +118,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAnkiDroidExportApi(retrofit: Retrofit): AnkiDroidExportApi = retrofit.create(AnkiDroidExportApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideReviewsApi(retrofit: Retrofit): ReviewsApi = retrofit.create(ReviewsApi::class.java)
 }

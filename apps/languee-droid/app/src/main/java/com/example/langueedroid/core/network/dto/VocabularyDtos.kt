@@ -20,6 +20,9 @@ data class LookupMetaDto(
     val filteredByPos: Boolean,
     val unmatchedPos: Boolean,
     val availablePartsOfSpeech: List<String>,
+    val isExpression: Boolean? = null,
+    val providerMiss: Boolean? = null,
+    val expressionContextFound: Boolean? = null,
 )
 
 data class LookupVocabularyResponseDto(
@@ -29,4 +32,24 @@ data class LookupVocabularyResponseDto(
     val partOfSpeech: String?,
     val definitions: List<EnrichedDefinitionDto>,
     val meta: LookupMetaDto,
+    val kind: String? = null,
+)
+
+data class CreateUserDefinitionRequestDto(
+    val text: String,
+    val definition: String,
+    val language: String? = null,
+    val example: String? = null,
+    val partOfSpeech: String? = null,
+)
+
+data class CreateUserDefinitionResponseDto(
+    val id: String,
+    val wordId: String,
+    val lemma: String,
+    val kind: String,
+    val partOfSpeech: String,
+    val definition: String,
+    val example: String?,
+    val provider: String,
 )

@@ -2,6 +2,9 @@ package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.OfflineQueueRepository
+import com.example.langueedroid.core.data.OfflineStateManager
+import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
@@ -19,8 +22,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 
+import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModelTest {
@@ -28,15 +33,40 @@ class MainViewModelTest {
     private lateinit var viewModel: MainViewModel
     private lateinit var ankiDroidExportService: AnkiDroidExportService
     private lateinit var ankiDroidPreferencesStore: AnkiDroidPreferencesStore
+    private lateinit var offlineStateManager: OfflineStateManager
+    private lateinit var offlineQueueRepository: OfflineQueueRepository
 
     @Before
     fun setUp() {
         ankiDroidExportService = mock()
         ankiDroidPreferencesStore = mock()
-        viewModel = MainViewModel(ankiDroidExportService, ankiDroidPreferencesStore)
+        offlineStateManager = mock {
+            on { isOffline } doReturn MutableStateFlow(false)
+        }
+        offlineQueueRepository = mock {
+            on { count() } doReturn flowOf(0)
+        }
+        viewModel = MainViewModel(
+            ankiDroidExportService,
+            ankiDroidPreferencesStore,
+            offlineStateManager,
+            offlineQueueRepository,
+        )
     }
 
     private val currentState get() = viewModel.state.value
+
+    /** Taps the given words in order (by text, first unselected occurrence) and confirms the selection. */
+    private fun selectWords(vararg words: String) {
+        for (word in words) {
+            val state = currentState as AppState.Screen.SharedContextCapture
+            val index = state.tokens.withIndex().first { (idx, token) ->
+                token is Token.Word && token.text == word && idx !in state.selectedIndices
+            }.index
+            viewModel.onWordTokenTapped(index)
+        }
+        viewModel.confirmWordSelection()
+    }
 
     // -------------------------------------------------------------------------
     // Initial state
@@ -165,46 +195,121 @@ class MainViewModelTest {
     }
 
     // -------------------------------------------------------------------------
-    // selectTargetWord
+    // onWordTokenTapped / confirmWordSelection — single word (unchanged behavior)
     // -------------------------------------------------------------------------
 
     @Test
-    fun `selectTargetWord navigates to ContextReview`() {
+    fun `selecting a single word and confirming navigates to ContextReview`() {
         viewModel.startSharedTextCapture("I love cats")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         assertTrue(currentState is AppState.Screen.ContextReview)
     }
 
     @Test
-    fun `selectTargetWord sets targetWord and context`() {
+    fun `selecting a single word and confirming sets targetWord and context`() {
         viewModel.startSharedTextCapture("I love cats")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         val state = currentState as AppState.Screen.ContextReview
         assertEquals("cats", state.targetWord)
         assertEquals("I love cats", state.context)
     }
 
     @Test
-    fun `selectTargetWord sets isMultiSentence false for single sentence`() {
+    fun `selecting a single word sets isMultiSentence false for single sentence`() {
         viewModel.startSharedTextCapture("I love cats")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         val state = currentState as AppState.Screen.ContextReview
         assertFalse(state.isMultiSentence)
     }
 
     @Test
-    fun `selectTargetWord sets isMultiSentence true for multi-sentence context`() {
+    fun `selecting a single word sets isMultiSentence true for multi-sentence context`() {
         viewModel.startSharedTextCapture("I love cats. Dogs are great too.")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         val state = currentState as AppState.Screen.ContextReview
         assertTrue(state.isMultiSentence)
     }
 
     @Test
-    fun `selectTargetWord does nothing when state is not SharedContextCapture`() {
+    fun `onWordTokenTapped does nothing when state is not SharedContextCapture`() {
         viewModel.startManualAdd()
-        viewModel.selectTargetWord("cats")
+        viewModel.onWordTokenTapped(0)
         assertTrue(currentState is AppState.Screen.ManualCapture)
+    }
+
+    @Test
+    fun `confirmWordSelection does nothing when no word is selected`() {
+        viewModel.startSharedTextCapture("I love cats")
+        viewModel.confirmWordSelection()
+        assertTrue(currentState is AppState.Screen.SharedContextCapture)
+    }
+
+    // -------------------------------------------------------------------------
+    // onWordTokenTapped / confirmWordSelection — multi-word expression span
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `tapping two adjacent words extends the selection`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        selectWords("ran", "into")
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("ran into", state.targetWord)
+    }
+
+    @Test
+    fun `tapping words out of order still joins them in context order`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        // tap "into" first, then the adjacent-previous "ran" — selection should still
+        // join in left-to-right context order via ExpressionSpanSelector.
+        val state1 = currentState as AppState.Screen.SharedContextCapture
+        val intoIndex = state1.tokens.indexOfFirst { it is Token.Word && it.text == "into" }
+        viewModel.onWordTokenTapped(intoIndex)
+        val state2 = currentState as AppState.Screen.SharedContextCapture
+        val ranIndex = state2.tokens.indexOfFirst { it is Token.Word && it.text == "ran" }
+        viewModel.onWordTokenTapped(ranIndex)
+        viewModel.confirmWordSelection()
+
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("ran into", state.targetWord)
+    }
+
+    @Test
+    fun `deselecting interior words yields a discontiguous expression`() {
+        viewModel.startSharedTextCapture("He looked the word up")
+        val capture = currentState as AppState.Screen.SharedContextCapture
+        fun indexOf(word: String) = capture.tokens.indexOfFirst { it is Token.Word && it.text == word }
+        viewModel.onWordTokenTapped(indexOf("looked"))
+        viewModel.onWordTokenTapped(indexOf("the"))
+        viewModel.onWordTokenTapped(indexOf("word"))
+        viewModel.onWordTokenTapped(indexOf("up"))
+        viewModel.onWordTokenTapped(indexOf("the"))
+        viewModel.onWordTokenTapped(indexOf("word"))
+        viewModel.confirmWordSelection()
+
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("looked up", state.targetWord)
+    }
+
+    @Test
+    fun `selection is capped at the maximum span length`() {
+        val max = ExpressionSpanSelector.MAX_SPAN_WORDS
+        // Alphabetic only — the tokenizer splits on non-letters, so "w1" is not one word.
+        val words = ('a'..'z').take(max + 2).map { "$it$it" }
+        viewModel.startSharedTextCapture(words.joinToString(" "))
+
+        // Tap one more word than the cap allows; the last tap must be ignored.
+        selectWords(*words.take(max + 1).toTypedArray())
+
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals(words.take(max).joinToString(" "), state.targetWord)
+    }
+
+    @Test
+    fun `expression selected from context is standalone valid — highlight ranges non-empty`() {
+        viewModel.startSharedTextCapture("I ran into an old friend yesterday")
+        selectWords("ran", "into")
+        val state = currentState as AppState.Screen.ContextReview
+        assertTrue(state.highlightRanges.isNotEmpty())
     }
 
     // -------------------------------------------------------------------------
@@ -214,7 +319,7 @@ class MainViewModelTest {
     @Test
     fun `confirmTruncation truncates context to sentence containing word`() {
         viewModel.startSharedTextCapture("I love cats. Dogs are great too.")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         viewModel.confirmTruncation()
         val state = currentState as AppState.Screen.ContextReview
         assertTrue(state.context.contains("cats", ignoreCase = true))
@@ -249,7 +354,7 @@ class MainViewModelTest {
     @Test
     fun `keepFullContext clears isMultiSentence flag`() {
         viewModel.startSharedTextCapture("I love cats. Dogs are great too.")
-        viewModel.selectTargetWord("cats")
+        selectWords("cats")
         viewModel.keepFullContext()
         val state = currentState as AppState.Screen.ContextReview
         assertFalse(state.isMultiSentence)
@@ -350,6 +455,25 @@ class MainViewModelTest {
     }
 
     // -------------------------------------------------------------------------
+    // onContextEditSave — multi-word expression target
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onContextEditSave accepts a multi-word expression standalone in the context`() {
+        viewModel.startContextEdit("run into", "I always run into her at the store")
+        val result = viewModel.onContextEditSave("Yesterday I ran into her again, then I run into him too")
+        assertTrue(result is ContextEditSaveResult.Valid)
+    }
+
+    @Test
+    fun `onContextEditSave rejects a multi-word expression not standalone in the edited context`() {
+        viewModel.startContextEdit("run into", "I always run into her at the store")
+        val result = viewModel.onContextEditSave("I always bump into her at the store")
+        assertTrue(result is ContextEditSaveResult.InvalidContextBlockedSave)
+        assertEquals("run into", (result as ContextEditSaveResult.InvalidContextBlockedSave).targetWord)
+    }
+
+    // -------------------------------------------------------------------------
     // onContextEditSave — context missing word → InvalidContextBlockedSave
     // -------------------------------------------------------------------------
 
@@ -392,5 +516,92 @@ class MainViewModelTest {
         viewModel.startContextEdit("cat", "I have a cat")
         viewModel.dismissCapture()
         assertTrue(currentState is AppState.Screen.Decks)
+    }
+
+    // -------------------------------------------------------------------------
+    // Language selection
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `ManualCapture defaults selectedLanguage to en`() {
+        viewModel.startManualAdd()
+        val state = currentState as AppState.Screen.ManualCapture
+        assertEquals("en", state.selectedLanguage)
+    }
+
+    @Test
+    fun `selectLanguage updates ManualCapture selectedLanguage`() {
+        viewModel.startManualAdd()
+        viewModel.selectLanguage("es")
+        val state = currentState as AppState.Screen.ManualCapture
+        assertEquals("es", state.selectedLanguage)
+    }
+
+    @Test
+    fun `selectLanguage updates SharedContextCapture selectedLanguage`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        viewModel.selectLanguage("de")
+        val state = currentState as AppState.Screen.SharedContextCapture
+        assertEquals("de", state.selectedLanguage)
+    }
+
+    @Test
+    fun `selectLanguage does nothing when state is not a capture screen`() {
+        viewModel.selectLanguage("es")
+        assertTrue(currentState is AppState.Screen.Decks)
+    }
+
+    @Test
+    fun `selected language persists from SharedContextCapture into ContextReview`() {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        viewModel.selectLanguage("es")
+        selectWords("ran", "into")
+        val state = currentState as AppState.Screen.ContextReview
+        assertEquals("es", state.selectedLanguage)
+    }
+
+    @Test
+    fun `addEntry emits CardCreationRequest with default en language`() = runTest {
+        viewModel.startManualAdd()
+        var received: CardCreationRequest? = null
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
+
+        viewModel.addEntry("cat", "I have a cat")
+        advanceUntilIdle()
+
+        assertEquals("en", received?.language)
+    }
+
+    @Test
+    fun `addEntry emits CardCreationRequest carrying the selected language`() = runTest {
+        viewModel.startManualAdd()
+        viewModel.selectLanguage("es")
+        var received: CardCreationRequest? = null
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
+
+        viewModel.addEntry("gato", "Tengo un gato")
+        advanceUntilIdle()
+
+        assertEquals("es", received?.language)
+    }
+
+    @Test
+    fun `onContextEditSave carries the selected language into CardCreationRequest`() = runTest {
+        viewModel.startSharedTextCapture("I ran into an old friend")
+        viewModel.selectLanguage("de")
+        selectWords("ran", "into")
+        val reviewState = currentState as AppState.Screen.ContextReview
+        viewModel.startContextEdit(reviewState.targetWord, reviewState.context)
+
+        var received: CardCreationRequest? = null
+        launch { received = viewModel.cardCreationRequest.first() }
+        advanceUntilIdle()
+
+        viewModel.onContextEditSave("Yesterday I ran into her again")
+        advanceUntilIdle()
+
+        assertEquals("de", received?.language)
     }
 }

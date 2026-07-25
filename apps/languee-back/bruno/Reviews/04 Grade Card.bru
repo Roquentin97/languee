@@ -1,0 +1,45 @@
+meta {
+  name: Grade Card
+  type: http
+  seq: 4
+  tags: [
+    reviews
+  ]
+}
+
+post {
+  url: {{base_url}}/api/v1/reviews/{{card_id}}/grade
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+vars:pre-request {
+  card_id: 1db3f769-e154-44c6-9b98-87de1037a395
+}
+
+body:json {
+  {
+    "rating": "good",
+    "typedAnswer": "come across",
+    "answerResult": "correct"
+  }
+}
+
+tests {
+  test("grades the card or reports an unknown card", function() {
+    expect(res.status).to.be.oneOf([200, 404]);
+  });
+
+  test("returns the next schedule with an integer intervalDays", function() {
+    if (res.status === 200) {
+      expect(res.body.nextDueAt).to.be.a("string");
+      expect(res.body.intervalDays).to.be.a("number");
+      expect(Number.isInteger(res.body.intervalDays)).to.be.true;
+      expect(res.body.state).to.be.oneOf(["learning", "review"]);
+    }
+  });
+}

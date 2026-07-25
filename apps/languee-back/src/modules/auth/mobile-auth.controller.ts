@@ -31,6 +31,7 @@ import { MobileRefreshResponseDto } from './dto/mobile-refresh-response.dto';
 import { MobileRegisterResponseDto } from './dto/mobile-register-response.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { MS_PER_MINUTE } from '../core/time/time.constants';
 
 type AuthUser = { userId: string; sessionId: string };
 
@@ -40,7 +41,7 @@ export class MobileAuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: MS_PER_MINUTE, limit: 5 } })
   @HttpCode(201)
   @ApiOperation({ summary: 'Register a new account (mobile)' })
   @ApiBody({ type: RegisterDto })
@@ -63,7 +64,7 @@ export class MobileAuthController {
   }
 
   @Post('login')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: MS_PER_MINUTE, limit: 5 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Login (mobile)' })
   @ApiBody({ type: LoginDto })
@@ -86,7 +87,7 @@ export class MobileAuthController {
   }
 
   @Post('refresh')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: MS_PER_MINUTE, limit: 10 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Refresh access token (mobile)' })
   @ApiBody({ type: MobileRefreshRequestDto })

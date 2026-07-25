@@ -9,8 +9,9 @@ import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SessionData } from './interfaces/session.interface';
+import { MS_PER_SECOND, SECONDS_PER_DAY } from '../core/time/time.constants';
 
-const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
+const THIRTY_DAYS_SECONDS = 30 * SECONDS_PER_DAY;
 const DUMMY_HASH =
   '$2b$10$XE0X1VUQCzOZ.SPxF4q/f.ieiRmHIeVDUaQVt9xbrCNq4h4cgoxf.'; // bcrypt hash for timing-safe comparison
 
@@ -90,7 +91,9 @@ export class AuthService {
     const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + THIRTY_DAYS_SECONDS * 1000);
+    const expiresAt = new Date(
+      now.getTime() + THIRTY_DAYS_SECONDS * MS_PER_SECOND,
+    );
 
     const sessionData: SessionData = {
       sessionId,
@@ -162,7 +165,9 @@ export class AuthService {
     const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + THIRTY_DAYS_SECONDS * 1000);
+    const expiresAt = new Date(
+      now.getTime() + THIRTY_DAYS_SECONDS * MS_PER_SECOND,
+    );
 
     const sessionData: SessionData = {
       sessionId,
@@ -255,7 +260,11 @@ export class AuthService {
       message: 'session expiry',
       event: 'auth.session_expiry',
       method: this.refresh.name,
-      data: { sessionId, expiresAt: session.expiresAt, remainingTtlSeconds: remainingTtl },
+      data: {
+        sessionId,
+        expiresAt: session.expiresAt,
+        remainingTtlSeconds: remainingTtl,
+      },
     });
 
     const plainRefreshToken = randomUUID();
@@ -281,7 +290,11 @@ export class AuthService {
       message: 'token rotated',
       event: 'auth.token_rotated',
       method: this.refresh.name,
-      data: { userId: session.userId, sessionId, remainingTtlSeconds: remainingTtl },
+      data: {
+        userId: session.userId,
+        sessionId,
+        remainingTtlSeconds: remainingTtl,
+      },
     });
 
     return { accessToken, plainRefreshToken };

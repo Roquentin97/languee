@@ -7,7 +7,7 @@ from languee_nlp.nlp.provider import get_nlp
 
 @pytest.fixture(autouse=True)
 def reset_provider():
-    with patch("languee_nlp.nlp.provider._nlp", None):
+    with patch("languee_nlp.nlp.provider._nlp", {}):
         yield
 
 
@@ -49,3 +49,8 @@ def test_get_nlp_accepts_model_name_override():
     ) as mock_load:
         get_nlp(model_name="en_core_web_sm")
     mock_load.assert_called_once_with("en_core_web_sm")
+
+
+def test_get_nlp_rejects_unsupported_language():
+    with pytest.raises(ValueError):
+        get_nlp("fr")

@@ -5,13 +5,6 @@ export class CardAlreadyExistsError extends Error {
   }
 }
 
-export class DeckOwnershipError extends Error {
-  constructor() {
-    super('Deck not found or does not belong to this user');
-    this.name = 'DeckOwnershipError';
-  }
-}
-
 export class DefinitionNotFoundError extends Error {
   constructor() {
     super('Definition not found');

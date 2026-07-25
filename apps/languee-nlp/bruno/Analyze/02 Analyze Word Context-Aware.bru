@@ -1,0 +1,28 @@
+meta {
+  name: Analyze Word Context-Aware
+  type: http
+  seq: 2
+  tags: [
+    analyze
+    input_text
+  ]
+}
+
+get {
+  url: {{base_url}}/analyze?text=look&input_text=She%20decided%20to%20glance%20at%20the%20dictionary%20to%20look%20it%20over.
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("input_text_analysis is present", function() {
+    expect(res.body.kind).to.equal("word");
+    expect(res.body.input_text_analysis).to.be.an("object");
+    expect(res.body.input_text_analysis.input_found_in_text).to.equal(true);
+    expect(res.body.input_text_analysis.pos_source).to.equal("input_text");
+  });
+}

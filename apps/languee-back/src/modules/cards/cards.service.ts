@@ -8,9 +8,10 @@ import type {
 } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { DecksService } from '../decks/decks.service';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import {
   CardAlreadyExistsError,
-  DeckOwnershipError,
+  CardNotFoundError,
   DefinitionNotFoundError,
 } from './cards.errors';
 
@@ -39,14 +40,7 @@ export class CardsService {
     context?: string,
     inflectionForms?: Record<string, string> | null,
   ): Promise<CardWithDefinitionAndWord> {
-    const deck = await this.decksService.findOneByIdAndUserId(deckId, userId);
-    this.logger.debug({
-      message: 'deck ownership check',
-      event: 'card.deck_ownership_check',
-      method: this.create.name,
-      data: { deckId, userId, deckFound: deck !== null },
-    });
-    if (deck === null) throw new DeckOwnershipError();
+    await this.decksService.findOneOrThrow(deckId, userId);
 
     try {
       const result = await this.prisma.card.create({
@@ -90,7 +84,7 @@ export class CardsService {
             });
             throw new DefinitionNotFoundError();
           } else {
-            throw new DeckOwnershipError();
+            throw new DeckNotFoundError();
           }
         }
       }
@@ -108,21 +102,21 @@ export class CardsService {
   ): Promise<CardWithAnkiDroidExport[]> {
     const where: Prisma.CardWhereInput = { userId };
 
-    if (filters.deckId !== undefined) {
+    if (filters.deckId) {
       where.deckId = filters.deckId;
     }
 
     if (filters.ankiDroidExportStatus === 'none') {
       where.ankidroidExport = { is: null };
-    } else if (filters.ankiDroidExportStatus !== undefined) {
+    } else if (filters.ankiDroidExportStatus) {
       const exportWhere: Prisma.CardAnkiDroidExportWhereInput = {
         status: filters.ankiDroidExportStatus,
       };
-      if (filters.failureReason !== undefined) {
+      if (filters.failureReason) {
         exportWhere.failureReason = filters.failureReason;
       }
       where.ankidroidExport = { is: exportWhere };
-    } else if (filters.failureReason !== undefined) {
+    } else if (filters.failureReason) {
       where.ankidroidExport = {
         is: { failureReason: filters.failureReason },
       };
@@ -159,6 +153,15 @@ export class CardsService {
     });
   }
 
+  async findOwnedOrThrow(
+    id: string,
+    userId: string,
+  ): Promise<CardWithAnkiDroidExport> {
+    const card = await this.findOneByIdAndUserId(id, userId);
+    if (!card) throw new CardNotFoundError();
+    return card;
+  }
+
   findCardsByDefinitionIdsAndUserId(
     definitionIds: string[],
     userId: string,
@@ -171,6 +174,28 @@ export class CardsService {
         definitionId: true,
         deck: { select: { id: true, name: true } },
       },
+    });
+  }
+
+  findCardsWithoutReviewState(
+    userId: string,
+    deckId?: string,
+    limit?: number,
+  ): Promise<
+    Array<CardWithDefinitionAndWord & { deck: { id: string; name: string } }>
+  > {
+    return this.prisma.card.findMany({
+      where: {
+        userId,
+        ...(deckId ? { deckId } : {}),
+        reviewState: { is: null },
+      },
+      include: {
+        definition: { include: { word: true } },
+        deck: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      ...(limit !== undefined ? { take: limit } : {}),
     });
   }
 }

@@ -8,6 +8,22 @@ from languee_nlp.schemas import FormsResult, MorphologyResult, TokenResult
 logger = logging.getLogger(__name__)
 
 
+def _null_forms() -> FormsResult:
+    return FormsResult(
+        verb_base=None,
+        verb_past=None,
+        verb_present_3sg=None,
+        verb_present_non_3sg=None,
+        verb_gerund_participle=None,
+        verb_past_participle=None,
+        noun_singular=None,
+        noun_plural=None,
+        adj_positive=None,
+        adj_comparative=None,
+        adj_superlative=None,
+    )
+
+
 def _build_morphology(token: spacy.tokens.Token) -> MorphologyResult:
     morph: dict[str, str] = token.morph.to_dict()
     return MorphologyResult(

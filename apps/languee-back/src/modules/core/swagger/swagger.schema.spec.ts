@@ -166,7 +166,7 @@ const expectations: OperationExpectation[] = [
     path: '/api/v1/vocabulary/lookup',
     method: 'get',
     parameters: ['word', 'language', 'context', 'disablePosFiltering'],
-    responses: ['200', '401', '404', '422', '502'],
+    responses: ['200', '400', '401', '404', '502'],
     responseSchema: 'LookupVocabularyResponseDto',
   },
   {

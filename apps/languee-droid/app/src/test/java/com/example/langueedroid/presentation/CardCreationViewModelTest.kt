@@ -1,6 +1,7 @@
 package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
@@ -14,10 +15,15 @@ import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
+import com.example.langueedroid.core.domain.CreatedUserDefinition
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DeckRef
+import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
+import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
+import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
@@ -58,6 +64,7 @@ class CardCreationViewModelTest {
     private lateinit var ankiDroidExportRepository: AnkiDroidExportRepository
     private lateinit var ankiDroidExportService: AnkiDroidExportService
     private lateinit var prefsStore: AnkiDroidPreferencesStore
+    private lateinit var speaker: Speaker
 
     @Before
     fun setUp() {
@@ -68,6 +75,7 @@ class CardCreationViewModelTest {
         ankiDroidExportRepository = mock()
         ankiDroidExportService = mock()
         prefsStore = mock()
+        speaker = mock()
     }
 
     @After
@@ -78,15 +86,18 @@ class CardCreationViewModelTest {
     private fun buildViewModel(
         targetWord: String = "cat",
         context: String? = "I have a cat",
+        language: String = "en",
     ) = CardCreationViewModel(
         targetWord = targetWord,
         context = context,
+        language = language,
         deckRepository = deckRepository,
         vocabularyRepository = vocabularyRepository,
         cardRepository = cardRepository,
         ankiDroidExportRepository = ankiDroidExportRepository,
         ankiDroidExportService = ankiDroidExportService,
         prefsStore = prefsStore,
+        speaker = speaker,
     )
 
     // -------------------------------------------------------------------------
@@ -115,10 +126,30 @@ class CardCreationViewModelTest {
 
     private fun aLookupResult(
         definitions: List<DefinitionResult> = listOf(aDefinition()),
+        kind: LexicalKind = LexicalKind.WORD,
+        providerMiss: Boolean = false,
+        expressionContextFound: Boolean? = null,
     ) = LookupResult(
         input = "cat",
         lemma = "cat",
         definitions = definitions,
+        kind = kind,
+        providerMiss = providerMiss,
+        expressionContextFound = expressionContextFound,
+    )
+
+    private fun aCreatedUserDefinition(
+        id: String = "def_user_1",
+        kind: LexicalKind = LexicalKind.PHRASAL_VERB,
+    ) = CreatedUserDefinition(
+        id = id,
+        wordId = "word_1",
+        lemma = "run into",
+        kind = kind,
+        partOfSpeech = "phrase",
+        definition = "To encounter unexpectedly.",
+        example = "I ran into an old friend.",
+        provider = "user",
     )
 
     // -------------------------------------------------------------------------
@@ -207,7 +238,37 @@ class CardCreationViewModelTest {
         advanceUntilIdle()
 
         assertTrue(vm.state.value.flowState is CardCreationFlowState.DefinitionsLoaded)
-        verify(vocabularyRepository).lookup(eq("cat"), anyOrNull(), eq("I have a cat"))
+        verify(vocabularyRepository).lookup(eq("cat"), eq("en"), eq("I have a cat"))
+    }
+
+    // -------------------------------------------------------------------------
+    // Lookup — assisted language is threaded through to the repository call
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `lookup is called with the assisted language`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult()))
+
+        val vm = buildViewModel(language = "es")
+        advanceUntilIdle()
+
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        verify(vocabularyRepository).lookup(eq("cat"), eq("es"), eq("I have a cat"))
+    }
+
+    @Test
+    fun `state carries the assisted language for the header speaker button`() = runTest {
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
+
+        val vm = buildViewModel(language = "de")
+        advanceUntilIdle()
+
+        assertEquals("de", vm.state.value.language)
     }
 
     // -------------------------------------------------------------------------
@@ -719,5 +780,287 @@ class CardCreationViewModelTest {
         advanceUntilIdle()
 
         verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull())
+    }
+
+    // -------------------------------------------------------------------------
+    // Expression lookup — kind and context-not-found warning
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `lookup for an expression sets state kind to PHRASAL_VERB`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(kind = LexicalKind.PHRASAL_VERB)))
+
+        val vm = buildViewModel(targetWord = "ran into")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        assertEquals(LexicalKind.PHRASAL_VERB, vm.state.value.kind)
+    }
+
+    @Test
+    fun `lookup with expressionContextFound false is reflected in state`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(kind = LexicalKind.EXPRESSION, expressionContextFound = false)))
+
+        val vm = buildViewModel(targetWord = "spill the beans")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        assertEquals(false, vm.state.value.expressionContextFound)
+    }
+
+    @Test
+    fun `lookup for a plain word leaves kind as WORD`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(kind = LexicalKind.WORD)))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        assertEquals(LexicalKind.WORD, vm.state.value.kind)
+    }
+
+    // -------------------------------------------------------------------------
+    // Expression lookup — EXPRESSION_TOO_LONG surfaced distinctly
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `vocabulary lookup ExpressionTooLongException — LookupError with EXPRESSION_TOO_LONG`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.failure(ExpressionTooLongException()))
+
+        val vm = buildViewModel(targetWord = "one two three four five six seven")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState
+        assertTrue(flowState is CardCreationFlowState.LookupError)
+        assertEquals(CardCreationError.EXPRESSION_TOO_LONG, (flowState as CardCreationFlowState.LookupError).type)
+    }
+
+    @Test
+    fun `vocabulary lookup LookupInputInvalidException — LookupError with LOOKUP_INPUT_INVALID`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.failure(LookupInputInvalidException()))
+
+        val vm = buildViewModel(targetWord = "state-of-the-art")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState
+        assertTrue(flowState is CardCreationFlowState.LookupError)
+        assertEquals(CardCreationError.LOOKUP_INPUT_INVALID, (flowState as CardCreationFlowState.LookupError).type)
+    }
+
+    // -------------------------------------------------------------------------
+    // providerMiss — transitions to ManualDefinition instead of NoDefinitions
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `empty definitions with providerMiss true — ManualDefinition state shown`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+
+        val vm = buildViewModel(targetWord = "spill the beans")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.flowState is CardCreationFlowState.ManualDefinition)
+    }
+
+    @Test
+    fun `empty definitions with providerMiss false — NoDefinitions state shown, not ManualDefinition`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), providerMiss = false)))
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.flowState is CardCreationFlowState.NoDefinitions)
+    }
+
+    // -------------------------------------------------------------------------
+    // submitManualDefinition — happy path
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `submitManualDefinition success proceeds to SelectingExample with returned definition`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
+
+        val vm = buildViewModel(targetWord = "run into")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState
+        assertTrue(flowState is CardCreationFlowState.SelectingExample)
+        assertEquals("def_user_1", (flowState as CardCreationFlowState.SelectingExample).selectedDefinition.id)
+        assertEquals(DefinitionState.Available, flowState.definitionState)
+        assertEquals(LexicalKind.PHRASAL_VERB, vm.state.value.kind)
+        verify(vocabularyRepository).createUserDefinition(
+            eq("run into"),
+            eq("To encounter unexpectedly."),
+            eq("en"),
+            anyOrNull(),
+        )
+    }
+
+    @Test
+    fun `submitManualDefinition passes the assisted language`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
+
+        val vm = buildViewModel(targetWord = "run into", language = "de")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+
+        verify(vocabularyRepository).createUserDefinition(
+            eq("run into"),
+            eq("To encounter unexpectedly."),
+            eq("de"),
+            anyOrNull(),
+        )
+    }
+
+    @Test
+    fun `submitManualDefinition with blank text is a no-op`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+
+        val vm = buildViewModel(targetWord = "run into")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+
+        verify(vocabularyRepository, never()).createUserDefinition(any(), any(), anyOrNull(), anyOrNull())
+        assertTrue(vm.state.value.flowState is CardCreationFlowState.ManualDefinition)
+    }
+
+    // -------------------------------------------------------------------------
+    // submitManualDefinition — 409 conflict re-fetches lookup
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `submitManualDefinition 409 re-fetches lookup and surfaces a notice`() = runTest {
+        val deck = aDeck()
+        val existingDefinition = aDefinition(id = "existing_def")
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.failure(DefinitionAlreadyExistsException()))
+
+        val vm = buildViewModel(targetWord = "run into")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
+        // Re-stub lookup for the retry triggered by the 409 so it now returns the existing definition.
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = listOf(existingDefinition), kind = LexicalKind.EXPRESSION)))
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState
+        assertTrue(flowState is CardCreationFlowState.DefinitionsLoaded)
+        assertEquals(CardCreationError.DEFINITION_ALREADY_EXISTS, (flowState as CardCreationFlowState.DefinitionsLoaded).notice)
+        assertEquals("existing_def", flowState.definitions[0].id)
+        verify(vocabularyRepository, times(2)).lookup(any(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `submitManualDefinition 401 — unauthorizedEvent is emitted`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.failure(UnauthorizedException()))
+
+        val vm = buildViewModel(targetWord = "run into")
+        var unauthorizedCalled = false
+        val job = launch { vm.unauthorizedEvent.first(); unauthorizedCalled = true }
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+        job.cancel()
+
+        assertTrue(unauthorizedCalled)
+    }
+
+    @Test
+    fun `submitManualDefinition generic failure — inline error shown, form retained`() = runTest {
+        val deck = aDeck()
+        whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.success(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true)))
+        whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
+            .thenReturn(Result.failure(RuntimeException("HTTP 500")))
+
+        val vm = buildViewModel(targetWord = "run into")
+        advanceUntilIdle()
+        vm.onDeckSelected(deck)
+        advanceUntilIdle()
+
+        vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
+        vm.submitManualDefinition()
+        advanceUntilIdle()
+
+        val flowState = vm.state.value.flowState
+        assertTrue(flowState is CardCreationFlowState.ManualDefinition)
+        assertEquals(CardCreationError.MANUAL_DEFINITION_FAILED, (flowState as CardCreationFlowState.ManualDefinition).error)
+        assertFalse(flowState.isSubmitting)
     }
 }

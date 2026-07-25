@@ -1,33 +1,47 @@
 import {
   BadGatewayException,
+  BadRequestException,
+  ConflictException,
+  Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
+  Post,
   Query,
-  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadGatewayResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
-  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { API_V1_PREFIX } from '../core/api-prefix';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
-import { ProviderUnavailableError } from '../definitions/definitions.errors';
+import {
+  DefinitionAlreadyExistsError,
+  ProviderUnavailableError,
+} from '../definitions/definitions.errors';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
-import { NlpMultiWordError, NlpUnavailableError } from '../nlp/nlp.errors';
+import { NlpInputInvalidError, NlpUnavailableError } from '../nlp/nlp.errors';
+import { PartOfSpeechRequiredError } from './vocabulary.errors';
 import { LookupVocabularyDto } from './dto/lookup-vocabulary.dto';
 import { LookupVocabularyResponseDto } from './dto/lookup-vocabulary-response.dto';
+import { CreateUserDefinitionDto } from './dto/create-user-definition.dto';
+import { CreateUserDefinitionResponseDto } from './dto/create-user-definition-response.dto';
 import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
+import type { CreateUserDefinitionOutput } from './types/create-user-definition.types';
 import { VocabularyService } from './vocabulary.service';
 
 @ApiTags('vocabulary')
@@ -39,7 +53,12 @@ export class VocabularyController {
 
   @Get('lookup')
   @ApiOperation({ summary: 'Look up a vocabulary entry with deck membership' })
-  @ApiQuery({ name: 'word', type: String, required: true, example: 'running' })
+  @ApiQuery({
+    name: 'word',
+    type: String,
+    required: true,
+    example: 'running',
+  })
   @ApiQuery({
     name: 'language',
     type: String,
@@ -62,8 +81,8 @@ export class VocabularyController {
   @ApiOkResponse({ type: LookupVocabularyResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiNotFoundResponse({ description: 'Definitions not found' })
-  @ApiUnprocessableEntityResponse({
-    description: 'Multi-word input is not supported',
+  @ApiBadRequestResponse({
+    description: 'NLP rejected the input (token count, unsupported language)',
   })
   @ApiBadGatewayResponse({
     description: 'NLP service or dictionary provider unavailable',
@@ -84,13 +103,58 @@ export class VocabularyController {
       if (err instanceof NlpUnavailableError) {
         throw new BadGatewayException('NLP_UNAVAILABLE');
       }
-      if (err instanceof NlpMultiWordError) {
-        throw new UnprocessableEntityException(
-          'MULTI_WORD_INPUT_NOT_SUPPORTED',
-        );
+      if (err instanceof NlpInputInvalidError) {
+        throw new BadRequestException('INPUT_INVALID');
       }
       if (err instanceof DefinitionsNotFoundException) {
         throw new NotFoundException('DEFINITIONS_NOT_FOUND');
+      }
+      if (err instanceof ProviderUnavailableError) {
+        throw new BadGatewayException('PROVIDER_UNAVAILABLE');
+      }
+      throw err;
+    }
+  }
+
+  @Post('definitions')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Create a user-provided definition for a word or expression the dictionary provider does not know',
+  })
+  @ApiCreatedResponse({ type: CreateUserDefinitionResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  @ApiBadRequestResponse({
+    description:
+      'Validation failure, missing partOfSpeech for a single word, or input rejected by NLP',
+  })
+  @ApiConflictResponse({ description: 'Definition already exists' })
+  @ApiBadGatewayResponse({
+    description: 'NLP service unavailable',
+  })
+  async createUserDefinition(
+    @Body() body: CreateUserDefinitionDto,
+  ): Promise<CreateUserDefinitionOutput> {
+    try {
+      return await this.vocabularyService.createUserDefinition({
+        text: body.text,
+        language: body.language ?? 'en',
+        definition: body.definition,
+        example: body.example,
+        partOfSpeech: body.partOfSpeech,
+      });
+    } catch (err: unknown) {
+      if (err instanceof PartOfSpeechRequiredError) {
+        throw new BadRequestException('PART_OF_SPEECH_REQUIRED');
+      }
+      if (err instanceof NlpInputInvalidError) {
+        throw new BadRequestException('INPUT_INVALID');
+      }
+      if (err instanceof DefinitionAlreadyExistsError) {
+        throw new ConflictException('DEFINITION_ALREADY_EXISTS');
+      }
+      if (err instanceof NlpUnavailableError) {
+        throw new BadGatewayException('NLP_UNAVAILABLE');
       }
       if (err instanceof ProviderUnavailableError) {
         throw new BadGatewayException('PROVIDER_UNAVAILABLE');

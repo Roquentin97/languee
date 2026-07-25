@@ -6,10 +6,7 @@ import type {
 } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
-import {
-  CardNotFoundOrNotOwnedError,
-  ExportNotFoundError,
-} from './ankidroid-exports.errors';
+import { ExportNotFoundError } from './ankidroid-exports.errors';
 import type { RecordAttemptDto } from './dto/create-export-attempt.dto';
 
 export type ExportWithAttempts = CardAnkiDroidExport & {
@@ -29,21 +26,12 @@ export class AnkiDroidExportsService {
     userId: string,
     cardId: string,
   ): Promise<{ export: CardAnkiDroidExport; created: boolean }> {
-    const card = await this.cardsService.findOneByIdAndUserId(cardId, userId);
-    this.logger.debug({
-      message: 'card ownership check',
-      event: 'ankidroid.card_ownership_check',
-      method: this.getOrCreateExportForCard.name,
-      data: { cardId, userId, found: card !== null },
-    });
-    if (card === null) {
-      throw new CardNotFoundOrNotOwnedError();
-    }
+    await this.cardsService.findOwnedOrThrow(cardId, userId);
 
     const existing = await this.prisma.cardAnkiDroidExport.findUnique({
       where: { cardId },
     });
-    if (existing !== null) {
+    if (existing) {
       this.logger.log({
         message: 'export record found',
         event: 'ankidroid.export_record_found',
@@ -79,7 +67,7 @@ export class AnkiDroidExportsService {
         const refetched = await this.prisma.cardAnkiDroidExport.findUnique({
           where: { cardId },
         });
-        if (refetched === null) {
+        if (!refetched) {
           throw err;
         }
         return { export: refetched, created: false };
@@ -97,7 +85,7 @@ export class AnkiDroidExportsService {
       include: { attempts: { orderBy: { attemptedAt: 'desc' } } },
     });
 
-    if (record === null) {
+    if (!record) {
       return null;
     }
 
@@ -105,7 +93,7 @@ export class AnkiDroidExportsService {
       record.cardId,
       userId,
     );
-    if (card === null) {
+    if (!card) {
       return null;
     }
 
@@ -121,7 +109,7 @@ export class AnkiDroidExportsService {
       where: { id: exportId },
     });
 
-    if (record === null) {
+    if (!record) {
       throw new ExportNotFoundError();
     }
 
@@ -129,7 +117,7 @@ export class AnkiDroidExportsService {
       record.cardId,
       userId,
     );
-    if (card === null) {
+    if (!card) {
       throw new ExportNotFoundError();
     }
 

@@ -1,13 +1,13 @@
 import {
   BadGatewayException,
-  UnprocessableEntityException,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { VocabularyController } from './vocabulary.controller';
 import { VocabularyService } from './vocabulary.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { NlpMultiWordError, NlpUnavailableError } from '../nlp/nlp.errors';
+import { NlpInputInvalidError, NlpUnavailableError } from '../nlp/nlp.errors';
 import { DefinitionsNotFoundException } from '../dictionary/dictionary.errors';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
@@ -26,6 +26,8 @@ const mockUser: CurrentUserPayload = {
 const successOutput: LookupVocabularyOutput = {
   input: 'run',
   lemma: 'run',
+  language: 'en',
+  kind: 'word',
   partOfSpeech: PartOfSpeech.VERB,
   definitions: [
     {
@@ -43,6 +45,9 @@ const successOutput: LookupVocabularyOutput = {
     filteredByPos: true,
     unmatchedPos: false,
     availablePartsOfSpeech: [PartOfSpeech.VERB],
+    isExpression: false,
+    providerMiss: false,
+    expressionContextFound: null,
   },
 };
 
@@ -136,19 +141,19 @@ describe('VocabularyController', () => {
       });
     });
 
-    it('NlpMultiWordError is mapped to 422 UnprocessableEntityException with MULTI_WORD_INPUT_NOT_SUPPORTED message', async () => {
-      mockVocabularyService.lookup.mockRejectedValue(new NlpMultiWordError());
+    it('NlpInputInvalidError is mapped to 400 BadRequestException with INPUT_INVALID message', async () => {
+      mockVocabularyService.lookup.mockRejectedValue(
+        new NlpInputInvalidError(),
+      );
 
       const err = await controller
         .lookup({ word: 'walk fast', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
-      expect(err).toBeInstanceOf(UnprocessableEntityException);
-      expect((err as UnprocessableEntityException).getResponse()).toMatchObject(
-        {
-          message: 'MULTI_WORD_INPUT_NOT_SUPPORTED',
-        },
-      );
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect((err as BadRequestException).getResponse()).toMatchObject({
+        message: 'INPUT_INVALID',
+      });
     });
 
     it('DefinitionsNotFoundException is mapped to 404 NotFoundException with DEFINITIONS_NOT_FOUND message', async () => {

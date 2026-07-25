@@ -136,7 +136,7 @@ def test_post_words_meeting_as_verb_in_planning_context():
         idx=selection_start,
         token_index=4,
     )
-    nlp = _make_nlp_from_tokens(
+    context_nlp = _make_nlp_from_tokens(
         [
             _make_token("I", "I", "PRON", 0, 0),
             _make_token("am", "be", "AUX", 2, 1),
@@ -146,8 +146,14 @@ def test_post_words_meeting_as_verb_in_planning_context():
             _make_token("him", "he", "PRON", 25, 5),
         ]
     )
+    word_doc = MagicMock()
+    word_doc.__len__ = MagicMock(return_value=1)
+    word_doc.__getitem__ = MagicMock(return_value=meeting_token)
+    nlp = MagicMock(
+        side_effect=lambda value: word_doc if value == word else context_nlp(value)
+    )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
             from fastapi.testclient import TestClient
 
@@ -155,9 +161,9 @@ def test_post_words_meeting_as_verb_in_planning_context():
 
             client = TestClient(app)
             response = client.get(
-                "/words",
+                "/analyze",
                 params={
-                    "word": word,
+                    "text": word,
                     "input_text": context,
                 },
                 auth=("admin", "changeme"),
@@ -189,7 +195,7 @@ def test_post_words_meeting_as_noun_in_went_to_context():
         idx=selection_start,
         token_index=4,
     )
-    nlp = _make_nlp_from_tokens(
+    context_nlp = _make_nlp_from_tokens(
         [
             _make_token("I", "I", "PRON", 0, 0),
             _make_token("went", "go", "VERB", 2, 1),
@@ -198,8 +204,14 @@ def test_post_words_meeting_as_noun_in_went_to_context():
             meeting_token,
         ]
     )
+    word_doc = MagicMock()
+    word_doc.__len__ = MagicMock(return_value=1)
+    word_doc.__getitem__ = MagicMock(return_value=meeting_token)
+    nlp = MagicMock(
+        side_effect=lambda value: word_doc if value == word else context_nlp(value)
+    )
 
-    with patch("languee_nlp.routers.words.get_nlp", return_value=nlp):
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp):
         with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
             from fastapi.testclient import TestClient
 
@@ -207,9 +219,9 @@ def test_post_words_meeting_as_noun_in_went_to_context():
 
             client = TestClient(app)
             response = client.get(
-                "/words",
+                "/analyze",
                 params={
-                    "word": word,
+                    "text": word,
                     "input_text": context,
                 },
                 auth=("admin", "changeme"),

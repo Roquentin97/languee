@@ -27,14 +27,11 @@ export class DictionaryService {
   ) {}
 
   async lookup(input: LookupWordInput): Promise<LookupWordOutput> {
-    const lemma =
-      input.lemma !== undefined
-        ? input.lemma
-        : this.wordsService.canonicalise(input.word);
+    const lemma = input.lemma ?? this.wordsService.canonicalise(input.word);
 
     const word = await this.wordsService.findByLemma(lemma, input.language);
 
-    if (word !== null) {
+    if (word) {
       const rows = await this.definitionService.findByWordId(word.id);
       if (rows.length > 0) {
         const definitions: DefinitionResult[] = rows.map((row) => ({
@@ -70,13 +67,14 @@ export class DictionaryService {
       data: {
         lemma,
         language: input.language,
-        wordFoundInDb: word !== null,
+        wordFoundInDb: Boolean(word),
       },
     });
 
     const savedWord = await this.wordsService.ensureExistsAndReturn(
       lemma,
       input.language,
+      input.kind,
     );
     const rawEntries = await this.adapter.fetch(lemma, input.language);
     if (rawEntries.length === 0) {

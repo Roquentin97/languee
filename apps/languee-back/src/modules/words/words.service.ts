@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { LexicalKind, Prisma } from '@prisma/client';
 import type { Word } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { Normalizer } from './nlp/normalizer';
@@ -28,7 +28,11 @@ export class WordsService {
     });
   }
 
-  async ensureExistsAndReturn(lemma: string, language: string) {
+  async ensureExistsAndReturn(
+    lemma: string,
+    language: string,
+    kind: LexicalKind,
+  ) {
     const existing = await this.prisma.word.findUnique({
       where: { lemma_language: { lemma, language } },
     });
@@ -36,7 +40,7 @@ export class WordsService {
 
     try {
       return await this.prisma.word.create({
-        data: { lemma, language },
+        data: { lemma, language, kind },
       });
     } catch (err: unknown) {
       if (

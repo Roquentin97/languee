@@ -73,7 +73,35 @@ class InputTextAnalysis(BaseModel):
 class WordAnalysisResponse(BaseModel):
     model_config = ConfigDict(exclude_none=True)
 
+    kind: Literal["word"] = "word"
     input_text: str
     is_multi_word: bool
+    language: str
     tokens: list[TokenResult]
     input_text_analysis: InputTextAnalysis | None = None
+
+
+class ExpressionTokenResult(BaseModel):
+    text: str
+    lemma: str
+    pos: str
+
+
+class ContextMatch(BaseModel):
+    found: bool
+    matched_text: str | None
+    start: int | None
+    end: int | None
+    confidence: Literal["high", "low"] | None
+
+
+class ExpressionAnalysisResponse(BaseModel):
+    model_config = ConfigDict(exclude_none=True)
+
+    input_text: str
+    canonical: str
+    kind: Literal["phrasal_verb", "expression"]
+    head_lemma: str
+    language: str
+    tokens: list[ExpressionTokenResult]
+    context_match: ContextMatch | None = None

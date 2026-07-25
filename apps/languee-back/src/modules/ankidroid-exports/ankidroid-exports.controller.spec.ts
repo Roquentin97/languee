@@ -3,10 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AnkiDroidExportsController } from './ankidroid-exports.controller';
 import { AnkiDroidExportsService } from './ankidroid-exports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import {
-  CardNotFoundOrNotOwnedError,
-  ExportNotFoundError,
-} from './ankidroid-exports.errors';
+import { CardNotFoundError } from '../cards/cards.errors';
+import { ExportNotFoundError } from './ankidroid-exports.errors';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import type {
   CardAnkiDroidExport,
@@ -135,9 +133,9 @@ describe('AnkiDroidExportsController', () => {
       expect(statusMock).toHaveBeenCalledWith(200);
     });
 
-    it('edge case — CardNotFoundOrNotOwnedError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
+    it('edge case — CardNotFoundError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
       mockAnkiDroidExportsService.getOrCreateExportForCard.mockRejectedValue(
-        new CardNotFoundOrNotOwnedError(),
+        new CardNotFoundError(),
       );
       const { res } = makeMockResponse();
 

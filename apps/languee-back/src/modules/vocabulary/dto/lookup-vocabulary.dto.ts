@@ -7,9 +7,12 @@ import {
   Length,
   Matches,
 } from 'class-validator';
-
 export class LookupVocabularyDto {
-  @ApiProperty({ example: 'running', description: 'Word to look up' })
+  @ApiProperty({
+    example: 'running',
+    description:
+      'Word or expression to look up. Idioms and phrasal verbs are supported; the NLP service owns the token-count limit and rejects inputs above it.',
+  })
   @IsString()
   @IsNotEmpty({ message: 'WORD_REQUIRED' })
   word!: string;

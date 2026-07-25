@@ -24,6 +24,7 @@ import { LookupWordDto } from './dto/lookup-word.dto';
 import { LookupWordResponseDto } from './dto/lookup-word-response.dto';
 import type { LookupWordOutput } from './types/lookup-word.types';
 import { DictionaryService } from './dictionary.service';
+import { LexicalKind } from '@prisma/client';
 
 @ApiTags('dictionary')
 @ApiBearerAuth('access-token')
@@ -56,6 +57,7 @@ export class DictionaryController {
       return await this.dictionaryService.lookup({
         word: query.word,
         language: query.language ?? 'en',
+        kind: LexicalKind.word,
       });
     } catch (e: unknown) {
       if (e instanceof DefinitionsNotFoundException) {

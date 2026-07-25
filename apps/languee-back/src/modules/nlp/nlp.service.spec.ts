@@ -1,9 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { NlpMultiWordError, NlpUnavailableError } from './nlp.errors';
+import { NlpInputInvalidError, NlpUnavailableError } from './nlp.errors';
 import { NlpService } from './nlp.service';
-import type { NlpWordResponse } from './nlp.interfaces';
+import type { NlpExpressionResponse, NlpWordResponse } from './nlp.interfaces';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
+import { RequestFailure, RequestService } from '../core/http/request.service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -13,6 +14,7 @@ function makeVerbResponse(
   overrides: Partial<NlpWordResponse> = {},
 ): NlpWordResponse {
   return {
+    kind: 'word',
     input_text: 'walk',
     is_multi_word: false,
     tokens: [
@@ -48,6 +50,7 @@ function makeVerbResponse(
 
 function makeNounResponse(): NlpWordResponse {
   return {
+    kind: 'word',
     input_text: 'dog',
     is_multi_word: false,
     tokens: [
@@ -82,6 +85,7 @@ function makeNounResponse(): NlpWordResponse {
 
 function makeAdjResponse(): NlpWordResponse {
   return {
+    kind: 'word',
     input_text: 'fast',
     is_multi_word: false,
     tokens: [
@@ -111,6 +115,22 @@ function makeAdjResponse(): NlpWordResponse {
         },
       },
     ],
+  };
+}
+
+function makeExpressionResponse(
+  overrides: Partial<NlpExpressionResponse> = {},
+): NlpExpressionResponse {
+  return {
+    input_text: 'ran into',
+    canonical: 'run into',
+    kind: 'phrasal_verb',
+    head_lemma: 'run',
+    tokens: [
+      { text: 'ran', lemma: 'run', pos: 'VERB' },
+      { text: 'into', lemma: 'into', pos: 'ADP' },
+    ],
+    ...overrides,
   };
 }
 
@@ -156,6 +176,7 @@ describe('NlpService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NlpService,
+        RequestService,
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
@@ -164,10 +185,10 @@ describe('NlpService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Happy paths
+  // Happy paths — word responses
   // -------------------------------------------------------------------------
 
-  describe('analyzeWord() — happy paths', () => {
+  describe('analyze() — word happy paths', () => {
     it('VERB word with full forms returns NlpAnalysis with compact inflectionForms', async () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -175,8 +196,10 @@ describe('NlpService', () => {
       }) as jest.MockedFunction<typeof fetch>;
       global.fetch = mockFetch;
 
-      const result = await service.analyzeWord('walked');
+      const result = await service.analyze('walked');
 
+      expect(result.kind).toBe('word');
+      if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.lemma).toBe('walk');
       expect(result.pos).toBe(PartOfSpeech.VERB);
       expect(result.isIrregular).toBe(false);
@@ -198,8 +221,9 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      const result = await service.analyzeWord('dog');
+      const result = await service.analyze('dog');
 
+      if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.lemma).toBe('dog');
       expect(result.pos).toBe(PartOfSpeech.NOUN);
       expect(result.inflectionForms).toEqual({
@@ -216,8 +240,9 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      const result = await service.analyzeWord('fast');
+      const result = await service.analyze('fast');
 
+      if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.lemma).toBe('fast');
       expect(result.pos).toBe(PartOfSpeech.ADJECTIVE);
       expect(result.inflectionForms).toEqual({
@@ -230,6 +255,7 @@ describe('NlpService', () => {
 
     it('unknown POS returns empty inflectionForms object', async () => {
       const response: NlpWordResponse = {
+        kind: 'word',
         input_text: 'hmm',
         is_multi_word: false,
         tokens: [
@@ -267,8 +293,9 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      const result = await service.analyzeWord('hmm');
+      const result = await service.analyze('hmm');
 
+      if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.inflectionForms).toBeNull();
     });
 
@@ -288,8 +315,9 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      const result = await service.analyzeWord('walked');
+      const result = await service.analyze('walked');
 
+      if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.inflectionForms).toBeNull();
     });
 
@@ -303,26 +331,61 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      const result = await service.analyzeWord('walked');
+      const result = await service.analyze('walked');
 
+      if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.lemma).toBe('walk');
     });
   });
 
   // -------------------------------------------------------------------------
-  // Error cases
+  // Language param forwarding
   // -------------------------------------------------------------------------
 
-  describe('analyzeWord() — error cases', () => {
+  describe('analyze() — language param', () => {
+    it('defaults to language=en in the request URL when language is omitted', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('walked');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('language')).toBe('en');
+    });
+
+    it('forwards an explicit language param unchanged (NLP owns validity)', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeVerbResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('walked', undefined, 'fr');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('text')).toBe('walked');
+      expect(url.searchParams.get('language')).toBe('fr');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Error cases — word responses
+  // -------------------------------------------------------------------------
+
+  describe('analyze() — word error cases', () => {
     it('non-2xx response throws NlpUnavailableError', async () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 503,
+        text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      await expect(service.analyzeWord('walk')).rejects.toBeInstanceOf(
+      await expect(service.analyze('walk')).rejects.toBeInstanceOf(
         NlpUnavailableError,
       );
     });
@@ -331,7 +394,7 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      await expect(service.analyzeWord('walk')).rejects.toBeInstanceOf(
+      await expect(service.analyze('walk')).rejects.toBeInstanceOf(
         NlpUnavailableError,
       );
     });
@@ -341,81 +404,20 @@ describe('NlpService', () => {
       const mockFetch = jest.fn().mockRejectedValue(cause);
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      const err = await service.analyzeWord('walk').catch((e: unknown) => e);
+      const err = await service.analyze('walk').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(NlpUnavailableError);
-      expect((err as NlpUnavailableError).cause).toBe(cause);
+      const failure = (err as NlpUnavailableError).cause;
+      expect(failure).toBeInstanceOf(RequestFailure);
+      expect((failure as RequestFailure).kind).toBe('network');
+      expect((failure as RequestFailure).cause).toBe(cause);
     });
 
-    it('is_multi_word=true throws NlpMultiWordError', async () => {
-      const response = makeVerbResponse({ is_multi_word: true });
-
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(response),
-      });
-      global.fetch = mockFetch as unknown as typeof fetch;
-
-      await expect(service.analyzeWord('walk fast')).rejects.toBeInstanceOf(
-        NlpMultiWordError,
-      );
-    });
-
-    it('tokens.length !== 1 despite is_multi_word=false throws NlpMultiWordError', async () => {
+    it('word body with empty tokens array throws NlpUnavailableError', async () => {
       const response: NlpWordResponse = {
-        input_text: 'walk run',
+        kind: 'word',
+        input_text: 'walk',
         is_multi_word: false,
-        tokens: [
-          {
-            text: 'walk',
-            lemma: 'walk',
-            pos: 'VERB',
-            is_irregular: false,
-            morphology: {
-              tense: null,
-              verb_form: null,
-              number: null,
-              degree: null,
-            },
-            forms: {
-              verb_base: 'walk',
-              verb_past: 'walked',
-              verb_gerund_participle: 'walking',
-              verb_past_participle: 'walked',
-              verb_present_non_3sg: 'walk',
-              verb_present_3sg: 'walks',
-              noun_singular: null,
-              noun_plural: null,
-              adj_positive: null,
-              adj_comparative: null,
-              adj_superlative: null,
-            },
-          },
-          {
-            text: 'run',
-            lemma: 'run',
-            pos: 'VERB',
-            is_irregular: false,
-            morphology: {
-              tense: null,
-              verb_form: null,
-              number: null,
-              degree: null,
-            },
-            forms: {
-              verb_base: 'run',
-              verb_past: 'ran',
-              verb_gerund_participle: 'running',
-              verb_past_participle: 'run',
-              verb_present_non_3sg: 'run',
-              verb_present_3sg: 'runs',
-              noun_singular: null,
-              noun_plural: null,
-              adj_positive: null,
-              adj_comparative: null,
-              adj_superlative: null,
-            },
-          },
-        ],
+        tokens: [],
       };
 
       const mockFetch = jest.fn().mockResolvedValue({
@@ -424,8 +426,8 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      await expect(service.analyzeWord('walk run')).rejects.toBeInstanceOf(
-        NlpMultiWordError,
+      await expect(service.analyze('walk')).rejects.toBeInstanceOf(
+        NlpUnavailableError,
       );
     });
 
@@ -436,11 +438,11 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      await service.analyzeWord('walk');
+      await service.analyze('walk');
 
       const expectedCredentials = Buffer.from('user:pass').toString('base64');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/words?word=walk'),
+        expect.stringContaining('/analyze?text=walk'),
         expect.objectContaining({
           headers: { Authorization: `Basic ${expectedCredentials}` },
         }),
@@ -454,11 +456,11 @@ describe('NlpService', () => {
       });
       global.fetch = mockFetch as unknown as typeof fetch;
 
-      await service.analyzeWord('saw', 'The saw was sharp enough to cut oak');
+      await service.analyze('saw', 'The saw was sharp enough to cut oak');
 
       const url = getFirstFetchUrl(mockFetch);
-      expect(url.pathname).toBe('/words');
-      expect(url.searchParams.get('word')).toBe('saw');
+      expect(url.pathname).toBe('/analyze');
+      expect(url.searchParams.get('text')).toBe('saw');
       expect(url.searchParams.get('input_text')).toBe(
         'The saw was sharp enough to cut oak',
       );
@@ -471,10 +473,272 @@ describe('NlpService', () => {
       }) as jest.MockedFunction<typeof fetch>;
       global.fetch = mockFetch;
 
-      await service.analyzeWord('walk', '   ');
+      await service.analyze('walk', '   ');
 
       const url = getFirstFetchUrl(mockFetch);
-      expect(url.searchParams.get('word')).toBe('walk');
+      expect(url.searchParams.get('text')).toBe('walk');
+      expect(url.searchParams.has('input_text')).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Error cases — input validation (400 / 422)
+  // -------------------------------------------------------------------------
+
+  describe('analyze() — input validation errors', () => {
+    it('400 response throws NlpInputInvalidError', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: jest.fn().mockResolvedValue(''),
+        json: () => Promise.resolve({}),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(service.analyze('a b c d e f g')).rejects.toBeInstanceOf(
+        NlpInputInvalidError,
+      );
+    });
+
+    it('422 response throws NlpInputInvalidError', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        text: jest.fn().mockResolvedValue(''),
+        json: () => Promise.resolve({}),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(service.analyze('xyzzy')).rejects.toBeInstanceOf(
+        NlpInputInvalidError,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Happy paths — expression responses
+  // -------------------------------------------------------------------------
+
+  describe('analyze() — expression happy paths', () => {
+    it('maps canonical, kind, and headLemma from the NLP response', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyze('ran into');
+
+      if (result.kind === 'word') throw new Error('expected expression result');
+      expect(result.canonical).toBe('run into');
+      expect(result.kind).toBe('phrasal_verb');
+      expect(result.headLemma).toBe('run');
+      expect(result.contextMatch).toBeNull();
+    });
+
+    it('maps kind "expression" from the NLP response', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            makeExpressionResponse({
+              input_text: 'kick the bucket',
+              canonical: 'kick the bucket',
+              kind: 'expression',
+              head_lemma: 'kick',
+            }),
+          ),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyze('kick the bucket');
+
+      expect(result.kind).toBe('expression');
+    });
+
+    it('maps context_match to contextMatch when context is provided', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            makeExpressionResponse({
+              context_match: {
+                found: true,
+                matched_text: 'ran into',
+                start: 5,
+                end: 13,
+                confidence: 'high',
+              },
+            }),
+          ),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyze(
+        'ran into',
+        'I ran into an old friend.',
+      );
+
+      if (result.kind === 'word') throw new Error('expected expression result');
+      expect(result.contextMatch).toEqual({
+        found: true,
+        matchedText: 'ran into',
+        confidence: 'high',
+      });
+    });
+
+    it('contextMatch is null when the NLP response omits context_match', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.analyze('ran into');
+
+      if (result.kind === 'word') throw new Error('expected expression result');
+      expect(result.contextMatch).toBeNull();
+    });
+
+    it('sends the expression as a query parameter to /analyze', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('ran into');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.pathname).toBe('/analyze');
+      expect(url.searchParams.get('text')).toBe('ran into');
+      expect(url.searchParams.has('input_text')).toBe(false);
+    });
+
+    it('sends context as input_text query parameter when provided', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('ran into', 'I ran into an old friend.');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('input_text')).toBe(
+        'I ran into an old friend.',
+      );
+    });
+
+    it('sends correct Basic auth Authorization header', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await service.analyze('ran into');
+
+      const expectedCredentials = Buffer.from('user:pass').toString('base64');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/analyze?text=ran'),
+        expect.objectContaining({
+          headers: { Authorization: `Basic ${expectedCredentials}` },
+        }),
+      );
+    });
+  });
+
+  describe('analyze() — expression language param', () => {
+    it('defaults to language=en in the request URL when language is omitted', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('ran into');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('language')).toBe('en');
+    });
+
+    it('forwards a caller-provided language verbatim instead of defaulting to en', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('darse cuenta', undefined, 'es');
+
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('text')).toBe('darse cuenta');
+      expect(url.searchParams.get('language')).toBe('es');
+    });
+  });
+
+  describe('analyze() — expression error cases', () => {
+    it('400 response throws NlpInputInvalidError', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: jest.fn().mockResolvedValue(''),
+        json: () => Promise.resolve({}),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(service.analyze('a b c d e f g')).rejects.toBeInstanceOf(
+        NlpInputInvalidError,
+      );
+    });
+
+    it('non-400, non-2xx response throws NlpUnavailableError', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: jest.fn().mockResolvedValue(''),
+        json: () => Promise.resolve({}),
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(service.analyze('ran into')).rejects.toBeInstanceOf(
+        NlpUnavailableError,
+      );
+    });
+
+    it('network failure (fetch throws) throws NlpUnavailableError', async () => {
+      const mockFetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      await expect(service.analyze('ran into')).rejects.toBeInstanceOf(
+        NlpUnavailableError,
+      );
+    });
+
+    it('network failure wraps original error as cause', async () => {
+      const cause = new Error('ECONNREFUSED');
+      const mockFetch = jest.fn().mockRejectedValue(cause);
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const err = await service.analyze('ran into').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(NlpUnavailableError);
+      const failure = (err as NlpUnavailableError).cause;
+      expect(failure).toBeInstanceOf(RequestFailure);
+      expect((failure as RequestFailure).kind).toBe('network');
+      expect((failure as RequestFailure).cause).toBe(cause);
+    });
+
+    it('blank context is omitted from the NLP request', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeExpressionResponse()),
+      }) as jest.MockedFunction<typeof fetch>;
+      global.fetch = mockFetch;
+
+      await service.analyze('ran into', '   ');
+
+      const url = getFirstFetchUrl(mockFetch);
       expect(url.searchParams.has('input_text')).toBe(false);
     });
   });

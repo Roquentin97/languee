@@ -21,3 +21,12 @@ export class DefinitionNotFoundError extends DefinitionProviderError {
     this.name = 'DefinitionNotFoundError';
   }
 }
+
+export class DefinitionAlreadyExistsError extends DefinitionProviderError {
+  constructor() {
+    super(
+      'A definition with this word, part of speech, and text already exists',
+    );
+    this.name = 'DefinitionAlreadyExistsError';
+  }
+}

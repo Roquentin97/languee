@@ -1,6 +1,8 @@
 import { PartOfSpeech } from '../enums/part-of-speech.enum';
 import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
 
+export type LookupVocabularyKind = 'word' | 'phrasal_verb' | 'expression';
+
 export type LookupVocabularyInput = {
   word: string;
   language: string;
@@ -29,11 +31,16 @@ export type LookupVocabularyOutput = {
   input: string;
   context?: string;
   lemma: string;
+  language: string;
+  kind: LookupVocabularyKind;
   partOfSpeech: PartOfSpeech | null;
   definitions: EnrichedDefinitionResult[];
   meta: {
     filteredByPos: boolean;
     unmatchedPos: boolean;
     availablePartsOfSpeech: PartOfSpeech[];
+    isExpression: boolean;
+    providerMiss: boolean;
+    expressionContextFound: boolean | null;
   };
 };

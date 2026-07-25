@@ -2,10 +2,15 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.network.VocabularyApi
+import com.example.langueedroid.core.network.dto.CreateUserDefinitionResponseDto
 import com.example.langueedroid.core.network.dto.DeckRefDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
+import com.example.langueedroid.core.domain.ExpressionLimits
+import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -15,7 +20,10 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import retrofit2.Response
 
@@ -170,6 +178,128 @@ class VocabularyRepositoryTest {
 
         assertTrue(result.isSuccess)
         assertTrue(result.getOrThrow().definitions.isEmpty())
+    }
+
+    // -------------------------------------------------------------------------
+    // lookup — client-side word cap, then 400s mapped by error code in the body
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `lookup over the word cap fails locally without calling the API`() = runTest {
+        val tooLong = (1..ExpressionLimits.MAX_WORDS + 1).joinToString(" ") { "w$it" }
+
+        val result = repository.lookup(word = tooLong)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is ExpressionTooLongException)
+        verify(vocabularyApi, never()).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `lookup at exactly the word cap calls the API`() = runTest {
+        val atCap = (1..ExpressionLimits.MAX_WORDS).joinToString(" ") { "w$it" }
+        whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            .thenReturn(Response.success(aLookupResponseDto()))
+
+        val result = repository.lookup(word = atCap)
+
+        assertTrue(result.isSuccess)
+        verify(vocabularyApi).lookup(eq(atCap), anyOrNull(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `lookup 400 with INPUT_INVALID body throws LookupInputInvalidException`() = runTest {
+        val body = """{"message":"INPUT_INVALID","error":"Bad Request","statusCode":400}"""
+        whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            .thenReturn(Response.error(400, body.toResponseBody()))
+
+        val result = repository.lookup(word = "state-of-the-art-like-hyphen-chain")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is LookupInputInvalidException)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — happy path
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition success returns mapped CreatedUserDefinition`() = runTest {
+        val dto = CreateUserDefinitionResponseDto(
+            id = "def_123",
+            wordId = "word_123",
+            lemma = "run into",
+            kind = "phrasal_verb",
+            partOfSpeech = "phrase",
+            definition = "To encounter unexpectedly.",
+            example = "I ran into an old friend.",
+            provider = "user",
+        )
+        whenever(vocabularyApi.createUserDefinition(any())).thenReturn(Response.success(dto))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            definition = "To encounter unexpectedly.",
+        )
+
+        assertTrue(result.isSuccess)
+        val created = result.getOrThrow()
+        assertEquals("def_123", created.id)
+        assertEquals("run into", created.lemma)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — 409 → DefinitionAlreadyExistsException
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition 409 throws DefinitionAlreadyExistsException`() = runTest {
+        whenever(vocabularyApi.createUserDefinition(any()))
+            .thenReturn(Response.error(409, "{}".toResponseBody()))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            definition = "To encounter unexpectedly.",
+        )
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is DefinitionAlreadyExistsException)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — 401 → UnauthorizedException
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition 401 throws UnauthorizedException`() = runTest {
+        whenever(vocabularyApi.createUserDefinition(any()))
+            .thenReturn(Response.error(401, "{}".toResponseBody()))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            definition = "To encounter unexpectedly.",
+        )
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is UnauthorizedException)
+    }
+
+    // -------------------------------------------------------------------------
+    // createUserDefinition — 400 → failure with message
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `createUserDefinition 400 returns failure with message containing 400`() = runTest {
+        whenever(vocabularyApi.createUserDefinition(any()))
+            .thenReturn(Response.error(400, "{}".toResponseBody()))
+
+        val result = repository.createUserDefinition(
+            text = "run into",
+            definition = "",
+        )
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message?.contains("400") == true)
     }
 
     // -------------------------------------------------------------------------

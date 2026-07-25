@@ -4,9 +4,9 @@ from fastapi.responses import HTMLResponse
 
 from languee_nlp.logging import configure_logging
 from languee_nlp.middleware import RequestLoggingMiddleware
+from languee_nlp.routers.analyze import router as analyze_router
 from languee_nlp.routers.health import router as health_router
 from languee_nlp.routers.version import router as version_router
-from languee_nlp.routers.words import router as words_router
 from languee_nlp.settings import settings
 from languee_nlp.tracing import configure_tracing, sanitize_server_request_span
 
@@ -23,8 +23,8 @@ OPENAPI_TAGS = [
         "description": "Service version information.",
     },
     {
-        "name": "words",
-        "description": "Word-level NLP operations.",
+        "name": "analyze",
+        "description": "Unified word and multi-word expression NLP analysis.",
     },
 ]
 
@@ -42,7 +42,7 @@ app = FastAPI(
 app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(version_router)
-app.include_router(words_router)
+app.include_router(analyze_router)
 
 if settings.tracing_enabled:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor

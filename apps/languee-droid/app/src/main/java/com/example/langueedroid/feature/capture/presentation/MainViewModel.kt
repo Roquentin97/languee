@@ -4,21 +4,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.OfflineQueueRepository
+import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.EntryValidator
+import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** One-shot navigation event emitted when the capture flow produces a word ready for card creation. */
-data class CardCreationRequest(val targetWord: String, val context: String?)
+data class CardCreationRequest(val targetWord: String, val context: String?, val language: String = "en")
 
 sealed class AnkiStatusNotification {
     object AnkiDroidInstalled : AnkiStatusNotification()
@@ -31,10 +36,23 @@ sealed class AnkiStatusNotification {
 class MainViewModel @Inject constructor(
     private val ankiDroidExportService: AnkiDroidExportService,
     private val ankiDroidPreferencesStore: AnkiDroidPreferencesStore,
+    private val offlineStateManager: OfflineStateManager,
+    private val offlineQueueRepository: OfflineQueueRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
     val state: StateFlow<AppState> = _state.asStateFlow()
+
+    /** True when the device has no network or the backend is unreachable. */
+    val isOffline: StateFlow<Boolean> = offlineStateManager.isOffline
+
+    /** Number of captures waiting in the local offline queue. */
+    val offlineQueueCount: StateFlow<Int> = offlineQueueRepository.count()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Emitted when a capture was stored in the offline queue instead of card creation. */
+    private val _offlineWordSaved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val offlineWordSaved: SharedFlow<Unit> = _offlineWordSaved.asSharedFlow()
 
     /** Emitted when the capture flow has a word ready; the UI navigates to card creation. */
     private val _cardCreationRequest = MutableSharedFlow<CardCreationRequest>(extraBufferCapacity = 1)
@@ -67,7 +85,43 @@ class MainViewModel @Inject constructor(
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
         val normalizedContext = context?.trim()?.ifBlank { null }
-        _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext))
+        val language = currentSelectedLanguage()
+        if (isOffline.value) {
+            viewModelScope.launch {
+                offlineQueueRepository.add(trimmedWord, normalizedContext)
+                _offlineWordSaved.tryEmit(Unit)
+            }
+            return
+        }
+        _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext, language))
+    }
+
+    /** Called when the user picks a language chip (EN/ES/DE) on a capture screen. */
+    fun selectLanguage(code: String) {
+        _state.value = when (val current = _state.value) {
+            is AppState.Screen.ManualCapture -> current.copy(selectedLanguage = code)
+            is AppState.Screen.SharedWordCapture -> current.copy(selectedLanguage = code)
+            is AppState.Screen.SharedContextCapture -> current.copy(selectedLanguage = code)
+            is AppState.Screen.ContextReview -> current.copy(selectedLanguage = code)
+            else -> current
+        }
+    }
+
+    /** Reads the language selected on whichever capture screen is currently displayed. */
+    private fun currentSelectedLanguage(): String = when (val current = _state.value) {
+        is AppState.Screen.ManualCapture -> current.selectedLanguage
+        is AppState.Screen.SharedWordCapture -> current.selectedLanguage
+        is AppState.Screen.SharedContextCapture -> current.selectedLanguage
+        is AppState.Screen.ContextReview -> current.selectedLanguage
+        is AppState.Screen.ContextEdit -> current.selectedLanguage
+        else -> "en"
+    }
+
+    /** Remove a processed entry from the offline queue (after its card was created). */
+    fun removeOfflineEntry(id: String) {
+        viewModelScope.launch {
+            offlineQueueRepository.remove(id)
+        }
     }
 
     /**
@@ -95,18 +149,38 @@ class MainViewModel @Inject constructor(
 
     /**
      * Called when the user taps a word token in the SharedContextCapture screen.
-     * Builds a ContextReview state with highlight ranges and multi-sentence flag.
+     * Tapping a word not yet selected starts or extends the selection (up to 6 words);
+     * tapping a selected word deselects just that word, allowing a discontiguous
+     * selection. See [ExpressionSpanSelector] for the exact rules.
      */
-    fun selectTargetWord(token: String) {
+    fun onWordTokenTapped(index: Int) {
         val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
+        val updatedSelection = ExpressionSpanSelector.onWordTapped(
+            tokens = current.tokens,
+            currentSelection = current.selectedIndices,
+            tappedIndex = index,
+        )
+        _state.value = current.copy(selectedIndices = updatedSelection)
+    }
+
+    /**
+     * Called when the user confirms the current word selection in the SharedContextCapture
+     * screen. Joins the selected words into the target expression and navigates to
+     * ContextReview with highlight ranges and multi-sentence flag.
+     */
+    fun confirmWordSelection() {
+        val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
+        if (current.selectedIndices.isEmpty()) return
+        val targetWord = ExpressionSpanSelector.joinSelection(current.tokens, current.selectedIndices)
         val context = current.rawContext
-        val highlights = EntryValidator.findStandaloneMatches(token, context)
+        val highlights = EntryValidator.findStandaloneMatches(targetWord, context)
         val sentenceCount = EntryValidator.countSentences(context)
         _state.value = AppState.Screen.ContextReview(
-            targetWord = token,
+            targetWord = targetWord,
             context = context,
             isMultiSentence = sentenceCount > 1,
             highlightRanges = highlights,
+            selectedLanguage = current.selectedLanguage,
         )
     }
 
@@ -149,6 +223,7 @@ class MainViewModel @Inject constructor(
             targetWord = targetWord,
             context = context,
             highlightRanges = highlightRanges,
+            selectedLanguage = currentSelectedLanguage(),
         )
     }
 

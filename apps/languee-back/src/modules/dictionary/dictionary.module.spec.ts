@@ -2,11 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DictionaryApiAdapter } from './adapters/dictionary-api.adapter';
 import { FreeDictionaryApiAdapter } from './adapters/free-dictionary-api.adapter';
+import { WiktionaryApiAdapter } from './adapters/wiktionary-api.adapter';
 import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 import {
   DICTIONARYAPI_DEV_PROVIDER_NAME,
   FREE_DICTIONARY_API_PROVIDER_NAME,
+  WIKTIONARY_PROVIDER_NAME,
 } from './constants';
 import { ProviderUnavailableError } from '../definitions/definitions.errors';
 import { DictionaryService } from './dictionary.service';
@@ -14,6 +16,7 @@ import { WordsService } from '../words/words.service';
 import { DefinitionService } from '../definitions/definitions.service';
 import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { DictionaryController } from './dictionary.controller';
+import { RequestService } from '../core/http/request.service';
 
 function buildAdapterFactory() {
   return {
@@ -22,12 +25,20 @@ function buildAdapterFactory() {
       config: ConfigService,
       devAdapter: DictionaryApiAdapter,
       freeAdapter: FreeDictionaryApiAdapter,
+      wiktionaryAdapter: WiktionaryApiAdapter,
     ): IDictionaryApiAdapter => {
       const configured =
-        config.get<string>('dictionary.provider') ?? 'freedictionaryapi';
-      return configured === 'dictionaryapi_dev' ? devAdapter : freeAdapter;
+        config.get<string>('dictionary.provider') ?? 'wiktionary';
+      if (configured === 'dictionaryapi_dev') return devAdapter;
+      if (configured === 'freedictionaryapi') return freeAdapter;
+      return wiktionaryAdapter;
     },
-    inject: [ConfigService, DictionaryApiAdapter, FreeDictionaryApiAdapter],
+    inject: [
+      ConfigService,
+      DictionaryApiAdapter,
+      FreeDictionaryApiAdapter,
+      WiktionaryApiAdapter,
+    ],
   };
 }
 
@@ -39,12 +50,17 @@ async function compileWithProvider(
       if (key === 'dictionary.provider') return providerValue;
       return undefined;
     }),
+    getOrThrow: jest
+      .fn()
+      .mockReturnValue('languee-test (contact: test@example.com)'),
   };
 
   return Test.createTestingModule({
     providers: [
       DictionaryApiAdapter,
       FreeDictionaryApiAdapter,
+      WiktionaryApiAdapter,
+      RequestService,
       { provide: ConfigService, useValue: mockConfigService },
       buildAdapterFactory(),
     ],
@@ -72,8 +88,16 @@ describe('DictionaryModule — provider selection via factory', () => {
     await module.close();
   });
 
-  it('absent/unrecognised provider value defaults to FreeDictionaryApiAdapter', async () => {
-    // When get() returns undefined, the factory falls back to 'freedictionaryapi'
+  it('DICTIONARY_PROVIDER="wiktionary" → DICTIONARY_API_ADAPTER resolves to WiktionaryApiAdapter', async () => {
+    const module = await compileWithProvider('wiktionary');
+    const adapter = module.get<IDictionaryApiAdapter>(DICTIONARY_API_ADAPTER);
+    expect(adapter).toBeInstanceOf(WiktionaryApiAdapter);
+    expect(adapter.providerName).toBe(WIKTIONARY_PROVIDER_NAME);
+    await module.close();
+  });
+
+  it('absent/unrecognised provider value defaults to WiktionaryApiAdapter', async () => {
+    // When get() returns undefined, the factory falls back to 'wiktionary'
     const mockConfigService = {
       get: jest.fn().mockReturnValue(undefined),
     };
@@ -81,17 +105,19 @@ describe('DictionaryModule — provider selection via factory', () => {
       providers: [
         DictionaryApiAdapter,
         FreeDictionaryApiAdapter,
+        WiktionaryApiAdapter,
+        RequestService,
         { provide: ConfigService, useValue: mockConfigService },
         buildAdapterFactory(),
       ],
     }).compile();
 
     const adapter = module.get<IDictionaryApiAdapter>(DICTIONARY_API_ADAPTER);
-    expect(adapter).toBeInstanceOf(FreeDictionaryApiAdapter);
+    expect(adapter).toBeInstanceOf(WiktionaryApiAdapter);
     await module.close();
   });
 
-  it('both adapters are independently instantiable as module providers', async () => {
+  it('all three adapters are independently instantiable as module providers', async () => {
     const mockConfigService = {
       get: jest.fn().mockReturnValue('freedictionaryapi'),
     };
@@ -99,6 +125,8 @@ describe('DictionaryModule — provider selection via factory', () => {
       providers: [
         DictionaryApiAdapter,
         FreeDictionaryApiAdapter,
+        WiktionaryApiAdapter,
+        RequestService,
         { provide: ConfigService, useValue: mockConfigService },
         buildAdapterFactory(),
       ],
@@ -108,9 +136,13 @@ describe('DictionaryModule — provider selection via factory', () => {
     const freeAdapter = module.get<FreeDictionaryApiAdapter>(
       FreeDictionaryApiAdapter,
     );
+    const wiktionaryAdapter =
+      module.get<WiktionaryApiAdapter>(WiktionaryApiAdapter);
     expect(devAdapter).toBeInstanceOf(DictionaryApiAdapter);
     expect(freeAdapter).toBeInstanceOf(FreeDictionaryApiAdapter);
+    expect(wiktionaryAdapter).toBeInstanceOf(WiktionaryApiAdapter);
     expect(devAdapter).not.toBe(freeAdapter);
+    expect(freeAdapter).not.toBe(wiktionaryAdapter);
     await module.close();
   });
 });

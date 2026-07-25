@@ -3,9 +3,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CardsController } from './cards.controller';
 import { CardsService } from './cards.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { DeckNotFoundError } from '../decks/decks.errors';
 import {
   CardAlreadyExistsError,
-  DeckOwnershipError,
   DefinitionNotFoundError,
 } from './cards.errors';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
@@ -31,6 +31,7 @@ const mockWord: Word = {
   lemma: 'run',
   language: 'en',
   ipa: null,
+  kind: 'word',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
@@ -312,8 +313,8 @@ describe('CardsController', () => {
       });
     });
 
-    it('edge case — DeckOwnershipError maps to 404 NotFoundException with DECK_NOT_FOUND', async () => {
-      mockCardsService.create.mockRejectedValue(new DeckOwnershipError());
+    it('edge case — DeckNotFoundError maps to 404 NotFoundException with DECK_NOT_FOUND', async () => {
+      mockCardsService.create.mockRejectedValue(new DeckNotFoundError());
 
       const err = await controller
         .create(mockUser, { deckId: 'deck-id-1', definitionId: 'def-id-1' })

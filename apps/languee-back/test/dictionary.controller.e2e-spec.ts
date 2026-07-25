@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/modules/core/prisma/prisma.service';
 import { DICTIONARY_API_ADAPTER } from '../src/modules/dictionary/dictionary.tokens';
 import { ProviderUnavailableError } from '../src/modules/definitions/definitions.errors';
 import type { IDictionaryApiAdapter } from '../src/modules/dictionary/interfaces/dictionary-api-adapter.interface';
@@ -67,6 +68,15 @@ describe('DictionaryController (e2e)', () => {
   beforeAll(async () => {
     app = await createApp();
     accessToken = await getAccessToken(app, testEmail, testPassword);
+    // The cache-miss assertions require 'despite' to be absent from the
+    // shared dev database; previous runs of this suite leave it cached.
+    const prisma = app.get(PrismaService);
+    await prisma.definition.deleteMany({
+      where: { word: { lemma: 'despite', language: 'en' } },
+    });
+    await prisma.word.deleteMany({
+      where: { lemma: 'despite', language: 'en' },
+    });
   });
 
   afterAll(async () => {
