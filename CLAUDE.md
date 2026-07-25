@@ -240,6 +240,34 @@ Never assume environment variables are already exported - always use the wrapper
   outputs or forwarding data to another agent
 - When a task touches the DB, validate migration runs cleanly on a fresh schema
 
+## Design discussion journal (`.lab/tilr/`)
+
+`.lab/tilr/` is a general engineering knowledge vault, not a project journal. Record
+an entry only when the conclusion is transferable knowledge that would hold in any
+codebase - best practices, design patterns, anti-patterns, system-design or
+architecture trade-offs. Do not record project-specific material: feature behavior
+analyses, gap analyses of this codebase, product decisions, or agreed implementation
+plans - those belong in specs, PRs, or code comments. Litmus test: if the entry only
+makes sense with this repo's file names and features in it, it does not belong here.
+
+Whenever a conversation with the human includes a qualifying design discussion,
+record the outcome under `.lab/tilr/` before ending the task:
+
+- One MD file per category (e.g. `authorization.md`, `service-boundaries.md`,
+  `code-style.md`, `testing.md`, `persistence.md`). Append entries to the matching
+  category file; create a new category file only when no existing one fits. List
+  existing files first to avoid near-duplicate categories.
+- Each entry must contain, under a `##` heading with the entry title and date:
+  - a concise description of the topic and the conclusion reached
+  - the context that led to the discussion (which code, decision, or question
+    triggered it)
+  - links to the sources used (omit only if no external sources were consulted)
+- For every new entry, append one line to `.lab/tilr/changelog.txt`:
+  `YYYY-MM-DD HH:MM <category-file> - <entry title>`. Never rewrite or reorder
+  existing changelog lines.
+- Update an existing entry (and note the update in the changelog) when a later
+  discussion revises its conclusion, rather than duplicating it.
+
 ## Forge pipeline
 
 | Pipeline | Command           | Agent chain                                                   |
