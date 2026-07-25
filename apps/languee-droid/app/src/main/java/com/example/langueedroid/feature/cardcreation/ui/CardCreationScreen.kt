@@ -531,7 +531,7 @@ private fun ExampleSelectionSection(
             Text(
                 text = stringResource(R.string.card_creation_example_no_context_warning),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
+                color = TextSecondary,
             )
         } else {
             ExampleOption(

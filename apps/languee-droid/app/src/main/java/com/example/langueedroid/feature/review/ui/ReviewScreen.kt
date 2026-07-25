@@ -1,5 +1,6 @@
 package com.example.langueedroid.feature.review.ui
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +60,7 @@ import com.example.langueedroid.core.ui.theme.SurfaceWarm
 import com.example.langueedroid.core.ui.theme.TextMedium
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
+import com.example.langueedroid.core.util.parseIsoInstantToEpochMillis
 import com.example.langueedroid.feature.review.presentation.QuestionFeedback
 import com.example.langueedroid.feature.review.presentation.ReviewError
 import com.example.langueedroid.feature.review.presentation.ReviewSessionState
@@ -158,7 +161,6 @@ fun ReviewScreen(
                 is ReviewSessionState.Revealed -> {
                     RevealedContent(
                         nextDueAt = state.nextDueAt,
-                        intervalDays = state.intervalDays,
                         onContinue = onContinue,
                     )
                 }
@@ -486,7 +488,6 @@ private fun GradeButton(
 @Composable
 private fun RevealedContent(
     nextDueAt: String,
-    intervalDays: Int,
     onContinue: () -> Unit,
 ) {
     Column(
@@ -513,12 +514,30 @@ private fun RevealedContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = TextMedium,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.review_next_due_info, intervalDays, nextDueAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                )
+                val nextReview = remember(nextDueAt) {
+                    parseIsoInstantToEpochMillis(nextDueAt)?.let { millis ->
+                        val now = System.currentTimeMillis()
+                        // Under a minute out reads as "in 0 minutes"; the "comes back soon"
+                        // message already covers that, so only show a concrete relative time.
+                        if (millis - now < DateUtils.MINUTE_IN_MILLIS) {
+                            null
+                        } else {
+                            DateUtils.getRelativeTimeSpanString(
+                                millis,
+                                now,
+                                DateUtils.MINUTE_IN_MILLIS,
+                            ).toString().replaceFirstChar { it.lowercase() }
+                        }
+                    }
+                }
+                if (nextReview != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.review_next_due_info, nextReview),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                }
             }
         }
         Button(
