@@ -20,7 +20,7 @@ otel = "1.44.0"
 otel-instrumentation = "2.11.0-alpha"
 datastorePreferences = "1.1.1"
 room = "2.7.1"
-hilt = "2.59.2"
+hilt = "2.60.1"
 ksp = "2.2.10-2.0.2"
 hiltNavigationCompose = "1.2.0"
 
