@@ -30,9 +30,16 @@ data class CheckAnswerRequest(
     val typedAnswer: String,
 )
 
+data class RevealedWordDto(
+    val lemma: String,
+    val ipa: String?,
+    val inflectionForms: Map<String, String>?,
+)
+
 data class CheckAnswerResponseDto(
     val result: String,
     val matchedForm: String?,
+    val revealed: RevealedWordDto? = null,
 )
 
 data class GradeRequest(

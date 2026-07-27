@@ -26,9 +26,21 @@ data class ReviewItem(
 
 enum class AnswerResult { CORRECT, INCORRECT }
 
+/**
+ * Word details the backend reveals only once the answer has been given
+ * correctly: the canonical lemma, its phonetic transcription, and the
+ * inflection forms effective for the reviewed card.
+ */
+data class RevealedWord(
+    val lemma: String,
+    val ipa: String?,
+    val inflectionForms: Map<String, String>?,
+)
+
 data class AnswerCheck(
     val result: AnswerResult,
     val matchedForm: String?,
+    val revealed: RevealedWord? = null,
 )
 
 enum class ReviewRating { AGAIN, HARD, GOOD, EASY }
