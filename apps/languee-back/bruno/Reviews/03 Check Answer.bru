@@ -32,15 +32,21 @@ tests {
     expect(res.status).to.be.oneOf([200, 400, 404]);
   });
 
-  test("returns the answer result shape without revealing the expected answer", function() {
+  test("returns the answer result shape, revealing word details only on a correct answer", function() {
     if (res.status === 200) {
       expect(res.body.result).to.be.oneOf([
         "correct",
-        "close_synonym",
         "incorrect"
       ]);
       expect(res.body).to.have.property("matchedForm");
-      expect(res.body).to.have.property("hint");
+      expect(res.body).to.have.property("revealed");
+      if (res.body.result === "correct") {
+        expect(res.body.revealed).to.have.property("lemma");
+        expect(res.body.revealed).to.have.property("ipa");
+        expect(res.body.revealed).to.have.property("inflectionForms");
+      } else {
+        expect(res.body.revealed).to.equal(null);
+      }
     }
   });
 }
