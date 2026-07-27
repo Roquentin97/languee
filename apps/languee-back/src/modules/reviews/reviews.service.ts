@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { Definition, Word } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
 import type { CardWithDefinitionAndWord } from '../cards/cards.service';
@@ -20,6 +21,13 @@ type CardWithDeck = CardWithDefinitionAndWord & {
   deck: { id: string; name: string };
 };
 
+type BareCardWithDeck = {
+  id: string;
+  context: string | null;
+  inflectionForms: unknown;
+  deck: { id: string; name: string };
+};
+
 @Injectable()
 export class ReviewsService {
   private readonly logger = new Logger(ReviewsService.name);
@@ -32,14 +40,17 @@ export class ReviewsService {
 
   async getSummary(userId: string): Promise<ReviewSummary> {
     const now = new Date();
-    const [dueCount, newCards] = await Promise.all([
-      this.prisma.cardReviewState.count({
-        where: { dueAt: { lte: now }, card: { userId } },
+    const [dueCount, unreviewedCards] = await Promise.all([
+      this.prisma.definitionReviewState.count({
+        where: { userId, dueAt: { lte: now } },
       }),
-      this.cardsService.findCardsWithoutReviewState(userId),
+      this.cardsService.findUnreviewedCards(userId),
     ]);
 
-    return { dueCount, newCount: newCards.length };
+    return {
+      dueCount,
+      newCount: this.pickOnePerDefinition(unreviewedCards).length,
+    };
   }
 
   async getQueue(
@@ -53,17 +64,28 @@ export class ReviewsService {
     }
 
     const now = new Date();
+    const cardFilter = { userId, ...(deckId ? { deckId } : {}) };
 
-    const dueStates = await this.prisma.cardReviewState.findMany({
+    const dueStates = await this.prisma.definitionReviewState.findMany({
       where: {
+        userId,
         dueAt: { lte: now },
-        card: { userId, ...(deckId ? { deckId } : {}) },
+        definition: { cards: { some: cardFilter } },
       },
       include: {
-        card: {
+        definition: {
           include: {
-            definition: { include: { word: true } },
-            deck: { select: { id: true, name: true } },
+            word: true,
+            cards: {
+              where: cardFilter,
+              select: {
+                id: true,
+                context: true,
+                inflectionForms: true,
+                deck: { select: { id: true, name: true } },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
           },
         },
       },
@@ -74,11 +96,9 @@ export class ReviewsService {
     const remaining = limit - dueStates.length;
     const newCards =
       remaining > 0
-        ? await this.cardsService.findCardsWithoutReviewState(
-            userId,
-            deckId,
-            remaining,
-          )
+        ? this.pickOnePerDefinition(
+            await this.cardsService.findUnreviewedCards(userId, deckId),
+          ).slice(0, remaining)
         : [];
 
     this.logger.debug({
@@ -95,7 +115,13 @@ export class ReviewsService {
     });
 
     return [
-      ...dueStates.map((s) => this.buildQueueItem(s.card, false)),
+      ...dueStates.map((state) => {
+        const { cards, ...definition } = state.definition;
+        return this.buildDueQueueItem(
+          definition,
+          this.pickRepresentative(cards),
+        );
+      }),
       ...newCards.map((c) => this.buildQueueItem(c, true)),
     ];
   }
@@ -111,9 +137,21 @@ export class ReviewsService {
     const outcome = checkAnswer(typedAnswer, forms);
 
     if (outcome.result === 'correct') {
-      return { result: 'correct', matchedForm: outcome.matchedForm };
+      const word = card.definition.word;
+      const inflectionForms =
+        (card.inflectionForms as Record<string, string> | null) ??
+        (card.definition.inflectionForms as Record<string, string> | null);
+      return {
+        result: 'correct',
+        matchedForm: outcome.matchedForm,
+        revealed: {
+          lemma: word.lemma,
+          ipa: word.ipa,
+          inflectionForms,
+        },
+      };
     }
-    return { result: 'incorrect', matchedForm: null };
+    return { result: 'incorrect', matchedForm: null, revealed: null };
   }
 
   async gradeCard(
@@ -121,10 +159,13 @@ export class ReviewsService {
     cardId: string,
     input: GradeInput,
   ): Promise<GradeOutcome> {
-    await this.cardsService.findOwnedOrThrow(cardId, userId);
+    const card = await this.cardsService.findOwnedOrThrow(cardId, userId);
+    const definitionId = card.definitionId;
 
-    const existingState = await this.prisma.cardReviewState.findUnique({
-      where: { cardId },
+    // Scheduling state is shared across every deck holding this definition:
+    // grading through any of its cards advances the single schedule.
+    const existingState = await this.prisma.definitionReviewState.findUnique({
+      where: { userId_definitionId: { userId, definitionId } },
     });
     const currentState = existingState ?? NEW_CARD_SCHEDULING_STATE;
 
@@ -143,9 +184,9 @@ export class ReviewsService {
     };
 
     const [updatedState] = await this.prisma.$transaction([
-      this.prisma.cardReviewState.upsert({
-        where: { cardId },
-        create: { cardId, ...persisted },
+      this.prisma.definitionReviewState.upsert({
+        where: { userId_definitionId: { userId, definitionId } },
+        create: { userId, definitionId, ...persisted },
         update: persisted,
       }),
       this.prisma.reviewLog.create({
@@ -171,6 +212,7 @@ export class ReviewsService {
       data: {
         userId,
         cardId,
+        definitionId,
         rating: input.rating,
         newState: updatedState.state,
         intervalDays: updatedState.scheduledDays,
@@ -186,6 +228,34 @@ export class ReviewsService {
     };
   }
 
+  /**
+   * A definition saved into several decks yields several cards but must appear
+   * only once per review session. Keep one card per definition, preferring one
+   * with a captured context since it makes the better prompt.
+   */
+  private pickOnePerDefinition(cards: CardWithDeck[]): CardWithDeck[] {
+    const byDefinition = new Map<string, CardWithDeck>();
+    for (const card of cards) {
+      const existing = byDefinition.get(card.definitionId);
+      if (!existing) {
+        byDefinition.set(card.definitionId, card);
+      } else if (existing.context === null && card.context !== null) {
+        byDefinition.set(card.definitionId, card);
+      }
+    }
+    return [...byDefinition.values()];
+  }
+
+  private pickRepresentative(cards: BareCardWithDeck[]): BareCardWithDeck {
+    const withContext = cards.find((card) => card.context !== null);
+    const representative = withContext ?? cards[0];
+    if (!representative) {
+      // Unreachable: the due-state query requires at least one matching card.
+      throw new Error('review state without a matching card');
+    }
+    return representative;
+  }
+
   private targetFormsForCard(card: CardWithDefinitionAndWord): string[] {
     const inflectionForms =
       (card.inflectionForms as InflectionForms | null) ??
@@ -193,6 +263,22 @@ export class ReviewsService {
     return collectTargetForms(
       card.definition.word.lemma,
       inflectionForms as unknown as Record<string, unknown> | null,
+    );
+  }
+
+  private buildDueQueueItem(
+    definition: Definition & { word: Word },
+    card: BareCardWithDeck,
+  ): ReviewQueueItem {
+    return this.buildQueueItem(
+      {
+        ...card,
+        definitionId: definition.id,
+        definition,
+        inflectionForms:
+          card.inflectionForms as CardWithDeck['inflectionForms'],
+      } as CardWithDeck,
+      false,
     );
   }
 
