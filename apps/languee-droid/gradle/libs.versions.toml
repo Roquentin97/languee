@@ -8,7 +8,7 @@ lifecycleRuntimeKtx = "2.10.0"
 lifecycleViewmodelCompose = "2.10.0"
 navigationCompose = "2.9.0"
 activityCompose = "1.13.0"
-kotlin = "2.2.10"
+kotlin = "2.4.10"
 composeBom = "2026.02.01"
 ktlint = "12.3.0"
 retrofit = "2.11.0"
@@ -21,7 +21,7 @@ otel-instrumentation = "2.11.0-alpha"
 datastorePreferences = "1.1.1"
 room = "2.7.1"
 hilt = "2.59.2"
-ksp = "2.2.10-2.0.2"
+ksp = "2.3.10"
 hiltNavigationCompose = "1.2.0"
 
 [libraries]
@@ -60,6 +60,7 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+kotlin-metadata-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-metadata-jvm", version.ref = "kotlin" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

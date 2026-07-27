@@ -98,6 +98,14 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
+    // Hilt 2.59.2 bundles a kotlin-metadata-jvm reader that can't parse Kotlin 2.4's
+    // metadata format (google/dagger#5190, #5177). Force the KSP-time reader to a
+    // version that understands it; JetBrains unshaded this dependency so consumers can
+    // override it without waiting for a new Dagger release.
+    ksp(libs.kotlin.metadata.jvm)
+    testImplementation(libs.kotlin.metadata.jvm)
+    androidTestImplementation(libs.kotlin.metadata.jvm)
+    compileOnly(libs.kotlin.metadata.jvm)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
