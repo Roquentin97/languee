@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -49,6 +50,7 @@ import com.languee.droid.R
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.ReviewRating
+import com.example.langueedroid.core.domain.RevealedWord
 import com.example.langueedroid.core.ui.components.SpeakerIconButton
 import com.example.langueedroid.core.ui.theme.AmberBorder
 import com.example.langueedroid.core.ui.theme.AmberContainer
@@ -152,6 +154,7 @@ fun ReviewScreen(
                 is ReviewSessionState.Correct -> {
                     CorrectContent(
                         matchedForm = state.matchedForm,
+                        revealed = state.revealed,
                         language = state.item.prompt.language,
                         speaker = speaker,
                         onGrade = onGrade,
@@ -379,6 +382,7 @@ private fun QuestionContent(
 @Composable
 private fun CorrectContent(
     matchedForm: String?,
+    revealed: RevealedWord?,
     language: String,
     speaker: Speaker,
     onGrade: (ReviewRating) -> Unit,
@@ -414,6 +418,44 @@ private fun CorrectContent(
                             languageCode = language,
                             speaker = speaker,
                         )
+                    }
+                }
+                if (revealed != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = revealed.lemma,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary,
+                        )
+                        if (revealed.ipa != null) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = revealed.ipa,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary,
+                            )
+                        }
+                    }
+                    // Same display rule as card creation: the "type" discriminator and
+                    // expression context forms are bookkeeping, not learnable forms.
+                    val displayForms = revealed.inflectionForms
+                        ?.takeUnless { it["type"] == "expression" }
+                        ?.filterKeys { it != "type" }
+                    if (!displayForms.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.review_word_forms_title),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                        )
+                        displayForms.forEach { (key, value) ->
+                            Text(
+                                text = "$key: $value",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary,
+                            )
+                        }
                     }
                 }
             }
