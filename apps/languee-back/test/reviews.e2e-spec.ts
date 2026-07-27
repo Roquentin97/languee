@@ -51,6 +51,11 @@ interface QueueApiResponse {
 interface AnswerApiResponse {
   result: 'correct' | 'incorrect';
   matchedForm: string | null;
+  revealed: {
+    lemma: string;
+    ipa: string | null;
+    inflectionForms: Record<string, string> | null;
+  } | null;
 }
 
 interface GradeApiResponse {
@@ -306,6 +311,11 @@ describe('ReviewsController (e2e)', () => {
       expect(res.body as AnswerApiResponse).toEqual({
         result: 'correct',
         matchedForm: word,
+        revealed: {
+          lemma: word,
+          ipa: null,
+          inflectionForms: null,
+        },
       });
     });
 
@@ -319,6 +329,7 @@ describe('ReviewsController (e2e)', () => {
       expect(res.body as AnswerApiResponse).toEqual({
         result: 'incorrect',
         matchedForm: null,
+        revealed: null,
       });
     });
 
@@ -398,6 +409,63 @@ describe('ReviewsController (e2e)', () => {
       expect(body.state).toBe('review');
       expect(Number.isInteger(body.intervalDays)).toBe(true);
       expect(body.intervalDays).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('deck-agnostic scheduling', () => {
+    it('a definition saved in two decks queues once and shares one schedule', async () => {
+      const sharedWord = randomWord('shared');
+      const definitionId = await seedDefinitionId(
+        app,
+        accessToken,
+        sharedWord,
+        'a meaning saved into two decks',
+      );
+      const deckAId = await createDeck(
+        app,
+        accessToken,
+        `reviews-e2e-deck-a-${Date.now()}`,
+      );
+      const deckBId = await createDeck(
+        app,
+        accessToken,
+        `reviews-e2e-deck-b-${Date.now()}`,
+      );
+      const cardAId = await createCard(
+        app,
+        accessToken,
+        deckAId,
+        definitionId,
+        `I ${sharedWord} in two decks.`,
+      );
+      const cardBId = await createCard(app, accessToken, deckBId, definitionId);
+
+      // Both cards share the definition, so the queue holds exactly one item.
+      const queueRes = await request(app.getHttpServer())
+        .get('/api/v1/reviews/queue')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+      const before = (queueRes.body as QueueApiResponse).items.filter((i) =>
+        [cardAId, cardBId].includes(i.cardId),
+      );
+      expect(before).toHaveLength(1);
+
+      // Grading through the other deck's card advances the shared schedule…
+      await request(app.getHttpServer())
+        .post(`/api/v1/reviews/${cardBId}/grade`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ rating: 'good' })
+        .expect(200);
+
+      // …so the definition stops being due through either card.
+      const afterRes = await request(app.getHttpServer())
+        .get('/api/v1/reviews/queue')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+      const after = (afterRes.body as QueueApiResponse).items.filter((i) =>
+        [cardAId, cardBId].includes(i.cardId),
+      );
+      expect(after).toHaveLength(0);
     });
   });
 });
