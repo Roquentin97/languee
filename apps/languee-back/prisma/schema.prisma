@@ -7,13 +7,14 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email        String                  @unique
+  passwordHash String                  @map("password_hash")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
   decks        Deck[]
   cards        Card[]
+  reviewStates DefinitionReviewState[]
 
   @@map("users")
 }
@@ -48,9 +49,10 @@ model Definition {
   provider          String
   gapFillMetadata   Json?    @map("gap_fill_metadata") @db.JsonB
   hasIrregularForms Boolean  @default(false) @map("has_irregular_forms")
-  inflectionForms   Json?    @map("inflection_forms") @db.JsonB
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  inflectionForms   Json?                   @map("inflection_forms") @db.JsonB
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz
   cards             Card[]
+  reviewStates      DefinitionReviewState[]
 
   @@unique([wordId, partOfSpeech, definition])
   @@index([wordId])
@@ -85,7 +87,6 @@ model Card {
   createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
   ankidroidExport CardAnkiDroidExport?
-  reviewState     CardReviewState?
   reviewLogs      ReviewLog[]
 
   @@unique([deckId, definitionId])
@@ -155,10 +156,15 @@ enum ReviewAnswerResult {
   revealed
 }
 
-model CardReviewState {
+/// One review schedule per (user, definition). Scheduling is deliberately
+/// deck-agnostic: a definition saved into several decks is still a single
+/// item for the spaced-repetition engine.
+model DefinitionReviewState {
   id             String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  cardId         String          @unique @map("card_id") @db.Uuid
-  card           Card            @relation(fields: [cardId], references: [id])
+  userId         String          @map("user_id") @db.Uuid
+  user           User            @relation(fields: [userId], references: [id])
+  definitionId   String          @map("definition_id") @db.Uuid
+  definition     Definition      @relation(fields: [definitionId], references: [id])
   state          ReviewCardState @default(new)
   dueAt          DateTime        @default(now()) @map("due_at") @db.Timestamptz
   stability      Float           @default(0)
@@ -171,8 +177,9 @@ model CardReviewState {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([dueAt])
-  @@map("card_review_states")
+  @@unique([userId, definitionId])
+  @@index([userId, dueAt])
+  @@map("definition_review_states")
 }
 
 model ReviewLog {
