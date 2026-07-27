@@ -5,6 +5,7 @@ import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
+import com.example.langueedroid.core.network.dto.RevealedWordDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
 import com.example.langueedroid.core.network.dto.ReviewSummaryDto
@@ -132,6 +133,25 @@ class ReviewMapperTest {
     fun `unknown result string falls back safely to INCORRECT`() {
         val domain = CheckAnswerResponseDto(result = "some_future_result", matchedForm = null).toDomain()
         assertEquals(AnswerResult.INCORRECT, domain.result)
+    }
+
+    @Test
+    fun `revealed word details map through, absent revealed maps to null`() {
+        val withRevealed = CheckAnswerResponseDto(
+            result = "correct",
+            matchedForm = "came across",
+            revealed = RevealedWordDto(
+                lemma = "come across",
+                ipa = "/kʌm əˈkɹɒs/",
+                inflectionForms = mapOf("type" to "verb", "past" to "came across"),
+            ),
+        ).toDomain()
+        assertEquals("come across", withRevealed.revealed?.lemma)
+        assertEquals("/kʌm əˈkɹɒs/", withRevealed.revealed?.ipa)
+        assertEquals("came across", withRevealed.revealed?.inflectionForms?.get("past"))
+
+        val withoutRevealed = CheckAnswerResponseDto(result = "incorrect", matchedForm = null).toDomain()
+        assertEquals(null, withoutRevealed.revealed)
     }
 
     // -------------------------------------------------------------------------
