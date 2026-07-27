@@ -87,6 +87,7 @@ class ReviewViewModel @Inject constructor(
                             index = current.index,
                             total = current.total,
                             matchedForm = check.matchedForm,
+                            revealed = check.revealed,
                         )
                         AnswerResult.INCORRECT -> current.copy(
                             typedAnswer = "",
