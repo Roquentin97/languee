@@ -427,12 +427,12 @@ private fun AnkiStatusChangeDialog(
                 }
             } else {
                 TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.ankidroid_status_not_now))
+                    Text(stringResource(R.string.ankidroid_status_ok))
                 }
             }
         },
         dismissButton = if (showSetupAction) {
-            { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ankidroid_status_ok)) } }
+            { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ankidroid_status_not_now)) } }
         } else {
             null
         },
