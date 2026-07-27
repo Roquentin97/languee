@@ -10,6 +10,7 @@ import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
 import com.example.langueedroid.core.domain.ReviewRating
+import com.example.langueedroid.core.domain.RevealedWord
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.feature.review.presentation.QuestionFeedback
 import com.example.langueedroid.feature.review.presentation.ReviewError
@@ -156,6 +157,33 @@ class ReviewViewModelTest {
         assertTrue(nextState is ReviewSessionState.Question)
         assertEquals(item2, (nextState as ReviewSessionState.Question).item)
         assertEquals(2, nextState.index)
+    }
+
+    @Test
+    fun `correct answer carries the revealed word details into the Correct state`() = runTest {
+        val item = anItem(cardId = "card-1")
+        val revealed = RevealedWord(
+            lemma = "come across",
+            ipa = "/kʌm əˈkɹɒs/",
+            inflectionForms = mapOf("type" to "verb", "past" to "came across"),
+        )
+        whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
+        whenever(reviewRepository.checkAnswer(cardId = "card-1", typedAnswer = "come across")).thenReturn(
+            Result.success(
+                AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across", revealed = revealed),
+            ),
+        )
+
+        val vm = buildViewModel()
+        advanceUntilIdle()
+
+        vm.updateInput("come across")
+        vm.submitAnswer()
+        advanceUntilIdle()
+
+        val correctState = vm.state.value
+        assertTrue(correctState is ReviewSessionState.Correct)
+        assertEquals(revealed, (correctState as ReviewSessionState.Correct).revealed)
     }
 
     // -------------------------------------------------------------------------
