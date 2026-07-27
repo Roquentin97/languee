@@ -1,0 +1,44 @@
+name: CI — languee-droid
+
+on:
+  push:
+    branches:
+      - bb_develop
+      - develop
+    paths:
+      - 'apps/languee-droid/**'
+      - '.github/workflows/ci-languee-droid.yml'
+
+jobs:
+  check:
+    name: Format, lint, test & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/languee-droid
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Format check
+        run: ./gradlew ktlintCheck
+
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build
+        run: ./gradlew assembleDebug

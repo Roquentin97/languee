@@ -1,0 +1,52 @@
+name: CI — languee-back
+
+on:
+  push:
+    branches:
+      - bb_develop
+      - develop
+    paths:
+      - 'apps/languee-back/**'
+      - '.github/workflows/ci-languee-back.yml'
+
+jobs:
+  check:
+    name: Format, lint, test & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/languee-back
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: apps/languee-back/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Format check
+        run: |
+          yarn format
+          git diff --exit-code
+
+      - name: Lint
+        run: |
+          yarn lint
+          git diff --exit-code
+
+      - name: Tests
+        run: yarn test
+
+      - name: Generate Prisma client
+        run: yarn prisma generate
+
+      - name: Build
+        run: yarn build
+
+      - name: Prisma schema validate
+        run: yarn prisma validate
