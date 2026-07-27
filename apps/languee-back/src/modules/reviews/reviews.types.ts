@@ -26,9 +26,20 @@ export type ReviewQueueItem = {
   prompt: ReviewPrompt;
 };
 
+/**
+ * Word data revealed to the learner once the card has been answered
+ * correctly. Never sent while the answer is still hidden.
+ */
+export type RevealedWordInfo = {
+  lemma: string;
+  ipa: string | null;
+  inflectionForms: Record<string, string> | null;
+};
+
 export type AnswerCheckOutcome = {
   result: 'correct' | 'incorrect';
   matchedForm: string | null;
+  revealed: RevealedWordInfo | null;
 };
 
 export type GradeInput = {
