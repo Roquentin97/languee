@@ -2,9 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "pull-request-title-pattern": "chore(release): release${component} ${version}",
   "group-pull-request-title-pattern": "chore(release): release ${branch}",
+  "include-component-in-tag": true,
   "packages": {
     "apps/languee-back": {
       "release-type": "simple",
+      "component": "languee-back",
       "version-file": "version.txt",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
@@ -16,6 +18,7 @@
     },
     "apps/languee-nlp": {
       "release-type": "simple",
+      "component": "languee-nlp",
       "version-file": "version.txt",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
@@ -27,6 +30,7 @@
     },
     "apps/languee-droid": {
       "release-type": "simple",
+      "component": "languee-droid",
       "version-file": "version.txt",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
