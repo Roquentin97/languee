@@ -10,13 +10,22 @@ PR-opening context, this is the skill.
 
 ## Hard requirements
 
-- Use GitHub MCP for every GitHub or remote operation: inspecting remote branches,
-  creating remote branches, publishing commits or files, opening pull requests, and
-  adding PR comments.
-- Do not use `gh`, `git pull`, `git fetch`, `git push`, or other native git remote
-  operations unless the human explicitly overrides this skill for the current task.
-- Local git inspection and commit preparation are allowed: `git status`, `git diff`,
-  `git log`, `git add`, and `git commit`.
+- Use GitHub MCP for PR/issue metadata: opening or updating pull requests, adding PR
+  comments, and inspecting remote branches or files. Do not use `gh` for operations
+  GitHub MCP provides; `gh` is a human-approved fallback only for operations MCP
+  lacks (for example merging a PR).
+- Publish local commits with native `git push` to a branch matching the allowed
+  prefixes (`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`,
+  `deps/`). Do not re-create local commits remotely with `mcp__github__push_files`
+  or `create_or_update_file` - inline re-typing loses commit history and risks
+  silent content drift. Reserve those MCP write tools for small changes with no
+  local commit.
+- Never push to `master`, `develop`, `staging`, `bb_develop`, or any environment
+  branch - via git, `gh`, or GitHub MCP. Never force-push a branch not created in
+  the current task without explicit human approval.
+- `git fetch` and `git pull` are allowed for syncing remote state. Local git
+  operations remain allowed: `git status`, `git diff`, `git log`, `git add`, and
+  `git commit`.
 - Do not open the PR until every required `make cc <affected-service>` command passes.
 - Do not manually bump app versions, version files, or changelogs in feature PRs unless
   the human explicitly asks for a release/versioning change.
