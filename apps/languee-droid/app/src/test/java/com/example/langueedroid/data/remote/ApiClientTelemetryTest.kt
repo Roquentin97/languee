@@ -55,11 +55,9 @@ class ApiClientTelemetryTest {
     fun `OTel interceptor injects traceparent header on outbound request`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(OkHttpTelemetry.builder(otel).build().newInterceptor())
-            .build()
+        val callFactory = OkHttpTelemetry.builder(otel).build().createCallFactory(OkHttpClient())
 
-        client.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
+        callFactory.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
 
         val recorded = server.takeRequest()
         assertNotNull("traceparent must be injected by OTel interceptor", recorded.getHeader("traceparent"))
@@ -69,11 +67,9 @@ class ApiClientTelemetryTest {
     fun `OTel interceptor creates a client span per request`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(OkHttpTelemetry.builder(otel).build().newInterceptor())
-            .build()
+        val callFactory = OkHttpTelemetry.builder(otel).build().createCallFactory(OkHttpClient())
 
-        client.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
+        callFactory.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
 
         assertTrue("at least one span must be exported", exporter.finishedSpanItems.isNotEmpty())
     }
@@ -82,11 +78,9 @@ class ApiClientTelemetryTest {
     fun `OTel interceptor does not capture Authorization header as span attribute`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(OkHttpTelemetry.builder(otel).build().newInterceptor())
-            .build()
+        val callFactory = OkHttpTelemetry.builder(otel).build().createCallFactory(OkHttpClient())
 
-        client.newCall(
+        callFactory.newCall(
             Request.Builder()
                 .url(server.url("/test"))
                 .header("Authorization", "Bearer secret-token-xyz")
