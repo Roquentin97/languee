@@ -87,10 +87,16 @@ Avoid brace expansion in shell commands.
 Agents may only push to branches with these prefixes:
 `feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`, `deps/`.
 
-Never push directly to `master`, `develop`, `staging`, or any environment branch.
-Use GitHub MCP for every GitHub or remote operation, including branch publication and
-PR creation. Do not use `gh`, `git pull`, `git fetch`, or `git push` unless the human
-explicitly overrides this rule for the current task.
+Never push to `master`, `develop`, `staging`, `bb_develop`, or any environment branch -
+via git, `gh`, or GitHub MCP.
+
+Use GitHub MCP for PR/issue metadata: opening or updating pull requests, PR comments,
+and inspecting remote state. Publish local commits with native `git push` to an
+allowed-prefix branch - do not re-create local commits remotely with
+`mcp__github__push_files` (inline re-typing loses commit history and risks silent
+content drift). `git fetch`/`git pull` are allowed for syncing remote state. Do not
+use `gh` for operations GitHub MCP provides; never force-push a branch not created in
+the current task without explicit human approval.
 
 Whenever a workflow opens, creates, publishes, or prepares a PR, use
 `.claude/skills/open-pr/SKILL.md`. The skill treats shared/root/tooling-only changes as
