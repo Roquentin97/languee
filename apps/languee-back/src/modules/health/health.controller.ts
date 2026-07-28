@@ -27,17 +27,18 @@ export class HealthController {
   @Get('version')
   @ApiOperation({ summary: 'Get application version' })
   @ApiOkResponse({
-    description: 'Returns the application version',
+    description: 'Returns the application version and build commit',
     schema: {
-      example: { version: '0.0.1' },
+      example: { version: '1.0.0', commit: 'abc1234' },
       properties: {
         version: { type: 'string' },
+        commit: { type: 'string' },
       },
-      required: ['version'],
+      required: ['version', 'commit'],
       type: 'object',
     },
   })
-  getVersion(): { version: string } {
+  getVersion(): { version: string; commit: string } {
     return this.healthService.getVersion();
   }
 }

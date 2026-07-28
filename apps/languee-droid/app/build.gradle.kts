@@ -25,6 +25,7 @@ val escapedBackendBaseUrl =
 val rawOtelEndpoint: String = localProperties.getProperty("OTEL_EXPORTER_ENDPOINT", "http://10.0.2.2:4318")
 val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("\"", "\\\"")
 val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
+val gitSha: String = System.getenv("GIT_SHA")?.trim()?.ifEmpty { null } ?: "unknown"
 
 android {
     namespace = "com.languee.droid"
@@ -46,6 +47,7 @@ android {
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
         buildConfigField("String", "OTEL_EXPORTER_ENDPOINT", "\"$escapedOtelEndpoint\"")
         buildConfigField("boolean", "TRACING_ENABLED", tracingEnabled)
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
 
     testOptions {

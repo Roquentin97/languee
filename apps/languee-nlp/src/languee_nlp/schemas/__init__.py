@@ -9,6 +9,7 @@ class HealthResponse(BaseModel):
 
 class VersionResponse(BaseModel):
     version: str
+    commit: str
 
 
 class ReadyResponse(BaseModel):
