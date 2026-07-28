@@ -30,9 +30,8 @@ Resolve the full dependency backlog — open dependabot PRs AND the hidden queue
 5. **Publish via GitHub MCP** (open-pr skill): local commit first (commit-msg hook +
    commitlint validate the message), then `create_branch` from `bb_develop` →
    `push_files` with exact final file contents → `create_pull_request` (base
-   `bb_develop`). Never `git push` / `gh` from agents — with ONE exception: large
-   lockfiles physically cannot transit MCP and are pushed by the human (see the lockfile
-   constraint below).
+   `bb_develop`). Never `git push` / `gh` from agents; if a large generated file fails
+   MCP transit, use the lockfile recovery pass below (verification + human-run push).
 6. **Same-file overlap.** Migration PRs share manifests/lockfiles with their lane PR
    (yarn.lock, libs.versions.toml). Merge order: lane PR first, then migrations; refresh
    stale siblings with `mcp update_pull_request_branch` (or regenerate the lockfile) after
@@ -55,13 +54,21 @@ Worker prompts MUST forbid `run_in_background`: workers that background a long b
 with `timeout: 600000`, and require the worker to keep going until its final report (or a
 precise blocked-reason) is produced.
 
-## Repo constraints (hard-won — do not rediscover)
+## Constraints and recovery passes (hard-won — do not rediscover from scratch)
 
-- **Sandbox seccomp is broken on this machine**: every Bash call needs
-  `dangerouslyDisableSandbox: true`, in every subagent prompt. Additionally, in agent
-  worktrees the command guard rejects compound commands (`cd x && …`, nested `$()`) with
-  a misleading "worktree isolation" error — use flat single commands with absolute paths
-  and `--project-dir`-style flags.
+These are dated field observations, not permanent truths. Repo-invariant rules (Release
+Please ownership, no-PR-CI, ecosystem version gates) can be relied on until the repo
+changes; anything environmental (tool availability, token scopes, API ceilings, sandbox
+behavior, filesystem paths) varies by machine and by harness version — attempt the
+normal path first, recognize the failure signature, then apply the documented recovery.
+Machine-specific current state lives in session memory, not here.
+
+- **Sandbox failures (machine-specific)**: if Bash fails at seccomp init
+  (`apply-seccomp … Permission denied`), retry with `dangerouslyDisableSandbox: true` and
+  pre-authorize workers in their prompts to do the same on that signature. Agent-worktree
+  command guards may also reject compound commands (`cd x && …`, nested `$()`) with a
+  misleading "worktree isolation" error — fall back to flat single commands with absolute
+  paths and `--project-dir`-style flags.
 - **Version research: don't trust WebFetch summaries for version numbers** — the
   summarizer has fabricated plausible latest-version claims. Prefer direct `curl` to
   registry metadata (`maven-metadata.xml`, PyPI JSON) or raw CHANGELOGs, and cross-check.
@@ -77,19 +84,22 @@ precise blocked-reason) is produced.
   source, not changelog summaries, before "fixing" call sites);
   `auto-instrumentations-node` carries an undeclared peer dep on `core@^2` (harmless on
   Yarn Classic, hard-fails under strict peer-dep managers).
-- **GitHub MCP token cannot write `.github/workflows/*`** (no `workflow` scope). Never
-  plan a consolidated actions-bump PR; instead triage dependabot's own actions PRs
-  (mergeable? breaking changes?) and hand the merge decision to the human.
-- **nlp**: `uv` is not installed globally. Download a standalone binary to `$TMPDIR` and
-  use the Makefile's `UV=` override. Version-dependent footgun: `make cc languee-nlp`
+- **Workflow files may be unpushable via MCP**: a token lacking the `workflow` scope
+  rejects `.github/workflows/*` writes with "Resource not accessible by personal access
+  token" (state as of 2026-07). Recovery: on that signature, don't fight it — triage
+  dependabot's own actions PRs instead (breaking changes? mergeable?) and hand the merge
+  decision to the human. Re-test on later runs; the scope may have been granted.
+- **nlp**: if `uv` is missing on the machine (it has been), download a standalone binary
+  to `$TMPDIR` and use the Makefile's `UV=` override. Version-dependent footgun: `make cc languee-nlp`
   runs `uv run --extra dev`, whose implicit sync USED to strip the manually installed
   `en_core_web_md` model wheel (CI works around it with `--no-sync`); with uv ≥0.11.32
   the sync is inexact (add-only) and the model survives — still check for a
   missing-model pytest failure and fall back to reinstall + `--no-sync` if it appears.
   Never raise the spacy floor past what the pinned model wheel version supports.
 - **droid**: kotlin/ksp/compose-plugin versions move as one set; the `otel` catalog
-  version is its own coupled group. Worktrees need `local.properties` with
-  `sdk.dir=/home/antoine/Android/Sdk` — create it, NEVER push it. `ktlintFormat` passes
+  version is its own coupled group. Worktrees need `local.properties` with `sdk.dir`
+  pointing at the machine's Android SDK (copy from the main checkout's
+  `local.properties` or derive from `ANDROID_HOME`) — create it, NEVER push it. `ktlintFormat` passes
   vacuously (not wired to .kt sources). Don't raise compileSdk for a deps batch.
   Additional gates found 2026-07: AGP is floored by the **Gradle wrapper** version
   (independent of Kotlin) — wrapper bumps are toolchain changes, not lane bumps; a whole
@@ -100,8 +110,9 @@ precise blocked-reason) is produced.
   **KSP versioning decoupled from Kotlin at KSP 2.3.0** — the old `<kotlinVersion>-x.y.z`
   pairing convention no longer holds; pick the KSP version the Kotlin docs pair with the
   target Kotlin release. **Hilt ≤2.60.1 cannot read Kotlin ≥2.4 metadata**
-  (google/dagger#5190/#5177): the fix is `kotlin-metadata-jvm` (version.ref kotlin) added
-  to FOUR configurations — `ksp`, `compileOnly`, `testImplementation`,
+  (google/dagger#5190/#5177, open as of 2026-07 — check whether a newer Dagger release
+  fixed it before applying any workaround): the fix is `kotlin-metadata-jvm` (version.ref
+  kotlin) added to FOUR configurations — `ksp`, `compileOnly`, `testImplementation`,
   `androidTestImplementation` (the documented single-line `ksp(...)` workaround misses the
   Hilt Gradle plugin's javac aggregating task for test variants). Project-side override —
   remove once Dagger ships a real fix.
@@ -120,19 +131,21 @@ precise blocked-reason) is produced.
   "0 open docker PRs" does NOT mean images are current — a silent scanning gap was
   observed (stale in-scope compose images, zero PRs, no ignore rules); verify via a
   registry-tag audit and GitHub's Dependabot logs, never by PR count alone.
-- **MCP `get_pull_request` returns no `mergeable`/`mergeable_state` field.** Infer
-  mergeability (have the PR's target files changed on the base since branching? is
-  `merge_commit_sha` non-null?) and confirm in the GitHub UI before merging.
-- **Lockfiles CANNOT go through MCP `push_files`.** A worker's single tool call tops out
-  around 45–50KB of content (proven twice, two different truncation points on a 306KB
-  `uv.lock`) — a stalled call still EXECUTES, leaving a truncated file on the remote
-  branch, and partial pushes never converge (each push replaces the whole file).
-  Protocol: workers verify + commit locally on their worktree branch and report
-  `ready-for-manual-push` with worktree path, branch, and commit hash; the human pushes
-  each branch (`git -C <worktree> push --force origin HEAD:<deps-branch>` — their own
-  push, no rule conflict); the coordinator then verifies the remote lockfile via
-  `get_file_contents` (line count + tail vs local) and opens the PR via MCP (metadata
-  only, no size risk). Small files (manifests, sources) may still go via `push_files`.
+- **MCP `get_pull_request` may omit `mergeable`/`mergeable_state`** (it did in 2026-07).
+  If absent, infer mergeability (have the PR's target files changed on the base since
+  branching? is `merge_commit_sha` non-null?) and confirm in the GitHub UI before merging.
+- **Large generated files (lockfiles) may not survive MCP `push_files`.** Observed
+  2026-07: a worker's single tool call topped out ~45–50KB of content; a stalled call
+  still EXECUTES, committing a truncated file to the remote branch, and partial re-pushes
+  never converge (each push replaces the whole file). Recovery pass, in order:
+  (1) push the lockfile ALONE in one complete-content call; (2) verify remotely via
+  `get_file_contents` — line count + tail must match local; (3) at most ONE retry if
+  truncated; (4) still truncated → stop pushing, worker reports `ready-for-manual-push`
+  (worktree path, branch, commit hash), the human runs
+  `git -C <worktree> push --force origin HEAD:<deps-branch>` (their own push — no rule
+  conflict), and the coordinator re-verifies remotely and opens the PR via MCP (metadata
+  only, no size risk). Never open a PR against an unverified lockfile. Small files
+  (manifests, sources) go via `push_files` normally.
 
 ## Per-PR body requirements
 
