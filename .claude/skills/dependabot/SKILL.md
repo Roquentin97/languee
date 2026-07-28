@@ -33,9 +33,16 @@ Resolve the full dependency backlog — open dependabot PRs AND the hidden queue
    `bb_develop`). Never `git push` / `gh` from agents; if a large generated file fails
    MCP transit, use the lockfile recovery pass below (verification + human-run push).
 6. **Same-file overlap.** Migration PRs share manifests/lockfiles with their lane PR
-   (yarn.lock, libs.versions.toml). Merge order: lane PR first, then migrations; refresh
-   stale siblings with `mcp update_pull_request_branch` (or regenerate the lockfile) after
-   each merge.
+   (yarn.lock, libs.versions.toml). Merge order: lane PR first, then migrations. When a
+   sibling then shows conflicts, know that two shortcuts DON'T work: pushing "pre-merged"
+   file content via `push_files` does not clear GitHub's conflict state when the PR's
+   delta lines sit adjacent to base-changed lines (adjacent hunks conflict regardless of
+   content), and `update_pull_request_branch` fails on real conflicts too. Working
+   recovery (needs human-authorized native git): in the PR's worktree, `git fetch` +
+   `git merge origin/<base>`, resolve the shared file (base content + this PR's deltas),
+   re-run the FULL service gate on the merged tree — new version combinations must
+   actually be rebuilt, not assumed — then push the merge commit to the PR branch and
+   merge.
 7. **Keep the queue drained going forward.** `dependabot.yml` must carry `groups`
    (minor+patch per ecosystem; ALL update-types for github-actions, since action tags are
    majors). After the batch merges, trigger a re-scan (GitHub UI: Insights → Dependency
