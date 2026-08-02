@@ -27,6 +27,7 @@ describe('WordsService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 
@@ -198,6 +199,27 @@ describe('WordsService', () => {
       const result = await service.findByLemma('unknown', 'en');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('setIpaIfMissing', () => {
+    it('happy path: writes the ipa only where it is still null', async () => {
+      prismaMock.word.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.setIpaIfMissing('word-id-1', '/ɹʌn/');
+
+      expect(prismaMock.word.updateMany).toHaveBeenCalledWith({
+        where: { id: 'word-id-1', ipa: null },
+        data: { ipa: '/ɹʌn/' },
+      });
+    });
+
+    it('edge case: a word that already has an ipa is left untouched (filtered by the where clause)', async () => {
+      prismaMock.word.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.setIpaIfMissing('word-id-1', '/ɹʌn/'),
+      ).resolves.toBeUndefined();
     });
   });
 });

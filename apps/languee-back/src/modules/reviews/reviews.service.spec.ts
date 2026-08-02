@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type {
   Card,
   CardAnkiDroidExport,
-  CardReviewState,
+  DefinitionReviewState,
   Definition,
   Deck,
   Word,
@@ -73,9 +73,18 @@ const mockCardWithDeck = {
   deck: { id: mockDeck.id, name: mockDeck.name },
 };
 
-const mockReviewState: CardReviewState = {
+/** Bare card shape selected inside the due-state query. */
+const mockBareCard = {
+  id: mockCard.id,
+  context: mockCard.context,
+  inflectionForms: mockCard.inflectionForms,
+  deck: { id: mockDeck.id, name: mockDeck.name },
+};
+
+const mockReviewState: DefinitionReviewState = {
   id: 'state-id-1',
-  cardId: 'card-id-1',
+  userId: 'user-id-1',
+  definitionId: 'def-id-1',
   state: 'review',
   dueAt: new Date('2026-07-01T00:00:00.000Z'),
   stability: 10,
@@ -89,8 +98,17 @@ const mockReviewState: CardReviewState = {
   updatedAt: new Date('2026-06-20T00:00:00.000Z'),
 };
 
+const mockDueState = {
+  ...mockReviewState,
+  definition: {
+    ...mockDefinition,
+    word: mockWord,
+    cards: [mockBareCard],
+  },
+};
+
 const mockPrismaService = {
-  cardReviewState: {
+  definitionReviewState: {
     count: jest.fn(),
     findMany: jest.fn(),
     findUnique: jest.fn(),
@@ -106,7 +124,7 @@ const mockPrismaService = {
 
 const mockCardsService = {
   findOwnedOrThrow: jest.fn(),
-  findCardsWithoutReviewState: jest.fn(),
+  findUnreviewedCards: jest.fn(),
 };
 
 const mockDecksService = {
@@ -142,27 +160,41 @@ describe('ReviewsService', () => {
 
   describe('getSummary()', () => {
     it('happy path — returns due and new counts', async () => {
-      mockPrismaService.cardReviewState.count.mockResolvedValue(5);
-      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([
+      mockPrismaService.definitionReviewState.count.mockResolvedValue(5);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([
         mockCardWithDeck,
-        mockCardWithDeck,
-        mockCardWithDeck,
+        { ...mockCardWithDeck, id: 'card-id-2', definitionId: 'def-id-2' },
       ]);
 
       const result = await service.getSummary('user-id-1');
 
-      expect(result).toEqual({ dueCount: 5, newCount: 3 });
-      expect(mockPrismaService.cardReviewState.count).toHaveBeenCalledWith({
-        where: { dueAt: { lte: NOW }, card: { userId: 'user-id-1' } },
+      expect(result).toEqual({ dueCount: 5, newCount: 2 });
+      expect(
+        mockPrismaService.definitionReviewState.count,
+      ).toHaveBeenCalledWith({
+        where: { userId: 'user-id-1', dueAt: { lte: NOW } },
       });
-      expect(mockCardsService.findCardsWithoutReviewState).toHaveBeenCalledWith(
+      expect(mockCardsService.findUnreviewedCards).toHaveBeenCalledWith(
         'user-id-1',
       );
     });
 
+    it('cards sharing a definition count as one new item', async () => {
+      mockPrismaService.definitionReviewState.count.mockResolvedValue(0);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([
+        mockCardWithDeck,
+        { ...mockCardWithDeck, id: 'card-id-2', deckId: 'deck-id-2' },
+        { ...mockCardWithDeck, id: 'card-id-3', definitionId: 'def-id-2' },
+      ]);
+
+      const result = await service.getSummary('user-id-1');
+
+      expect(result).toEqual({ dueCount: 0, newCount: 2 });
+    });
+
     it('edge case — zero due and zero new', async () => {
-      mockPrismaService.cardReviewState.count.mockResolvedValue(0);
-      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([]);
+      mockPrismaService.definitionReviewState.count.mockResolvedValue(0);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
 
       const result = await service.getSummary('user-id-1');
 
@@ -172,11 +204,11 @@ describe('ReviewsService', () => {
 
   describe('getQueue()', () => {
     it('happy path — due items ordered before new items, truncated to limit', async () => {
-      mockPrismaService.cardReviewState.findMany.mockResolvedValue([
-        { ...mockReviewState, card: mockCardWithDeck },
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([
+        mockDueState,
       ]);
-      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([
-        mockCardWithDeck,
+      mockCardsService.findUnreviewedCards.mockResolvedValue([
+        { ...mockCardWithDeck, id: 'card-id-2', definitionId: 'def-id-2' },
       ]);
 
       const result = await service.getQueue('user-id-1', { limit: 20 });
@@ -184,41 +216,41 @@ describe('ReviewsService', () => {
       expect(result).toHaveLength(2);
       expect(result[0]?.isNew).toBe(false);
       expect(result[1]?.isNew).toBe(true);
-      expect(mockPrismaService.cardReviewState.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.definitionReviewState.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            userId: 'user-id-1',
             dueAt: { lte: NOW },
-            card: { userId: 'user-id-1' },
+            definition: { cards: { some: { userId: 'user-id-1' } } },
           },
           orderBy: { dueAt: 'asc' },
           take: 20,
         }),
       );
-      expect(mockCardsService.findCardsWithoutReviewState).toHaveBeenCalledWith(
+      expect(mockCardsService.findUnreviewedCards).toHaveBeenCalledWith(
         'user-id-1',
         undefined,
-        19,
       );
     });
 
     it('limit truncation — does not query new cards when due items already fill the limit', async () => {
-      mockPrismaService.cardReviewState.findMany.mockResolvedValue([
-        { ...mockReviewState, card: mockCardWithDeck },
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([
+        mockDueState,
       ]);
 
       const result = await service.getQueue('user-id-1', { limit: 1 });
 
       expect(result).toHaveLength(1);
       expect(result[0]?.isNew).toBe(false);
-      expect(
-        mockCardsService.findCardsWithoutReviewState,
-      ).not.toHaveBeenCalled();
+      expect(mockCardsService.findUnreviewedCards).not.toHaveBeenCalled();
     });
 
     it('deck filter — validates ownership and filters both due and new queries by deckId', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockPrismaService.cardReviewState.findMany.mockResolvedValue([]);
-      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([]);
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
 
       await service.getQueue('user-id-1', {
         deckId: 'deck-id-1',
@@ -229,18 +261,22 @@ describe('ReviewsService', () => {
         'deck-id-1',
         'user-id-1',
       );
-      expect(mockPrismaService.cardReviewState.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.definitionReviewState.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            userId: 'user-id-1',
             dueAt: { lte: NOW },
-            card: { userId: 'user-id-1', deckId: 'deck-id-1' },
+            definition: {
+              cards: { some: { userId: 'user-id-1', deckId: 'deck-id-1' } },
+            },
           },
         }),
       );
-      expect(mockCardsService.findCardsWithoutReviewState).toHaveBeenCalledWith(
+      expect(mockCardsService.findUnreviewedCards).toHaveBeenCalledWith(
         'user-id-1',
         'deck-id-1',
-        20,
       );
     });
 
@@ -253,14 +289,16 @@ describe('ReviewsService', () => {
         service.getQueue('user-id-1', { deckId: 'deck-id-other', limit: 20 }),
       ).rejects.toBeInstanceOf(DeckNotFoundError);
 
-      expect(mockPrismaService.cardReviewState.findMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.definitionReviewState.findMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('prompt building — masks the captured context, derives kind/partOfSpeech/lemmaLength', async () => {
-      mockPrismaService.cardReviewState.findMany.mockResolvedValue([
-        { ...mockReviewState, card: mockCardWithDeck },
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([
+        mockDueState,
       ]);
-      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
 
       const result = await service.getQueue('user-id-1', { limit: 20 });
 
@@ -286,18 +324,66 @@ describe('ReviewsService', () => {
         language: 'es',
         lemma: 'correr',
       };
-      const spanishCardWithDeck = {
-        ...mockCardWithDeck,
-        definition: { ...mockDefinition, word: spanishWord },
-      };
-      mockPrismaService.cardReviewState.findMany.mockResolvedValue([
-        { ...mockReviewState, card: spanishCardWithDeck },
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([
+        {
+          ...mockDueState,
+          definition: { ...mockDueState.definition, word: spanishWord },
+        },
       ]);
-      mockCardsService.findCardsWithoutReviewState.mockResolvedValue([]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
 
       const result = await service.getQueue('user-id-1', { limit: 20 });
 
       expect(result[0]?.prompt.language).toBe('es');
+    });
+
+    it('deck-agnostic scheduling — a definition saved in two decks yields ONE due item, preferring the card with context', async () => {
+      const contextlessCard = {
+        ...mockBareCard,
+        id: 'card-id-newer',
+        context: null,
+        deck: { id: 'deck-id-2', name: 'Other deck' },
+      };
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([
+        {
+          ...mockDueState,
+          definition: {
+            ...mockDueState.definition,
+            // newest-first ordering from the query: contextless card is newer
+            cards: [contextlessCard, mockBareCard],
+          },
+        },
+      ]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
+
+      const result = await service.getQueue('user-id-1', { limit: 20 });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.cardId).toBe('card-id-1');
+      expect(result[0]?.deckId).toBe('deck-id-1');
+      expect(result[0]?.prompt.maskedSentence).toBe(
+        'Guess who I ____ at the station!',
+      );
+    });
+
+    it('deck-agnostic scheduling — unreviewed cards sharing a definition yield ONE new item', async () => {
+      mockPrismaService.definitionReviewState.findMany.mockResolvedValue([]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([
+        { ...mockCardWithDeck, context: null },
+        {
+          ...mockCardWithDeck,
+          id: 'card-id-2',
+          deckId: 'deck-id-2',
+          deck: { id: 'deck-id-2', name: 'Other deck' },
+        },
+      ]);
+
+      const result = await service.getQueue('user-id-1', { limit: 20 });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.isNew).toBe(true);
+      // The card with a captured context wins over the earlier contextless one.
+      expect(result[0]?.cardId).toBe('card-id-2');
     });
   });
 
@@ -316,7 +402,30 @@ describe('ReviewsService', () => {
       expect(result).toEqual({
         result: 'correct',
         matchedForm: 'run into',
+        revealed: {
+          lemma: 'run into',
+          ipa: null,
+          inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
+        },
       });
+    });
+
+    it('happy path — correct answer reveals the word ipa when stored', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue({
+        ...mockCardWithAnkiDroidExport,
+        definition: {
+          ...mockDefinition,
+          word: { ...mockWord, ipa: '/ɹʌn ˈɪntuː/' },
+        },
+      });
+
+      const result = await service.checkTypedAnswer(
+        'user-id-1',
+        'card-id-1',
+        'run into',
+      );
+
+      expect(result.revealed?.ipa).toBe('/ɹʌn ˈɪntuː/');
     });
 
     it('happy path — correct via inflection form', async () => {
@@ -330,7 +439,7 @@ describe('ReviewsService', () => {
         'ran into',
       );
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         result: 'correct',
         matchedForm: 'ran into',
       });
@@ -350,6 +459,7 @@ describe('ReviewsService', () => {
       expect(result).toEqual({
         result: 'incorrect',
         matchedForm: null,
+        revealed: null,
       });
     });
 
@@ -379,13 +489,15 @@ describe('ReviewsService', () => {
   });
 
   describe('gradeCard()', () => {
-    it('happy path — starts an unseen card from FSRS defaults and writes both rows in a transaction', async () => {
+    it('happy path — starts an unseen definition from FSRS defaults and writes both rows in a transaction', async () => {
       const dueAt = new Date(NOW.getTime() + 10 * MS_PER_MINUTE);
       mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockPrismaService.cardReviewState.findUnique.mockResolvedValue(null);
-      mockPrismaService.cardReviewState.upsert.mockResolvedValue({
+      mockPrismaService.definitionReviewState.findUnique.mockResolvedValue(
+        null,
+      );
+      mockPrismaService.definitionReviewState.upsert.mockResolvedValue({
         ...mockReviewState,
         state: 'learning',
         scheduledDays: 0,
@@ -405,12 +517,20 @@ describe('ReviewsService', () => {
         state: 'learning',
       });
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockPrismaService.cardReviewState.upsert).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.definitionReviewState.upsert,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { cardId: 'card-id-1' },
+          where: {
+            userId_definitionId: {
+              userId: 'user-id-1',
+              definitionId: 'def-id-1',
+            },
+          },
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           create: expect.objectContaining({
-            cardId: 'card-id-1',
+            userId: 'user-id-1',
+            definitionId: 'def-id-1',
             state: 'learning',
             scheduledDays: 0,
             reps: 1,
@@ -443,10 +563,10 @@ describe('ReviewsService', () => {
       mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockPrismaService.cardReviewState.findUnique.mockResolvedValue(
+      mockPrismaService.definitionReviewState.findUnique.mockResolvedValue(
         mockReviewState,
       );
-      mockPrismaService.cardReviewState.upsert.mockResolvedValue({
+      mockPrismaService.definitionReviewState.upsert.mockResolvedValue({
         ...mockReviewState,
         scheduledDays: 35,
         reps: 4,
@@ -455,7 +575,9 @@ describe('ReviewsService', () => {
 
       await service.gradeCard('user-id-1', 'card-id-1', { rating: 'good' });
 
-      expect(mockPrismaService.cardReviewState.upsert).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.definitionReviewState.upsert,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           update: expect.objectContaining({
@@ -477,12 +599,50 @@ describe('ReviewsService', () => {
       );
     });
 
+    it('happy path — grading through a second deck card advances the SAME definition schedule', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue({
+        ...mockCardWithAnkiDroidExport,
+        id: 'card-id-other-deck',
+        deckId: 'deck-id-2',
+      });
+      mockPrismaService.definitionReviewState.findUnique.mockResolvedValue(
+        mockReviewState,
+      );
+      mockPrismaService.definitionReviewState.upsert.mockResolvedValue(
+        mockReviewState,
+      );
+      mockPrismaService.reviewLog.create.mockResolvedValue({});
+
+      await service.gradeCard('user-id-1', 'card-id-other-deck', {
+        rating: 'good',
+      });
+
+      expect(
+        mockPrismaService.definitionReviewState.findUnique,
+      ).toHaveBeenCalledWith({
+        where: {
+          userId_definitionId: {
+            userId: 'user-id-1',
+            definitionId: 'def-id-1',
+          },
+        },
+      });
+      expect(mockPrismaService.reviewLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({ cardId: 'card-id-other-deck' }),
+        }),
+      );
+    });
+
     it('happy path — persists typedAnswer and answerResult when provided', async () => {
       mockCardsService.findOwnedOrThrow.mockResolvedValue(
         mockCardWithAnkiDroidExport,
       );
-      mockPrismaService.cardReviewState.findUnique.mockResolvedValue(null);
-      mockPrismaService.cardReviewState.upsert.mockResolvedValue(
+      mockPrismaService.definitionReviewState.findUnique.mockResolvedValue(
+        null,
+      );
+      mockPrismaService.definitionReviewState.upsert.mockResolvedValue(
         mockReviewState,
       );
       mockPrismaService.reviewLog.create.mockResolvedValue({});
@@ -514,7 +674,7 @@ describe('ReviewsService', () => {
       ).rejects.toBeInstanceOf(CardNotFoundError);
 
       expect(
-        mockPrismaService.cardReviewState.findUnique,
+        mockPrismaService.definitionReviewState.findUnique,
       ).not.toHaveBeenCalled();
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
     });

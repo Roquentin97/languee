@@ -115,6 +115,44 @@ class CardRepositoryTest {
     // Helpers
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+    // listCards
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `listCards success returns mapped domain cards`() = runTest {
+        whenever(cardsApi.listCards("d1")).thenReturn(
+            Response.success(listOf(aCardResponseDto())),
+        )
+
+        val result = repository.listCards("d1")
+
+        assertTrue(result.isSuccess)
+        val cards = result.getOrThrow()
+        assertTrue(cards.size == 1)
+        assertTrue(cards[0].lemma == "cat")
+        assertTrue(cards[0].deckId == "d1")
+    }
+
+    @Test
+    fun `listCards 401 throws UnauthorizedException`() = runTest {
+        whenever(cardsApi.listCards("d1")).thenReturn(Response.error(401, "{}".toResponseBody()))
+
+        val result = repository.listCards("d1")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is UnauthorizedException)
+    }
+
+    @Test
+    fun `listCards server error returns failure`() = runTest {
+        whenever(cardsApi.listCards("d1")).thenReturn(Response.error(500, "{}".toResponseBody()))
+
+        val result = repository.listCards("d1")
+
+        assertTrue(result.isFailure)
+    }
+
     private fun aCardResponseDto() = CardResponseDto(
         id = "c1",
         deckId = "d1",

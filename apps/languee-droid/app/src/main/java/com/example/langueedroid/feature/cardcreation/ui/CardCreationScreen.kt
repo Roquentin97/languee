@@ -161,36 +161,12 @@ fun CardCreationScreen(
                 )
             }
 
-            DeckSelector(
-                deckSelectionState = state.deckSelectionState,
-                onDeckSelected = onDeckSelected,
-            )
-
             ExpressionKindIndicator(
                 kind = state.kind,
                 expressionContextFound = state.expressionContextFound,
             )
 
             when (val flowState = state.flowState) {
-                is CardCreationFlowState.SelectingDeck -> {
-                    when (state.deckSelectionState) {
-                        is DeckSelectionState.Empty -> {
-                            Text(
-                                text = stringResource(R.string.card_creation_no_decks_hint),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary,
-                            )
-                        }
-                        else -> {
-                            Text(
-                                text = stringResource(R.string.card_creation_select_deck_hint),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary,
-                            )
-                        }
-                    }
-                }
-
                 is CardCreationFlowState.LookingUp -> {
                     Box(
                         modifier = Modifier
@@ -216,6 +192,8 @@ fun CardCreationScreen(
                             lemma = flowState.lemma,
                             selectedDefinition = flowState.selectedDefinition,
                             definitionState = flowState.definitionState,
+                            deckSelectionState = state.deckSelectionState,
+                            onDeckSelected = onDeckSelected,
                             onDefinitionSelected = onDefinitionSelected,
                             onCreateCard = onCreateCard,
                             modifier = Modifier.weight(1f),
@@ -420,10 +398,14 @@ private fun DefinitionsList(
     lemma: String,
     selectedDefinition: DefinitionResult?,
     definitionState: DefinitionState?,
+    deckSelectionState: DeckSelectionState,
+    onDeckSelected: (Deck) -> Unit,
     onDefinitionSelected: (DefinitionResult) -> Unit,
     onCreateCard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selectedDeck = (deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
+
     Column(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -442,11 +424,14 @@ private fun DefinitionsList(
                 DefinitionCard(
                     definition = definition,
                     isSelected = definition == selectedDefinition,
+                    selectedDeckId = selectedDeck?.id,
                     onClick = { onDefinitionSelected(definition) },
                 )
             }
         }
 
+        // The target deck is asked only after a definition has been picked, so the
+        // definitions (and their saved-state badges) can inform the deck choice.
         if (selectedDefinition != null) {
             when (definitionState) {
                 is DefinitionState.AlreadyInSelectedDeck -> {
@@ -462,38 +447,28 @@ private fun DefinitionsList(
                         color = MaterialTheme.colorScheme.secondary,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = onCreateCard,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    ) {
-                        Text(
-                            text = "${stringResource(R.string.card_creation_add_button)} →",
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
                 }
-                is DefinitionState.Available, null -> {
-                    Button(
-                        onClick = onCreateCard,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                        enabled = definitionState != null,
-                    ) {
-                        Text(
-                            text = "${stringResource(R.string.card_creation_add_button)} →",
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
+                is DefinitionState.Available, null -> Unit
+            }
+            DeckSelector(
+                deckSelectionState = deckSelectionState,
+                onDeckSelected = onDeckSelected,
+            )
+            if (definitionState != DefinitionState.AlreadyInSelectedDeck) {
+                Button(
+                    onClick = onCreateCard,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                    enabled = selectedDeck != null && definitionState != null,
+                ) {
+                    Text(
+                        text = "${stringResource(R.string.card_creation_add_button)} →",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
             }
         }
@@ -663,9 +638,12 @@ private fun ExampleOption(
 private fun DefinitionCard(
     definition: DefinitionResult,
     isSelected: Boolean,
+    selectedDeckId: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val savedInSelectedDeck = selectedDeckId != null && definition.decks.any { it.id == selectedDeckId }
+    val savedElsewhere = !savedInSelectedDeck && definition.decks.isNotEmpty()
     val borderColor = if (isSelected) GreenPrimary else CardBorder
     val bgColor = if (isSelected) GreenContainer else Color.White
 
@@ -718,6 +696,24 @@ private fun DefinitionCard(
                     color = TextSecondary,
                 )
             }
+            // Saved-state badge: aggressive when the definition is already in the
+            // selected deck, softer when it only exists in other decks.
+            if (savedInSelectedDeck) {
+                Spacer(modifier = Modifier.height(6.dp))
+                SavedBadge(
+                    text = stringResource(R.string.card_creation_saved_in_this_deck),
+                    strong = true,
+                )
+            } else if (savedElsewhere) {
+                Spacer(modifier = Modifier.height(6.dp))
+                SavedBadge(
+                    text = stringResource(
+                        R.string.card_creation_saved_in_decks,
+                        definition.decks.joinToString { it.name },
+                    ),
+                    strong = false,
+                )
+            }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = definition.definition,
@@ -748,6 +744,30 @@ private fun DefinitionCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SavedBadge(
+    text: String,
+    strong: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val background = if (strong) GreenPrimary else GreenContainer
+    val textColor = if (strong) Color.White else GreenPrimary
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(5.dp))
+            .background(background)
+            .border(1.dp, GreenBorder, RoundedCornerShape(5.dp))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor,
+        )
     }
 }
 

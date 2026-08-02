@@ -73,6 +73,7 @@ class CardCreationViewModel @AssistedInject constructor(
 
     init {
         loadDecks()
+        lookupVocabulary()
     }
 
     internal fun loadDecks() {
@@ -86,7 +87,6 @@ class CardCreationViewModel @AssistedInject constructor(
                         } else {
                             DeckSelectionState.Loaded(decks = decks, selectedDeck = null)
                         },
-                        flowState = CardCreationFlowState.SelectingDeck,
                     )
                 },
                 onFailure = { error ->
@@ -108,27 +108,30 @@ class CardCreationViewModel @AssistedInject constructor(
             deckSelectionState = currentDeckState.copy(selectedDeck = deck),
         )
 
-        val currentFlowState = _state.value.flowState
-        when (currentFlowState) {
-            is CardCreationFlowState.SelectingDeck -> lookupVocabulary(deck)
+        // The lookup is deck-independent; a deck change only re-evaluates whether the
+        // selected definition is already saved in the newly chosen deck.
+        when (val currentFlowState = _state.value.flowState) {
             is CardCreationFlowState.DefinitionsLoaded -> {
-                // Deck changed while definitions are shown — re-evaluate definition state then re-fetch.
                 _state.value = _state.value.copy(
                     flowState = currentFlowState.copy(
-                        selectedDefinition = currentFlowState.selectedDefinition,
                         definitionState = currentFlowState.selectedDefinition?.let {
                             resolveDefinitionState(it, deck)
                         },
                     ),
                 )
-                lookupVocabulary(deck)
             }
-            is CardCreationFlowState.SelectingExample -> lookupVocabulary(deck)
+            is CardCreationFlowState.SelectingExample -> {
+                _state.value = _state.value.copy(
+                    flowState = currentFlowState.copy(
+                        definitionState = resolveDefinitionState(currentFlowState.selectedDefinition, deck),
+                    ),
+                )
+            }
             else -> Unit
         }
     }
 
-    private fun lookupVocabulary(deck: Deck, notice: CardCreationError? = null) {
+    private fun lookupVocabulary(notice: CardCreationError? = null) {
         viewModelScope.launch {
             _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
             vocabularyRepository.lookup(
@@ -199,7 +202,7 @@ class CardCreationViewModel @AssistedInject constructor(
         val current = _state.value.flowState as? CardCreationFlowState.ManualDefinition ?: return
         val definitionText = current.definitionText.trim()
         if (definitionText.isEmpty()) return
-        val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
+        val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
 
         manualDefinitionJob = viewModelScope.launch {
             _state.value = _state.value.copy(flowState = current.copy(isSubmitting = true, error = null))
@@ -232,7 +235,7 @@ class CardCreationViewModel @AssistedInject constructor(
                     when (error) {
                         is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
                         is DefinitionAlreadyExistsException ->
-                            lookupVocabulary(selectedDeck, notice = CardCreationError.DEFINITION_ALREADY_EXISTS)
+                            lookupVocabulary(notice = CardCreationError.DEFINITION_ALREADY_EXISTS)
                         else -> _state.value = _state.value.copy(
                             flowState = current.copy(isSubmitting = false, error = CardCreationError.MANUAL_DEFINITION_FAILED),
                         )
@@ -244,7 +247,7 @@ class CardCreationViewModel @AssistedInject constructor(
 
     fun onDefinitionSelected(definition: DefinitionResult) {
         val currentFlowState = _state.value.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
-        val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
+        val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
 
         val definitionState = resolveDefinitionState(definition, selectedDeck)
         if (definitionState == DefinitionState.AlreadyInSelectedDeck) {
@@ -293,10 +296,10 @@ class CardCreationViewModel @AssistedInject constructor(
         )
     }
 
-    private fun resolveDefinitionState(definition: DefinitionResult, deck: Deck): DefinitionState {
+    private fun resolveDefinitionState(definition: DefinitionResult, deck: Deck?): DefinitionState {
         val deckIds = definition.decks.map { it.id }
         return when {
-            deck.id in deckIds -> DefinitionState.AlreadyInSelectedDeck
+            deck != null && deck.id in deckIds -> DefinitionState.AlreadyInSelectedDeck
             deckIds.isNotEmpty() -> DefinitionState.ExistsInAnotherDeck
             else -> DefinitionState.Available
         }
@@ -458,19 +461,12 @@ class CardCreationViewModel @AssistedInject constructor(
     }
 
     fun retryLookup() {
-        val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
-        lookupVocabulary(selectedDeck)
+        lookupVocabulary()
     }
 
     fun dismissError() {
-        val currentFlowState = _state.value.flowState
-        if (currentFlowState is CardCreationFlowState.CreateCardError) {
-            // Return to definitions state if possible, otherwise to selecting deck.
-            _state.value = _state.value.copy(flowState = CardCreationFlowState.SelectingDeck)
-            val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
-            if (selectedDeck != null) {
-                lookupVocabulary(selectedDeck)
-            }
+        if (_state.value.flowState is CardCreationFlowState.CreateCardError) {
+            lookupVocabulary()
         }
     }
 

@@ -23,6 +23,7 @@ import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
 import com.example.langueedroid.core.domain.ReviewSummary
+import com.example.langueedroid.core.domain.RevealedWord
 
 fun DeckResponseDto.toDomain(): Deck = Deck(
     id = id,
@@ -110,6 +111,13 @@ private fun String.toAnswerResult(): AnswerResult = when (this) {
 fun CheckAnswerResponseDto.toDomain(): AnswerCheck = AnswerCheck(
     result = result.toAnswerResult(),
     matchedForm = matchedForm,
+    revealed = revealed?.let {
+        RevealedWord(
+            lemma = it.lemma,
+            ipa = it.ipa,
+            inflectionForms = it.inflectionForms,
+        )
+    },
 )
 
 fun GradeResponseDto.toDomain(): GradeOutcome = GradeOutcome(

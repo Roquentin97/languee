@@ -38,7 +38,7 @@ data class CardCreationState(
     val context: String?,
     val language: String = "en",
     val deckSelectionState: DeckSelectionState = DeckSelectionState.Loading,
-    val flowState: CardCreationFlowState = CardCreationFlowState.SelectingDeck,
+    val flowState: CardCreationFlowState = CardCreationFlowState.LookingUp,
     val kind: LexicalKind = LexicalKind.WORD,
     val expressionContextFound: Boolean? = null,
 )
@@ -51,9 +51,6 @@ sealed class DeckSelectionState {
 }
 
 sealed class CardCreationFlowState {
-    /** User has not yet selected a deck (or no decks exist). */
-    object SelectingDeck : CardCreationFlowState()
-
     /** Vocabulary lookup is in progress. */
     object LookingUp : CardCreationFlowState()
 

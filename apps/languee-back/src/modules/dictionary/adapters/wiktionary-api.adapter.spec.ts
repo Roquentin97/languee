@@ -148,4 +148,72 @@ describe('WiktionaryApiAdapter', () => {
       );
     });
   });
+
+  describe('fetchIpa', () => {
+    const wikitextBody = (wikitext: string) => ({ parse: { wikitext } });
+
+    it('returns the first English IPA from the page wikitext', async () => {
+      global.fetch = mockFetchOk(
+        wikitextBody(
+          '==English==\n{{IPA|en|/ɹʌn/|/ɹɐn/}}\n\n==French==\n{{IPA|fr|/ʁœ̃/}}',
+        ),
+      );
+
+      const result = await adapter.fetchIpa('run', 'en');
+
+      expect(result).toBe('/ɹʌn/');
+    });
+
+    it('requests the wikitext of the lemma page with a User-Agent header', async () => {
+      global.fetch = mockFetchOk(wikitextBody('==English==\n{{IPA|en|/x/}}'));
+
+      await adapter.fetchIpa('run into', 'en');
+
+      const [url, init] = (global.fetch as jest.Mock).mock.calls[0] as [
+        string,
+        { headers: Record<string, string> },
+      ];
+      expect(url).toContain('https://en.wiktionary.org/w/api.php');
+      expect(url).toContain('action=parse');
+      expect(url).toContain('page=run+into');
+      expect(init.headers['User-Agent'].length).toBeGreaterThan(0);
+    });
+
+    it('returns null without any request for a non-English language', async () => {
+      global.fetch = jest.fn();
+
+      const result = await adapter.fetchIpa('correr', 'es');
+
+      expect(result).toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the page is missing (error payload, no parse key)', async () => {
+      global.fetch = mockFetchOk({
+        error: { code: 'missingtitle', info: 'The page does not exist.' },
+      });
+
+      const result = await adapter.fetchIpa('zzznonsense', 'en');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when the English section has no IPA template', async () => {
+      global.fetch = mockFetchOk(
+        wikitextBody('==English==\nJust a definition, no pronunciation.'),
+      );
+
+      const result = await adapter.fetchIpa('run', 'en');
+
+      expect(result).toBeNull();
+    });
+
+    it('500 response throws ProviderUnavailableError', async () => {
+      global.fetch = mockFetchStatus(500);
+
+      await expect(adapter.fetchIpa('run', 'en')).rejects.toBeInstanceOf(
+        ProviderUnavailableError,
+      );
+    });
+  });
 });

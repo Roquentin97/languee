@@ -90,6 +90,13 @@ export class DictionaryService {
       throw new DefinitionsNotFoundException(lemma, input.language);
     }
 
+    await this.enrichWithIpa(
+      savedWord.id,
+      savedWord.ipa,
+      lemma,
+      input.language,
+    );
+
     const enrichedEntries: RawDefinitionEntry[] = rawEntries.map((entry) => ({
       ...entry,
       hasIrregularForms: input.isIrregular ?? entry.hasIrregularForms,
@@ -127,5 +134,35 @@ export class DictionaryService {
     });
 
     return { lemma, source: 'provider', definitions };
+  }
+
+  /**
+   * Best-effort pronunciation enrichment on first provider fetch. IPA is
+   * nice-to-have review content — a provider hiccup here must never fail the
+   * definition lookup itself.
+   */
+  private async enrichWithIpa(
+    wordId: string,
+    currentIpa: string | null,
+    lemma: string,
+    language: string,
+  ): Promise<void> {
+    if (currentIpa !== null || !this.adapter.fetchIpa) {
+      return;
+    }
+
+    try {
+      const ipa = await this.adapter.fetchIpa(lemma, language);
+      if (ipa !== null) {
+        await this.wordsService.setIpaIfMissing(wordId, ipa);
+      }
+    } catch (err: unknown) {
+      this.logger.warn({
+        message: 'ipa enrichment failed',
+        event: 'dictionary.ipa_fetch_failed',
+        method: this.enrichWithIpa.name,
+        data: { lemma, language, error: String(err) },
+      });
+    }
   }
 }

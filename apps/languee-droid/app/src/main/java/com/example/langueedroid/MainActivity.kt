@@ -28,12 +28,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sharedText: String? = if (intent?.action == Intent.ACTION_SEND &&
-            intent.type == "text/plain"
-        ) {
-            intent.getStringExtra(Intent.EXTRA_TEXT)
-        } else {
-            null
+        val sharedText: String? = when {
+            intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" ->
+                intent.getStringExtra(Intent.EXTRA_TEXT)
+
+            intent?.action == Intent.ACTION_PROCESS_TEXT ->
+                intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+
+            else -> null
         }
 
         setContent {

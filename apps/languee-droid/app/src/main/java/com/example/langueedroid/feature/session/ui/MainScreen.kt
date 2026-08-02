@@ -31,7 +31,9 @@ import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
+import com.example.langueedroid.feature.decks.presentation.DeckDetailViewModel
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
+import com.example.langueedroid.feature.decks.ui.DeckDetailScreen
 import com.example.langueedroid.feature.decks.ui.DecksScreen
 import com.example.langueedroid.feature.offline.presentation.OfflineQueueViewModel
 import com.example.langueedroid.feature.offline.ui.OfflineQueueScreen
@@ -137,9 +139,8 @@ fun MainScreen(
             val dueReviewCount by decksViewModel.dueReviewCount.collectAsState()
             DecksScreen(
                 state = decksState,
-                onDeckClick = { _ ->
-                    mainViewModel.startManualAdd()
-                    navController.navigate(MainNavRoutes.CAPTURE)
+                onDeckClick = { deck ->
+                    navController.navigate(MainNavRoutes.deckDetail(deck.id, deck.name))
                 },
                 onCreateDeck = { name ->
                     decksViewModel.createDeck(name, onCreated = {})
@@ -156,6 +157,44 @@ fun MainScreen(
                 isOffline = isOffline,
                 offlineQueueCount = offlineQueueCount,
                 onOfflineStripClick = { navController.navigate(MainNavRoutes.OFFLINE_QUEUE) },
+            )
+        }
+
+        composable(
+            route = MainNavRoutes.DECK_DETAIL,
+            arguments = listOf(
+                navArgument("deckId") { type = NavType.StringType },
+                navArgument("deckName") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val deckId = URLDecoder.decode(
+                backStackEntry.arguments?.getString("deckId") ?: "",
+                "UTF-8",
+            )
+            val deckName = URLDecoder.decode(
+                backStackEntry.arguments?.getString("deckName") ?: "",
+                "UTF-8",
+            )
+            val deckDetailViewModel: DeckDetailViewModel = hiltViewModel<DeckDetailViewModel, DeckDetailViewModel.Factory>(
+                key = "deck_detail:$deckId",
+            ) { factory ->
+                factory.create(deckId = deckId)
+            }
+            LaunchedEffect(deckDetailViewModel) {
+                deckDetailViewModel.unauthorizedEvent.collect {
+                    onUnauthorized()
+                }
+            }
+            val deckDetailState by deckDetailViewModel.state.collectAsState()
+            DeckDetailScreen(
+                deckName = deckName,
+                state = deckDetailState,
+                onAddWord = {
+                    mainViewModel.startManualAdd()
+                    navController.navigate(MainNavRoutes.CAPTURE)
+                },
+                onRetry = { deckDetailViewModel.loadCards() },
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 

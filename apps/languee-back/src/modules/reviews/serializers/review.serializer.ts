@@ -47,6 +47,13 @@ export function serializeAnswerResult(
   return {
     result: outcome.result,
     matchedForm: outcome.matchedForm,
+    revealed: outcome.revealed
+      ? {
+          lemma: outcome.revealed.lemma,
+          ipa: outcome.revealed.ipa,
+          inflectionForms: outcome.revealed.inflectionForms,
+        }
+      : null,
   };
 }
 

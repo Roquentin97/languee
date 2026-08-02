@@ -40,6 +40,7 @@ describe('DictionaryService', () => {
     canonicalise: jest.fn(),
     findByLemma: jest.fn(),
     ensureExistsAndReturn: jest.fn(),
+    setIpaIfMissing: jest.fn(),
   };
   const definitionServiceMock = {
     findByWordId: jest.fn(),
@@ -371,6 +372,82 @@ describe('DictionaryService', () => {
       });
 
       expect(result.definitions[0].inflectionForms).toBeNull();
+    });
+  });
+
+  describe('lookup() — ipa enrichment', () => {
+    const providerLookup = () =>
+      service.lookup({
+        word: 'despite',
+        language: 'en',
+        kind: LexicalKind.word,
+      });
+
+    beforeEach(() => {
+      wordsServiceMock.findByLemma.mockResolvedValue(null);
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
+      adapterMock.fetch.mockResolvedValue([
+        { partOfSpeech: PartOfSpeech.PREPOSITION, definition: 'in spite of' },
+      ]);
+      definitionServiceMock.createMany.mockResolvedValue([mockDefinitionRow]);
+    });
+
+    afterEach(() => {
+      delete adapterMock.fetchIpa;
+    });
+
+    it('persists the ipa returned by an adapter that supports fetchIpa', async () => {
+      const fetchIpaMock = jest.fn().mockResolvedValue('/dɪˈspaɪt/');
+      adapterMock.fetchIpa = fetchIpaMock;
+
+      await providerLookup();
+
+      expect(fetchIpaMock).toHaveBeenCalledWith('despite', 'en');
+      expect(wordsServiceMock.setIpaIfMissing).toHaveBeenCalledWith(
+        'word-id-1',
+        '/dɪˈspaɪt/',
+      );
+    });
+
+    it('skips the pronunciation request when the word already has an ipa', async () => {
+      wordsServiceMock.ensureExistsAndReturn.mockResolvedValue({
+        ...mockWord,
+        ipa: '/dɪˈspaɪt/',
+      });
+      const fetchIpaMock = jest.fn();
+      adapterMock.fetchIpa = fetchIpaMock;
+
+      await providerLookup();
+
+      expect(fetchIpaMock).not.toHaveBeenCalled();
+      expect(wordsServiceMock.setIpaIfMissing).not.toHaveBeenCalled();
+    });
+
+    it('does not persist anything when the adapter has no pronunciation', async () => {
+      adapterMock.fetchIpa = jest.fn().mockResolvedValue(null);
+
+      await providerLookup();
+
+      expect(wordsServiceMock.setIpaIfMissing).not.toHaveBeenCalled();
+    });
+
+    it('a failing pronunciation request never fails the lookup', async () => {
+      adapterMock.fetchIpa = jest
+        .fn()
+        .mockRejectedValue(new ProviderUnavailableError('wiktionary'));
+
+      const result = await providerLookup();
+
+      expect(result.source).toBe('provider');
+      expect(result.definitions).toHaveLength(1);
+      expect(wordsServiceMock.setIpaIfMissing).not.toHaveBeenCalled();
+    });
+
+    it('adapters without fetchIpa are supported unchanged', async () => {
+      const result = await providerLookup();
+
+      expect(result.source).toBe('provider');
+      expect(wordsServiceMock.setIpaIfMissing).not.toHaveBeenCalled();
     });
   });
 });

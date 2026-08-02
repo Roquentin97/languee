@@ -114,6 +114,41 @@ function parseUsage(usage: unknown): RawDefinitionEntry[] {
   return entries;
 }
 
+const ENGLISH_SECTION_HEADING = '==English==';
+const NEXT_LANGUAGE_HEADING_REGEX = /^==[^=]/m;
+const IPA_TEMPLATE_REGEX = /\{\{IPA\|en\|([^|}]+)/;
+
+/**
+ * Extracts the first English IPA transcription from a Wiktionary wikitext
+ * page. Pronunciations live in `{{IPA|en|...}}` templates; the search is
+ * restricted to the `==English==` section because the same page holds every
+ * language's entry for the spelling.
+ */
+export function extractEnglishIpaFromWikitext(
+  wikitext: unknown,
+): string | null {
+  if (typeof wikitext !== 'string') {
+    return null;
+  }
+
+  const englishStart = wikitext.indexOf(ENGLISH_SECTION_HEADING);
+  if (englishStart === -1) {
+    return null;
+  }
+
+  const afterHeading = wikitext.slice(
+    englishStart + ENGLISH_SECTION_HEADING.length,
+  );
+  const nextLanguageAt = afterHeading.search(NEXT_LANGUAGE_HEADING_REGEX);
+  const englishSection =
+    nextLanguageAt === -1
+      ? afterHeading
+      : afterHeading.slice(0, nextLanguageAt);
+
+  const ipa = englishSection.match(IPA_TEMPLATE_REGEX)?.[1]?.trim();
+  return ipa ? ipa : null;
+}
+
 /**
  * Parses a Wiktionary REST API `/page/definition/{term}` response body into
  * RawDefinitionEntry[] for the given language code. Defensive throughout —

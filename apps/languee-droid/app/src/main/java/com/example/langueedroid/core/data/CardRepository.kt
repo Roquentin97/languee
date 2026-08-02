@@ -43,6 +43,19 @@ class CardRepository(
         }
     }
 
+    suspend fun listCards(deckId: String): Result<List<Card>> = runCatching {
+        val response = cardsApi.listCards(deckId)
+        when {
+            response.isSuccessful -> {
+                val body = response.body()
+                    ?: throw Exception("Empty response body from listCards")
+                body.map { it.toDomain() }
+            }
+            response.code() == 401 -> throw UnauthorizedException()
+            else -> throw Exception("Failed to list cards: HTTP ${response.code()}")
+        }
+    }
+
     suspend fun getCard(cardId: String): Result<Card> = runCatching {
         val response = cardsApi.getCard(cardId)
         when {

@@ -157,6 +157,11 @@ describe('ReviewsController', () => {
       mockReviewsService.checkTypedAnswer.mockResolvedValue({
         result: 'correct',
         matchedForm: 'run into',
+        revealed: {
+          lemma: 'run into',
+          ipa: null,
+          inflectionForms: { type: 'verb', base: 'run into' },
+        },
       });
 
       const result = await controller.answer(
@@ -168,6 +173,11 @@ describe('ReviewsController', () => {
       expect(result).toEqual({
         result: 'correct',
         matchedForm: 'run into',
+        revealed: {
+          lemma: 'run into',
+          ipa: null,
+          inflectionForms: { type: 'verb', base: 'run into' },
+        },
       });
       expect(mockReviewsService.checkTypedAnswer).toHaveBeenCalledWith(
         'user-id-1',

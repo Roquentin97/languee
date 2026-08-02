@@ -177,10 +177,15 @@ export class CardsService {
     });
   }
 
-  findCardsWithoutReviewState(
+  /**
+   * Cards whose definition has never been reviewed by this user. Review state
+   * is kept per (user, definition), so several cards sharing a definition are
+   * all returned here until that definition gets its first review; callers
+   * deduplicate per definition as needed.
+   */
+  findUnreviewedCards(
     userId: string,
     deckId?: string,
-    limit?: number,
   ): Promise<
     Array<CardWithDefinitionAndWord & { deck: { id: string; name: string } }>
   > {
@@ -188,14 +193,13 @@ export class CardsService {
       where: {
         userId,
         ...(deckId ? { deckId } : {}),
-        reviewState: { is: null },
+        definition: { reviewStates: { none: { userId } } },
       },
       include: {
         definition: { include: { word: true } },
         deck: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'asc' },
-      ...(limit !== undefined ? { take: limit } : {}),
     });
   }
 }

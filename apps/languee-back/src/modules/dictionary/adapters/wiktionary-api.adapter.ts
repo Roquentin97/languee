@@ -4,6 +4,7 @@ import { trace } from '@opentelemetry/api';
 import {
   WIKTIONARY_API_BASE_URL,
   WIKTIONARY_PROVIDER_NAME,
+  WIKTIONARY_WIKITEXT_API_URL,
 } from '../constants';
 import { ProviderUnavailableError } from '../../definitions/definitions.errors';
 import {
@@ -14,7 +15,10 @@ import {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
 } from '../interfaces/dictionary-api-adapter.interface';
-import { parseWiktionaryResponse } from '../parsers/wiktionary.parser';
+import {
+  extractEnglishIpaFromWikitext,
+  parseWiktionaryResponse,
+} from '../parsers/wiktionary.parser';
 
 @Injectable()
 export class WiktionaryApiAdapter implements IDictionaryApiAdapter {
@@ -55,5 +59,48 @@ export class WiktionaryApiAdapter implements IDictionaryApiAdapter {
     }
 
     return parseWiktionaryResponse(body, language);
+  }
+
+  async fetchIpa(lemma: string, language: string): Promise<string | null> {
+    // Pronunciations are absent from the REST definition endpoint; they only
+    // exist in the page wikitext, so this is a separate best-effort request.
+    // This adapter reads the English Wiktionary, whose IPA extraction is
+    // English-section-specific.
+    if (language !== 'en') {
+      return null;
+    }
+
+    const userAgent = this.configService.getOrThrow<string>(
+      'dictionary.wiktionaryUserAgent',
+    );
+    const query = new URLSearchParams({
+      action: 'parse',
+      prop: 'wikitext',
+      format: 'json',
+      formatversion: '2',
+      page: lemma,
+    });
+
+    let body: unknown;
+    try {
+      body = await this.request.getJson<unknown>(
+        `${WIKTIONARY_WIKITEXT_API_URL}?${query.toString()}`,
+        {
+          target: this.providerName,
+          headers: { 'User-Agent': userAgent, Accept: 'application/json' },
+        },
+      );
+    } catch (err: unknown) {
+      if (err instanceof RequestFailure && err.status === 404) {
+        return null;
+      }
+      throw new ProviderUnavailableError(this.providerName, err);
+    }
+
+    // A missing page yields an error payload with no parse key; treat it as
+    // "no pronunciation" rather than a failure.
+    const wikitext = (body as { parse?: { wikitext?: unknown } } | null)?.parse
+      ?.wikitext;
+    return extractEnglishIpaFromWikitext(wikitext);
   }
 }

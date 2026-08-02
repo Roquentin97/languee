@@ -1,4 +1,5 @@
 import {
+  extractEnglishIpaFromWikitext,
   stripWiktionaryHtml,
   parseWiktionaryResponse,
 } from './wiktionary.parser';
@@ -280,5 +281,60 @@ describe('parseWiktionaryResponse', () => {
       'en',
     );
     expect(result[0].partOfSpeech).toBe(PartOfSpeech.VERB);
+  });
+});
+
+describe('extractEnglishIpaFromWikitext', () => {
+  it('returns the first IPA of the English section', () => {
+    const wikitext = [
+      '==English==',
+      '===Pronunciation===',
+      '* {{IPA|en|/kæt/|/kat/}}',
+      '',
+      '==French==',
+      '* {{IPA|fr|/ʃa/}}',
+    ].join('\n');
+
+    expect(extractEnglishIpaFromWikitext(wikitext)).toBe('/kæt/');
+  });
+
+  it('ignores IPA templates that only appear in other language sections', () => {
+    const wikitext = [
+      '==English==',
+      'A definition without pronunciation.',
+      '==Spanish==',
+      '* {{IPA|en|/wrong-section/}}',
+    ].join('\n');
+
+    expect(extractEnglishIpaFromWikitext(wikitext)).toBeNull();
+  });
+
+  it('returns null when there is no English section', () => {
+    expect(
+      extractEnglishIpaFromWikitext('==German==\n{{IPA|de|/hunt/}}'),
+    ).toBeNull();
+  });
+
+  it('handles an English section that runs to the end of the page', () => {
+    expect(extractEnglishIpaFromWikitext('==English==\n{{IPA|en|/ɹʌn/}}')).toBe(
+      '/ɹʌn/',
+    );
+  });
+
+  it('does not treat deeper ===Heading=== markers as a section boundary', () => {
+    const wikitext = [
+      '==English==',
+      '===Etymology===',
+      'Something.',
+      '===Pronunciation===',
+      '{{IPA|en|/dɒɡ/}}',
+    ].join('\n');
+
+    expect(extractEnglishIpaFromWikitext(wikitext)).toBe('/dɒɡ/');
+  });
+
+  it('returns null for a non-string input', () => {
+    expect(extractEnglishIpaFromWikitext(undefined)).toBeNull();
+    expect(extractEnglishIpaFromWikitext({ parse: {} })).toBeNull();
   });
 });
