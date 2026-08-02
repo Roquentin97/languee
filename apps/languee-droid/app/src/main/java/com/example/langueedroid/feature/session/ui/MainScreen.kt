@@ -140,6 +140,9 @@ fun MainScreen(
             DecksScreen(
                 state = decksState,
                 onDeckClick = { deck ->
+                    navController.navigate(MainNavRoutes.review(deck.id))
+                },
+                onDeckBrowseClick = { deck ->
                     navController.navigate(MainNavRoutes.deckDetail(deck.id, deck.name))
                 },
                 onCreateDeck = { name ->
@@ -152,7 +155,7 @@ fun MainScreen(
                 availableAnkiDecks = availableAnkiDecks,
                 isLoadingAnkiDecks = isLoadingAnkiDecks,
                 onLoadAnkiDecks = { decksViewModel.loadAnkiDecks() },
-                onReviewClick = { navController.navigate(MainNavRoutes.REVIEW) },
+                onReviewClick = { navController.navigate(MainNavRoutes.review()) },
                 dueReviewCount = dueReviewCount,
                 isOffline = isOffline,
                 offlineQueueCount = offlineQueueCount,
@@ -338,8 +341,24 @@ fun MainScreen(
             )
         }
 
-        composable(MainNavRoutes.REVIEW) {
-            val reviewViewModel: ReviewViewModel = hiltViewModel()
+        composable(
+            route = MainNavRoutes.REVIEW,
+            arguments = listOf(
+                navArgument("deckId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
+            val deckId = backStackEntry.arguments?.getString("deckId")?.let {
+                URLDecoder.decode(it, "UTF-8")
+            }
+            val reviewViewModel: ReviewViewModel = hiltViewModel<ReviewViewModel, ReviewViewModel.Factory>(
+                key = "review:${deckId ?: "all"}",
+            ) { factory ->
+                factory.create(deckId = deckId)
+            }
             LaunchedEffect(reviewViewModel) {
                 reviewViewModel.unauthorizedEvent.collect {
                     onUnauthorized()

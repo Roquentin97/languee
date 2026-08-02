@@ -73,6 +73,7 @@
     <string name="deck_detail_error">Couldn\'t load the cards of this deck.</string>
     <string name="deck_detail_add_word">Add a word</string>
     <string name="decks_create_deck_button">Create deck</string>
+    <string name="decks_deck_context_menu_browse">Browse</string>
 
     <!-- Deck create dialog -->
     <string name="deck_create_dialog_title">Create a deck</string>

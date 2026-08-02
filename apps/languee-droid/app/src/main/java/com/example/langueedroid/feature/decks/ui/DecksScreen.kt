@@ -1,8 +1,10 @@
 package com.example.langueedroid.feature.decks.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -72,6 +76,7 @@ import com.example.langueedroid.feature.decks.presentation.DecksScreenState
 fun DecksScreen(
     state: DecksScreenState,
     onDeckClick: (Deck) -> Unit,
+    onDeckBrowseClick: (Deck) -> Unit,
     onCreateDeck: (name: String) -> Unit,
     onLogout: () -> Unit,
     logoutInProgress: Boolean,
@@ -204,7 +209,7 @@ fun DecksScreen(
                     onClick = onOfflineStripClick,
                 )
             }
-            DecksScreenBody(state = state, onDeckClick = onDeckClick)
+            DecksScreenBody(state = state, onDeckClick = onDeckClick, onDeckBrowseClick = onDeckBrowseClick)
         }
     }
 
@@ -257,6 +262,7 @@ private fun OfflineStrip(
 private fun DecksScreenBody(
     state: DecksScreenState,
     onDeckClick: (Deck) -> Unit,
+    onDeckBrowseClick: (Deck) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -320,6 +326,7 @@ private fun DecksScreenBody(
                             DeckCard(
                                 deck = deck,
                                 onClick = { onDeckClick(deck) },
+                                onBrowseClick = { onDeckBrowseClick(deck) },
                             )
                         }
                     }
@@ -328,51 +335,73 @@ private fun DecksScreenBody(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DeckCard(
     deck: Deck,
     onClick: () -> Unit,
+    onBrowseClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, Color.Transparent, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
+    var showContextMenu by rememberSaveable { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        Row(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(GreenContainer),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White)
+                .border(1.dp, Color.Transparent, RoundedCornerShape(16.dp))
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showContextMenu = true },
+                )
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(GreenContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.List,
+                    contentDescription = null,
+                    tint = GreenPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = deck.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TextPrimary,
+                )
+            }
             Icon(
-                imageVector = Icons.Filled.List,
+                imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
-                tint = GreenPrimary,
-                modifier = Modifier.size(22.dp),
+                tint = TextMuted,
+                modifier = Modifier
+                    .size(18.dp)
+                    .rotate(-90f),
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = deck.name,
-                style = MaterialTheme.typography.titleSmall,
-                color = TextPrimary,
+
+        DropdownMenu(
+            expanded = showContextMenu,
+            onDismissRequest = { showContextMenu = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.decks_deck_context_menu_browse)) },
+                onClick = {
+                    showContextMenu = false
+                    onBrowseClick()
+                },
             )
         }
-        Icon(
-            imageVector = Icons.Filled.KeyboardArrowDown,
-            contentDescription = null,
-            tint = TextMuted,
-            modifier = Modifier
-                .size(18.dp)
-                .rotate(-90f),
-        )
     }
 }
