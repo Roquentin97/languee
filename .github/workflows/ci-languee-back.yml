@@ -18,9 +18,9 @@ jobs:
         working-directory: apps/languee-back
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'yarn'
@@ -28,6 +28,9 @@ jobs:
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: yarn prisma generate
 
       - name: Format check
         run: |
@@ -41,9 +44,6 @@ jobs:
 
       - name: Tests
         run: yarn test
-
-      - name: Generate Prisma client
-        run: yarn prisma generate
 
       - name: Build
         run: yarn build

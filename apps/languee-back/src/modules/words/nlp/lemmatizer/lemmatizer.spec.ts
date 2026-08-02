@@ -13,15 +13,15 @@ describe('Lemmatizer', () => {
   beforeEach(() => {
     irregularTable = {
       lookup: jest.fn().mockReturnValue(null),
-    } as jest.Mocked<IrregularTableMechanism>;
+    };
 
     ruleEngine = {
       apply: jest.fn().mockReturnValue(null),
-    } as jest.Mocked<RuleEngineMechanism>;
+    };
 
     passthrough = {
       resolve: jest.fn().mockImplementation((lemma: string) => lemma),
-    } as jest.Mocked<PassthroughMechanism>;
+    };
 
     lemmatizer = new Lemmatizer(irregularTable, ruleEngine, passthrough);
   });
@@ -142,7 +142,7 @@ describe('Lemmatizer', () => {
     const input: PreLemmatizedOutput = Object.freeze({
       lemma: 'running',
       shortCircuited: false,
-    }) as PreLemmatizedOutput;
+    });
     // Should not throw when input is frozen
     expect(() => lemmatizer.lemmatize(input)).not.toThrow();
     // Reference check: input is unchanged

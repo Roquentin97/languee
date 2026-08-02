@@ -308,8 +308,7 @@ describe('DictionaryService', () => {
       const enrichedRow: Definition = {
         ...mockDefinitionRow,
         hasIrregularForms: true,
-        inflectionForms:
-          inflectionForms as unknown as Definition['inflectionForms'],
+        inflectionForms: inflectionForms,
       };
       wordsServiceMock.findByLemma.mockResolvedValue(null);
       wordsServiceMock.ensureExistsAndReturn.mockResolvedValue(mockWord);
@@ -340,8 +339,7 @@ describe('DictionaryService', () => {
       const cachedRow: Definition = {
         ...mockDefinitionRow,
         hasIrregularForms: false,
-        inflectionForms:
-          inflectionForms as unknown as Definition['inflectionForms'],
+        inflectionForms: inflectionForms,
       };
       wordsServiceMock.findByLemma.mockResolvedValue(mockWord);
       definitionServiceMock.findByWordId.mockResolvedValue([cachedRow]);

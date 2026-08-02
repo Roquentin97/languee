@@ -25,6 +25,7 @@ val escapedBackendBaseUrl =
 val rawOtelEndpoint: String = localProperties.getProperty("OTEL_EXPORTER_ENDPOINT", "http://10.0.2.2:4318")
 val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("\"", "\\\"")
 val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
+val gitSha: String = System.getenv("GIT_SHA")?.trim()?.ifEmpty { null } ?: "unknown"
 
 android {
     namespace = "com.languee.droid"
@@ -46,6 +47,7 @@ android {
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
         buildConfigField("String", "OTEL_EXPORTER_ENDPOINT", "\"$escapedOtelEndpoint\"")
         buildConfigField("boolean", "TRACING_ENABLED", tracingEnabled)
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
 
     testOptions {
@@ -98,6 +100,14 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
+    // Hilt 2.59.2 bundles a kotlin-metadata-jvm reader that can't parse Kotlin 2.4's
+    // metadata format (google/dagger#5190, #5177). Force the KSP-time reader to a
+    // version that understands it; JetBrains unshaded this dependency so consumers can
+    // override it without waiting for a new Dagger release.
+    ksp(libs.kotlin.metadata.jvm)
+    testImplementation(libs.kotlin.metadata.jvm)
+    androidTestImplementation(libs.kotlin.metadata.jvm)
+    compileOnly(libs.kotlin.metadata.jvm)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
