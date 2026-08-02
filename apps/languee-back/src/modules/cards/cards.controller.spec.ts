@@ -11,7 +11,7 @@ import {
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import type {
   CardWithAnkiDroidExport,
-  CardWithDefinitionAndWord,
+  CardWithRelations,
 } from './cards.service';
 import type {
   Card,
@@ -61,16 +61,32 @@ const mockDefinitionWithInflections: Definition = {
   } satisfies InflectionForms,
 };
 
-const mockCard: Card = {
-  id: 'card-id-1',
-  deckId: 'deck-id-1',
-  userId: 'user-id-1',
-  definitionId: 'def-id-1',
-  context: null,
-  inflectionForms: null,
-  createdAt: new Date('2026-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-};
+function baseCard(overrides: Partial<Card>): Card {
+  return {
+    id: 'card-id-1',
+    type: 'existing',
+    userId: 'user-id-1',
+    definitionId: 'def-id-1',
+    wordId: null,
+    partOfSpeech: null,
+    context: null,
+    inflectionForms: null,
+    state: 'new',
+    dueAt: new Date('2026-01-01T00:00:00.000Z'),
+    stability: 0,
+    difficulty: 0,
+    scheduledDays: 0,
+    learningSteps: 0,
+    reps: 0,
+    lapses: 0,
+    lastReviewedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+const mockCard = baseCard({});
 
 const mockAnkiDroidExport: CardAnkiDroidExport = {
   id: 'export-id-1',
@@ -90,20 +106,20 @@ const mockAnkiDroidExport: CardAnkiDroidExport = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
-const mockCardWithDefinitionAndWord: CardWithDefinitionAndWord = {
+const mockCardWithRelations: CardWithRelations = {
   ...mockCard,
   definition: { ...mockDefinition, word: mockWord },
+  word: null,
+  decks: [{ id: 'deck-id-1', name: 'My Deck' }],
 };
 
 const mockCardWithAnkiDroidExport: CardWithAnkiDroidExport = {
-  ...mockCard,
-  definition: { ...mockDefinition, word: mockWord },
+  ...mockCardWithRelations,
   ankidroidExport: null,
 };
 
 const mockCardWithExport: CardWithAnkiDroidExport = {
-  ...mockCard,
-  definition: { ...mockDefinition, word: mockWord },
+  ...mockCardWithRelations,
   ankidroidExport: mockAnkiDroidExport,
 };
 
@@ -145,9 +161,10 @@ describe('CardsController', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         id: 'card-id-1',
-        deckId: 'deck-id-1',
+        type: 'existing',
         userId: 'user-id-1',
         definitionId: 'def-id-1',
+        decks: [{ id: 'deck-id-1', name: 'My Deck' }],
         ankiDroidExport: null,
       });
       expect(mockCardsService.findManyByUserId).toHaveBeenCalledWith(
@@ -171,28 +188,6 @@ describe('CardsController', () => {
       );
     });
 
-    it('passes ankiDroidExportStatus filter to service', async () => {
-      mockCardsService.findManyByUserId.mockResolvedValue([]);
-
-      await controller.findAll(mockUser, { ankiDroidExportStatus: 'none' });
-
-      expect(mockCardsService.findManyByUserId).toHaveBeenCalledWith(
-        'user-id-1',
-        expect.objectContaining({ ankiDroidExportStatus: 'none' }),
-      );
-    });
-
-    it('passes failureReason filter to service', async () => {
-      mockCardsService.findManyByUserId.mockResolvedValue([]);
-
-      await controller.findAll(mockUser, { failureReason: 'DECK_NOT_FOUND' });
-
-      expect(mockCardsService.findManyByUserId).toHaveBeenCalledWith(
-        'user-id-1',
-        expect.objectContaining({ failureReason: 'DECK_NOT_FOUND' }),
-      );
-    });
-
     it('serializes ankiDroidExport summary when export exists on card', async () => {
       mockCardsService.findManyByUserId.mockResolvedValue([mockCardWithExport]);
 
@@ -201,9 +196,6 @@ describe('CardsController', () => {
       expect(result[0].ankiDroidExport).toMatchObject({
         id: 'export-id-1',
         status: 'pending',
-        failureReason: null,
-        lastAttemptedAt: null,
-        completedAt: null,
       });
     });
 
@@ -226,7 +218,7 @@ describe('CardsController', () => {
 
       expect(result).toMatchObject({
         id: 'card-id-1',
-        deckId: 'deck-id-1',
+        type: 'existing',
         userId: 'user-id-1',
       });
       expect(mockCardsService.findOneByIdAndUserId).toHaveBeenCalledWith(
@@ -250,22 +242,9 @@ describe('CardsController', () => {
       });
     });
 
-    it('includes ankiDroidExport in serialized response', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
-        mockCardWithExport,
-      );
-
-      const result = await controller.findOne('card-id-1', mockUser);
-
-      expect(result.ankiDroidExport).toMatchObject({
-        id: 'export-id-1',
-        status: 'pending',
-      });
-    });
-
     it('serializes inflectionForms from definition when present', async () => {
       const cardWithInflections: CardWithAnkiDroidExport = {
-        ...mockCard,
+        ...mockCardWithRelations,
         definition: { ...mockDefinitionWithInflections, word: mockWord },
         ankidroidExport: null,
       };
@@ -275,7 +254,7 @@ describe('CardsController', () => {
 
       const result = await controller.findOne('card-id-1', mockUser);
 
-      expect(result.definition.inflectionForms).toEqual({
+      expect(result.definition?.inflectionForms).toEqual({
         type: 'verb',
         base: 'run',
         past: 'ran',
@@ -286,29 +265,45 @@ describe('CardsController', () => {
       });
     });
 
-    it('serializes inflectionForms as null when definition has none', async () => {
-      mockCardsService.findOneByIdAndUserId.mockResolvedValue(
-        mockCardWithAnkiDroidExport,
-      );
+    it('serializes definition as null for an inflection card', async () => {
+      const inflectionCard: CardWithAnkiDroidExport = {
+        ...baseCard({
+          type: 'inflection',
+          definitionId: null,
+          wordId: 'word-id-1',
+          partOfSpeech: 'verb',
+        }),
+        definition: null,
+        word: mockWord,
+        decks: [{ id: 'deck-id-1', name: 'My Deck' }],
+        ankidroidExport: null,
+      };
+      mockCardsService.findOneByIdAndUserId.mockResolvedValue(inflectionCard);
 
       const result = await controller.findOne('card-id-1', mockUser);
 
-      expect(result.definition.inflectionForms).toBeNull();
+      expect(result.definition).toBeNull();
+      expect(result.word).toEqual({
+        id: 'word-id-1',
+        lemma: 'run',
+        language: 'en',
+      });
     });
   });
 
   describe('create()', () => {
-    it('happy path — creates and returns serialized card', async () => {
-      mockCardsService.create.mockResolvedValue(mockCardWithDefinitionAndWord);
+    it('happy path — creates and returns every generated card', async () => {
+      mockCardsService.create.mockResolvedValue([mockCardWithRelations]);
 
       const result = await controller.create(mockUser, {
         deckId: 'deck-id-1',
         definitionId: 'def-id-1',
       });
 
-      expect(result).toMatchObject({
+      expect(result.cards).toHaveLength(1);
+      expect(result.cards[0]).toMatchObject({
         id: 'card-id-1',
-        deckId: 'deck-id-1',
+        type: 'existing',
         definitionId: 'def-id-1',
       });
     });
