@@ -46,15 +46,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.InflectionFormLabels
 import com.example.langueedroid.core.domain.LexicalKind
-import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.ui.components.SpeakerIconButton
-import com.example.langueedroid.core.ui.theme.AmberBorder
-import com.example.langueedroid.core.ui.theme.AmberContainer
 import com.example.langueedroid.core.ui.theme.AmberWarning
 import com.example.langueedroid.core.ui.theme.GreenBorder
 import com.example.langueedroid.core.ui.theme.GreenContainer
@@ -67,6 +64,7 @@ import com.example.langueedroid.core.util.parseIsoInstantToEpochMillis
 import com.example.langueedroid.feature.review.presentation.QuestionFeedback
 import com.example.langueedroid.feature.review.presentation.ReviewError
 import com.example.langueedroid.feature.review.presentation.ReviewSessionState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,17 +102,19 @@ fun ReviewScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             when (state) {
                 is ReviewSessionState.Loading -> {
@@ -129,9 +129,10 @@ fun ReviewScreen(
                         text = stringResource(R.string.review_empty_state),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(24.dp),
+                        modifier =
+                            Modifier
+                                .align(Alignment.Center)
+                                .padding(24.dp),
                     )
                 }
 
@@ -186,10 +187,11 @@ private fun ReviewChip(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(GreenContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(GreenContainer)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(
             text = text,
@@ -205,13 +207,14 @@ private fun ErrorContent(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val message = stringResource(
-        when (type) {
-            ReviewError.LOAD_FAILED -> R.string.error_review_load_failed
-            ReviewError.SUBMIT_FAILED -> R.string.error_review_submit_failed
-            ReviewError.GRADE_FAILED -> R.string.error_review_grade_failed
-        },
-    )
+    val message =
+        stringResource(
+            when (type) {
+                ReviewError.LOAD_FAILED -> R.string.error_review_load_failed
+                ReviewError.SUBMIT_FAILED -> R.string.error_review_submit_failed
+                ReviewError.GRADE_FAILED -> R.string.error_review_grade_failed
+            },
+        )
     Column(
         modifier = modifier.padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -244,10 +247,11 @@ private fun QuestionContent(
     onReveal: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(
@@ -274,11 +278,12 @@ private fun QuestionContent(
             if (state.item.isNew) {
                 ReviewChip(text = stringResource(R.string.review_new_badge))
             }
-            val kindLabelRes = when (state.item.prompt.kind) {
-                LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
-                LexicalKind.EXPRESSION -> R.string.review_kind_expression
-                LexicalKind.WORD -> null
-            }
+            val kindLabelRes =
+                when (state.item.prompt.kind) {
+                    LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+                    LexicalKind.EXPRESSION -> R.string.review_kind_expression
+                    LexicalKind.WORD -> null
+                }
             if (kindLabelRes != null) {
                 ReviewChip(text = stringResource(kindLabelRes))
             }
@@ -302,11 +307,12 @@ private fun QuestionContent(
                 if (maskedText != null) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(GreenContainer)
-                            .padding(12.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(GreenContainer)
+                                .padding(12.dp),
                     ) {
                         Text(
                             text = maskedText,
@@ -345,21 +351,23 @@ private fun QuestionContent(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { onSubmit() }),
             shape = RoundedCornerShape(11.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = GreenPrimary,
-                unfocusedBorderColor = GreenBorder,
-                focusedLabelColor = GreenPrimary,
-                unfocusedLabelColor = TextSecondary,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-            ),
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GreenPrimary,
+                    unfocusedBorderColor = GreenBorder,
+                    focusedLabelColor = GreenPrimary,
+                    unfocusedLabelColor = TextSecondary,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                ),
         )
 
         Button(
             onClick = onSubmit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
         ) {
@@ -389,9 +397,10 @@ private fun CorrectContent(
     onGrade: (ReviewRating) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(18.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Card(
@@ -440,9 +449,10 @@ private fun CorrectContent(
                     }
                     // Same display rule as card creation: the "type" discriminator and
                     // expression context forms are bookkeeping, not learnable forms.
-                    val displayForms = revealed.inflectionForms
-                        ?.takeUnless { it["type"] == "expression" }
-                        ?.filterKeys { it != "type" }
+                    val displayForms =
+                        revealed.inflectionForms
+                            ?.takeUnless { it["type"] == "expression" }
+                            ?.filterKeys { it != "type" }
                     if (!displayForms.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -451,9 +461,11 @@ private fun CorrectContent(
                             color = TextSecondary,
                         )
                         displayForms.forEach { (key, value) ->
-                            val label = InflectionFormLabels.resourceFor(key)
-                                ?.let { stringResource(it) }
-                                ?: InflectionFormLabels.humanize(key)
+                            val label =
+                                InflectionFormLabels
+                                    .resourceFor(key)
+                                    ?.let { stringResource(it) }
+                                    ?: InflectionFormLabels.humanize(key)
                             Text(
                                 text = "$label: $value",
                                 style = MaterialTheme.typography.bodySmall,
@@ -537,9 +549,10 @@ private fun RevealedContent(
     onContinue: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(18.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Card(
@@ -560,22 +573,25 @@ private fun RevealedContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = TextMedium,
                 )
-                val nextReview = remember(nextDueAt) {
-                    parseIsoInstantToEpochMillis(nextDueAt)?.let { millis ->
-                        val now = System.currentTimeMillis()
-                        // Under a minute out reads as "in 0 minutes"; the "comes back soon"
-                        // message already covers that, so only show a concrete relative time.
-                        if (millis - now < DateUtils.MINUTE_IN_MILLIS) {
-                            null
-                        } else {
-                            DateUtils.getRelativeTimeSpanString(
-                                millis,
-                                now,
-                                DateUtils.MINUTE_IN_MILLIS,
-                            ).toString().replaceFirstChar { it.lowercase() }
+                val nextReview =
+                    remember(nextDueAt) {
+                        parseIsoInstantToEpochMillis(nextDueAt)?.let { millis ->
+                            val now = System.currentTimeMillis()
+                            // Under a minute out reads as "in 0 minutes"; the "comes back soon"
+                            // message already covers that, so only show a concrete relative time.
+                            if (millis - now < DateUtils.MINUTE_IN_MILLIS) {
+                                null
+                            } else {
+                                DateUtils
+                                    .getRelativeTimeSpanString(
+                                        millis,
+                                        now,
+                                        DateUtils.MINUTE_IN_MILLIS,
+                                    ).toString()
+                                    .replaceFirstChar { it.lowercase() }
+                            }
                         }
                     }
-                }
                 if (nextReview != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -588,9 +604,10 @@ private fun RevealedContent(
         }
         Button(
             onClick = onContinue,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
         ) {
@@ -609,9 +626,10 @@ private fun FinishedContent(
     onDone: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

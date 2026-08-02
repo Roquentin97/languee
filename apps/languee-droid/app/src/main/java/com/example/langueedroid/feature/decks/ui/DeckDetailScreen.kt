@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.domain.Card
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.GreenPrimary
@@ -45,6 +44,7 @@ import com.example.langueedroid.core.ui.theme.SurfaceWarm
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.decks.presentation.DeckDetailState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,10 +76,11 @@ fun DeckDetailScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         floatingActionButton = {
@@ -97,10 +98,11 @@ fun DeckDetailScreen(
         modifier = modifier,
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
         ) {
             when (state) {
                 is DeckDetailState.Loading -> {
@@ -158,12 +160,13 @@ private fun DeckCardItem(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
-            .border(1.5.dp, CardBorder, RoundedCornerShape(14.dp))
-            .padding(14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White)
+                .border(1.5.dp, CardBorder, RoundedCornerShape(14.dp))
+                .padding(14.dp),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -175,10 +178,11 @@ private fun DeckCardItem(
                 color = TextPrimary,
             )
             Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(Color(0xFFF0EDE8))
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Color(0xFFF0EDE8))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
             ) {
                 Text(
                     text = card.partOfSpeech.uppercase(),

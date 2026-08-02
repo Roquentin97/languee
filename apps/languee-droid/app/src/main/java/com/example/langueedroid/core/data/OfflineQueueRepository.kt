@@ -8,13 +8,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
-class OfflineQueueRepository(private val dao: OfflineEntryDao) {
-
+class OfflineQueueRepository(
+    private val dao: OfflineEntryDao,
+) {
     fun getAll(): Flow<List<OfflineEntry>> = dao.getAll().map { list -> list.map { it.toDomain() } }
 
     fun count(): Flow<Int> = dao.count()
 
-    suspend fun add(word: String, context: String?) {
+    suspend fun add(
+        word: String,
+        context: String?,
+    ) {
         dao.insert(
             OfflineEntryEntity(
                 id = UUID.randomUUID().toString(),

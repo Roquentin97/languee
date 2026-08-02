@@ -1,24 +1,24 @@
 package com.example.langueedroid.ankidroid
 
 object NoteTypeTemplates {
-
     const val LEGACY_LANGUEE_TYPE_IN_VOCABULARY = "Languee Type-in Vocabulary"
     const val LEGACY_LANGUEE_TYPE_IN_INFLECTIONS = "Languee Type-in Inflections Vocabulary"
     const val LANGUEE_TYPE_IN_VOCABULARY = "Languee Mobile Native Type Vocabulary"
     const val LANGUEE_BASIC_REVERSED = "Languee Basic + Reversed Vocabulary"
     const val TEMPLATE_VERSION = "4"
 
-    val SHARED_FIELDS = arrayOf(
-        "Lemma",
-        "Pronunciation",
-        "PartOfSpeech",
-        "Definition",
-        "Example",
-        "CleanInflections",
-        "TypeLabels",
-        "TypeAnswer",
-        "LangueeCardId",
-    )
+    val SHARED_FIELDS =
+        arrayOf(
+            "Lemma",
+            "Pronunciation",
+            "PartOfSpeech",
+            "Definition",
+            "Example",
+            "CleanInflections",
+            "TypeLabels",
+            "TypeAnswer",
+            "LangueeCardId",
+        )
 
     fun normalizeNoteTypeName(noteTypeName: String): String =
         when (noteTypeName) {
@@ -182,17 +182,19 @@ hr#answer {
 """
 
     // Interleaved [front1, back1, front2, back2] format.
-    val TYPE_IN_CARDS = arrayOf(
-        DEFINITION_TYPE_PROMPT,
-        "{{FrontSide}}\n<hr id=\"answer\">\n$ANSWER_DETAILS",
-        LEMMA_PROMPT,
-        ANSWER_DETAILS,
-    )
+    val TYPE_IN_CARDS =
+        arrayOf(
+            DEFINITION_TYPE_PROMPT,
+            "{{FrontSide}}\n<hr id=\"answer\">\n$ANSWER_DETAILS",
+            LEMMA_PROMPT,
+            ANSWER_DETAILS,
+        )
 
-    val BASIC_REVERSED_CARDS = arrayOf(
-        LEMMA_PROMPT,
-        ANSWER_DETAILS,
-        DEFINITION_PROMPT,
-        ANSWER_DETAILS,
-    )
+    val BASIC_REVERSED_CARDS =
+        arrayOf(
+            LEMMA_PROMPT,
+            ANSWER_DETAILS,
+            DEFINITION_PROMPT,
+            ANSWER_DETAILS,
+        )
 }

@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.languee.droid.R
 import com.example.langueedroid.ankidroid.NoteTypeTemplates
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.ExportPreference
@@ -59,6 +58,7 @@ import com.example.langueedroid.core.ui.theme.SurfaceWarm
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupUiState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,9 +76,10 @@ fun AnkiDroidSetupScreen(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) onResumeCheck()
-        }
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) onResumeCheck()
+            }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -105,20 +106,22 @@ fun AnkiDroidSetupScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         modifier = modifier,
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             for (issue in uiState.checkResult.issues) {
@@ -139,9 +142,10 @@ fun AnkiDroidSetupScreen(
             } else {
                 TextButton(
                     onClick = onSkip,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.ankidroid_setup_skip),
@@ -175,11 +179,12 @@ private fun IssueCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(AmberWarning.copy(alpha = 0.15f))
-                        .border(1.dp, AmberWarning.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
+                    modifier =
+                        Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(AmberWarning.copy(alpha = 0.15f))
+                            .border(1.dp, AmberWarning.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -286,14 +291,17 @@ private fun NoteTypeRadioGroup(
         ).forEach { (typeName, label) ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (selectedNoteType == typeName) GreenPrimary.copy(alpha = 0.07f)
-                        else Color.Transparent,
-                    )
-                    .padding(end = 12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (selectedNoteType == typeName) {
+                                GreenPrimary.copy(alpha = 0.07f)
+                            } else {
+                                Color.Transparent
+                            },
+                        ).padding(end = 12.dp),
             ) {
                 RadioButton(
                     selected = selectedNoteType == typeName,
@@ -336,9 +344,10 @@ private fun SetupCompleteSection(
             )
             if (isSaving) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(color = GreenPrimary, modifier = Modifier.size(24.dp))
@@ -346,9 +355,10 @@ private fun SetupCompleteSection(
             } else {
                 Button(
                     onClick = onSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {
@@ -360,9 +370,10 @@ private fun SetupCompleteSection(
                 }
                 TextButton(
                     onClick = onSkip,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.ankidroid_setup_skip),

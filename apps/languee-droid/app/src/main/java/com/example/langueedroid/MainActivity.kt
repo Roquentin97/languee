@@ -12,14 +12,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.langueedroid.feature.session.presentation.AppSessionState
-import com.example.langueedroid.feature.session.presentation.AppSessionViewModel
+import com.example.langueedroid.core.ui.theme.LangueeDroidTheme
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
-import com.example.langueedroid.feature.session.ui.MainScreen
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
 import com.example.langueedroid.feature.auth.ui.AuthNavGraph
+import com.example.langueedroid.feature.session.presentation.AppSessionState
+import com.example.langueedroid.feature.session.presentation.AppSessionViewModel
 import com.example.langueedroid.feature.session.ui.CheckingSessionScreen
-import com.example.langueedroid.core.ui.theme.LangueeDroidTheme
+import com.example.langueedroid.feature.session.ui.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -28,15 +28,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sharedText: String? = when {
-            intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" ->
-                intent.getStringExtra(Intent.EXTRA_TEXT)
+        val sharedText: String? =
+            when {
+                intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" ->
+                    intent.getStringExtra(Intent.EXTRA_TEXT)
 
-            intent?.action == Intent.ACTION_PROCESS_TEXT ->
-                intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+                intent?.action == Intent.ACTION_PROCESS_TEXT ->
+                    intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
 
-            else -> null
-        }
+                else -> null
+            }
 
         setContent {
             LangueeDroidTheme {
@@ -52,9 +53,10 @@ private fun LangueeApp(sharedText: String?) {
     val sessionState by appSessionViewModel.sessionState.collectAsState()
     val logoutInProgress by appSessionViewModel.logoutInProgress.collectAsState()
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { }
 
     when (val state = sessionState) {
         is AppSessionState.CheckingSession -> {

@@ -1,6 +1,5 @@
 package com.example.langueedroid.di
 
-import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.ServerReachabilityChecker
 import com.example.langueedroid.core.data.local.AuthSessionStore
@@ -11,6 +10,7 @@ import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
+import com.languee.droid.BuildConfig
 import dagger.Lazy
 import dagger.Module
 import dagger.Provides
@@ -30,16 +30,16 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-
     @Provides
     @Singleton
     fun provideAuthAuthenticator(
         sessionStore: AuthSessionStore,
         authRepository: Lazy<AuthRepository>,
-    ): AuthAuthenticator = AuthAuthenticator(
-        sessionStore = sessionStore,
-        repositoryProvider = { authRepository.get() },
-    )
+    ): AuthAuthenticator =
+        AuthAuthenticator(
+            sessionStore = sessionStore,
+            repositoryProvider = { authRepository.get() },
+        )
 
     @Provides
     @Singleton
@@ -47,25 +47,33 @@ object NetworkModule {
         sessionStore: AuthSessionStore,
         authAuthenticator: AuthAuthenticator,
     ): OkHttpClient {
-        val requestIdInterceptor = Interceptor { chain ->
-            chain.proceed(
-                chain.request().newBuilder()
-                    .header("X-Request-ID", UUID.randomUUID().toString())
-                    .build(),
-            )
-        }
-        val authInterceptor = Interceptor { chain ->
-            val accessToken = sessionStore.read()?.accessToken
-            val request = if (accessToken != null) {
-                chain.request().newBuilder()
-                    .header("Authorization", "Bearer $accessToken")
-                    .build()
-            } else {
-                chain.request()
+        val requestIdInterceptor =
+            Interceptor { chain ->
+                chain.proceed(
+                    chain
+                        .request()
+                        .newBuilder()
+                        .header("X-Request-ID", UUID.randomUUID().toString())
+                        .build(),
+                )
             }
-            chain.proceed(request)
-        }
-        return OkHttpClient.Builder()
+        val authInterceptor =
+            Interceptor { chain ->
+                val accessToken = sessionStore.read()?.accessToken
+                val request =
+                    if (accessToken != null) {
+                        chain
+                            .request()
+                            .newBuilder()
+                            .header("Authorization", "Bearer $accessToken")
+                            .build()
+                    } else {
+                        chain.request()
+                    }
+                chain.proceed(request)
+            }
+        return OkHttpClient
+            .Builder()
             .addInterceptor(requestIdInterceptor)
             .addInterceptor(authInterceptor)
             .apply {
@@ -79,8 +87,7 @@ object NetworkModule {
                         },
                     )
                 }
-            }
-            .authenticator(authAuthenticator)
+            }.authenticator(authAuthenticator)
             .build()
     }
 
@@ -93,11 +100,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(callFactory: Call.Factory): Retrofit = Retrofit.Builder()
-        .baseUrl(BuildConfig.BACKEND_BASE_URL)
-        .callFactory(callFactory)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    fun provideRetrofit(callFactory: Call.Factory): Retrofit =
+        Retrofit
+            .Builder()
+            .baseUrl(BuildConfig.BACKEND_BASE_URL)
+            .callFactory(callFactory)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
 
     @Provides
     @Singleton

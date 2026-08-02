@@ -7,9 +7,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.languee.droid.R
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.ui.theme.GreenPrimary
+import com.languee.droid.R
 
 /**
  * Small icon button that speaks [text] in [languageCode] via [speaker] when tapped.

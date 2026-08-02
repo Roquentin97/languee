@@ -38,17 +38,19 @@ fun AnkiDroidDeckSelectorContent(
 
         if (isLoading) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
         } else {
-            val filtered = decks.filter { (_, name) ->
-                name.contains(searchQuery, ignoreCase = true)
-            }
+            val filtered =
+                decks.filter { (_, name) ->
+                    name.contains(searchQuery, ignoreCase = true)
+                }
 
             if (filtered.isEmpty()) {
                 Text(
@@ -60,10 +62,11 @@ fun AnkiDroidDeckSelectorContent(
                     for ((deckId, deckName) in filtered) {
                         Text(
                             text = deckName,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onDeckSelected(deckId, deckName) }
-                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onDeckSelected(deckId, deckName) }
+                                    .padding(vertical = 12.dp, horizontal = 4.dp),
                         )
                     }
                 }

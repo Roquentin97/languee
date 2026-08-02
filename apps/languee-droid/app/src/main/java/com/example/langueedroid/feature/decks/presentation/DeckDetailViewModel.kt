@@ -17,45 +17,47 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel(assistedFactory = DeckDetailViewModel.Factory::class)
-class DeckDetailViewModel @AssistedInject constructor(
-    @Assisted private val deckId: String,
-    private val cardRepository: CardRepository,
-) : ViewModel() {
+class DeckDetailViewModel
+    @AssistedInject
+    constructor(
+        @Assisted private val deckId: String,
+        private val cardRepository: CardRepository,
+    ) : ViewModel() {
+        @AssistedFactory
+        interface Factory {
+            fun create(deckId: String): DeckDetailViewModel
+        }
 
-    @AssistedFactory
-    interface Factory {
-        fun create(deckId: String): DeckDetailViewModel
-    }
+        private val _state = MutableStateFlow<DeckDetailState>(DeckDetailState.Loading)
+        val state: StateFlow<DeckDetailState> = _state.asStateFlow()
 
-    private val _state = MutableStateFlow<DeckDetailState>(DeckDetailState.Loading)
-    val state: StateFlow<DeckDetailState> = _state.asStateFlow()
+        private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
 
-    private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
+        init {
+            loadCards()
+        }
 
-    init {
-        loadCards()
-    }
-
-    fun loadCards() {
-        _state.value = DeckDetailState.Loading
-        viewModelScope.launch {
-            cardRepository.listCards(deckId).fold(
-                onSuccess = { cards ->
-                    _state.value = if (cards.isEmpty()) {
-                        DeckDetailState.Empty
-                    } else {
-                        DeckDetailState.Loaded(cards)
-                    }
-                },
-                onFailure = { error ->
-                    if (error is UnauthorizedException) {
-                        _unauthorizedEvent.tryEmit(Unit)
-                    } else {
-                        _state.value = DeckDetailState.Error
-                    }
-                },
-            )
+        fun loadCards() {
+            _state.value = DeckDetailState.Loading
+            viewModelScope.launch {
+                cardRepository.listCards(deckId).fold(
+                    onSuccess = { cards ->
+                        _state.value =
+                            if (cards.isEmpty()) {
+                                DeckDetailState.Empty
+                            } else {
+                                DeckDetailState.Loaded(cards)
+                            }
+                    },
+                    onFailure = { error ->
+                        if (error is UnauthorizedException) {
+                            _unauthorizedEvent.tryEmit(Unit)
+                        } else {
+                            _state.value = DeckDetailState.Error
+                        }
+                    },
+                )
+            }
         }
     }
-}

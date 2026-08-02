@@ -21,8 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.feature.anki.ui.AnkiDroidDeckSelectorContent
+import com.languee.droid.R
 
 private enum class DeckCreateMode { CreateNew, UseExisting }
 

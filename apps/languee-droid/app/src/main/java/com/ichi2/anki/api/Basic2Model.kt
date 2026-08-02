@@ -12,18 +12,19 @@ internal object Basic2Model {
     internal val QFMT = arrayOf("{{Front}}", "{{Back}}")
 
     @JvmField
-    internal val AFMT = arrayOf(
-        """{{FrontSide}}
+    internal val AFMT =
+        arrayOf(
+            """{{FrontSide}}
 
     |<hr id="answer">
 
     |{{Back}}
-        """.trimMargin(),
-        """{{FrontSide}}
+            """.trimMargin(),
+            """{{FrontSide}}
 
     |<hr id="answer">
 
     |{{Front}}
-        """.trimMargin()
-    )
+            """.trimMargin(),
+        )
 }

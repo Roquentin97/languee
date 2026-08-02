@@ -45,7 +45,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.GreenPrimary
@@ -53,6 +52,7 @@ import com.example.langueedroid.core.ui.theme.TextMuted
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.auth.presentation.AuthUiState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,20 +96,22 @@ fun RegisterScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 32.dp),
         ) {
             Text(
                 text = "Create\naccount",
@@ -138,13 +140,14 @@ fun RegisterScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = CardBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextMuted,
-                    cursorColor = GreenPrimary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = CardBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = GreenPrimary,
+                    ),
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -163,13 +166,14 @@ fun RegisterScreen(
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = CardBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextMuted,
-                    cursorColor = GreenPrimary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = CardBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = GreenPrimary,
+                    ),
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -188,13 +192,14 @@ fun RegisterScreen(
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = CardBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextMuted,
-                    cursorColor = GreenPrimary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = CardBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = GreenPrimary,
+                    ),
             )
 
             if (uiState is AuthUiState.Error) {
@@ -210,9 +215,10 @@ fun RegisterScreen(
 
             if (isLoading) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(
@@ -223,9 +229,10 @@ fun RegisterScreen(
             } else {
                 Button(
                     onClick = onRegisterClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {
@@ -243,18 +250,20 @@ fun RegisterScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = TextSecondary)) { append("Already have an account? ") }
-                        withStyle(SpanStyle(color = GreenPrimary, fontWeight = FontWeight.SemiBold)) {
-                            append("Sign in")
-                        }
-                    },
+                    text =
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = TextSecondary)) { append("Already have an account? ") }
+                            withStyle(SpanStyle(color = GreenPrimary, fontWeight = FontWeight.SemiBold)) {
+                                append("Sign in")
+                            }
+                        },
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onNavigateToLogin,
-                    ),
+                    modifier =
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onNavigateToLogin,
+                        ),
                 )
             }
         }

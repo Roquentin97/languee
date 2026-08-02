@@ -11,7 +11,6 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface AnkiDroidExportApi {
-
     @POST("/api/v1/cards/{cardId}/ankidroid-exports")
     suspend fun createOrGetExport(
         @Path("cardId") cardId: String,

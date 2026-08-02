@@ -9,6 +9,8 @@ package com.example.langueedroid.core.domain
  */
 sealed class DefinitionState {
     object Available : DefinitionState()
+
     object AlreadyInSelectedDeck : DefinitionState()
+
     object ExistsInAnotherDeck : DefinitionState()
 }

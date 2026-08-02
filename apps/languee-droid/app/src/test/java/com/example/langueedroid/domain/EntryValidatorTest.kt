@@ -9,7 +9,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EntryValidatorTest {
-
     // -------------------------------------------------------------------------
     // isStandaloneMatch / findStandaloneMatches
     // -------------------------------------------------------------------------
@@ -174,28 +173,31 @@ class EntryValidatorTest {
 
     @Test
     fun `extractSentenceContaining returns sentence with word`() {
-        val result = EntryValidator.extractSentenceContaining(
-            "cat",
-            "I have a dog. I also have a cat. The cat is friendly.",
-        )
+        val result =
+            EntryValidator.extractSentenceContaining(
+                "cat",
+                "I have a dog. I also have a cat. The cat is friendly.",
+            )
         assertEquals("I also have a cat.", result)
     }
 
     @Test
     fun `extractSentenceContaining returns null when word is absent`() {
-        val result = EntryValidator.extractSentenceContaining(
-            "bird",
-            "I have a dog. I also have a cat.",
-        )
+        val result =
+            EntryValidator.extractSentenceContaining(
+                "bird",
+                "I have a dog. I also have a cat.",
+            )
         assertNull(result)
     }
 
     @Test
     fun `extractSentenceContaining matches case-insensitively`() {
-        val result = EntryValidator.extractSentenceContaining(
-            "cat",
-            "First sentence. I have a CAT here. Last sentence.",
-        )
+        val result =
+            EntryValidator.extractSentenceContaining(
+                "cat",
+                "First sentence. I have a CAT here. Last sentence.",
+            )
         assertEquals("I have a CAT here.", result)
     }
 

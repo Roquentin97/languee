@@ -22,7 +22,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
-
     @Provides
     @Singleton
     fun provideAuthRepository(
@@ -50,6 +49,5 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideReviewRepository(reviewsApi: ReviewsApi): ReviewRepository =
-        ReviewRepository(reviewsApi = reviewsApi)
+    fun provideReviewRepository(reviewsApi: ReviewsApi): ReviewRepository = ReviewRepository(reviewsApi = reviewsApi)
 }

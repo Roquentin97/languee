@@ -76,6 +76,10 @@ android {
 ktlint {
     version.set("1.5.0")
     android.set(true)
+    filter {
+        // Vendored third-party AnkiDroid API sources; not owned by this project's style.
+        exclude("**/com/ichi2/**")
+    }
 }
 
 dependencies {

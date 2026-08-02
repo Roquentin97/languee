@@ -14,7 +14,6 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ReviewsApi {
-
     @GET("/api/v1/reviews/summary")
     suspend fun getSummary(): Response<ReviewSummaryDto>
 

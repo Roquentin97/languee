@@ -14,7 +14,6 @@ package com.example.langueedroid.core.domain
  * edges re-adds it; tapping anywhere else restarts the selection at the tapped word.
  */
 object ExpressionSpanSelector {
-
     const val MAX_SPAN_WORDS = ExpressionLimits.MAX_WORDS
 
     /**
@@ -34,9 +33,10 @@ object ExpressionSpanSelector {
 
         val first = currentSelection.first()
         val last = currentSelection.last()
-        val extendsSelection = tappedIndex in first..last ||
-            tappedIndex == nextWordIndex(tokens, last) ||
-            tappedIndex == previousWordIndex(tokens, first)
+        val extendsSelection =
+            tappedIndex in first..last ||
+                tappedIndex == nextWordIndex(tokens, last) ||
+                tappedIndex == previousWordIndex(tokens, first)
 
         return when {
             tappedIndex in currentSelection -> currentSelection - tappedIndex
@@ -48,17 +48,25 @@ object ExpressionSpanSelector {
     }
 
     /** Joins the selected word tokens, in order, with single spaces to form the target text. */
-    fun joinSelection(tokens: List<Token>, selection: List<Int>): String =
-        selection.mapNotNull { (tokens.getOrNull(it) as? Token.Word)?.text }.joinToString(" ")
+    fun joinSelection(
+        tokens: List<Token>,
+        selection: List<Int>,
+    ): String = selection.mapNotNull { (tokens.getOrNull(it) as? Token.Word)?.text }.joinToString(" ")
 
-    private fun nextWordIndex(tokens: List<Token>, fromIndex: Int): Int? {
+    private fun nextWordIndex(
+        tokens: List<Token>,
+        fromIndex: Int,
+    ): Int? {
         for (i in fromIndex + 1 until tokens.size) {
             if (tokens[i] is Token.Word) return i
         }
         return null
     }
 
-    private fun previousWordIndex(tokens: List<Token>, fromIndex: Int): Int? {
+    private fun previousWordIndex(
+        tokens: List<Token>,
+        fromIndex: Int,
+    ): Int? {
         for (i in fromIndex - 1 downTo 0) {
             if (tokens[i] is Token.Word) return i
         }

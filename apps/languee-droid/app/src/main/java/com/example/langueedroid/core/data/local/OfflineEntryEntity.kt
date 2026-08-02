@@ -12,9 +12,10 @@ data class OfflineEntryEntity(
     val capturedAt: Long,
 )
 
-fun OfflineEntryEntity.toDomain() = OfflineEntry(
-    id = id,
-    word = word,
-    context = context,
-    capturedAt = capturedAt,
-)
+fun OfflineEntryEntity.toDomain() =
+    OfflineEntry(
+        id = id,
+        word = word,
+        context = context,
+        capturedAt = capturedAt,
+    )

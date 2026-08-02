@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,12 +54,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.ui.theme.AmberContainer
 import com.example.langueedroid.core.ui.theme.AmberWarning
-import com.example.langueedroid.core.ui.theme.CardBorder
-import com.example.langueedroid.core.ui.theme.DividerLight
 import com.example.langueedroid.core.ui.theme.GreenContainer
 import com.example.langueedroid.core.ui.theme.GreenPrimary
 import com.example.langueedroid.core.ui.theme.SurfaceWarm
@@ -70,6 +66,7 @@ import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.auth.ui.LangueeLeafIcon
 import com.example.langueedroid.feature.decks.presentation.DecksError
 import com.example.langueedroid.feature.decks.presentation.DecksScreenState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,10 +98,11 @@ fun DecksScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(GreenContainer),
+                            modifier =
+                                Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(GreenContainer),
                             contentAlignment = Alignment.Center,
                         ) {
                             LangueeLeafIcon(
@@ -175,10 +173,11 @@ fun DecksScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         floatingActionButton = {
@@ -198,9 +197,10 @@ fun DecksScreen(
         modifier = modifier,
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             if (onOfflineStripClick != null && (isOffline || offlineQueueCount > 0)) {
                 OfflineStrip(
@@ -236,18 +236,20 @@ private fun OfflineStrip(
 ) {
     val background = if (isOffline) AmberContainer else GreenContainer
     val contentColor = if (isOffline) AmberWarning else GreenPrimary
-    val text = when {
-        isOffline && queueCount > 0 ->
-            stringResource(R.string.decks_offline_strip_queued, queueCount)
-        isOffline -> stringResource(R.string.decks_offline_strip_offline)
-        else -> stringResource(R.string.decks_offline_strip_back_online, queueCount)
-    }
+    val text =
+        when {
+            isOffline && queueCount > 0 ->
+                stringResource(R.string.decks_offline_strip_queued, queueCount)
+            isOffline -> stringResource(R.string.decks_offline_strip_offline)
+            else -> stringResource(R.string.decks_offline_strip_back_online, queueCount)
+        }
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(background)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(background)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -266,72 +268,76 @@ private fun DecksScreenBody(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-            when (state) {
-                is DecksScreenState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = GreenPrimary,
-                    )
-                }
+        when (state) {
+            is DecksScreenState.Loading -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = GreenPrimary,
+                )
+            }
 
-                is DecksScreenState.Empty -> {
-                    Column(
-                        modifier = Modifier
+            is DecksScreenState.Empty -> {
+                Column(
+                    modifier =
+                        Modifier
                             .align(Alignment.Center)
                             .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.decks_empty_state),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                        )
-                    }
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(R.string.decks_empty_state),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                    )
                 }
+            }
 
-                is DecksScreenState.Error -> {
-                    val errorMessage = stringResource(
+            is DecksScreenState.Error -> {
+                val errorMessage =
+                    stringResource(
                         when (state.type) {
                             DecksError.LOAD_FAILED -> R.string.error_load_decks_failed
                             DecksError.CREATE_FAILED -> R.string.error_create_deck_failed
                         },
                     )
-                    Column(
-                        modifier = Modifier
+                Column(
+                    modifier =
+                        Modifier
                             .align(Alignment.Center)
                             .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
+            }
 
-                is DecksScreenState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
+            is DecksScreenState.Success -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding =
+                        PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
                             top = 16.dp,
                             bottom = 80.dp,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(state.decks) { deck ->
-                            DeckCard(
-                                deck = deck,
-                                onClick = { onDeckClick(deck) },
-                                onBrowseClick = { onDeckBrowseClick(deck) },
-                            )
-                        }
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(state.decks) { deck ->
+                        DeckCard(
+                            deck = deck,
+                            onClick = { onDeckClick(deck) },
+                            onBrowseClick = { onDeckBrowseClick(deck) },
+                        )
                     }
                 }
             }
+        }
     }
 }
 
@@ -347,23 +353,24 @@ private fun DeckCard(
 
     Box(modifier = modifier) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
-                .border(1.dp, Color.Transparent, RoundedCornerShape(16.dp))
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { showContextMenu = true },
-                )
-                .padding(14.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .border(1.dp, Color.Transparent, RoundedCornerShape(16.dp))
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { showContextMenu = true },
+                    ).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(GreenContainer),
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(GreenContainer),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -385,9 +392,10 @@ private fun DeckCard(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
                 tint = TextMuted,
-                modifier = Modifier
-                    .size(18.dp)
-                    .rotate(-90f),
+                modifier =
+                    Modifier
+                        .size(18.dp)
+                        .rotate(-90f),
             )
         }
 

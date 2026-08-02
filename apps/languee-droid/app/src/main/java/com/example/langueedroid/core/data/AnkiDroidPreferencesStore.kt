@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.first
 
 private val Context.ankiDroidPrefsDataStore by preferencesDataStore(name = "ankidroid_setup_prefs")
 
-class AnkiDroidPreferencesStore(private val context: Context) {
-
+class AnkiDroidPreferencesStore(
+    private val context: Context,
+) {
     private val noteTypeName = stringPreferencesKey("NOTE_TYPE_NAME")
     private val exportPreference = stringPreferencesKey("EXPORT_PREFERENCE")
     private val setupCompleted = booleanPreferencesKey("SETUP_COMPLETED")
@@ -21,12 +22,14 @@ class AnkiDroidPreferencesStore(private val context: Context) {
     suspend fun read(): AnkiDroidSetupPrefs {
         val prefs = context.ankiDroidPrefsDataStore.data.first()
         return AnkiDroidSetupPrefs(
-            noteTypeName = NoteTypeTemplates.normalizeNoteTypeName(
-                prefs[noteTypeName] ?: NoteTypeTemplates.LANGUEE_TYPE_IN_VOCABULARY,
-            ),
-            exportPreference = prefs[exportPreference]?.let { raw ->
-                runCatching { ExportPreference.valueOf(raw) }.getOrDefault(ExportPreference.MANUAL)
-            } ?: ExportPreference.MANUAL,
+            noteTypeName =
+                NoteTypeTemplates.normalizeNoteTypeName(
+                    prefs[noteTypeName] ?: NoteTypeTemplates.LANGUEE_TYPE_IN_VOCABULARY,
+                ),
+            exportPreference =
+                prefs[exportPreference]?.let { raw ->
+                    runCatching { ExportPreference.valueOf(raw) }.getOrDefault(ExportPreference.MANUAL)
+                } ?: ExportPreference.MANUAL,
             setupCompleted = prefs[setupCompleted] ?: false,
         )
     }

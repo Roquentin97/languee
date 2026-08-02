@@ -12,15 +12,20 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 
 interface AuthApi {
-
     @POST("/auth/mobile/login")
-    suspend fun login(@Body body: LoginRequest): Response<LoginRegisterResponse>
+    suspend fun login(
+        @Body body: LoginRequest,
+    ): Response<LoginRegisterResponse>
 
     @POST("/auth/mobile/register")
-    suspend fun register(@Body body: RegisterRequest): Response<LoginRegisterResponse>
+    suspend fun register(
+        @Body body: RegisterRequest,
+    ): Response<LoginRegisterResponse>
 
     @POST("/auth/mobile/refresh")
-    suspend fun refresh(@Body body: RefreshRequest): Response<RefreshResponse>
+    suspend fun refresh(
+        @Body body: RefreshRequest,
+    ): Response<RefreshResponse>
 
     @POST("/auth/mobile/logout")
     suspend fun logout(

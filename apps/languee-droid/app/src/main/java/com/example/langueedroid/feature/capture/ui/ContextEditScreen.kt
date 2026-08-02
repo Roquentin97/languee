@@ -2,7 +2,6 @@ package com.example.langueedroid.feature.capture.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.GreenPrimary
@@ -44,6 +42,7 @@ import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,19 +81,21 @@ fun ContextEditScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             OutlinedTextField(
@@ -109,13 +110,14 @@ fun ContextEditScreen(
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CardBorder,
-                    unfocusedBorderColor = CardBorder,
-                    disabledBorderColor = CardBorder,
-                    focusedLabelColor = TextSecondary,
-                    unfocusedLabelColor = TextSecondary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CardBorder,
+                        unfocusedBorderColor = CardBorder,
+                        disabledBorderColor = CardBorder,
+                        focusedLabelColor = TextSecondary,
+                        unfocusedLabelColor = TextSecondary,
+                    ),
             )
 
             OutlinedTextField(
@@ -127,17 +129,19 @@ fun ContextEditScreen(
                         style = MaterialTheme.typography.labelSmall,
                     )
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = CardBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextSecondary,
-                    cursorColor = GreenPrimary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = CardBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextSecondary,
+                        cursorColor = GreenPrimary,
+                    ),
             )
 
             if (!isBlank && !containsWord) {
@@ -157,9 +161,10 @@ fun ContextEditScreen(
                     }
                 },
                 enabled = saveEnabled,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
             ) {
@@ -172,9 +177,10 @@ fun ContextEditScreen(
 
             TextButton(
                 onClick = onCancel,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
             ) {
                 Text(
                     text = stringResource(R.string.btn_cancel),
