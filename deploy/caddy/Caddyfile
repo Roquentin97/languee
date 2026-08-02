@@ -1,0 +1,8 @@
+# Reverse proxy for the Languee API. DOMAIN is injected by docker-compose.prod.yml.
+# Caddy obtains and renews Let's Encrypt certificates automatically; certificate
+# state persists in the caddy_data volume. Only the API is exposed — the NLP
+# service stays internal to the compose network.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy api:3000
+}
