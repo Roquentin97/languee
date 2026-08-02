@@ -29,6 +29,13 @@ body:json {
   }
 }
 
+docs {
+  Works for every card type. `typedAnswer`/`answerResult` apply to
+  `existing` cards; `typedForms` (e.g. `{ "past": "ran" }`) applies to
+  `inflection` cards, kept for feedback/training data only. `inflection`
+  and `definition` cards are always self-rated via `rating`.
+}
+
 tests {
   test("grades the card or reports an unknown card", function() {
     expect(res.status).to.be.oneOf([200, 404]);
@@ -39,7 +46,7 @@ tests {
       expect(res.body.nextDueAt).to.be.a("string");
       expect(res.body.intervalDays).to.be.a("number");
       expect(Number.isInteger(res.body.intervalDays)).to.be.true;
-      expect(res.body.state).to.be.oneOf(["learning", "review"]);
+      expect(res.body.state).to.be.oneOf(["learning", "review", "relearning"]);
     }
   });
 }

@@ -20,8 +20,13 @@ interface DeckApiResponse {
   id: string;
 }
 
-interface CardApiResponse {
+interface CardResponse {
   id: string;
+  type: 'existing' | 'inflection' | 'definition';
+}
+
+interface CreateCardsApiResponse {
+  cards: CardResponse[];
 }
 
 interface SummaryApiResponse {
@@ -31,17 +36,32 @@ interface SummaryApiResponse {
 
 interface QueueItemApiResponse {
   cardId: string;
-  deckId: string;
-  deckName: string;
+  type: 'existing' | 'inflection' | 'definition';
+  decks: Array<{ id: string; name: string }>;
   isNew: boolean;
-  prompt: {
+  existing: {
     definition: string;
     maskedSentence: string | null;
     partOfSpeech: string;
     kind: string;
     lemmaLength: number;
     language: string;
-  };
+  } | null;
+  inflection: {
+    lemma: string;
+    partOfSpeech: string;
+    kind: string;
+    language: string;
+    formKeys: string[];
+  } | null;
+  definition: {
+    lemma: string;
+    partOfSpeech: string;
+    kind: string;
+    language: string;
+    hint1: string[] | null;
+    hint2: string | null;
+  } | null;
 }
 
 interface QueueApiResponse {
@@ -61,7 +81,7 @@ interface AnswerApiResponse {
 interface GradeApiResponse {
   nextDueAt: string;
   intervalDays: number;
-  state: 'learning' | 'review';
+  state: 'learning' | 'review' | 'relearning';
 }
 
 const mockAdapter: jest.Mocked<IDictionaryApiAdapter> = {
@@ -146,20 +166,27 @@ async function createDeck(
   return (res.body as DeckApiResponse).id;
 }
 
-async function createCard(
+/** Saves a definition into a deck and returns every card generated. */
+async function saveToDeck(
   app: INestApplication<App>,
   accessToken: string,
   deckId: string,
   definitionId: string,
   context?: string,
-): Promise<string> {
+): Promise<CardResponse[]> {
   const res = await request(app.getHttpServer())
     .post('/api/v1/cards')
     .set('Authorization', `Bearer ${accessToken}`)
     .send({ deckId, definitionId, context })
     .expect(201);
 
-  return (res.body as CardApiResponse).id;
+  return (res.body as CreateCardsApiResponse).cards;
+}
+
+function existingCardId(cards: CardResponse[]): string {
+  const card = cards.find((c) => c.type === 'existing');
+  if (!card) throw new Error('no existing card in response');
+  return card.id;
 }
 
 describe('ReviewsController (e2e)', () => {
@@ -196,13 +223,14 @@ describe('ReviewsController (e2e)', () => {
       accessToken,
       `reviews-e2e-deck-${Date.now()}`,
     );
-    cardId = await createCard(
+    const cards = await saveToDeck(
       app,
       accessToken,
       deckId,
       definitionId,
       `Guess who I ${word} at the station!`,
     );
+    cardId = existingCardId(cards);
 
     const otherWord = randomWord('otherword');
     const otherDefinitionId = await seedDefinitionId(
@@ -216,12 +244,13 @@ describe('ReviewsController (e2e)', () => {
       otherAccessToken,
       `reviews-e2e-other-deck-${Date.now()}`,
     );
-    foreignCardId = await createCard(
+    const foreignCards = await saveToDeck(
       app,
       otherAccessToken,
       otherDeckId,
       otherDefinitionId,
     );
+    foreignCardId = existingCardId(foreignCards);
   });
 
   afterAll(async () => {
@@ -247,7 +276,7 @@ describe('ReviewsController (e2e)', () => {
       });
     });
 
-    it('counts the seeded card as new', async () => {
+    it('counts the seeded cards as new', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/reviews/summary')
         .set('Authorization', `Bearer ${accessToken}`)
@@ -274,7 +303,7 @@ describe('ReviewsController (e2e)', () => {
       expect((res.body as QueueApiResponse).items).toEqual([]);
     });
 
-    it('returns the seeded card as a new item with a masked prompt', async () => {
+    it('returns the seeded existing card as a new item with a masked prompt', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/reviews/queue')
         .set('Authorization', `Bearer ${accessToken}`)
@@ -283,13 +312,26 @@ describe('ReviewsController (e2e)', () => {
       const body = res.body as QueueApiResponse;
       const item = body.items.find((i) => i.cardId === cardId);
       expect(item).toBeDefined();
+      expect(item?.type).toBe('existing');
       expect(item?.isNew).toBe(true);
-      expect(item?.prompt.maskedSentence).toBe(
-        'Guess who I ____ at the station!',
+      expect(item?.existing?.maskedSentence).toBe(
+        `Guess who I ____ at the station!`,
       );
-      expect(item?.prompt.language).toBe('en');
-      expect(item?.prompt.kind).toBe('word');
-      expect(item?.prompt.lemmaLength).toBe(word.length);
+      expect(item?.existing?.language).toBe('en');
+      expect(item?.existing?.kind).toBe('word');
+      expect(item?.existing?.lemmaLength).toBe(word.length);
+    });
+
+    it('also queues a definition card for the same saved sense', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/reviews/queue')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const body = res.body as QueueApiResponse;
+      const item = body.items.find((i) => i.type === 'definition');
+      expect(item).toBeDefined();
+      expect(item?.definition?.lemma).toBe(word);
     });
   });
 
@@ -412,8 +454,28 @@ describe('ReviewsController (e2e)', () => {
     });
   });
 
+  describe('POST /api/v1/reviews/:cardId/check-forms', () => {
+    it('returns 400 when the card is not an inflection card', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/reviews/${cardId}/check-forms`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ typedForms: { base: word } })
+        .expect(400);
+    });
+
+    it('returns 404 for an unknown card', async () => {
+      await request(app.getHttpServer())
+        .post(
+          '/api/v1/reviews/00000000-0000-4000-8000-000000000000/check-forms',
+        )
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ typedForms: { base: word } })
+        .expect(404);
+    });
+  });
+
   describe('deck-agnostic scheduling', () => {
-    it('a definition saved in two decks queues once and shares one schedule', async () => {
+    it('saving the same definition into a second deck reuses the same card and schedule', async () => {
       const sharedWord = randomWord('shared');
       const definitionId = await seedDefinitionId(
         app,
@@ -431,41 +493,70 @@ describe('ReviewsController (e2e)', () => {
         accessToken,
         `reviews-e2e-deck-b-${Date.now()}`,
       );
-      const cardAId = await createCard(
+      const cardsA = await saveToDeck(
         app,
         accessToken,
         deckAId,
         definitionId,
         `I ${sharedWord} in two decks.`,
       );
-      const cardBId = await createCard(app, accessToken, deckBId, definitionId);
+      const cardsB = await saveToDeck(app, accessToken, deckBId, definitionId);
+      const cardAId = existingCardId(cardsA);
+      const cardBId = existingCardId(cardsB);
 
-      // Both cards share the definition, so the queue holds exactly one item.
+      // Same underlying card, reused across decks - not duplicated.
+      expect(cardAId).toBe(cardBId);
+
       const queueRes = await request(app.getHttpServer())
         .get('/api/v1/reviews/queue')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
-      const before = (queueRes.body as QueueApiResponse).items.filter((i) =>
-        [cardAId, cardBId].includes(i.cardId),
+      const before = (queueRes.body as QueueApiResponse).items.filter(
+        (i) => i.cardId === cardAId,
       );
       expect(before).toHaveLength(1);
+      expect(before[0]?.decks.map((d) => d.id).sort()).toEqual(
+        [deckAId, deckBId].sort(),
+      );
 
-      // Grading through the other deck's card advances the shared schedule…
+      // Grading advances the single shared schedule…
       await request(app.getHttpServer())
-        .post(`/api/v1/reviews/${cardBId}/grade`)
+        .post(`/api/v1/reviews/${cardAId}/grade`)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ rating: 'good' })
         .expect(200);
 
-      // …so the definition stops being due through either card.
+      // …so the card stops being due through either deck.
       const afterRes = await request(app.getHttpServer())
         .get('/api/v1/reviews/queue')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
-      const after = (afterRes.body as QueueApiResponse).items.filter((i) =>
-        [cardAId, cardBId].includes(i.cardId),
+      const after = (afterRes.body as QueueApiResponse).items.filter(
+        (i) => i.cardId === cardAId,
       );
       expect(after).toHaveLength(0);
+    });
+
+    it('re-saving the exact same deck + definition returns 409', async () => {
+      const sharedWord = randomWord('dupe');
+      const definitionId = await seedDefinitionId(
+        app,
+        accessToken,
+        sharedWord,
+        'a meaning saved twice into the same deck',
+      );
+      const deckId = await createDeck(
+        app,
+        accessToken,
+        `reviews-e2e-dupe-deck-${Date.now()}`,
+      );
+      await saveToDeck(app, accessToken, deckId, definitionId);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/cards')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ deckId, definitionId })
+        .expect(409);
     });
   });
 });
