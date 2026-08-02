@@ -125,7 +125,10 @@ Machine-specific current state lives in session memory, not here.
   reformat cliffs, runtime-alignment holds. Otherwise the bot re-proposes known-blocked
   updates every scan and the queue never stays clean. For one-off rejections on an open
   bot PR, an `@dependabot ignore this major version` comment closes it and persists the
-  ignore bot-side.
+  ignore bot-side. DEFERRED (not rejected) PRs — valid targets that are merely early,
+  e.g. an interpreter bump waiting on an upstream wheel — stay OPEN with the
+  `blocked-upstream` label and a comment stating the blocker, the concrete unblock
+  condition (what to check, where), and the verification step to run before merging.
 - **nlp**: if `uv` is missing on the machine (it has been), download a standalone binary
   to `$TMPDIR` and use the Makefile's `UV=` override. Version-dependent footgun: `make cc languee-nlp`
   runs `uv run --extra dev`, whose implicit sync USED to strip the manually installed
