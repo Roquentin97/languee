@@ -75,7 +75,7 @@ export class ReviewsController {
   @ApiOperation({
     summary: 'Get the review queue for the current user',
     description:
-      'Each item carries a `type` (existing / inflection / definition) and only the matching payload field is populated.',
+      'Each item carries a `type` (cloze / inflection / definition) and only the matching payload field is populated.',
   })
   @ApiQuery({
     name: 'deckId',
@@ -121,7 +121,7 @@ export class ReviewsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Check a typed answer against an `existing` card without mutating review state',
+      'Check a typed answer against a `cloze` card without mutating review state',
   })
   @ApiParam({
     name: 'cardId',
@@ -131,7 +131,7 @@ export class ReviewsController {
   @ApiBody({ type: AnswerCardDto })
   @ApiOkResponse({ type: AnswerCardResponseDto })
   @ApiBadRequestResponse({
-    description: 'Blank typed answer, or the card is not an `existing` card',
+    description: 'Blank typed answer, or the card is not a `cloze` card',
   })
   @ApiNotFoundResponse({ description: 'Card not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
@@ -206,7 +206,7 @@ export class ReviewsController {
   @ApiOperation({
     summary: 'Grade a review and schedule the next due date via FSRS',
     description:
-      'Works for every card type: `existing` cards are typically graded from typed-answer correctness, `inflection` and `definition` cards are always self-rated.',
+      'Works for every card type: `cloze` cards are typically graded from typed-answer correctness, `inflection` and `definition` cards are always self-rated.',
   })
   @ApiParam({
     name: 'cardId',

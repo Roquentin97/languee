@@ -26,7 +26,7 @@ function serializeQueueItem(item: ReviewQueueItem): ReviewQueueItemResponseDto {
     type: item.type,
     decks: item.decks,
     isNew: item.isNew,
-    existing: item.existing,
+    cloze: item.cloze,
     inflection: item.inflection,
     definition: item.definition,
   };

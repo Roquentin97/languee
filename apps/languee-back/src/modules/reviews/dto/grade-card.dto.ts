@@ -22,7 +22,7 @@ export class GradeCardDto {
   rating!: ReviewRatingInput;
 
   @ApiPropertyOptional({
-    description: 'The typed answer for an `existing` card',
+    description: 'The typed answer for a `cloze` card',
     example: 'come across',
   })
   @IsOptional()

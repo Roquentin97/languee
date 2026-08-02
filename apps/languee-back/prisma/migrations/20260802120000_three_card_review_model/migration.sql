@@ -1,13 +1,13 @@
 -- Three-card review model (docs/review-model.md): the card becomes the
 -- scheduled unit. Each card now carries its own FSRS state and a `type`
--- (existing / inflection / definition) instead of scheduling living on a
+-- (cloze / inflection / definition) instead of scheduling living on a
 -- separate per-definition row. Decks become pure grouping via the new
 -- `card_decks` join table instead of a direct FK on `cards`, so a card
 -- belongs to any number of decks but is still reviewed once. Pre-launch
 -- database - no data to migrate.
 
 -- CreateEnum
-CREATE TYPE "CardType" AS ENUM ('existing', 'inflection', 'definition');
+CREATE TYPE "CardType" AS ENUM ('cloze', 'inflection', 'definition');
 
 -- DropForeignKey
 ALTER TABLE "cards" DROP CONSTRAINT "cards_deck_id_fkey";

@@ -37,7 +37,7 @@ const mockDefinition: Definition = {
 
 const mockCard: Card = {
   id: 'card-id-1',
-  type: 'existing',
+  type: 'cloze',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
   wordId: null,

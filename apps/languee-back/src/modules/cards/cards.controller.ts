@@ -87,7 +87,7 @@ export class CardsController {
     summary:
       'Save a definition into a deck, generating every applicable card type',
     description:
-      'Fans out into an `existing` and a `definition` card (always), plus a shared `inflection` card when the word inflects. Cards already generated for this sense (or lemma + part of speech) are reused across decks - only a new deck membership is added.',
+      'Fans out into a `cloze` and a `definition` card (always), plus a shared `inflection` card when the word inflects. Cards already generated for this sense (or lemma + part of speech) are reused across decks - only a new deck membership is added.',
   })
   @ApiBody({ type: CreateCardDto })
   @ApiCreatedResponse({ type: CreateCardsResponseDto })

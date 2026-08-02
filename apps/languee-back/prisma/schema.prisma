@@ -78,7 +78,7 @@ model Deck {
 }
 
 enum CardType {
-  existing
+  cloze
   inflection
   definition
 }
@@ -93,22 +93,22 @@ model Card {
   user   User     @relation(fields: [userId], references: [id])
   type   CardType
 
-  /// Set for `existing` and `definition` cards: the saved sense this card
+  /// Set for `cloze` and `definition` cards: the saved sense this card
   /// tests. Null for `inflection` cards, which are shared across every sense
   /// of the same lemma + part of speech.
   definitionId String?     @map("definition_id") @db.Uuid
   definition   Definition? @relation(fields: [definitionId], references: [id], onDelete: Restrict)
 
   /// Set for `inflection` cards: the lemma + part of speech whose paradigm
-  /// this card tests. Null for `existing` and `definition` cards, which are
+  /// this card tests. Null for `cloze` and `definition` cards, which are
   /// anchored to a single definition instead.
   wordId       String? @map("word_id") @db.Uuid
   word         Word?   @relation(fields: [wordId], references: [id], onDelete: Restrict)
   partOfSpeech String? @map("part_of_speech")
 
-  /// Captured usage sentence, populated on `existing` cards for masking.
+  /// Captured usage sentence, populated on `cloze` cards for masking.
   /// `definition` cards have no context of their own - they borrow their
-  /// sibling `existing` card's context as a hint instead.
+  /// sibling `cloze` card's context as a hint instead.
   context         String?
   inflectionForms Json?   @map("inflection_forms") @db.JsonB
 

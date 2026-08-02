@@ -12,8 +12,8 @@ export type ReviewSummary = {
 
 export type DeckRef = { id: string; name: string };
 
-/** `existing` card prompt: masked-sentence, type-in-the-word. */
-export type ExistingCardPayload = {
+/** `cloze` card prompt: masked-sentence, type-in-the-word. */
+export type ClozeCardPayload = {
   definition: string;
   maskedSentence: string | null;
   partOfSpeech: string;
@@ -56,7 +56,7 @@ export type ReviewQueueItem = {
   type: CardType;
   decks: DeckRef[];
   isNew: boolean;
-  existing: ExistingCardPayload | null;
+  cloze: ClozeCardPayload | null;
   inflection: InflectionCardPayload | null;
   definition: DefinitionCardPayload | null;
 };

@@ -94,10 +94,10 @@ describe('ReviewsController', () => {
       mockReviewsService.getQueue.mockResolvedValue([
         {
           cardId: 'card-id-1',
-          type: 'existing',
+          type: 'cloze',
           decks: [{ id: 'deck-id-1', name: 'English basics' }],
           isNew: false,
-          existing: {
+          cloze: {
             definition: 'To encounter unexpectedly.',
             maskedSentence: 'Guess who I ____ at the station!',
             partOfSpeech: 'verb',
@@ -114,10 +114,10 @@ describe('ReviewsController', () => {
 
       expect(result.items[0]).toEqual({
         cardId: 'card-id-1',
-        type: 'existing',
+        type: 'cloze',
         decks: [{ id: 'deck-id-1', name: 'English basics' }],
         isNew: false,
-        existing: {
+        cloze: {
           definition: 'To encounter unexpectedly.',
           maskedSentence: 'Guess who I ____ at the station!',
           partOfSpeech: 'verb',
@@ -205,7 +205,7 @@ describe('ReviewsController', () => {
 
     it('edge case — UnsupportedCardTypeError maps to 400 BadRequestException', async () => {
       mockReviewsService.checkTypedAnswer.mockRejectedValue(
-        new UnsupportedCardTypeError('Only `existing` cards support this'),
+        new UnsupportedCardTypeError('Only `cloze` cards support this'),
       );
 
       const err = await controller

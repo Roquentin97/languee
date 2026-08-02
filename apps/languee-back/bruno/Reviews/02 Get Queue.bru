@@ -28,19 +28,19 @@ tests {
       expect(res.body.items).to.be.an("array");
       for (const item of res.body.items) {
         expect(item.cardId).to.be.a("string");
-        expect(item.type).to.be.oneOf(["existing", "inflection", "definition"]);
+        expect(item.type).to.be.oneOf(["cloze", "inflection", "definition"]);
         expect(item.decks).to.be.an("array");
         expect(item.isNew).to.be.a("boolean");
 
-        if (item.type === "existing") {
-          expect(item.existing).to.be.an("object");
-          expect(item.existing.partOfSpeech).to.be.a("string");
-          expect(item.existing.kind).to.be.oneOf([
+        if (item.type === "cloze") {
+          expect(item.cloze).to.be.an("object");
+          expect(item.cloze.partOfSpeech).to.be.a("string");
+          expect(item.cloze.kind).to.be.oneOf([
             "word",
             "phrasal_verb",
             "expression"
           ]);
-          expect(item.existing.lemmaLength).to.be.a("number");
+          expect(item.cloze.lemmaLength).to.be.a("number");
           expect(item.inflection).to.equal(null);
           expect(item.definition).to.equal(null);
         }
@@ -49,7 +49,7 @@ tests {
           expect(item.inflection).to.be.an("object");
           expect(item.inflection.lemma).to.be.a("string");
           expect(item.inflection.formKeys).to.be.an("array");
-          expect(item.existing).to.equal(null);
+          expect(item.cloze).to.equal(null);
           expect(item.definition).to.equal(null);
         }
 
@@ -58,7 +58,7 @@ tests {
           expect(item.definition.lemma).to.be.a("string");
           expect(item.definition).to.have.property("hint1");
           expect(item.definition).to.have.property("hint2");
-          expect(item.existing).to.equal(null);
+          expect(item.cloze).to.equal(null);
           expect(item.inflection).to.equal(null);
         }
       }

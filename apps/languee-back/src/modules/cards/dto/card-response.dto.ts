@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../dictionary/types/inflection-forms.types';
 
-export const CARD_TYPES = ['existing', 'inflection', 'definition'] as const;
+export const CARD_TYPES = ['cloze', 'inflection', 'definition'] as const;
 export type CardTypeValue = (typeof CARD_TYPES)[number];
 
 export class CardDeckRefDto {
@@ -48,7 +48,7 @@ export class CardResponseDto {
   @ApiProperty({ example: 'card_123' })
   id!: string;
 
-  @ApiProperty({ enum: CARD_TYPES, example: 'existing' })
+  @ApiProperty({ enum: CARD_TYPES, example: 'cloze' })
   type!: CardTypeValue;
 
   @ApiProperty({ example: 'user_123' })
@@ -58,7 +58,7 @@ export class CardResponseDto {
   decks!: CardDeckRefDto[];
 
   @ApiPropertyOptional({
-    description: 'Set for `existing` and `definition` cards',
+    description: 'Set for `cloze` and `definition` cards',
     example: 'def_123',
     nullable: true,
   })
@@ -109,7 +109,7 @@ export class CreateCardsResponseDto {
   @ApiProperty({
     type: [CardResponseDto],
     description:
-      'Every card generated or reused by this save: always an `existing` and a `definition` card, plus an `inflection` card when the word inflects.',
+      'Every card generated or reused by this save: always a `cloze` and a `definition` card, plus an `inflection` card when the word inflects.',
   })
   cards!: CardResponseDto[];
 }

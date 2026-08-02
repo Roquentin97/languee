@@ -28,7 +28,7 @@ function serializeDefinition(
 function serializeWord(card: CardWithRelations): CardResponseDto['word'] {
   const word = card.definition?.word ?? card.word;
   if (!word) {
-    // Unreachable: every card carries either a definition (existing /
+    // Unreachable: every card carries either a definition (cloze /
     // definition cards) or a word (inflection cards).
     throw new Error(`card ${card.id} has neither a definition nor a word`);
   }

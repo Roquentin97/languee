@@ -64,7 +64,7 @@ const mockDefinitionWithInflections: Definition = {
 function baseCard(overrides: Partial<Card>): Card {
   return {
     id: 'card-id-1',
-    type: 'existing',
+    type: 'cloze',
     userId: 'user-id-1',
     definitionId: 'def-id-1',
     wordId: null,
@@ -161,7 +161,7 @@ describe('CardsController', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         id: 'card-id-1',
-        type: 'existing',
+        type: 'cloze',
         userId: 'user-id-1',
         definitionId: 'def-id-1',
         decks: [{ id: 'deck-id-1', name: 'My Deck' }],
@@ -218,7 +218,7 @@ describe('CardsController', () => {
 
       expect(result).toMatchObject({
         id: 'card-id-1',
-        type: 'existing',
+        type: 'cloze',
         userId: 'user-id-1',
       });
       expect(mockCardsService.findOneByIdAndUserId).toHaveBeenCalledWith(
@@ -303,7 +303,7 @@ describe('CardsController', () => {
       expect(result.cards).toHaveLength(1);
       expect(result.cards[0]).toMatchObject({
         id: 'card-id-1',
-        type: 'existing',
+        type: 'cloze',
         definitionId: 'def-id-1',
       });
     });

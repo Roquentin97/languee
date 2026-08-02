@@ -10,7 +10,7 @@ export class ReviewDeckRefDto {
   name!: string;
 }
 
-export class ExistingCardPayloadDto {
+export class ClozeCardPayloadDto {
   @ApiProperty({ example: 'To encounter unexpectedly.' })
   definition!: string;
 
@@ -111,7 +111,7 @@ export class ReviewQueueItemResponseDto {
   @ApiProperty({ format: 'uuid' })
   cardId!: string;
 
-  @ApiProperty({ enum: CARD_TYPES, example: 'existing' })
+  @ApiProperty({ enum: CARD_TYPES, example: 'cloze' })
   type!: CardTypeValue;
 
   @ApiProperty({ type: [ReviewDeckRefDto] })
@@ -121,11 +121,11 @@ export class ReviewQueueItemResponseDto {
   isNew!: boolean;
 
   @ApiPropertyOptional({
-    type: ExistingCardPayloadDto,
+    type: ClozeCardPayloadDto,
     nullable: true,
-    description: 'Present only when type is `existing`',
+    description: 'Present only when type is `cloze`',
   })
-  existing!: ExistingCardPayloadDto | null;
+  cloze!: ClozeCardPayloadDto | null;
 
   @ApiPropertyOptional({
     type: InflectionCardPayloadDto,

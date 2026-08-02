@@ -22,7 +22,7 @@ A saved word generates up to **three card types, each independently scheduled**:
 
 | # | Card | Prompt | Answer | Grading |
 |---|------|--------|--------|---------|
-| 1 | **Existing card** | masked sentence with the lemma hidden | type-in the word | as today |
+| 1 | **Cloze card** | masked sentence with the lemma hidden | type-in the word | as today |
 | 2 | **Inflection card** | the word's paradigm | type-in **all** forms, then reveal | self-rate (Again/Hard/Good/Easy) |
 | 3 | **Definition card** | lemma + part of speech | recall the meaning, then reveal | self-rate |
 

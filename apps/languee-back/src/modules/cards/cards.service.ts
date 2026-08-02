@@ -93,7 +93,7 @@ export class CardsService {
 
   /**
    * Fans a single "save this word into this deck" request out into the
-   * card(s) the definition needs: an `existing` card and a `definition` card
+   * card(s) the definition needs: a `cloze` card and a `definition` card
    * always, plus a shared `inflection` card when the word's persisted NLP
    * paradigm actually inflects. Cards already generated for a definition (or
    * lemma + part of speech, for inflection cards) are reused - the deck is
@@ -117,16 +117,16 @@ export class CardsService {
     }
 
     const cardIds = await this.prisma.$transaction(async (tx) => {
-      const existingCard = await this.findOrCreateSenseCard(tx, {
+      const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
-        type: CardType.existing,
+        type: CardType.cloze,
         definitionId,
         context: context ?? null,
         inflectionForms: inflectionForms ?? null,
       });
 
       const alreadyInDeck = await tx.cardDeck.findUnique({
-        where: { cardId_deckId: { cardId: existingCard.id, deckId } },
+        where: { cardId_deckId: { cardId: clozeCard.id, deckId } },
       });
       if (alreadyInDeck) {
         throw new CardAlreadyExistsError();
@@ -140,7 +140,7 @@ export class CardsService {
         inflectionForms: null,
       });
 
-      const ids = [existingCard.id, definitionCard.id];
+      const ids = [clozeCard.id, definitionCard.id];
 
       if (wordInflects(definition.inflectionForms as InflectionForms | null)) {
         const inflectionCard = await this.findOrCreateInflectionCard(tx, {
@@ -252,10 +252,10 @@ export class CardsService {
   }
 
   /**
-   * Decks each of the user's `existing` cards for the given definitions
+   * Decks each of the user's `cloze` cards for the given definitions
    * belongs to, flattened to one row per (definition, deck) pair. Used to
    * enrich vocabulary lookups with "already saved in these decks" info; the
-   * `existing` card is the anchor since every saved sense always has one.
+   * `cloze` card is the anchor since every saved sense always has one.
    */
   async findCardsByDefinitionIdsAndUserId(
     definitionIds: string[],
@@ -265,7 +265,7 @@ export class CardsService {
       where: {
         definitionId: { in: definitionIds },
         userId,
-        type: CardType.existing,
+        type: CardType.cloze,
       },
       select: {
         definitionId: true,
@@ -274,7 +274,7 @@ export class CardsService {
     });
 
     return cards.flatMap((card) =>
-      // Guaranteed non-null: the query filters to `existing` cards, which
+      // Guaranteed non-null: the query filters to `cloze` cards, which
       // always carry a definitionId.
       card.decks.map((cardDeck) => ({
         definitionId: card.definitionId as string,
@@ -336,17 +336,17 @@ export class CardsService {
   }
 
   /**
-   * Sibling `existing` card context per definition, for definition-card
+   * Sibling `cloze` card context per definition, for definition-card
    * hint 2 (falls back to the definition's dictionary example when absent).
    */
-  async findExistingCardContexts(
+  async findClozeCardContexts(
     userId: string,
     definitionIds: string[],
   ): Promise<Map<string, string | null>> {
     const cards = await this.prisma.card.findMany({
       where: {
         userId,
-        type: CardType.existing,
+        type: CardType.cloze,
         definitionId: { in: definitionIds },
       },
       select: { definitionId: true, context: true },
@@ -407,7 +407,7 @@ export class CardsService {
     tx: TxClient,
     params: {
       userId: string;
-      type: typeof CardType.existing | typeof CardType.definition;
+      type: typeof CardType.cloze | typeof CardType.definition;
       definitionId: string;
       context: string | null;
       inflectionForms: InflectionForms | null;

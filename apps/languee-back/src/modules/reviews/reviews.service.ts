@@ -18,8 +18,8 @@ import type { ReviewSchedulingState } from './lib/scheduler';
 import { UnsupportedCardTypeError } from './reviews.errors';
 import type {
   AnswerCheckOutcome,
+  ClozeCardPayload,
   DefinitionCardPayload,
-  ExistingCardPayload,
   FormCheckOutcome,
   GradeInput,
   GradeOutcome,
@@ -106,9 +106,9 @@ export class ReviewsService {
     typedAnswer: string,
   ): Promise<AnswerCheckOutcome> {
     const card = await this.cardsService.findOwnedOrThrow(cardId, userId);
-    if (card.type !== CardType.existing || !card.definition) {
+    if (card.type !== CardType.cloze || !card.definition) {
       throw new UnsupportedCardTypeError(
-        'Only `existing` cards support typed-answer checking',
+        'Only `cloze` cards support typed-answer checking',
       );
     }
 
@@ -261,14 +261,14 @@ export class ReviewsService {
       type: card.type,
       decks: card.decks,
       isNew,
-      existing: null,
+      cloze: null,
       inflection: null,
       definition: null,
     };
 
     switch (card.type) {
-      case CardType.existing:
-        return { ...base, existing: this.buildExistingPayload(card) };
+      case CardType.cloze:
+        return { ...base, cloze: this.buildClozePayload(card) };
       case CardType.inflection:
         return { ...base, inflection: this.buildInflectionPayload(card) };
       case CardType.definition:
@@ -279,9 +279,9 @@ export class ReviewsService {
     }
   }
 
-  private buildExistingPayload(card: CardWithRelations): ExistingCardPayload {
+  private buildClozePayload(card: CardWithRelations): ClozeCardPayload {
     if (!card.definition) {
-      throw new Error(`existing card ${card.id} is missing its definition`);
+      throw new Error(`cloze card ${card.id} is missing its definition`);
     }
     const word = card.definition.word;
     const forms = this.targetFormsForCard(card);
@@ -357,7 +357,7 @@ export class ReviewsService {
     ].filter((id) => id.length > 0);
 
     const [contexts, savedSensesByWord] = await Promise.all([
-      this.cardsService.findExistingCardContexts(userId, definitionIds),
+      this.cardsService.findClozeCardContexts(userId, definitionIds),
       this.cardsService.findSavedSensesByWordId(userId, wordIds),
     ]);
 

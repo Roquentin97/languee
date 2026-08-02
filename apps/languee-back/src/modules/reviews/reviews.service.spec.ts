@@ -45,7 +45,7 @@ const mockDefinition: Definition = {
 function baseCard(overrides: Partial<Card>): Card {
   return {
     id: 'card-id-1',
-    type: 'existing',
+    type: 'cloze',
     userId: 'user-id-1',
     definitionId: 'def-id-1',
     wordId: null,
@@ -67,7 +67,7 @@ function baseCard(overrides: Partial<Card>): Card {
   };
 }
 
-const mockExistingCard: CardWithRelations = {
+const mockClozeCard: CardWithRelations = {
   ...baseCard({
     context: 'Guess who I ran into at the station!',
   }),
@@ -120,7 +120,7 @@ const mockCardsService = {
   findUnreviewedCards: jest.fn(),
   countDue: jest.fn(),
   countNew: jest.fn(),
-  findExistingCardContexts: jest.fn(),
+  findClozeCardContexts: jest.fn(),
   findSavedSensesByWordId: jest.fn(),
   buildGradeUpdate: jest.fn(),
 };
@@ -135,7 +135,7 @@ describe('ReviewsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(NOW);
-    mockCardsService.findExistingCardContexts.mockResolvedValue(new Map());
+    mockCardsService.findClozeCardContexts.mockResolvedValue(new Map());
     mockCardsService.findSavedSensesByWordId.mockResolvedValue(new Map());
 
     const module: TestingModule = await Test.createTestingModule({
@@ -182,7 +182,7 @@ describe('ReviewsService', () => {
 
   describe('getQueue()', () => {
     it('happy path — due items ordered before new items, truncated to limit', async () => {
-      mockCardsService.findDueCards.mockResolvedValue([mockExistingCard]);
+      mockCardsService.findDueCards.mockResolvedValue([mockClozeCard]);
       mockCardsService.findUnreviewedCards.mockResolvedValue([
         mockInflectionCard,
       ]);
@@ -206,7 +206,7 @@ describe('ReviewsService', () => {
     });
 
     it('limit truncation — does not query new cards when due items already fill the limit', async () => {
-      mockCardsService.findDueCards.mockResolvedValue([mockExistingCard]);
+      mockCardsService.findDueCards.mockResolvedValue([mockClozeCard]);
 
       const result = await service.getQueue('user-id-1', { limit: 1 });
 
@@ -245,18 +245,18 @@ describe('ReviewsService', () => {
       expect(mockCardsService.findDueCards).not.toHaveBeenCalled();
     });
 
-    it('existing card payload — masks the captured context, derives kind/partOfSpeech/lemmaLength', async () => {
-      mockCardsService.findDueCards.mockResolvedValue([mockExistingCard]);
+    it('cloze card payload — masks the captured context, derives kind/partOfSpeech/lemmaLength', async () => {
+      mockCardsService.findDueCards.mockResolvedValue([mockClozeCard]);
       mockCardsService.findUnreviewedCards.mockResolvedValue([]);
 
       const result = await service.getQueue('user-id-1', { limit: 20 });
 
       expect(result[0]).toMatchObject({
         cardId: 'card-id-1',
-        type: 'existing',
+        type: 'cloze',
         decks: [{ id: 'deck-id-1', name: 'English basics' }],
         isNew: false,
-        existing: {
+        cloze: {
           definition: 'To encounter unexpectedly.',
           maskedSentence: 'Guess who I ____ at the station!',
           partOfSpeech: 'verb',
@@ -308,7 +308,7 @@ describe('ReviewsService', () => {
           ],
         ]),
       );
-      mockCardsService.findExistingCardContexts.mockResolvedValue(
+      mockCardsService.findClozeCardContexts.mockResolvedValue(
         new Map([['def-id-1', 'Guess who I ran into at the station!']]),
       );
 
@@ -339,7 +339,7 @@ describe('ReviewsService', () => {
           ],
         ]),
       );
-      mockCardsService.findExistingCardContexts.mockResolvedValue(new Map());
+      mockCardsService.findClozeCardContexts.mockResolvedValue(new Map());
 
       const result = await service.getQueue('user-id-1', { limit: 20 });
 
@@ -350,7 +350,7 @@ describe('ReviewsService', () => {
 
   describe('checkTypedAnswer()', () => {
     it('happy path — correct via lemma', async () => {
-      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockExistingCard);
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);
 
       const result = await service.checkTypedAnswer(
         'user-id-1',
@@ -370,7 +370,7 @@ describe('ReviewsService', () => {
     });
 
     it('happy path — incorrect when nothing matches', async () => {
-      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockExistingCard);
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);
 
       const result = await service.checkTypedAnswer(
         'user-id-1',
@@ -439,8 +439,8 @@ describe('ReviewsService', () => {
       ).rejects.toBeInstanceOf(UnsupportedCardTypeError);
     });
 
-    it('edge case — an existing card throws UnsupportedCardTypeError', async () => {
-      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockExistingCard);
+    it('edge case — a cloze card throws UnsupportedCardTypeError', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);
 
       await expect(
         service.checkForms('user-id-1', 'card-id-1', { base: 'run' }),
@@ -461,10 +461,10 @@ describe('ReviewsService', () => {
   describe('gradeCard()', () => {
     it("happy path — schedules from the card's own persisted FSRS state and writes both rows in a transaction", async () => {
       const dueAt = new Date(NOW.getTime() + 10 * MS_PER_MINUTE);
-      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockExistingCard);
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);
       mockCardsService.buildGradeUpdate.mockReturnValue(
         Promise.resolve({
-          ...mockExistingCard,
+          ...mockClozeCard,
           state: 'review',
           scheduledDays: 15,
           dueAt,
@@ -526,9 +526,9 @@ describe('ReviewsService', () => {
     });
 
     it('happy path — persists typedAnswer and answerResult when provided', async () => {
-      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockExistingCard);
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);
       mockCardsService.buildGradeUpdate.mockReturnValue(
-        Promise.resolve(mockExistingCard),
+        Promise.resolve(mockClozeCard),
       );
       mockPrismaService.reviewLog.create.mockResolvedValue({});
 

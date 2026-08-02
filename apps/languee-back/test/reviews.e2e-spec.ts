@@ -22,7 +22,7 @@ interface DeckApiResponse {
 
 interface CardResponse {
   id: string;
-  type: 'existing' | 'inflection' | 'definition';
+  type: 'cloze' | 'inflection' | 'definition';
 }
 
 interface CreateCardsApiResponse {
@@ -36,10 +36,10 @@ interface SummaryApiResponse {
 
 interface QueueItemApiResponse {
   cardId: string;
-  type: 'existing' | 'inflection' | 'definition';
+  type: 'cloze' | 'inflection' | 'definition';
   decks: Array<{ id: string; name: string }>;
   isNew: boolean;
-  existing: {
+  cloze: {
     definition: string;
     maskedSentence: string | null;
     partOfSpeech: string;
@@ -183,9 +183,9 @@ async function saveToDeck(
   return (res.body as CreateCardsApiResponse).cards;
 }
 
-function existingCardId(cards: CardResponse[]): string {
-  const card = cards.find((c) => c.type === 'existing');
-  if (!card) throw new Error('no existing card in response');
+function clozeCardId(cards: CardResponse[]): string {
+  const card = cards.find((c) => c.type === 'cloze');
+  if (!card) throw new Error('no cloze card in response');
   return card.id;
 }
 
@@ -230,7 +230,7 @@ describe('ReviewsController (e2e)', () => {
       definitionId,
       `Guess who I ${word} at the station!`,
     );
-    cardId = existingCardId(cards);
+    cardId = clozeCardId(cards);
 
     const otherWord = randomWord('otherword');
     const otherDefinitionId = await seedDefinitionId(
@@ -250,7 +250,7 @@ describe('ReviewsController (e2e)', () => {
       otherDeckId,
       otherDefinitionId,
     );
-    foreignCardId = existingCardId(foreignCards);
+    foreignCardId = clozeCardId(foreignCards);
   });
 
   afterAll(async () => {
@@ -303,7 +303,7 @@ describe('ReviewsController (e2e)', () => {
       expect((res.body as QueueApiResponse).items).toEqual([]);
     });
 
-    it('returns the seeded existing card as a new item with a masked prompt', async () => {
+    it('returns the seeded cloze card as a new item with a masked prompt', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/reviews/queue')
         .set('Authorization', `Bearer ${accessToken}`)
@@ -312,14 +312,14 @@ describe('ReviewsController (e2e)', () => {
       const body = res.body as QueueApiResponse;
       const item = body.items.find((i) => i.cardId === cardId);
       expect(item).toBeDefined();
-      expect(item?.type).toBe('existing');
+      expect(item?.type).toBe('cloze');
       expect(item?.isNew).toBe(true);
-      expect(item?.existing?.maskedSentence).toBe(
+      expect(item?.cloze?.maskedSentence).toBe(
         `Guess who I ____ at the station!`,
       );
-      expect(item?.existing?.language).toBe('en');
-      expect(item?.existing?.kind).toBe('word');
-      expect(item?.existing?.lemmaLength).toBe(word.length);
+      expect(item?.cloze?.language).toBe('en');
+      expect(item?.cloze?.kind).toBe('word');
+      expect(item?.cloze?.lemmaLength).toBe(word.length);
     });
 
     it('also queues a definition card for the same saved sense', async () => {
@@ -501,8 +501,8 @@ describe('ReviewsController (e2e)', () => {
         `I ${sharedWord} in two decks.`,
       );
       const cardsB = await saveToDeck(app, accessToken, deckBId, definitionId);
-      const cardAId = existingCardId(cardsA);
-      const cardBId = existingCardId(cardsB);
+      const cardAId = clozeCardId(cardsA);
+      const cardBId = clozeCardId(cardsB);
 
       // Same underlying card, reused across decks - not duplicated.
       expect(cardAId).toBe(cardBId);

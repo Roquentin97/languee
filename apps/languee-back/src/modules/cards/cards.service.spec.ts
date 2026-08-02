@@ -58,7 +58,7 @@ const mockDefinitionInflecting: DefinitionWithWord = {
 function baseCard(overrides: Partial<Card>): Card {
   return {
     id: 'card-id-x',
-    type: 'existing',
+    type: 'cloze',
     userId: 'user-id-1',
     definitionId: null,
     wordId: null,
@@ -80,9 +80,9 @@ function baseCard(overrides: Partial<Card>): Card {
   };
 }
 
-const mockExistingCard = baseCard({
-  id: 'card-id-existing',
-  type: 'existing',
+const mockClozeCard = baseCard({
+  id: 'card-id-cloze',
+  type: 'cloze',
   definitionId: 'def-id-1',
 });
 const mockDefinitionCard = baseCard({
@@ -166,33 +166,33 @@ describe('CardsService', () => {
   });
 
   describe('create()', () => {
-    it('happy path — a non-inflecting word yields existing + definition cards only', async () => {
+    it('happy path — a non-inflecting word yields cloze + definition cards only', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique
-        .mockResolvedValueOnce(null) // existing card lookup
+        .mockResolvedValueOnce(null) // cloze card lookup
         .mockResolvedValueOnce(null); // definition card lookup
       mockTx.card.create
-        .mockResolvedValueOnce(mockExistingCard)
+        .mockResolvedValueOnce(mockClozeCard)
         .mockResolvedValueOnce(mockDefinitionCard);
       mockTx.cardDeck.findUnique.mockResolvedValue(null);
       mockTx.cardDeck.createMany.mockResolvedValue({ count: 2 });
       mockPrismaService.card.findMany.mockResolvedValue([
-        withRelations(mockExistingCard, 'deck-id-1'),
+        withRelations(mockClozeCard, 'deck-id-1'),
         withRelations(mockDefinitionCard, 'deck-id-1'),
       ]);
 
       const result = await service.create('user-id-1', 'deck-id-1', 'def-id-1');
 
       expect(result).toHaveLength(2);
-      expect(result.map((c) => c.type)).toEqual(['existing', 'definition']);
+      expect(result.map((c) => c.type)).toEqual(['cloze', 'definition']);
       expect(mockDecksService.findOneOrThrow).toHaveBeenCalledWith(
         'deck-id-1',
         'user-id-1',
       );
       expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
         data: [
-          { cardId: 'card-id-existing', deckId: 'deck-id-1' },
+          { cardId: 'card-id-cloze', deckId: 'deck-id-1' },
           { cardId: 'card-id-definition', deckId: 'deck-id-1' },
         ],
         skipDuplicates: true,
@@ -209,13 +209,13 @@ describe('CardsService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
       mockTx.card.create
-        .mockResolvedValueOnce(mockExistingCard)
+        .mockResolvedValueOnce(mockClozeCard)
         .mockResolvedValueOnce(mockDefinitionCard)
         .mockResolvedValueOnce(mockInflectionCard);
       mockTx.cardDeck.findUnique.mockResolvedValue(null);
       mockTx.cardDeck.createMany.mockResolvedValue({ count: 3 });
       mockPrismaService.card.findMany.mockResolvedValue([
-        withRelations(mockExistingCard, 'deck-id-1'),
+        withRelations(mockClozeCard, 'deck-id-1'),
         withRelations(mockDefinitionCard, 'deck-id-1'),
         withRelations(mockInflectionCard, 'deck-id-1'),
       ]);
@@ -223,7 +223,7 @@ describe('CardsService', () => {
       const result = await service.create('user-id-1', 'deck-id-1', 'def-id-2');
 
       expect(result.map((c) => c.type)).toEqual([
-        'existing',
+        'cloze',
         'definition',
         'inflection',
       ]);
@@ -233,12 +233,12 @@ describe('CardsService', () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique
-        .mockResolvedValueOnce(mockExistingCard) // already exists
+        .mockResolvedValueOnce(mockClozeCard) // already exists
         .mockResolvedValueOnce(mockDefinitionCard); // already exists
       mockTx.cardDeck.findUnique.mockResolvedValue(null); // not yet in THIS deck
       mockTx.cardDeck.createMany.mockResolvedValue({ count: 2 });
       mockPrismaService.card.findMany.mockResolvedValue([
-        withRelations(mockExistingCard, 'deck-id-2'),
+        withRelations(mockClozeCard, 'deck-id-2'),
         withRelations(mockDefinitionCard, 'deck-id-2'),
       ]);
 
@@ -247,7 +247,7 @@ describe('CardsService', () => {
       expect(mockTx.card.create).not.toHaveBeenCalled();
       expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
         data: [
-          { cardId: 'card-id-existing', deckId: 'deck-id-2' },
+          { cardId: 'card-id-cloze', deckId: 'deck-id-2' },
           { cardId: 'card-id-definition', deckId: 'deck-id-2' },
         ],
         skipDuplicates: true,
@@ -265,12 +265,12 @@ describe('CardsService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
       mockTx.card.create.mockRejectedValueOnce(prismaError);
-      mockTx.card.findUniqueOrThrow.mockResolvedValueOnce(mockExistingCard);
+      mockTx.card.findUniqueOrThrow.mockResolvedValueOnce(mockClozeCard);
       mockTx.cardDeck.findUnique.mockResolvedValue(null);
       mockTx.card.create.mockResolvedValueOnce(mockDefinitionCard);
       mockTx.cardDeck.createMany.mockResolvedValue({ count: 2 });
       mockPrismaService.card.findMany.mockResolvedValue([
-        withRelations(mockExistingCard, 'deck-id-1'),
+        withRelations(mockClozeCard, 'deck-id-1'),
         withRelations(mockDefinitionCard, 'deck-id-1'),
       ]);
 
@@ -294,14 +294,14 @@ describe('CardsService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
       mockTx.card.create
-        .mockResolvedValueOnce(mockExistingCard)
+        .mockResolvedValueOnce(mockClozeCard)
         .mockResolvedValueOnce(mockDefinitionCard)
         .mockRejectedValueOnce(prismaError);
       mockTx.card.findUniqueOrThrow.mockResolvedValueOnce(mockInflectionCard);
       mockTx.cardDeck.findUnique.mockResolvedValue(null);
       mockTx.cardDeck.createMany.mockResolvedValue({ count: 3 });
       mockPrismaService.card.findMany.mockResolvedValue([
-        withRelations(mockExistingCard, 'deck-id-1'),
+        withRelations(mockClozeCard, 'deck-id-1'),
         withRelations(mockDefinitionCard, 'deck-id-1'),
         withRelations(mockInflectionCard, 'deck-id-1'),
       ]);
@@ -349,10 +349,10 @@ describe('CardsService', () => {
     it('edge case — the same definition already saved in this exact deck throws CardAlreadyExistsError', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
-      mockTx.card.findUnique.mockResolvedValueOnce(mockExistingCard);
+      mockTx.card.findUnique.mockResolvedValueOnce(mockClozeCard);
       mockTx.cardDeck.findUnique.mockResolvedValueOnce({
         id: 'join-1',
-        cardId: mockExistingCard.id,
+        cardId: mockClozeCard.id,
         deckId: 'deck-id-1',
         createdAt: new Date(),
       });
@@ -368,7 +368,7 @@ describe('CardsService', () => {
   describe('findManyByUserId()', () => {
     it('happy path — returns all cards for user with no filters', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([
-        withRelations(mockExistingCard, 'deck-id-1'),
+        withRelations(mockClozeCard, 'deck-id-1'),
       ]);
 
       const result = await service.findManyByUserId('user-id-1');
@@ -461,12 +461,12 @@ describe('CardsService', () => {
   describe('findOneByIdAndUserId()', () => {
     it('happy path — returns the card flattened with deck refs', async () => {
       mockPrismaService.card.findFirst.mockResolvedValue({
-        ...withRelations(mockExistingCard, 'deck-id-1'),
+        ...withRelations(mockClozeCard, 'deck-id-1'),
         ankidroidExport: null,
       });
 
       const result = await service.findOneByIdAndUserId(
-        'card-id-existing',
+        'card-id-cloze',
         'user-id-1',
       );
 
@@ -488,16 +488,16 @@ describe('CardsService', () => {
   describe('findOwnedOrThrow()', () => {
     it('happy path — returns card when found', async () => {
       mockPrismaService.card.findFirst.mockResolvedValue({
-        ...withRelations(mockExistingCard, 'deck-id-1'),
+        ...withRelations(mockClozeCard, 'deck-id-1'),
         ankidroidExport: null,
       });
 
       const result = await service.findOwnedOrThrow(
-        'card-id-existing',
+        'card-id-cloze',
         'user-id-1',
       );
 
-      expect(result.id).toBe('card-id-existing');
+      expect(result.id).toBe('card-id-cloze');
     });
 
     it('edge case — card not found or not owned throws CardNotFoundError', async () => {
@@ -510,7 +510,7 @@ describe('CardsService', () => {
   });
 
   describe('findCardsByDefinitionIdsAndUserId()', () => {
-    it('happy path — flattens one row per (definition, deck) for existing cards', async () => {
+    it('happy path — flattens one row per (definition, deck) for cloze cards', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([
         {
           definitionId: 'def-id-1',
@@ -535,7 +535,7 @@ describe('CardsService', () => {
           where: {
             definitionId: { in: ['def-id-1'] },
             userId: 'user-id-1',
-            type: 'existing',
+            type: 'cloze',
           },
         }),
       );
@@ -641,14 +641,14 @@ describe('CardsService', () => {
     });
   });
 
-  describe('findExistingCardContexts()', () => {
-    it('happy path — maps definitionId to its existing card context', async () => {
+  describe('findClozeCardContexts()', () => {
+    it('happy path — maps definitionId to its cloze card context', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([
         { definitionId: 'def-id-1', context: 'I run every day.' },
         { definitionId: 'def-id-2', context: null },
       ]);
 
-      const result = await service.findExistingCardContexts('user-id-1', [
+      const result = await service.findClozeCardContexts('user-id-1', [
         'def-id-1',
         'def-id-2',
       ]);
@@ -660,7 +660,7 @@ describe('CardsService', () => {
     it('edge case — no matching cards returns an empty map', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([]);
 
-      const result = await service.findExistingCardContexts('user-id-1', [
+      const result = await service.findClozeCardContexts('user-id-1', [
         'def-id-1',
       ]);
 
