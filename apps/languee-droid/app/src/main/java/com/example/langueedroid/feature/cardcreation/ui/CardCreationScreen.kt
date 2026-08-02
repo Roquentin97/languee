@@ -61,6 +61,7 @@ import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
+import com.example.langueedroid.core.domain.InflectionFormLabels
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.ui.theme.AmberBorder
 import com.example.langueedroid.core.ui.theme.AmberContainer
@@ -736,8 +737,11 @@ private fun DefinitionCard(
             if (!displayForms.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 displayForms.forEach { (key, value) ->
+                    val label = InflectionFormLabels.resourceFor(key)
+                        ?.let { stringResource(it) }
+                        ?: InflectionFormLabels.humanize(key)
                     Text(
-                        text = "$key: $value",
+                        text = "$label: $value",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
