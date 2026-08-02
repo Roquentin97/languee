@@ -155,8 +155,17 @@ Machine-specific current state lives in session memory, not here.
   remove once Dagger ships a real fix.
 - **Dependabot PRs can be known-bad**: with no PR CI, a bot PR that violates one of
   these gates (e.g. a compileSdk-37 artifact) merges green and breaks `bb_develop`.
-  Never merge bot PRs directly for droid; the audited lane PR is the safe path, and
-  gate-violating bot PRs should be closed with a comment naming the gate.
+  Never merge a droid bot PR UNVERIFIED. Two safe paths: (a) the audited lane PR, or
+  (b) for self-contained bot PRs (e.g. an AGP + Gradle-wrapper toolchain pair, whose
+  regenerated wrapper files are easier to take than to replicate), check out the bot
+  PR's exact head branch, merge current base into it, run the FULL service gate on
+  that merged tree, and merge only on green (done 2026-08 for AGP 9.3.1/Gradle 9.6.1).
+  Gate-violating bot PRs get closed with a comment naming the gate.
+- **In-range refresh ≠ full minor/patch audit**: `yarn outdated` rows where
+  `wanted == current < latest` (same major) are OUT-OF-RANGE minors — the specifier
+  itself must be bumped (0.x caret ranges pin the minor, so every 0.x minor step is
+  out-of-range, e.g. class-validator 0.14→0.15). A lane that only refreshes in-range
+  versions leaves these behind and dependabot re-proposes them immediately.
 - **Release Please owns versions**: never touch `version.txt`, `CHANGELOG.md`,
   `health.service.ts`, `constants.py`, or Android `versionName` in deps PRs. `deps` type
   → patch release; don't hide dep bumps behind `chore`.
