@@ -9,14 +9,15 @@ fun buildHighlightedAnnotatedString(
     context: String,
     word: String,
     highlightStyle: SpanStyle,
-): AnnotatedString = buildAnnotatedString {
-    append(context)
-    val ranges = EntryValidator.findStandaloneMatches(word, context)
-    for (range in ranges) {
-        addStyle(
-            style = highlightStyle,
-            start = range.first,
-            end = range.last + 1,
-        )
+): AnnotatedString =
+    buildAnnotatedString {
+        append(context)
+        val ranges = EntryValidator.findStandaloneMatches(word, context)
+        for (range in ranges) {
+            addStyle(
+                style = highlightStyle,
+                start = range.first,
+                end = range.last + 1,
+            )
+        }
     }
-}

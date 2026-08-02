@@ -1,7 +1,7 @@
 package com.example.langueedroid.core.network
 
-import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.languee.droid.BuildConfig
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry
 import okhttp3.Call
@@ -17,53 +17,62 @@ class ApiClient(
     private val authAuthenticator: AuthAuthenticator,
     openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
 ) {
-
-    private val requestIdInterceptor = Interceptor { chain ->
-        chain.proceed(
-            chain.request().newBuilder()
-                .header("X-Request-ID", UUID.randomUUID().toString())
-                .build(),
-        )
-    }
-
-    private val authInterceptor = Interceptor { chain ->
-        val accessToken = sessionStore.read()?.accessToken
-        val request = if (accessToken != null) {
-            chain.request().newBuilder()
-                .header("Authorization", "Bearer $accessToken")
-                .build()
-        } else {
-            chain.request()
+    private val requestIdInterceptor =
+        Interceptor { chain ->
+            chain.proceed(
+                chain
+                    .request()
+                    .newBuilder()
+                    .header("X-Request-ID", UUID.randomUUID().toString())
+                    .build(),
+            )
         }
-        chain.proceed(request)
-    }
 
-    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(requestIdInterceptor)
-        .addInterceptor(authInterceptor)
-        .apply {
-            if (BuildConfig.DEBUG) {
-                addInterceptor(
-                    HttpLoggingInterceptor().apply {
-                        level = HttpLoggingInterceptor.Level.HEADERS
-                        redactHeader("Authorization")
-                        redactHeader("Cookie")
-                        redactHeader("Set-Cookie")
-                    },
-                )
-            }
+    private val authInterceptor =
+        Interceptor { chain ->
+            val accessToken = sessionStore.read()?.accessToken
+            val request =
+                if (accessToken != null) {
+                    chain
+                        .request()
+                        .newBuilder()
+                        .header("Authorization", "Bearer $accessToken")
+                        .build()
+                } else {
+                    chain.request()
+                }
+            chain.proceed(request)
         }
-        .authenticator(authAuthenticator)
-        .build()
+
+    private val okHttpClient: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .addInterceptor(requestIdInterceptor)
+            .addInterceptor(authInterceptor)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.HEADERS
+                            redactHeader("Authorization")
+                            redactHeader("Cookie")
+                            redactHeader("Set-Cookie")
+                        },
+                    )
+                }
+            }.authenticator(authAuthenticator)
+            .build()
 
     private val callFactory: Call.Factory =
         OkHttpTelemetry.builder(openTelemetry).build().createCallFactory(okHttpClient)
 
-    private val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl(BuildConfig.BACKEND_BASE_URL)
-        .callFactory(callFactory)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    private val retrofit: Retrofit =
+        Retrofit
+            .Builder()
+            .baseUrl(BuildConfig.BACKEND_BASE_URL)
+            .callFactory(callFactory)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
 
     fun createAuthApi(): AuthApi = retrofit.create(AuthApi::class.java)
 

@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NoteTypeTemplatesTest {
-
     @Test
     fun `shared fields match mobile native type model`() {
         assertArrayEquals(

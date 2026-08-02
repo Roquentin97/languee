@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.ui.theme.GreenContainer
 import com.example.langueedroid.core.ui.theme.GreenPrimary
 import com.example.langueedroid.core.ui.theme.GreenPrimaryDark
@@ -44,6 +43,7 @@ import com.example.langueedroid.core.ui.theme.SurfaceWarm
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.anki.presentation.SyncUiState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,19 +74,21 @@ fun AnkiDroidSyncScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         modifier = modifier,
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -117,9 +119,10 @@ fun AnkiDroidSyncScreen(
                     Spacer(modifier = Modifier.height(28.dp))
                     Button(
                         onClick = onDismissResult,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                     ) {
@@ -149,9 +152,10 @@ fun AnkiDroidSyncScreen(
                     Spacer(modifier = Modifier.height(32.dp))
                     Button(
                         onClick = onSync,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                     ) {
@@ -181,10 +185,11 @@ fun AnkiDroidSyncScreen(
 @Composable
 private fun AnkiDroidIcon(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .size(72.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(GreenContainer),
+        modifier =
+            modifier
+                .size(72.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(GreenContainer),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -207,10 +212,11 @@ private fun SyncSuccessContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(GreenContainer),
+            modifier =
+                Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(GreenContainer),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -229,11 +235,12 @@ private fun SyncSuccessContent(
             )
         } else {
             Text(
-                text = stringResource(
-                    R.string.ankidroid_sync_result_summary,
-                    result.syncedCount,
-                    result.failedWords.size,
-                ),
+                text =
+                    stringResource(
+                        R.string.ankidroid_sync_result_summary,
+                        result.syncedCount,
+                        result.failedWords.size,
+                    ),
                 style = MaterialTheme.typography.titleSmall,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,

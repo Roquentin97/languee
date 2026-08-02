@@ -18,20 +18,23 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object StorageModule {
+    @Provides
+    @Singleton
+    fun provideAuthSessionStore(
+        @ApplicationContext context: Context,
+    ): AuthSessionStore = AuthSessionStore(context)
 
     @Provides
     @Singleton
-    fun provideAuthSessionStore(@ApplicationContext context: Context): AuthSessionStore = AuthSessionStore(context)
+    fun provideAnkiDroidPreferencesStore(
+        @ApplicationContext context: Context,
+    ): AnkiDroidPreferencesStore = AnkiDroidPreferencesStore(context)
 
     @Provides
     @Singleton
-    fun provideAnkiDroidPreferencesStore(@ApplicationContext context: Context): AnkiDroidPreferencesStore =
-        AnkiDroidPreferencesStore(context)
-
-    @Provides
-    @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "languee_droid.db").build()
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+    ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "languee_droid.db").build()
 
     @Provides
     @Singleton
@@ -39,11 +42,11 @@ object StorageModule {
 
     @Provides
     @Singleton
-    fun provideOfflineQueueRepository(dao: OfflineEntryDao): OfflineQueueRepository =
-        OfflineQueueRepository(dao)
+    fun provideOfflineQueueRepository(dao: OfflineEntryDao): OfflineQueueRepository = OfflineQueueRepository(dao)
 
     @Provides
     @Singleton
-    fun provideConnectivityObserver(@ApplicationContext context: Context): ConnectivityObserver =
-        ConnectivityObserver(context)
+    fun provideConnectivityObserver(
+        @ApplicationContext context: Context,
+    ): ConnectivityObserver = ConnectivityObserver(context)
 }

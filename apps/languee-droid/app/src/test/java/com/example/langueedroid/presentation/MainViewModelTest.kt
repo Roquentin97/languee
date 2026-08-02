@@ -13,6 +13,7 @@ import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -25,11 +26,8 @@ import org.junit.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 
-import kotlinx.coroutines.flow.flowOf
-
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModelTest {
-
     private lateinit var viewModel: MainViewModel
     private lateinit var ankiDroidExportService: AnkiDroidExportService
     private lateinit var ankiDroidPreferencesStore: AnkiDroidPreferencesStore
@@ -40,18 +38,21 @@ class MainViewModelTest {
     fun setUp() {
         ankiDroidExportService = mock()
         ankiDroidPreferencesStore = mock()
-        offlineStateManager = mock {
-            on { isOffline } doReturn MutableStateFlow(false)
-        }
-        offlineQueueRepository = mock {
-            on { count() } doReturn flowOf(0)
-        }
-        viewModel = MainViewModel(
-            ankiDroidExportService,
-            ankiDroidPreferencesStore,
-            offlineStateManager,
-            offlineQueueRepository,
-        )
+        offlineStateManager =
+            mock {
+                on { isOffline } doReturn MutableStateFlow(false)
+            }
+        offlineQueueRepository =
+            mock {
+                on { count() } doReturn flowOf(0)
+            }
+        viewModel =
+            MainViewModel(
+                ankiDroidExportService,
+                ankiDroidPreferencesStore,
+                offlineStateManager,
+                offlineQueueRepository,
+            )
     }
 
     private val currentState get() = viewModel.state.value
@@ -60,9 +61,12 @@ class MainViewModelTest {
     private fun selectWords(vararg words: String) {
         for (word in words) {
             val state = currentState as AppState.Screen.SharedContextCapture
-            val index = state.tokens.withIndex().first { (idx, token) ->
-                token is Token.Word && token.text == word && idx !in state.selectedIndices
-            }.index
+            val index =
+                state.tokens
+                    .withIndex()
+                    .first { (idx, token) ->
+                        token is Token.Word && token.text == word && idx !in state.selectedIndices
+                    }.index
             viewModel.onWordTokenTapped(index)
         }
         viewModel.confirmWordSelection()
@@ -105,29 +109,31 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `addEntry with valid word emits CardCreationRequest`() = runTest {
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+    fun `addEntry with valid word emits CardCreationRequest`() =
+        runTest {
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        viewModel.addEntry("cat", "I have a cat")
-        advanceUntilIdle()
+            viewModel.addEntry("cat", "I have a cat")
+            advanceUntilIdle()
 
-        assertEquals("cat", received?.targetWord)
-        assertEquals("I have a cat", received?.context)
-    }
+            assertEquals("cat", received?.targetWord)
+            assertEquals("I have a cat", received?.context)
+        }
 
     @Test
-    fun `addEntry trims word`() = runTest {
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+    fun `addEntry trims word`() =
+        runTest {
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        viewModel.addEntry("  cat  ", null)
-        advanceUntilIdle()
+            viewModel.addEntry("  cat  ", null)
+            advanceUntilIdle()
 
-        assertEquals("cat", received?.targetWord)
-    }
+            assertEquals("cat", received?.targetWord)
+        }
 
     @Test
     fun `addEntry ignores blank word`() {
@@ -137,16 +143,17 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `addEntry converts blank context to null`() = runTest {
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+    fun `addEntry converts blank context to null`() =
+        runTest {
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        viewModel.addEntry("cat", "   ")
-        advanceUntilIdle()
+            viewModel.addEntry("cat", "   ")
+            advanceUntilIdle()
 
-        assertNull(received?.context)
-    }
+            assertNull(received?.context)
+        }
 
     // -------------------------------------------------------------------------
     // startSharedTextCapture
@@ -277,6 +284,7 @@ class MainViewModelTest {
     fun `deselecting interior words yields a discontiguous expression`() {
         viewModel.startSharedTextCapture("He looked the word up")
         val capture = currentState as AppState.Screen.SharedContextCapture
+
         fun indexOf(word: String) = capture.tokens.indexOfFirst { it is Token.Word && it.text == word }
         viewModel.onWordTokenTapped(indexOf("looked"))
         viewModel.onWordTokenTapped(indexOf("the"))
@@ -328,12 +336,14 @@ class MainViewModelTest {
 
     @Test
     fun `confirmTruncation when sentence cannot be found disables multi-sentence flag and keeps context`() {
-        val injectedState = AppState.Screen.ContextReview(
-            targetWord = "missing",
-            context = "First sentence. Second sentence.",
-            isMultiSentence = true,
-            highlightRanges = emptyList(),
-        )
+        val injectedState =
+            AppState.Screen.ContextReview(
+                targetWord = "missing",
+                context = "First sentence. Second sentence.",
+                isMultiSentence = true,
+                highlightRanges = emptyList(),
+            )
+
         @Suppress("UNCHECKED_CAST")
         val stateField = MainViewModel::class.java.getDeclaredField("_state")
         stateField.isAccessible = true
@@ -426,19 +436,20 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `onContextEditSave with valid context emits CardCreationRequest`() = runTest {
-        viewModel.startContextEdit("cat", "I have a cat")
+    fun `onContextEditSave with valid context emits CardCreationRequest`() =
+        runTest {
+            viewModel.startContextEdit("cat", "I have a cat")
 
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        viewModel.onContextEditSave("The cat sat on the mat")
-        advanceUntilIdle()
+            viewModel.onContextEditSave("The cat sat on the mat")
+            advanceUntilIdle()
 
-        assertEquals("cat", received?.targetWord)
-        assertEquals("The cat sat on the mat", received?.context)
-    }
+            assertEquals("cat", received?.targetWord)
+            assertEquals("The cat sat on the mat", received?.context)
+        }
 
     @Test
     fun `onContextEditSave is case-insensitive for word matching`() {
@@ -497,19 +508,20 @@ class MainViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `confirmSaveWithoutContext adds entry with null context and emits CardCreationRequest`() = runTest {
-        viewModel.startContextEdit("cat", "I have a cat")
+    fun `confirmSaveWithoutContext adds entry with null context and emits CardCreationRequest`() =
+        runTest {
+            viewModel.startContextEdit("cat", "I have a cat")
 
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        viewModel.confirmSaveWithoutContext("cat")
-        advanceUntilIdle()
+            viewModel.confirmSaveWithoutContext("cat")
+            advanceUntilIdle()
 
-        assertEquals("cat", received?.targetWord)
-        assertNull(received?.context)
-    }
+            assertEquals("cat", received?.targetWord)
+            assertNull(received?.context)
+        }
 
     @Test
     fun `dismissCapture from ContextEdit returns to Decks without saving`() {
@@ -561,47 +573,50 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `addEntry emits CardCreationRequest with default en language`() = runTest {
-        viewModel.startManualAdd()
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+    fun `addEntry emits CardCreationRequest with default en language`() =
+        runTest {
+            viewModel.startManualAdd()
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        viewModel.addEntry("cat", "I have a cat")
-        advanceUntilIdle()
+            viewModel.addEntry("cat", "I have a cat")
+            advanceUntilIdle()
 
-        assertEquals("en", received?.language)
-    }
-
-    @Test
-    fun `addEntry emits CardCreationRequest carrying the selected language`() = runTest {
-        viewModel.startManualAdd()
-        viewModel.selectLanguage("es")
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
-
-        viewModel.addEntry("gato", "Tengo un gato")
-        advanceUntilIdle()
-
-        assertEquals("es", received?.language)
-    }
+            assertEquals("en", received?.language)
+        }
 
     @Test
-    fun `onContextEditSave carries the selected language into CardCreationRequest`() = runTest {
-        viewModel.startSharedTextCapture("I ran into an old friend")
-        viewModel.selectLanguage("de")
-        selectWords("ran", "into")
-        val reviewState = currentState as AppState.Screen.ContextReview
-        viewModel.startContextEdit(reviewState.targetWord, reviewState.context)
+    fun `addEntry emits CardCreationRequest carrying the selected language`() =
+        runTest {
+            viewModel.startManualAdd()
+            viewModel.selectLanguage("es")
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
 
-        var received: CardCreationRequest? = null
-        launch { received = viewModel.cardCreationRequest.first() }
-        advanceUntilIdle()
+            viewModel.addEntry("gato", "Tengo un gato")
+            advanceUntilIdle()
 
-        viewModel.onContextEditSave("Yesterday I ran into her again")
-        advanceUntilIdle()
+            assertEquals("es", received?.language)
+        }
 
-        assertEquals("de", received?.language)
-    }
+    @Test
+    fun `onContextEditSave carries the selected language into CardCreationRequest`() =
+        runTest {
+            viewModel.startSharedTextCapture("I ran into an old friend")
+            viewModel.selectLanguage("de")
+            selectWords("ran", "into")
+            val reviewState = currentState as AppState.Screen.ContextReview
+            viewModel.startContextEdit(reviewState.targetWord, reviewState.context)
+
+            var received: CardCreationRequest? = null
+            launch { received = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
+
+            viewModel.onContextEditSave("Yesterday I ran into her again")
+            advanceUntilIdle()
+
+            assertEquals("de", received?.language)
+        }
 }

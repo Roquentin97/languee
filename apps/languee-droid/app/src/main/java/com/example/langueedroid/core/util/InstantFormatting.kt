@@ -4,10 +4,11 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-private val ISO_PATTERNS = listOf(
-    "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
-    "yyyy-MM-dd'T'HH:mm:ssZ",
-)
+private val ISO_PATTERNS =
+    listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+        "yyyy-MM-dd'T'HH:mm:ssZ",
+    )
 
 /**
  * Parses a backend ISO-8601 UTC instant such as `2026-07-24T13:54:38.936Z` into epoch

@@ -14,7 +14,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReviewMapperTest {
-
     // -------------------------------------------------------------------------
     // ReviewSummaryDto -> ReviewSummary
     // -------------------------------------------------------------------------
@@ -95,13 +94,14 @@ class ReviewMapperTest {
 
     @Test
     fun `ReviewItemDto maps fields and nested prompt`() {
-        val dto = ReviewItemDto(
-            cardId = "card-1",
-            deckId = "deck-1",
-            deckName = "English basics",
-            isNew = true,
-            prompt = aPromptDto(),
-        )
+        val dto =
+            ReviewItemDto(
+                cardId = "card-1",
+                deckId = "deck-1",
+                deckName = "English basics",
+                isNew = true,
+                prompt = aPromptDto(),
+            )
 
         val domain = dto.toDomain()
 
@@ -137,15 +137,17 @@ class ReviewMapperTest {
 
     @Test
     fun `revealed word details map through, absent revealed maps to null`() {
-        val withRevealed = CheckAnswerResponseDto(
-            result = "correct",
-            matchedForm = "came across",
-            revealed = RevealedWordDto(
-                lemma = "come across",
-                ipa = "/kʌm əˈkɹɒs/",
-                inflectionForms = mapOf("type" to "verb", "past" to "came across"),
-            ),
-        ).toDomain()
+        val withRevealed =
+            CheckAnswerResponseDto(
+                result = "correct",
+                matchedForm = "came across",
+                revealed =
+                    RevealedWordDto(
+                        lemma = "come across",
+                        ipa = "/kʌm əˈkɹɒs/",
+                        inflectionForms = mapOf("type" to "verb", "past" to "came across"),
+                    ),
+            ).toDomain()
         assertEquals("come across", withRevealed.revealed?.lemma)
         assertEquals("/kʌm əˈkɹɒs/", withRevealed.revealed?.ipa)
         assertEquals("came across", withRevealed.revealed?.inflectionForms?.get("past"))

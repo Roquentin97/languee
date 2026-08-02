@@ -16,34 +16,36 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
-class OfflineQueueViewModel @Inject constructor(
-    private val offlineQueueRepository: OfflineQueueRepository,
-    private val offlineStateManager: OfflineStateManager,
-) : ViewModel() {
+class OfflineQueueViewModel
+    @Inject
+    constructor(
+        private val offlineQueueRepository: OfflineQueueRepository,
+        private val offlineStateManager: OfflineStateManager,
+    ) : ViewModel() {
+        val state: StateFlow<OfflineQueueState> =
+            combine(
+                offlineQueueRepository.getAll(),
+                offlineStateManager.isOffline,
+            ) { entries, isOffline ->
+                OfflineQueueState(entries = entries, isOffline = isOffline)
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, OfflineQueueState())
 
-    val state: StateFlow<OfflineQueueState> = combine(
-        offlineQueueRepository.getAll(),
-        offlineStateManager.isOffline,
-    ) { entries, isOffline ->
-        OfflineQueueState(entries = entries, isOffline = isOffline)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, OfflineQueueState())
+        private val _navigateToCardCreation = MutableSharedFlow<OfflineCardCreationRequest>(extraBufferCapacity = 1)
+        val navigateToCardCreation: SharedFlow<OfflineCardCreationRequest> = _navigateToCardCreation.asSharedFlow()
 
-    private val _navigateToCardCreation = MutableSharedFlow<OfflineCardCreationRequest>(extraBufferCapacity = 1)
-    val navigateToCardCreation: SharedFlow<OfflineCardCreationRequest> = _navigateToCardCreation.asSharedFlow()
+        fun onEntrySelected(entry: OfflineEntry) {
+            if (state.value.isOffline) return
+            _navigateToCardCreation.tryEmit(
+                OfflineCardCreationRequest(
+                    word = entry.word,
+                    context = entry.context,
+                    entryId = entry.id,
+                ),
+            )
+        }
 
-    fun onEntrySelected(entry: OfflineEntry) {
-        if (state.value.isOffline) return
-        _navigateToCardCreation.tryEmit(
-            OfflineCardCreationRequest(
-                word = entry.word,
-                context = entry.context,
-                entryId = entry.id,
-            ),
-        )
+        fun onStartReviewing() {
+            val first = state.value.entries.firstOrNull() ?: return
+            onEntrySelected(first)
+        }
     }
-
-    fun onStartReviewing() {
-        val first = state.value.entries.firstOrNull() ?: return
-        onEntrySelected(first)
-    }
-}

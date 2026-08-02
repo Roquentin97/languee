@@ -10,13 +10,18 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface CardsApi {
-
     @POST("/api/v1/cards")
-    suspend fun createCard(@Body body: CreateCardRequest): Response<CardResponseDto>
+    suspend fun createCard(
+        @Body body: CreateCardRequest,
+    ): Response<CardResponseDto>
 
     @GET("/api/v1/cards/{id}")
-    suspend fun getCard(@Path("id") id: String): Response<CardResponseDto>
+    suspend fun getCard(
+        @Path("id") id: String,
+    ): Response<CardResponseDto>
 
     @GET("/api/v1/cards")
-    suspend fun listCards(@Query("deckId") deckId: String): Response<List<CardResponseDto>>
+    suspend fun listCards(
+        @Query("deckId") deckId: String,
+    ): Response<List<CardResponseDto>>
 }

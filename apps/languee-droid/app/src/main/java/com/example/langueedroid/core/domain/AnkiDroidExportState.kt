@@ -7,7 +7,13 @@ enum class ExportPreference {
 
 sealed class AnkiExportStatus {
     object NoRecord : AnkiExportStatus()
+
     object Pending : AnkiExportStatus()
+
     object Completed : AnkiExportStatus()
-    data class Failed(val reason: String, val message: String) : AnkiExportStatus()
+
+    data class Failed(
+        val reason: String,
+        val message: String,
+    ) : AnkiExportStatus()
 }

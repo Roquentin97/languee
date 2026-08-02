@@ -4,7 +4,6 @@ import com.example.langueedroid.core.domain.Token
 
 sealed class AppState {
     sealed class Screen : AppState() {
-
         /** The deck list screen showing all user decks. */
         object Decks : Screen()
 
@@ -66,6 +65,5 @@ sealed class AppState {
             val highlightRanges: kotlin.collections.List<IntRange>,
             val selectedLanguage: String = "en",
         ) : Screen()
-
     }
 }

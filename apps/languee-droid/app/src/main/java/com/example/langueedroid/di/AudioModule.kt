@@ -13,8 +13,9 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AudioModule {
-
     @Provides
     @Singleton
-    fun provideSpeaker(@ApplicationContext context: Context): Speaker = AndroidTtsSpeaker(context)
+    fun provideSpeaker(
+        @ApplicationContext context: Context,
+    ): Speaker = AndroidTtsSpeaker(context)
 }

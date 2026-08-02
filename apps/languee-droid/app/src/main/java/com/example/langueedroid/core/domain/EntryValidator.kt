@@ -1,27 +1,36 @@
 package com.example.langueedroid.core.domain
 
 sealed class Token {
-    data class Word(val text: String) : Token()
-    data class Separator(val text: String) : Token()
+    data class Word(
+        val text: String,
+    ) : Token()
+
+    data class Separator(
+        val text: String,
+    ) : Token()
 }
 
 object EntryValidator {
-
     /**
      * Returns true when [word] appears at least once in [context] as a standalone token.
      * Standalone means the characters immediately before and after the match are non-letters
      * (start/end of string also count as non-letter boundaries).
      * Comparison is case-insensitive.
      */
-    fun isStandaloneMatch(word: String, context: String): Boolean =
-        findStandaloneMatches(word, context).isNotEmpty()
+    fun isStandaloneMatch(
+        word: String,
+        context: String,
+    ): Boolean = findStandaloneMatches(word, context).isNotEmpty()
 
     /**
      * Returns all [IntRange] positions in [context] where [word] appears as a standalone token.
      * Ranges point into the original [context] string (not the lowercased copy).
      * Comparison is case-insensitive.
      */
-    fun findStandaloneMatches(word: String, context: String): List<IntRange> {
+    fun findStandaloneMatches(
+        word: String,
+        context: String,
+    ): List<IntRange> {
         if (word.isBlank()) return emptyList()
         // Unicode letter boundaries (not just a-zA-Z) so accented/non-Latin words such as
         // "añadir", "läuft" or "año" are matched (or excluded from "años") correctly.
@@ -32,22 +41,26 @@ object EntryValidator {
     /**
      * Returns true when [context] contains [word] as a standalone token.
      */
-    fun isContextValid(word: String, context: String): Boolean =
-        isStandaloneMatch(word, context)
+    fun isContextValid(
+        word: String,
+        context: String,
+    ): Boolean = isStandaloneMatch(word, context)
 
     /**
      * Counts the number of sentences in [text] by splitting on '.', '!', and '?'.
      * Empty segments (e.g. trailing punctuation) are not counted.
      */
-    fun countSentences(text: String): Int =
-        text.split('.', '!', '?').count { it.isNotBlank() }
+    fun countSentences(text: String): Int = text.split('.', '!', '?').count { it.isNotBlank() }
 
     /**
      * Returns the sentence from [context] that contains any standalone occurrence of [word],
      * or null if no such sentence exists.
      * Sentences are delimited by '.', '!', '?'.
      */
-    fun extractSentenceContaining(word: String, context: String): String? {
+    fun extractSentenceContaining(
+        word: String,
+        context: String,
+    ): String? {
         val sentences = context.split(Regex("(?<=[.!?])"))
         return sentences.firstOrNull { sentence -> isStandaloneMatch(word, sentence) }?.trim()
     }

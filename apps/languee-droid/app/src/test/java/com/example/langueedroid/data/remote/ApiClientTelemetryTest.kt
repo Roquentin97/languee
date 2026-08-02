@@ -24,7 +24,6 @@ import org.junit.Test
 import java.util.UUID
 
 class ApiClientTelemetryTest {
-
     private lateinit var server: MockWebServer
     private lateinit var exporter: InMemorySpanExporter
     private lateinit var otel: OpenTelemetry
@@ -35,13 +34,17 @@ class ApiClientTelemetryTest {
         server.start()
 
         exporter = InMemorySpanExporter.create()
-        val provider = SdkTracerProvider.builder()
-            .addSpanProcessor(SimpleSpanProcessor.create(exporter))
-            .build()
-        otel = OpenTelemetrySdk.builder()
-            .setTracerProvider(provider)
-            .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-            .build()
+        val provider =
+            SdkTracerProvider
+                .builder()
+                .addSpanProcessor(SimpleSpanProcessor.create(exporter))
+                .build()
+        otel =
+            OpenTelemetrySdk
+                .builder()
+                .setTracerProvider(provider)
+                .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+                .build()
     }
 
     @After
@@ -80,12 +83,15 @@ class ApiClientTelemetryTest {
 
         val callFactory = OkHttpTelemetry.builder(otel).build().createCallFactory(OkHttpClient())
 
-        callFactory.newCall(
-            Request.Builder()
-                .url(server.url("/test"))
-                .header("Authorization", "Bearer secret-token-xyz")
-                .build(),
-        ).execute().close()
+        callFactory
+            .newCall(
+                Request
+                    .Builder()
+                    .url(server.url("/test"))
+                    .header("Authorization", "Bearer secret-token-xyz")
+                    .build(),
+            ).execute()
+            .close()
 
         val spans = exporter.finishedSpanItems
         assertTrue(spans.isNotEmpty())
@@ -111,15 +117,17 @@ class ApiClientTelemetryTest {
     fun `request-id interceptor adds a UUID X-Request-ID header`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(buildRequestIdInterceptor())
-            .build()
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(buildRequestIdInterceptor())
+                .build()
 
         client.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
 
         val requestId = server.takeRequest().getHeader("X-Request-ID")
         assertNotNull("X-Request-ID header must be present", requestId)
-        UUID.fromString(requestId)  // throws if not a valid UUID
+        UUID.fromString(requestId) // throws if not a valid UUID
     }
 
     @Test
@@ -127,9 +135,11 @@ class ApiClientTelemetryTest {
         server.enqueue(MockResponse().setResponseCode(200))
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(buildRequestIdInterceptor())
-            .build()
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(buildRequestIdInterceptor())
+                .build()
 
         val url = server.url("/test")
         client.newCall(Request.Builder().url(url).build()).execute().close()
@@ -147,23 +157,29 @@ class ApiClientTelemetryTest {
         server.enqueue(MockResponse().setResponseCode(200))
 
         val logLines = mutableListOf<String>()
-        val loggingInterceptor = HttpLoggingInterceptor { message -> logLines.add(message) }.apply {
-            level = HttpLoggingInterceptor.Level.HEADERS
-            redactHeader("Authorization")
-            redactHeader("Cookie")
-            redactHeader("Set-Cookie")
-        }
+        val loggingInterceptor =
+            HttpLoggingInterceptor { message -> logLines.add(message) }.apply {
+                level = HttpLoggingInterceptor.Level.HEADERS
+                redactHeader("Authorization")
+                redactHeader("Cookie")
+                redactHeader("Set-Cookie")
+            }
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .build()
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(loggingInterceptor)
+                .build()
 
-        client.newCall(
-            Request.Builder()
-                .url(server.url("/test"))
-                .header("Authorization", "Bearer ultra-secret-token")
-                .build(),
-        ).execute().close()
+        client
+            .newCall(
+                Request
+                    .Builder()
+                    .url(server.url("/test"))
+                    .header("Authorization", "Bearer ultra-secret-token")
+                    .build(),
+            ).execute()
+            .close()
 
         assertFalse(
             "Authorization value must not appear in any log line",
@@ -173,11 +189,14 @@ class ApiClientTelemetryTest {
 
     // --- helpers ---
 
-    private fun buildRequestIdInterceptor(): Interceptor = Interceptor { chain ->
-        chain.proceed(
-            chain.request().newBuilder()
-                .header("X-Request-ID", UUID.randomUUID().toString())
-                .build(),
-        )
-    }
+    private fun buildRequestIdInterceptor(): Interceptor =
+        Interceptor { chain ->
+            chain.proceed(
+                chain
+                    .request()
+                    .newBuilder()
+                    .header("X-Request-ID", UUID.randomUUID().toString())
+                    .build(),
+            )
+        }
 }

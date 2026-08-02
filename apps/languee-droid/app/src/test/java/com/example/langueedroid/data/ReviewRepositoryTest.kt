@@ -26,7 +26,6 @@ import org.mockito.kotlin.whenever
 import retrofit2.Response
 
 class ReviewRepositoryTest {
-
     private lateinit var reviewsApi: ReviewsApi
     private lateinit var repository: ReviewRepository
 
@@ -41,132 +40,143 @@ class ReviewRepositoryTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `summary success returns mapped ReviewSummary`() = runTest {
-        whenever(reviewsApi.getSummary()).thenReturn(Response.success(ReviewSummaryDto(dueCount = 5, newCount = 3)))
+    fun `summary success returns mapped ReviewSummary`() =
+        runTest {
+            whenever(reviewsApi.getSummary()).thenReturn(Response.success(ReviewSummaryDto(dueCount = 5, newCount = 3)))
 
-        val result = repository.summary()
+            val result = repository.summary()
 
-        assertTrue(result.isSuccess)
-        assertEquals(5, result.getOrNull()?.dueCount)
-        assertEquals(3, result.getOrNull()?.newCount)
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(5, result.getOrNull()?.dueCount)
+            assertEquals(3, result.getOrNull()?.newCount)
+        }
 
     @Test
-    fun `summary 401 throws UnauthorizedException`() = runTest {
-        whenever(reviewsApi.getSummary()).thenReturn(Response.error(401, "{}".toResponseBody()))
+    fun `summary 401 throws UnauthorizedException`() =
+        runTest {
+            whenever(reviewsApi.getSummary()).thenReturn(Response.error(401, "{}".toResponseBody()))
 
-        val result = repository.summary()
+            val result = repository.summary()
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is UnauthorizedException)
-    }
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is UnauthorizedException)
+        }
 
     // -------------------------------------------------------------------------
     // queue — happy path and empty body
     // -------------------------------------------------------------------------
 
     @Test
-    fun `queue success returns mapped items`() = runTest {
-        whenever(reviewsApi.getQueue(deckId = anyOrNull(), limit = anyOrNull())).thenReturn(
-            Response.success(ReviewQueueResponseDto(items = listOf(aReviewItemDto()))),
-        )
+    fun `queue success returns mapped items`() =
+        runTest {
+            whenever(reviewsApi.getQueue(deckId = anyOrNull(), limit = anyOrNull())).thenReturn(
+                Response.success(ReviewQueueResponseDto(items = listOf(aReviewItemDto()))),
+            )
 
-        val result = repository.queue(deckId = null, limit = 20)
+            val result = repository.queue(deckId = null, limit = 20)
 
-        assertTrue(result.isSuccess)
-        assertEquals(1, result.getOrNull()?.size)
-        assertEquals("card-1", result.getOrNull()?.first()?.cardId)
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(1, result.getOrNull()?.size)
+            assertEquals("card-1", result.getOrNull()?.first()?.cardId)
+        }
 
     @Test
-    fun `queue 401 throws UnauthorizedException`() = runTest {
-        whenever(reviewsApi.getQueue(deckId = anyOrNull(), limit = anyOrNull())).thenReturn(
-            Response.error(401, "{}".toResponseBody()),
-        )
+    fun `queue 401 throws UnauthorizedException`() =
+        runTest {
+            whenever(reviewsApi.getQueue(deckId = anyOrNull(), limit = anyOrNull())).thenReturn(
+                Response.error(401, "{}".toResponseBody()),
+            )
 
-        val result = repository.queue()
+            val result = repository.queue()
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is UnauthorizedException)
-    }
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is UnauthorizedException)
+        }
 
     // -------------------------------------------------------------------------
     // checkAnswer — happy path
     // -------------------------------------------------------------------------
 
     @Test
-    fun `checkAnswer success returns mapped AnswerCheck`() = runTest {
-        whenever(reviewsApi.checkAnswer(cardId = eq("card-1"), body = any())).thenReturn(
-            Response.success(CheckAnswerResponseDto(result = "correct", matchedForm = "run into")),
-        )
+    fun `checkAnswer success returns mapped AnswerCheck`() =
+        runTest {
+            whenever(reviewsApi.checkAnswer(cardId = eq("card-1"), body = any())).thenReturn(
+                Response.success(CheckAnswerResponseDto(result = "correct", matchedForm = "run into")),
+            )
 
-        val result = repository.checkAnswer(cardId = "card-1", typedAnswer = "run into")
+            val result = repository.checkAnswer(cardId = "card-1", typedAnswer = "run into")
 
-        assertTrue(result.isSuccess)
-        assertEquals(AnswerResult.CORRECT, result.getOrNull()?.result)
-        assertEquals("run into", result.getOrNull()?.matchedForm)
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(AnswerResult.CORRECT, result.getOrNull()?.result)
+            assertEquals("run into", result.getOrNull()?.matchedForm)
+        }
 
     @Test
-    fun `checkAnswer 404 throws StaleReferenceException`() = runTest {
-        whenever(reviewsApi.checkAnswer(cardId = eq("card-1"), body = any())).thenReturn(
-            Response.error(404, "{}".toResponseBody()),
-        )
+    fun `checkAnswer 404 throws StaleReferenceException`() =
+        runTest {
+            whenever(reviewsApi.checkAnswer(cardId = eq("card-1"), body = any())).thenReturn(
+                Response.error(404, "{}".toResponseBody()),
+            )
 
-        val result = repository.checkAnswer(cardId = "card-1", typedAnswer = "run into")
+            val result = repository.checkAnswer(cardId = "card-1", typedAnswer = "run into")
 
-        assertTrue(result.isFailure)
-    }
+            assertTrue(result.isFailure)
+        }
 
     // -------------------------------------------------------------------------
     // grade — happy path with wire-value mapping for rating and answerResult
     // -------------------------------------------------------------------------
 
     @Test
-    fun `grade success returns mapped GradeOutcome`() = runTest {
-        whenever(reviewsApi.grade(cardId = eq("card-1"), body = any())).thenReturn(
-            Response.success(GradeResponseDto(nextDueAt = "2026-07-03T10:00:00.000Z", intervalDays = 1, state = "review")),
-        )
+    fun `grade success returns mapped GradeOutcome`() =
+        runTest {
+            whenever(reviewsApi.grade(cardId = eq("card-1"), body = any())).thenReturn(
+                Response.success(GradeResponseDto(nextDueAt = "2026-07-03T10:00:00.000Z", intervalDays = 1, state = "review")),
+            )
 
-        val result = repository.grade(
-            cardId = "card-1",
-            rating = ReviewRating.GOOD,
-            typedAnswer = "come across",
-            answerResult = GradeAnswerResult.CORRECT,
-        )
+            val result =
+                repository.grade(
+                    cardId = "card-1",
+                    rating = ReviewRating.GOOD,
+                    typedAnswer = "come across",
+                    answerResult = GradeAnswerResult.CORRECT,
+                )
 
-        assertTrue(result.isSuccess)
-        assertEquals(1, result.getOrNull()?.intervalDays)
-        assertEquals("review", result.getOrNull()?.state)
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(1, result.getOrNull()?.intervalDays)
+            assertEquals("review", result.getOrNull()?.state)
+        }
 
     @Test
-    fun `grade 401 throws UnauthorizedException`() = runTest {
-        whenever(reviewsApi.grade(cardId = eq("card-1"), body = any())).thenReturn(
-            Response.error(401, "{}".toResponseBody()),
-        )
+    fun `grade 401 throws UnauthorizedException`() =
+        runTest {
+            whenever(reviewsApi.grade(cardId = eq("card-1"), body = any())).thenReturn(
+                Response.error(401, "{}".toResponseBody()),
+            )
 
-        val result = repository.grade(cardId = "card-1", rating = ReviewRating.AGAIN)
+            val result = repository.grade(cardId = "card-1", rating = ReviewRating.AGAIN)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is UnauthorizedException)
-    }
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is UnauthorizedException)
+        }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    private fun aReviewItemDto() = ReviewItemDto(
-        cardId = "card-1",
-        deckId = "deck-1",
-        deckName = "English basics",
-        isNew = false,
-        prompt = ReviewPromptDto(
-            definition = "To encounter unexpectedly.",
-            maskedSentence = "Guess who I ____ at the station!",
-            partOfSpeech = "verb",
-            kind = "phrasal_verb",
-            lemmaLength = 8,
-        ),
-    )
+    private fun aReviewItemDto() =
+        ReviewItemDto(
+            cardId = "card-1",
+            deckId = "deck-1",
+            deckName = "English basics",
+            isNew = false,
+            prompt =
+                ReviewPromptDto(
+                    definition = "To encounter unexpectedly.",
+                    maskedSentence = "Guess who I ____ at the station!",
+                    partOfSpeech = "verb",
+                    kind = "phrasal_verb",
+                    lemmaLength = 8,
+                ),
+        )
 }

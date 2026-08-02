@@ -15,19 +15,22 @@ class AuthRepository(
     private val authApi: AuthApi,
     private val sessionStore: AuthSessionStore,
 ) {
-
-    suspend fun login(email: String, password: String): Result<AuthSession> =
+    suspend fun login(
+        email: String,
+        password: String,
+    ): Result<AuthSession> =
         runCatching {
             val response = authApi.login(LoginRequest(email, password))
             val body = response.body()
             if (response.isSuccessful && body != null) {
-                val session = AuthSession(
-                    accessToken = body.accessToken,
-                    refreshToken = body.refreshToken,
-                    sessionId = body.sessionId,
-                    userId = body.user.id,
-                    userEmail = body.user.email,
-                )
+                val session =
+                    AuthSession(
+                        accessToken = body.accessToken,
+                        refreshToken = body.refreshToken,
+                        sessionId = body.sessionId,
+                        userId = body.user.id,
+                        userEmail = body.user.email,
+                    )
                 sessionStore.save(session)
                 Log.i(TAG, "[event=auth.login_succeeded method=login] login succeeded | userId=${body.user.id}")
                 session
@@ -37,18 +40,22 @@ class AuthRepository(
             }
         }
 
-    suspend fun register(email: String, password: String): Result<AuthSession> =
+    suspend fun register(
+        email: String,
+        password: String,
+    ): Result<AuthSession> =
         runCatching {
             val response = authApi.register(RegisterRequest(email, password))
             val body = response.body()
             if (response.isSuccessful && body != null) {
-                val session = AuthSession(
-                    accessToken = body.accessToken,
-                    refreshToken = body.refreshToken,
-                    sessionId = body.sessionId,
-                    userId = body.user.id,
-                    userEmail = body.user.email,
-                )
+                val session =
+                    AuthSession(
+                        accessToken = body.accessToken,
+                        refreshToken = body.refreshToken,
+                        sessionId = body.sessionId,
+                        userId = body.user.id,
+                        userEmail = body.user.email,
+                    )
                 sessionStore.save(session)
                 Log.i(TAG, "[event=auth.registration_succeeded method=register] registration succeeded | userId=${body.user.id}")
                 session
@@ -59,15 +66,17 @@ class AuthRepository(
 
     suspend fun refreshSession(): Result<AuthSession> =
         runCatching {
-            val stored = sessionStore.read()
-                ?: throw RuntimeException("No stored session to refresh")
+            val stored =
+                sessionStore.read()
+                    ?: throw RuntimeException("No stored session to refresh")
 
-            val response = authApi.refresh(
-                RefreshRequest(
-                    refreshToken = stored.refreshToken,
-                    sessionId = stored.sessionId,
-                ),
-            )
+            val response =
+                authApi.refresh(
+                    RefreshRequest(
+                        refreshToken = stored.refreshToken,
+                        sessionId = stored.sessionId,
+                    ),
+                )
             val body = response.body()
             if (response.isSuccessful && body != null) {
                 sessionStore.updateTokens(
@@ -104,10 +113,11 @@ class AuthRepository(
                 runCatching {
                     authApi.logout(
                         bearer = "Bearer ${stored.accessToken}",
-                        body = LogoutRequest(
-                            refreshToken = stored.refreshToken,
-                            sessionId = stored.sessionId,
-                        ),
+                        body =
+                            LogoutRequest(
+                                refreshToken = stored.refreshToken,
+                                sessionId = stored.sessionId,
+                            ),
                     )
                 }
             }

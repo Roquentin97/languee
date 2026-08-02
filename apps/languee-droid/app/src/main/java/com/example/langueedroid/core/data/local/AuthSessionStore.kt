@@ -5,20 +5,24 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-class AuthSessionStore(context: Context) {
-
-    private val prefs: SharedPreferences? = runCatching {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_FILE_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }.getOrNull()
+class AuthSessionStore(
+    context: Context,
+) {
+    private val prefs: SharedPreferences? =
+        runCatching {
+            val masterKey =
+                MasterKey
+                    .Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_FILE_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        }.getOrNull()
 
     fun read(): AuthSession? {
         val p = prefs ?: return null
@@ -37,7 +41,8 @@ class AuthSessionStore(context: Context) {
     }
 
     fun save(session: AuthSession) {
-        prefs?.edit()
+        prefs
+            ?.edit()
             ?.putString(KEY_ACCESS_TOKEN, session.accessToken)
             ?.putString(KEY_REFRESH_TOKEN, session.refreshToken)
             ?.putString(KEY_SESSION_ID, session.sessionId)
@@ -46,8 +51,13 @@ class AuthSessionStore(context: Context) {
             ?.apply()
     }
 
-    fun updateTokens(accessToken: String, refreshToken: String, sessionId: String) {
-        prefs?.edit()
+    fun updateTokens(
+        accessToken: String,
+        refreshToken: String,
+        sessionId: String,
+    ) {
+        prefs
+            ?.edit()
             ?.putString(KEY_ACCESS_TOKEN, accessToken)
             ?.putString(KEY_REFRESH_TOKEN, refreshToken)
             ?.putString(KEY_SESSION_ID, sessionId)
@@ -55,7 +65,8 @@ class AuthSessionStore(context: Context) {
     }
 
     fun clear() {
-        prefs?.edit()
+        prefs
+            ?.edit()
             ?.remove(KEY_ACCESS_TOKEN)
             ?.remove(KEY_REFRESH_TOKEN)
             ?.remove(KEY_SESSION_ID)

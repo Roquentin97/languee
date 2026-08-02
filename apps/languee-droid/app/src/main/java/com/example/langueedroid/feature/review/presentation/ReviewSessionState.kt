@@ -1,17 +1,19 @@
 package com.example.langueedroid.feature.review.presentation
 
-import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.ReviewItem
 
 enum class ReviewError { LOAD_FAILED, SUBMIT_FAILED, GRADE_FAILED }
 
 sealed class QuestionFeedback {
     object None : QuestionFeedback()
+
     object Incorrect : QuestionFeedback()
 }
 
 sealed class ReviewSessionState {
     object Loading : ReviewSessionState()
+
     object Empty : ReviewSessionState()
 
     data class Question(
@@ -38,7 +40,11 @@ sealed class ReviewSessionState {
         val intervalDays: Int,
     ) : ReviewSessionState()
 
-    data class Finished(val reviewedCount: Int) : ReviewSessionState()
+    data class Finished(
+        val reviewedCount: Int,
+    ) : ReviewSessionState()
 
-    data class Error(val type: ReviewError) : ReviewSessionState()
+    data class Error(
+        val type: ReviewError,
+    ) : ReviewSessionState()
 }

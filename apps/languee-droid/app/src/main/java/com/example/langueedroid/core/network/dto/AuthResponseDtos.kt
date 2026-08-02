@@ -1,6 +1,9 @@
 package com.example.langueedroid.core.network.dto
 
-data class AuthUserDto(val id: String, val email: String)
+data class AuthUserDto(
+    val id: String,
+    val email: String,
+)
 
 data class LoginRegisterResponse(
     val accessToken: String,

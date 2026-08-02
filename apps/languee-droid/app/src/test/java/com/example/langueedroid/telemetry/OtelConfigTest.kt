@@ -8,7 +8,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OtelConfigTest {
-
     @Test
     fun `initOpenTelemetry returns an OpenTelemetrySdk instance`() {
         val otel = initOpenTelemetry("http://localhost:4318", "test")

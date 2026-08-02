@@ -19,9 +19,14 @@ enum class CardCreationError {
 
 sealed class AnkiExportTriggerStatus {
     object NotTriggered : AnkiExportTriggerStatus()
+
     object InProgress : AnkiExportTriggerStatus()
+
     object Success : AnkiExportTriggerStatus()
-    data class Failed(val type: CardCreationError) : AnkiExportTriggerStatus()
+
+    data class Failed(
+        val type: CardCreationError,
+    ) : AnkiExportTriggerStatus()
 }
 
 /**
@@ -45,9 +50,17 @@ data class CardCreationState(
 
 sealed class DeckSelectionState {
     object Loading : DeckSelectionState()
-    data class Loaded(val decks: List<Deck>, val selectedDeck: Deck?) : DeckSelectionState()
+
+    data class Loaded(
+        val decks: List<Deck>,
+        val selectedDeck: Deck?,
+    ) : DeckSelectionState()
+
     object Empty : DeckSelectionState()
-    data class Error(val type: CardCreationError) : DeckSelectionState()
+
+    data class Error(
+        val type: CardCreationError,
+    ) : DeckSelectionState()
 }
 
 sealed class CardCreationFlowState {
@@ -77,7 +90,9 @@ sealed class CardCreationFlowState {
     ) : CardCreationFlowState()
 
     /** No definitions were returned for the given word. */
-    data class NoDefinitions(val lemma: String) : CardCreationFlowState()
+    data class NoDefinitions(
+        val lemma: String,
+    ) : CardCreationFlowState()
 
     /**
      * The dictionary provider has no entry for the looked-up expression
@@ -92,7 +107,9 @@ sealed class CardCreationFlowState {
     ) : CardCreationFlowState()
 
     /** Lookup failed. */
-    data class LookupError(val type: CardCreationError) : CardCreationFlowState()
+    data class LookupError(
+        val type: CardCreationError,
+    ) : CardCreationFlowState()
 
     /** Card creation is in progress. */
     object CreatingCard : CardCreationFlowState()
@@ -103,5 +120,7 @@ sealed class CardCreationFlowState {
     ) : CardCreationFlowState()
 
     /** Card creation failed. */
-    data class CreateCardError(val type: CardCreationError) : CardCreationFlowState()
+    data class CreateCardError(
+        val type: CardCreationError,
+    ) : CardCreationFlowState()
 }

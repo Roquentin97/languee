@@ -11,15 +11,19 @@ internal object MainNavRoutes {
     const val REVIEW = "$REVIEW_BASE?deckId={deckId}"
     const val OFFLINE_QUEUE = "offline_queue"
 
-    fun deckDetail(deckId: String, deckName: String) =
-        "deck_detail/${encode(deckId)}/${encode(deckName)}"
+    fun deckDetail(
+        deckId: String,
+        deckName: String,
+    ) = "deck_detail/${encode(deckId)}/${encode(deckName)}"
 
-    fun review(deckId: String? = null): String =
-        if (deckId != null) "$REVIEW_BASE?deckId=${encode(deckId)}" else REVIEW_BASE
+    fun review(deckId: String? = null): String = if (deckId != null) "$REVIEW_BASE?deckId=${encode(deckId)}" else REVIEW_BASE
 
-    fun cardCreation(word: String, context: String?, offlineEntryId: String? = null, language: String = "en") =
-        "card_creation/${encode(word)}/${encode(context ?: "")}/${encode(offlineEntryId ?: "")}/${encode(language)}"
+    fun cardCreation(
+        word: String,
+        context: String?,
+        offlineEntryId: String? = null,
+        language: String = "en",
+    ) = "card_creation/${encode(word)}/${encode(context ?: "")}/${encode(offlineEntryId ?: "")}/${encode(language)}"
 
-    private fun encode(value: String): String =
-        java.net.URLEncoder.encode(value, "UTF-8")
+    private fun encode(value: String): String = java.net.URLEncoder.encode(value, "UTF-8")
 }

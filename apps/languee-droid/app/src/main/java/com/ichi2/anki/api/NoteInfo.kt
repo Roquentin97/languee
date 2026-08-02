@@ -28,8 +28,8 @@ public class NoteInfo {
 
     internal companion object {
         @JvmStatic
-        internal fun buildFromCursor(cursor: Cursor): NoteInfo? {
-            return try {
+        internal fun buildFromCursor(cursor: Cursor): NoteInfo? =
+            try {
                 val idIndex = cursor.getColumnIndexOrThrow(FlashCardsContract.Note._ID)
                 val fldsIndex = cursor.getColumnIndexOrThrow(FlashCardsContract.Note.FLDS)
                 val tagsIndex = cursor.getColumnIndexOrThrow(FlashCardsContract.Note.TAGS)
@@ -40,7 +40,6 @@ public class NoteInfo {
             } catch (e: Exception) {
                 null
             }
-        }
     }
 
     private constructor(id: Long, fields: Array<String>, tags: Set<String>) {

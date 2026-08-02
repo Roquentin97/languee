@@ -14,17 +14,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VocabularyMapperTest {
-
-    private fun aDefinitionDto() = EnrichedDefinitionDto(
-        id = "def1",
-        partOfSpeech = "noun",
-        definition = "A small animal",
-        example = "I have a cat",
-        provider = "dict",
-        hasIrregularForms = false,
-        inflectionForms = null,
-        decks = emptyList(),
-    )
+    private fun aDefinitionDto() =
+        EnrichedDefinitionDto(
+            id = "def1",
+            partOfSpeech = "noun",
+            definition = "A small animal",
+            example = "I have a cat",
+            provider = "dict",
+            hasIrregularForms = false,
+            inflectionForms = null,
+            decks = emptyList(),
+        )
 
     private fun aMetaDto(
         isExpression: Boolean? = null,
@@ -88,10 +88,11 @@ class VocabularyMapperTest {
 
     @Test
     fun `isExpression and providerMiss true are preserved`() {
-        val result = aResponseDto(
-            kind = "expression",
-            meta = aMetaDto(isExpression = true, providerMiss = true),
-        ).toLookupResult()
+        val result =
+            aResponseDto(
+                kind = "expression",
+                meta = aMetaDto(isExpression = true, providerMiss = true),
+            ).toLookupResult()
         assertTrue(result.isExpression)
         assertTrue(result.providerMiss)
     }
@@ -127,16 +128,17 @@ class VocabularyMapperTest {
 
     @Test
     fun `CreateUserDefinitionResponseDto maps all fields`() {
-        val dto = CreateUserDefinitionResponseDto(
-            id = "def_123",
-            wordId = "word_123",
-            lemma = "run into",
-            kind = "phrasal_verb",
-            partOfSpeech = "phrase",
-            definition = "To encounter unexpectedly.",
-            example = "I ran into an old friend.",
-            provider = "user",
-        )
+        val dto =
+            CreateUserDefinitionResponseDto(
+                id = "def_123",
+                wordId = "word_123",
+                lemma = "run into",
+                kind = "phrasal_verb",
+                partOfSpeech = "phrase",
+                definition = "To encounter unexpectedly.",
+                example = "I ran into an old friend.",
+                provider = "user",
+            )
 
         val domain = dto.toDomain()
 
@@ -152,16 +154,17 @@ class VocabularyMapperTest {
 
     @Test
     fun `CreateUserDefinitionResponseDto with null example preserves null`() {
-        val dto = CreateUserDefinitionResponseDto(
-            id = "def_123",
-            wordId = "word_123",
-            lemma = "cat",
-            kind = "word",
-            partOfSpeech = "noun",
-            definition = "A small animal",
-            example = null,
-            provider = "user",
-        )
+        val dto =
+            CreateUserDefinitionResponseDto(
+                id = "def_123",
+                wordId = "word_123",
+                lemma = "cat",
+                kind = "word",
+                partOfSpeech = "noun",
+                definition = "A small animal",
+                example = null,
+                provider = "user",
+            )
 
         assertNull(dto.toDomain().example)
     }

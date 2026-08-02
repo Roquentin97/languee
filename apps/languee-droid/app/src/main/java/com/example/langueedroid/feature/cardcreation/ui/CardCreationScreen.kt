@@ -1,6 +1,7 @@
 package com.example.langueedroid.feature.cardcreation.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -56,13 +56,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.InflectionFormLabels
 import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.ui.components.SpeakerIconButton
 import com.example.langueedroid.core.ui.theme.AmberBorder
 import com.example.langueedroid.core.ui.theme.AmberContainer
 import com.example.langueedroid.core.ui.theme.AmberWarning
@@ -79,7 +79,7 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationEr
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
-import com.example.langueedroid.core.ui.components.SpeakerIconButton
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,19 +123,21 @@ fun CardCreationScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         modifier = modifier,
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(
@@ -143,11 +145,12 @@ fun CardCreationScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(11.dp))
-                        .background(GreenContainer)
-                        .border(1.5.dp, GreenBorder, RoundedCornerShape(11.dp))
-                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(GreenContainer)
+                            .border(1.5.dp, GreenBorder, RoundedCornerShape(11.dp))
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
                 ) {
                     Text(
                         text = state.targetWord,
@@ -170,9 +173,10 @@ fun CardCreationScreen(
             when (val flowState = state.flowState) {
                 is CardCreationFlowState.LookingUp -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(color = GreenPrimary)
@@ -248,9 +252,10 @@ fun CardCreationScreen(
 
                 is CardCreationFlowState.CreatingCard -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(color = GreenPrimary)
@@ -344,8 +349,9 @@ private fun DeckSelector(
                 modifier = modifier.fillMaxWidth(),
             ) {
                 OutlinedTextField(
-                    value = deckSelectionState.selectedDeck?.name
-                        ?: stringResource(R.string.card_creation_select_deck_placeholder),
+                    value =
+                        deckSelectionState.selectedDeck?.name
+                            ?: stringResource(R.string.card_creation_select_deck_placeholder),
                     onValueChange = {},
                     readOnly = true,
                     label = {
@@ -361,18 +367,20 @@ private fun DeckSelector(
                             tint = TextSecondary,
                         )
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
                     shape = RoundedCornerShape(13.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = GreenPrimary,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = GreenPrimary,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                    ),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GreenPrimary,
+                            unfocusedBorderColor = GreenPrimary,
+                            focusedLabelColor = GreenPrimary,
+                            unfocusedLabelColor = GreenPrimary,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                        ),
                 )
                 ExposedDropdownMenu(
                     expanded = expanded,
@@ -458,9 +466,10 @@ private fun DefinitionsList(
             if (definitionState != DefinitionState.AlreadyInSelectedDeck) {
                 Button(
                     onClick = onCreateCard,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                     enabled = selectedDeck != null && definitionState != null,
@@ -485,11 +494,12 @@ private fun ExampleSelectionSection(
     onExampleConfirmed: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val initialSource = when {
-        userContext != null -> ExampleSource.USER_CONTEXT
-        dictionaryExample != null -> ExampleSource.DICTIONARY
-        else -> null
-    }
+    val initialSource =
+        when {
+            userContext != null -> ExampleSource.USER_CONTEXT
+            dictionaryExample != null -> ExampleSource.DICTIONARY
+            else -> null
+        }
     var selectedSource by remember { mutableStateOf(initialSource) }
     val hasOptions = userContext != null || dictionaryExample != null
 
@@ -542,16 +552,18 @@ private fun ExampleSelectionSection(
         if (hasOptions) {
             Button(
                 onClick = {
-                    val example = when (selectedSource) {
-                        ExampleSource.USER_CONTEXT -> userContext
-                        ExampleSource.DICTIONARY -> dictionaryExample
-                        null -> null
-                    }
+                    val example =
+                        when (selectedSource) {
+                            ExampleSource.USER_CONTEXT -> userContext
+                            ExampleSource.DICTIONARY -> dictionaryExample
+                            null -> null
+                        }
                     onExampleConfirmed(example)
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
             ) {
@@ -565,9 +577,10 @@ private fun ExampleSelectionSection(
 
         TextButton(
             onClick = { onExampleConfirmed(null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
         ) {
             Text(
                 text = stringResource(R.string.card_creation_example_skip),
@@ -591,28 +604,31 @@ private fun ExampleOption(
     val bgColor = if (selected) GreenContainer else Color.White
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(15.dp))
-            .background(bgColor)
-            .border(1.5.dp, borderColor, RoundedCornerShape(15.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(15.dp))
+                .background(bgColor)
+                .border(1.5.dp, borderColor, RoundedCornerShape(15.dp))
+                .clickable(onClick = onClick)
+                .padding(16.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .border(1.5.dp, borderColor, CircleShape),
+            modifier =
+                Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .border(1.5.dp, borderColor, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
                 Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(GreenPrimary),
+                    modifier =
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(GreenPrimary),
                 )
             }
         }
@@ -626,9 +642,10 @@ private fun ExampleOption(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-                ),
+                style =
+                    MaterialTheme.typography.bodyMedium.copy(
+                        fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+                    ),
                 color = TextPrimary,
             )
         }
@@ -649,21 +666,23 @@ private fun DefinitionCard(
     val bgColor = if (isSelected) GreenContainer else Color.White
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(bgColor)
-            .border(1.5.dp, borderColor, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(bgColor)
+                .border(1.5.dp, borderColor, RoundedCornerShape(14.dp))
+                .clickable(onClick = onClick)
+                .padding(14.dp),
     ) {
         if (isSelected) {
             Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(GreenPrimary),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(GreenPrimary),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -680,10 +699,11 @@ private fun DefinitionCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(if (isSelected) GreenHighlight else Color(0xFFF0EDE8))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(if (isSelected) GreenHighlight else Color(0xFFF0EDE8))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(
                         text = definition.partOfSpeech.uppercase(),
@@ -708,10 +728,11 @@ private fun DefinitionCard(
             } else if (savedElsewhere) {
                 Spacer(modifier = Modifier.height(6.dp))
                 SavedBadge(
-                    text = stringResource(
-                        R.string.card_creation_saved_in_decks,
-                        definition.decks.joinToString { it.name },
-                    ),
+                    text =
+                        stringResource(
+                            R.string.card_creation_saved_in_decks,
+                            definition.decks.joinToString { it.name },
+                        ),
                     strong = false,
                 )
             }
@@ -731,15 +752,18 @@ private fun DefinitionCard(
             }
             // Word forms are shown as metadata; the "type" discriminator and the
             // expression context form are internal bookkeeping, not user-facing forms.
-            val displayForms = definition.inflectionForms
-                ?.takeUnless { it["type"] == "expression" }
-                ?.filterKeys { it != "type" }
+            val displayForms =
+                definition.inflectionForms
+                    ?.takeUnless { it["type"] == "expression" }
+                    ?.filterKeys { it != "type" }
             if (!displayForms.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 displayForms.forEach { (key, value) ->
-                    val label = InflectionFormLabels.resourceFor(key)
-                        ?.let { stringResource(it) }
-                        ?: InflectionFormLabels.humanize(key)
+                    val label =
+                        InflectionFormLabels
+                            .resourceFor(key)
+                            ?.let { stringResource(it) }
+                            ?: InflectionFormLabels.humanize(key)
                     Text(
                         text = "$label: $value",
                         style = MaterialTheme.typography.bodySmall,
@@ -761,11 +785,12 @@ private fun SavedBadge(
     val textColor = if (strong) Color.White else GreenPrimary
 
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(5.dp))
-            .background(background)
-            .border(1.dp, GreenBorder, RoundedCornerShape(5.dp))
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(5.dp))
+                .background(background)
+                .border(1.dp, GreenBorder, RoundedCornerShape(5.dp))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
     ) {
         Text(
             text = text,
@@ -775,17 +800,18 @@ private fun SavedBadge(
     }
 }
 
-private fun CardCreationError.toStringRes(): Int = when (this) {
-    CardCreationError.LOAD_DECKS_FAILED -> R.string.error_load_decks_for_card_failed
-    CardCreationError.LOOKUP_FAILED -> R.string.error_lookup_failed
-    CardCreationError.CREATE_CARD_FAILED -> R.string.error_create_card_failed
-    CardCreationError.STALE_REFERENCE -> R.string.error_stale_reference
-    CardCreationError.EXPORT_RECORD_FAILED -> R.string.error_export_record_failed
-    CardCreationError.EXPRESSION_TOO_LONG -> R.string.error_expression_too_long
-    CardCreationError.LOOKUP_INPUT_INVALID -> R.string.error_lookup_input_invalid
-    CardCreationError.MANUAL_DEFINITION_FAILED -> R.string.error_manual_definition_failed
-    CardCreationError.DEFINITION_ALREADY_EXISTS -> R.string.error_definition_already_exists
-}
+private fun CardCreationError.toStringRes(): Int =
+    when (this) {
+        CardCreationError.LOAD_DECKS_FAILED -> R.string.error_load_decks_for_card_failed
+        CardCreationError.LOOKUP_FAILED -> R.string.error_lookup_failed
+        CardCreationError.CREATE_CARD_FAILED -> R.string.error_create_card_failed
+        CardCreationError.STALE_REFERENCE -> R.string.error_stale_reference
+        CardCreationError.EXPORT_RECORD_FAILED -> R.string.error_export_record_failed
+        CardCreationError.EXPRESSION_TOO_LONG -> R.string.error_expression_too_long
+        CardCreationError.LOOKUP_INPUT_INVALID -> R.string.error_lookup_input_invalid
+        CardCreationError.MANUAL_DEFINITION_FAILED -> R.string.error_manual_definition_failed
+        CardCreationError.DEFINITION_ALREADY_EXISTS -> R.string.error_definition_already_exists
+    }
 
 /** Shows a kind chip ("phrasal verb" / "expression") and, when relevant, a context-not-found warning. */
 @Composable
@@ -794,11 +820,12 @@ private fun ExpressionKindIndicator(
     expressionContextFound: Boolean?,
     modifier: Modifier = Modifier,
 ) {
-    val kindLabelRes = when (kind) {
-        LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
-        LexicalKind.EXPRESSION -> R.string.review_kind_expression
-        LexicalKind.WORD -> null
-    }
+    val kindLabelRes =
+        when (kind) {
+            LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+            LexicalKind.EXPRESSION -> R.string.review_kind_expression
+            LexicalKind.WORD -> null
+        }
     if (kindLabelRes == null) return
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -812,14 +839,16 @@ private fun ExpressionKindIndicator(
                     color = GreenPrimary,
                 )
             },
-            colors = AssistChipDefaults.assistChipColors(
-                disabledContainerColor = GreenContainer,
-                disabledLabelColor = GreenPrimary,
-            ),
-            border = AssistChipDefaults.assistChipBorder(
-                enabled = false,
-                disabledBorderColor = GreenBorder,
-            ),
+            colors =
+                AssistChipDefaults.assistChipColors(
+                    disabledContainerColor = GreenContainer,
+                    disabledLabelColor = GreenPrimary,
+                ),
+            border =
+                AssistChipDefaults.assistChipBorder(
+                    enabled = false,
+                    disabledBorderColor = GreenBorder,
+                ),
         )
         if (expressionContextFound == false) {
             Card(
@@ -870,14 +899,15 @@ private fun ManualDefinitionForm(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !flowState.isSubmitting,
                 shape = RoundedCornerShape(11.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = GreenBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextSecondary,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GreenBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextSecondary,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                    ),
             )
             OutlinedTextField(
                 value = flowState.exampleText,
@@ -886,14 +916,15 @@ private fun ManualDefinitionForm(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !flowState.isSubmitting,
                 shape = RoundedCornerShape(11.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = GreenBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextSecondary,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GreenBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextSecondary,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                    ),
             )
             if (flowState.error != null) {
                 Text(
@@ -913,9 +944,10 @@ private fun ManualDefinitionForm(
                 Button(
                     onClick = onSubmit,
                     enabled = flowState.definitionText.isNotBlank(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {

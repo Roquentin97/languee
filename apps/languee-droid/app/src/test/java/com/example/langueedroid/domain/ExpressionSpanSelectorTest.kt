@@ -8,7 +8,6 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ExpressionSpanSelectorTest {
-
     private fun tokensOf(text: String) = EntryValidator.splitIntoTokens(text)
 
     // -------------------------------------------------------------------------
@@ -134,9 +133,11 @@ class ExpressionSpanSelectorTest {
     @Test
     fun `tapping a non-adjacent word outside a discontiguous selection restarts it`() {
         val tokens = tokensOf("He looked the long word up very quickly")
-        val wordIndices = tokens.withIndex()
-            .filter { it.value is Token.Word }
-            .map { it.index }
+        val wordIndices =
+            tokens
+                .withIndex()
+                .filter { it.value is Token.Word }
+                .map { it.index }
         val lookedIndex = wordIndices[1]
         val upIndex = wordIndices[5]
         val quicklyIndex = wordIndices[7]
@@ -156,15 +157,16 @@ class ExpressionSpanSelectorTest {
      * A sentence with comfortably more words than the cap allows. Alphabetic only — the
      * tokenizer splits on non-letters, so "w1" would not be a single word token.
      */
-    private fun cappedTokens(): List<Token> =
-        tokensOf(('a'..'z').take(max + 2).joinToString(" ") { "$it$it" })
+    private fun cappedTokens(): List<Token> = tokensOf(('a'..'z').take(max + 2).joinToString(" ") { "$it$it" })
 
     @Test
     fun `selection cannot grow beyond the word cap`() {
         val tokens = cappedTokens()
-        val wordIndices = tokens.withIndex()
-            .filter { it.value is Token.Word }
-            .map { it.index }
+        val wordIndices =
+            tokens
+                .withIndex()
+                .filter { it.value is Token.Word }
+                .map { it.index }
 
         var selection = emptyList<Int>()
         for (index in wordIndices.take(max + 1)) {
@@ -178,9 +180,11 @@ class ExpressionSpanSelectorTest {
     @Test
     fun `re-adding a gap word is refused when the selection is already at the cap`() {
         val tokens = cappedTokens()
-        val wordIndices = tokens.withIndex()
-            .filter { it.value is Token.Word }
-            .map { it.index }
+        val wordIndices =
+            tokens
+                .withIndex()
+                .filter { it.value is Token.Word }
+                .map { it.index }
 
         var selection = emptyList<Int>()
         for (index in wordIndices.take(max)) {
@@ -223,9 +227,11 @@ class ExpressionSpanSelectorTest {
     @Test
     fun `joinSelection ignores original separator spacing`() {
         val tokens = tokensOf("I   ran    into a friend")
-        val wordIndices = tokens.withIndex()
-            .filter { it.value is Token.Word }
-            .map { it.index }
+        val wordIndices =
+            tokens
+                .withIndex()
+                .filter { it.value is Token.Word }
+                .map { it.index }
         // ran, into are the 2nd and 3rd words
         assertEquals("ran into", ExpressionSpanSelector.joinSelection(tokens, listOf(wordIndices[1], wordIndices[2])))
     }
@@ -233,9 +239,11 @@ class ExpressionSpanSelectorTest {
     @Test
     fun `joinSelection joins a discontiguous selection skipping deselected words`() {
         val tokens = tokensOf("He looked the word up")
-        val wordIndices = tokens.withIndex()
-            .filter { it.value is Token.Word }
-            .map { it.index }
+        val wordIndices =
+            tokens
+                .withIndex()
+                .filter { it.value is Token.Word }
+                .map { it.index }
         val lookedIndex = wordIndices[1]
         val upIndex = wordIndices[4]
         assertEquals("looked up", ExpressionSpanSelector.joinSelection(tokens, listOf(lookedIndex, upIndex)))

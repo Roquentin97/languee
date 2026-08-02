@@ -39,7 +39,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.domain.OfflineEntry
 import com.example.langueedroid.core.ui.theme.AmberContainer
 import com.example.langueedroid.core.ui.theme.AmberWarning
@@ -50,6 +49,7 @@ import com.example.langueedroid.core.ui.theme.TextMuted
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.offline.presentation.OfflineQueueState
+import com.languee.droid.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,10 +73,11 @@ fun OfflineQueueScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(7.dp))
-                                .background(AmberContainer)
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier =
+                                Modifier
+                                    .clip(RoundedCornerShape(7.dp))
+                                    .background(AmberContainer)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
                         ) {
                             Text(
                                 text = state.entries.size.toString(),
@@ -95,18 +96,20 @@ fun OfflineQueueScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
         modifier = modifier,
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             if (state.isOffline) {
                 OfflineStatusBanner()
@@ -116,9 +119,10 @@ fun OfflineQueueScreen(
 
             if (state.entries.isEmpty()) {
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -147,23 +151,26 @@ fun OfflineQueueScreen(
                 Button(
                     onClick = onStartReviewing,
                     enabled = !state.isOffline && state.entries.isNotEmpty(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = GreenPrimary,
-                        disabledContainerColor = Color(0xFFE8E4DC),
-                        contentColor = Color.White,
-                        disabledContentColor = TextSecondary,
-                    ),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = GreenPrimary,
+                            disabledContainerColor = Color(0xFFE8E4DC),
+                            contentColor = Color.White,
+                            disabledContentColor = TextSecondary,
+                        ),
                 ) {
                     Text(
-                        text = if (state.isOffline) {
-                            stringResource(R.string.offline_queue_reconnect_to_review)
-                        } else {
-                            stringResource(R.string.offline_queue_start_reviewing)
-                        },
+                        text =
+                            if (state.isOffline) {
+                                stringResource(R.string.offline_queue_reconnect_to_review)
+                            } else {
+                                stringResource(R.string.offline_queue_start_reviewing)
+                            },
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -175,10 +182,11 @@ fun OfflineQueueScreen(
 @Composable
 private fun OfflineStatusBanner() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(AmberContainer)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(AmberContainer)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -194,10 +202,11 @@ private fun OfflineStatusBanner() {
 @Composable
 private fun OnlineBanner() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(GreenContainer)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(GreenContainer)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -218,12 +227,13 @@ private fun OfflineEntryCard(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(15.dp))
-            .background(Color.White)
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(15.dp))
+                .background(Color.White)
+                .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -233,9 +243,10 @@ private fun OfflineEntryCard(
             ) {
                 Text(
                     text = entry.word,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = FontFamily.Serif,
-                    ),
+                    style =
+                        MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = FontFamily.Serif,
+                        ),
                     color = GreenPrimary,
                 )
                 Text(

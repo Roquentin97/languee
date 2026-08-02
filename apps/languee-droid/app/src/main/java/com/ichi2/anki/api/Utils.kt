@@ -31,8 +31,7 @@ internal object Utils {
 
     fun joinFields(list: Array<String>?): String? = list?.joinToString(FIELD_SEPARATOR)
 
-    fun splitFields(fields: String): Array<String> =
-        fields.split(FIELD_SEPARATOR.toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+    fun splitFields(fields: String): Array<String> = fields.split(FIELD_SEPARATOR.toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
 
     fun joinTags(tags: Set<String?>?): String {
         if (tags.isNullOrEmpty()) return ""
@@ -40,8 +39,7 @@ internal object Utils {
         return tags.joinToString(" ")
     }
 
-    fun splitTags(tags: String): Array<String> =
-        tags.trim { it <= ' ' }.split("\\s+".toRegex()).toTypedArray()
+    fun splitTags(tags: String): Array<String> = tags.trim { it <= ' ' }.split("\\s+".toRegex()).toTypedArray()
 
     fun fieldChecksum(data: String): Long {
         val strippedData = stripHTMLMedia(data)

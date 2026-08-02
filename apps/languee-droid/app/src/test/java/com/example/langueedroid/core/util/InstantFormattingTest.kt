@@ -8,7 +8,6 @@ import java.util.Locale
 import java.util.TimeZone
 
 class InstantFormattingTest {
-
     private fun utcMillis(
         year: Int,
         month: Int,

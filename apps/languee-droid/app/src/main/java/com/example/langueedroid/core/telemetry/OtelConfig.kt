@@ -11,28 +11,38 @@ import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor
 
-fun initOpenTelemetry(endpoint: String, environment: String): OpenTelemetry {
-    val resource = Resource.getDefault().merge(
-        Resource.create(
-            Attributes.builder()
-                .put("service.name", "languee-droid")
-                .put("service.version", BuildConfig.VERSION_NAME)
-                .put("service.build.commit", BuildConfig.GIT_SHA)
-                .put("deployment.environment", environment)
-                .build(),
-        ),
-    )
+fun initOpenTelemetry(
+    endpoint: String,
+    environment: String,
+): OpenTelemetry {
+    val resource =
+        Resource.getDefault().merge(
+            Resource.create(
+                Attributes
+                    .builder()
+                    .put("service.name", "languee-droid")
+                    .put("service.version", BuildConfig.VERSION_NAME)
+                    .put("service.build.commit", BuildConfig.GIT_SHA)
+                    .put("deployment.environment", environment)
+                    .build(),
+            ),
+        )
 
-    val exporter = OtlpHttpSpanExporter.builder()
-        .setEndpoint(endpoint)
-        .build()
+    val exporter =
+        OtlpHttpSpanExporter
+            .builder()
+            .setEndpoint(endpoint)
+            .build()
 
-    val tracerProvider = SdkTracerProvider.builder()
-        .setResource(resource)
-        .addSpanProcessor(BatchSpanProcessor.builder(exporter).build())
-        .build()
+    val tracerProvider =
+        SdkTracerProvider
+            .builder()
+            .setResource(resource)
+            .addSpanProcessor(BatchSpanProcessor.builder(exporter).build())
+            .build()
 
-    return OpenTelemetrySdk.builder()
+    return OpenTelemetrySdk
+        .builder()
         .setTracerProvider(tracerProvider)
         .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
         .build()

@@ -11,21 +11,21 @@ import com.languee.droid.R
  * label.
  */
 object InflectionFormLabels {
-
-    private val KNOWN_KEYS: Map<String, Int> = mapOf(
-        "positive" to R.string.inflection_form_positive,
-        "comparative" to R.string.inflection_form_comparative,
-        "superlative" to R.string.inflection_form_superlative,
-        "base" to R.string.inflection_form_base,
-        "past" to R.string.inflection_form_past,
-        "present3sg" to R.string.inflection_form_present3sg,
-        "presentNon3sg" to R.string.inflection_form_present_non3sg,
-        "pastParticiple" to R.string.inflection_form_past_participle,
-        "gerundParticiple" to R.string.inflection_form_gerund_participle,
-        "singular" to R.string.inflection_form_singular,
-        "plural" to R.string.inflection_form_plural,
-        "contextForm" to R.string.inflection_form_context_form,
-    )
+    private val KNOWN_KEYS: Map<String, Int> =
+        mapOf(
+            "positive" to R.string.inflection_form_positive,
+            "comparative" to R.string.inflection_form_comparative,
+            "superlative" to R.string.inflection_form_superlative,
+            "base" to R.string.inflection_form_base,
+            "past" to R.string.inflection_form_past,
+            "present3sg" to R.string.inflection_form_present3sg,
+            "presentNon3sg" to R.string.inflection_form_present_non3sg,
+            "pastParticiple" to R.string.inflection_form_past_participle,
+            "gerundParticiple" to R.string.inflection_form_gerund_participle,
+            "singular" to R.string.inflection_form_singular,
+            "plural" to R.string.inflection_form_plural,
+            "contextForm" to R.string.inflection_form_context_form,
+        )
 
     /**
      * Returns the string resource id for [key]'s human-readable label, or

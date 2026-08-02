@@ -6,7 +6,6 @@ import androidx.core.content.ContextCompat
 import com.ichi2.anki.api.AddContentApi
 
 object AnkiDroidAvailability {
-
     fun isInstalled(context: Context): Boolean =
         runCatching {
             context.packageManager.getPackageInfo("com.ichi2.anki", 0)

@@ -51,7 +51,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
-import com.languee.droid.R
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
@@ -67,6 +66,7 @@ import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
+import com.languee.droid.R
 
 @Composable
 fun CaptureScreen(
@@ -86,47 +86,52 @@ fun CaptureScreen(
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         when (state) {
-            is AppState.Screen.ManualCapture -> ManualCaptureContent(
-                prefilledWord = state.prefilledWord,
-                selectedLanguage = state.selectedLanguage,
-                onSelectLanguage = onSelectLanguage,
-                onSave = onAddEntry,
-                onCancel = onDismiss,
-            )
+            is AppState.Screen.ManualCapture ->
+                ManualCaptureContent(
+                    prefilledWord = state.prefilledWord,
+                    selectedLanguage = state.selectedLanguage,
+                    onSelectLanguage = onSelectLanguage,
+                    onSave = onAddEntry,
+                    onCancel = onDismiss,
+                )
 
-            is AppState.Screen.SharedWordCapture -> SharedWordCaptureContent(
-                word = state.word,
-                onAddContextManually = onStartManualAdd,
-                onSaveWithoutContext = { onAddEntry(state.word, null) },
-                onCancel = onDismiss,
-            )
+            is AppState.Screen.SharedWordCapture ->
+                SharedWordCaptureContent(
+                    word = state.word,
+                    onAddContextManually = onStartManualAdd,
+                    onSaveWithoutContext = { onAddEntry(state.word, null) },
+                    onCancel = onDismiss,
+                )
 
-            is AppState.Screen.SharedContextCapture -> SharedContextCaptureContent(
-                tokens = state.tokens,
-                selectedIndices = state.selectedIndices,
-                selectedLanguage = state.selectedLanguage,
-                onSelectLanguage = onSelectLanguage,
-                onWordTapped = onWordTokenTapped,
-                onConfirmSelection = onConfirmWordSelection,
-                onCancel = onDismiss,
-            )
+            is AppState.Screen.SharedContextCapture ->
+                SharedContextCaptureContent(
+                    tokens = state.tokens,
+                    selectedIndices = state.selectedIndices,
+                    selectedLanguage = state.selectedLanguage,
+                    onSelectLanguage = onSelectLanguage,
+                    onWordTapped = onWordTokenTapped,
+                    onConfirmSelection = onConfirmWordSelection,
+                    onCancel = onDismiss,
+                )
 
-            is AppState.Screen.ContextReview -> ContextReviewContent(
-                state = state,
-                onSave = { onAddEntry(state.targetWord, state.context) },
-                onSaveWithoutContext = { onAddEntry(state.targetWord, null) },
-                onConfirmTruncation = onConfirmTruncation,
-                onKeepFullContext = onKeepFullContext,
-                onEditContext = onEditContext,
-                onCancel = onDismiss,
-            )
+            is AppState.Screen.ContextReview ->
+                ContextReviewContent(
+                    state = state,
+                    onSave = { onAddEntry(state.targetWord, state.context) },
+                    onSaveWithoutContext = { onAddEntry(state.targetWord, null) },
+                    onConfirmTruncation = onConfirmTruncation,
+                    onKeepFullContext = onKeepFullContext,
+                    onEditContext = onEditContext,
+                    onCancel = onDismiss,
+                )
 
-            is AppState.Screen.ContextEdit -> ContextEditScreen(
-                state = state,
-                onSave = onContextEditSave,
-                onConfirmSaveWithoutContext = onConfirmSaveWithoutContext,
-                onCancel = onDismiss,
-            )
+            is AppState.Screen.ContextEdit ->
+                ContextEditScreen(
+                    state = state,
+                    onSave = onContextEditSave,
+                    onConfirmSaveWithoutContext = onConfirmSaveWithoutContext,
+                    onCancel = onDismiss,
+                )
 
             else -> Unit
         }
@@ -135,9 +140,10 @@ fun CaptureScreen(
 
 // Only English is supported end to end for now; the selector stays as the seam
 // for reintroducing languages behind a proper design.
-private val languageChips = listOf(
-    "en" to R.string.language_en,
-)
+private val languageChips =
+    listOf(
+        "en" to R.string.language_en,
+    )
 
 /** Compact segmented row of language chips used to pick the capture language. */
 @Composable
@@ -157,12 +163,13 @@ private fun LanguageSelector(
             // screen reader announces the full language name regardless of app locale.
             val accessibleName = stringResource(labelRes)
             Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(if (isSelected) GreenPrimary else GreenContainer)
-                    .clickable { onLanguageSelected(code) }
-                    .semantics { contentDescription = accessibleName }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isSelected) GreenPrimary else GreenContainer)
+                        .clickable { onLanguageSelected(code) }
+                        .semantics { contentDescription = accessibleName }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -182,10 +189,11 @@ private fun LanguageBadge(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(GreenContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(GreenContainer)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(
             text = selectedLanguage.uppercase(),
@@ -227,10 +235,11 @@ private fun ManualCaptureContent(
                 actions = {
                     IconButton(onClick = onCancel) {
                         Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(CardBorder),
+                            modifier =
+                                Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(CardBorder),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -247,11 +256,12 @@ private fun ManualCaptureContent(
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -277,15 +287,16 @@ private fun ManualCaptureContent(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = GreenPrimary,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = GreenPrimary,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    cursorColor = GreenPrimary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GreenPrimary,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = GreenPrimary,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        cursorColor = GreenPrimary,
+                    ),
             )
 
             OutlinedTextField(
@@ -297,19 +308,21 @@ private fun ManualCaptureContent(
                         style = MaterialTheme.typography.labelSmall,
                     )
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
                 shape = RoundedCornerShape(13.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = GreenPrimary,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = GreenPrimary,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    cursorColor = GreenPrimary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GreenPrimary,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = GreenPrimary,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        cursorColor = GreenPrimary,
+                    ),
             )
 
             if (contextIsNonBlank && !contextIsValid) {
@@ -324,9 +337,10 @@ private fun ManualCaptureContent(
                 Button(
                     onClick = { onSave(word, context.trim().ifBlank { null }) },
                     enabled = canSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {
@@ -339,9 +353,10 @@ private fun ManualCaptureContent(
                 OutlinedButton(
                     onClick = { onSave(word, null) },
                     enabled = word.isNotBlank(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
                 ) {
@@ -353,9 +368,10 @@ private fun ManualCaptureContent(
                 }
                 TextButton(
                     onClick = onCancel,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.btn_cancel),
@@ -392,10 +408,11 @@ private fun SharedWordCaptureContent(
                 actions = {
                     IconButton(onClick = onCancel) {
                         Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(CardBorder),
+                            modifier =
+                                Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(CardBorder),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -412,17 +429,19 @@ private fun SharedWordCaptureContent(
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(GreenContainer)
-                    .border(1.5.dp, GreenBorder, RoundedCornerShape(11.dp))
-                    .padding(horizontal = 16.dp, vertical = 9.dp),
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(GreenContainer)
+                        .border(1.5.dp, GreenBorder, RoundedCornerShape(11.dp))
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
             ) {
                 Text(
                     text = word,
@@ -434,9 +453,10 @@ private fun SharedWordCaptureContent(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = onAddContextManually,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {
@@ -448,9 +468,10 @@ private fun SharedWordCaptureContent(
                 }
                 OutlinedButton(
                     onClick = onSaveWithoutContext,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
                 ) {
@@ -462,9 +483,10 @@ private fun SharedWordCaptureContent(
                 }
                 TextButton(
                     onClick = onCancel,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.btn_cancel),
@@ -510,18 +532,20 @@ private fun SharedContextCaptureContent(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 24.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 24.dp),
         ) {
             Text(
                 text = stringResource(R.string.label_tap_word_to_learn),
@@ -544,14 +568,16 @@ private fun SharedContextCaptureContent(
                             val isSelected = index in selectedIndices
                             Text(
                                 text = "${token.text} ",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = if (isSelected) GreenPrimaryDark else TextPrimary,
-                                ),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(if (isSelected) GreenHighlight else Color.Transparent)
-                                    .clickable { onWordTapped(index) }
-                                    .padding(horizontal = 3.dp, vertical = 1.dp),
+                                style =
+                                    MaterialTheme.typography.bodyLarge.copy(
+                                        color = if (isSelected) GreenPrimaryDark else TextPrimary,
+                                    ),
+                                modifier =
+                                    Modifier
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(if (isSelected) GreenHighlight else Color.Transparent)
+                                        .clickable { onWordTapped(index) }
+                                        .padding(horizontal = 3.dp, vertical = 1.dp),
                             )
                         }
 
@@ -567,19 +593,21 @@ private fun SharedContextCaptureContent(
             }
             if (selectedIndices.isNotEmpty()) {
                 Text(
-                    text = stringResource(
-                        R.string.label_selection_preview,
-                        ExpressionSpanSelector.joinSelection(tokens, selectedIndices),
-                    ),
+                    text =
+                        stringResource(
+                            R.string.label_selection_preview,
+                            ExpressionSpanSelector.joinSelection(tokens, selectedIndices),
+                        ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = GreenPrimary,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = onConfirmSelection,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {
@@ -592,9 +620,10 @@ private fun SharedContextCaptureContent(
             }
             TextButton(
                 onClick = onCancel,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
             ) {
                 Text(
                     text = stringResource(R.string.btn_cancel),
@@ -618,15 +647,17 @@ private fun ContextReviewContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val highlightStyle = SpanStyle(
-        background = GreenHighlight,
-        color = GreenPrimaryDark,
-    )
-    val annotated = buildHighlightedAnnotatedString(
-        context = state.context,
-        word = state.targetWord,
-        highlightStyle = highlightStyle,
-    )
+    val highlightStyle =
+        SpanStyle(
+            background = GreenHighlight,
+            color = GreenPrimaryDark,
+        )
+    val annotated =
+        buildHighlightedAnnotatedString(
+            context = state.context,
+            word = state.targetWord,
+            highlightStyle = highlightStyle,
+        )
 
     Scaffold(
         modifier = modifier,
@@ -649,19 +680,21 @@ private fun ContextReviewContent(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
             )
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(18.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Card(
@@ -710,16 +743,18 @@ private fun ContextReviewContent(
             }
 
             if (state.isMultiSentence) {
-                val canTruncate = EntryValidator.extractSentenceContaining(
-                    state.targetWord,
-                    state.context,
-                ) != null
+                val canTruncate =
+                    EntryValidator.extractSentenceContaining(
+                        state.targetWord,
+                        state.context,
+                    ) != null
 
                 Card(
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                        ),
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(
@@ -753,9 +788,10 @@ private fun ContextReviewContent(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = onSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                 ) {
@@ -767,9 +803,10 @@ private fun ContextReviewContent(
                 }
                 OutlinedButton(
                     onClick = onEditContext,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
                 ) {
@@ -781,9 +818,10 @@ private fun ContextReviewContent(
                 }
                 OutlinedButton(
                     onClick = onSaveWithoutContext,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, CardBorder),
                 ) {
@@ -795,9 +833,10 @@ private fun ContextReviewContent(
                 }
                 TextButton(
                     onClick = onCancel,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.btn_cancel),

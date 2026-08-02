@@ -21,7 +21,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.languee.droid.R
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
@@ -39,6 +38,7 @@ import com.example.langueedroid.feature.offline.presentation.OfflineQueueViewMod
 import com.example.langueedroid.feature.offline.ui.OfflineQueueScreen
 import com.example.langueedroid.feature.review.presentation.ReviewViewModel
 import com.example.langueedroid.feature.review.ui.ReviewScreen
+import com.languee.droid.R
 import java.net.URLDecoder
 
 @Composable
@@ -92,11 +92,12 @@ fun MainScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                mainViewModel.onResumeCheckAnkiStatus()
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    mainViewModel.onResumeCheckAnkiStatus()
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -165,24 +166,28 @@ fun MainScreen(
 
         composable(
             route = MainNavRoutes.DECK_DETAIL,
-            arguments = listOf(
-                navArgument("deckId") { type = NavType.StringType },
-                navArgument("deckName") { type = NavType.StringType },
-            ),
+            arguments =
+                listOf(
+                    navArgument("deckId") { type = NavType.StringType },
+                    navArgument("deckName") { type = NavType.StringType },
+                ),
         ) { backStackEntry ->
-            val deckId = URLDecoder.decode(
-                backStackEntry.arguments?.getString("deckId") ?: "",
-                "UTF-8",
-            )
-            val deckName = URLDecoder.decode(
-                backStackEntry.arguments?.getString("deckName") ?: "",
-                "UTF-8",
-            )
-            val deckDetailViewModel: DeckDetailViewModel = hiltViewModel<DeckDetailViewModel, DeckDetailViewModel.Factory>(
-                key = "deck_detail:$deckId",
-            ) { factory ->
-                factory.create(deckId = deckId)
-            }
+            val deckId =
+                URLDecoder.decode(
+                    backStackEntry.arguments?.getString("deckId") ?: "",
+                    "UTF-8",
+                )
+            val deckName =
+                URLDecoder.decode(
+                    backStackEntry.arguments?.getString("deckName") ?: "",
+                    "UTF-8",
+                )
+            val deckDetailViewModel: DeckDetailViewModel =
+                hiltViewModel<DeckDetailViewModel, DeckDetailViewModel.Factory>(
+                    key = "deck_detail:$deckId",
+                ) { factory ->
+                    factory.create(deckId = deckId)
+                }
             LaunchedEffect(deckDetailViewModel) {
                 deckDetailViewModel.unauthorizedEvent.collect {
                     onUnauthorized()
@@ -204,8 +209,10 @@ fun MainScreen(
         composable(MainNavRoutes.CAPTURE) {
             val captureState by mainViewModel.state.collectAsState()
             CaptureScreen(
-                state = captureState as? com.example.langueedroid.feature.capture.presentation.AppState.Screen
-                    ?: com.example.langueedroid.feature.capture.presentation.AppState.Screen.ManualCapture(),
+                state =
+                    captureState as? com.example.langueedroid.feature.capture.presentation.AppState.Screen
+                        ?: com.example.langueedroid.feature.capture.presentation.AppState.Screen
+                            .ManualCapture(),
                 onAddEntry = { word, context -> mainViewModel.addEntry(word, context) },
                 onStartManualAdd = { mainViewModel.startManualAdd() },
                 onWordTokenTapped = { index -> mainViewModel.onWordTokenTapped(index) },
@@ -213,8 +220,9 @@ fun MainScreen(
                 onConfirmTruncation = { mainViewModel.confirmTruncation() },
                 onKeepFullContext = { mainViewModel.keepFullContext() },
                 onEditContext = {
-                    val reviewState = captureState as?
-                        com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextReview
+                    val reviewState =
+                        captureState as?
+                            com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextReview
                     if (reviewState != null) {
                         mainViewModel.startContextEdit(reviewState.targetWord, reviewState.context)
                     }
@@ -225,8 +233,9 @@ fun MainScreen(
                 },
                 onContextEditSave = { editedContext -> mainViewModel.onContextEditSave(editedContext) },
                 onConfirmSaveWithoutContext = {
-                    val editState = captureState as?
-                        com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextEdit
+                    val editState =
+                        captureState as?
+                            com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextEdit
                     if (editState != null) {
                         mainViewModel.confirmSaveWithoutContext(editState.targetWord)
                     }
@@ -237,12 +246,13 @@ fun MainScreen(
 
         composable(
             route = MainNavRoutes.CARD_CREATION,
-            arguments = listOf(
-                navArgument("word") { type = NavType.StringType },
-                navArgument("context") { type = NavType.StringType },
-                navArgument("offlineEntryId") { type = NavType.StringType },
-                navArgument("language") { type = NavType.StringType },
-            ),
+            arguments =
+                listOf(
+                    navArgument("word") { type = NavType.StringType },
+                    navArgument("context") { type = NavType.StringType },
+                    navArgument("offlineEntryId") { type = NavType.StringType },
+                    navArgument("language") { type = NavType.StringType },
+                ),
         ) { backStackEntry ->
             val encodedWord = backStackEntry.arguments?.getString("word") ?: ""
             val encodedContext = backStackEntry.arguments?.getString("context") ?: ""
@@ -253,11 +263,12 @@ fun MainScreen(
             val offlineEntryId = URLDecoder.decode(encodedOfflineEntryId, "UTF-8").ifEmpty { null }
             val language = URLDecoder.decode(encodedLanguage, "UTF-8").ifEmpty { "en" }
 
-            val cardCreationViewModel: CardCreationViewModel = hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
-                key = "$targetWord:$context:$language",
-            ) { factory ->
-                factory.create(targetWord = targetWord, context = context, language = language)
-            }
+            val cardCreationViewModel: CardCreationViewModel =
+                hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
+                    key = "$targetWord:$context:$language",
+                ) { factory ->
+                    factory.create(targetWord = targetWord, context = context, language = language)
+                }
             LaunchedEffect(cardCreationViewModel) {
                 cardCreationViewModel.unauthorizedEvent.collect {
                     onUnauthorized()
@@ -312,9 +323,10 @@ fun MainScreen(
                 }
             }
             val setupUiState by setupViewModel.uiState.collectAsState()
-            val setupPermLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission(),
-            ) { setupViewModel.onPermissionGranted() }
+            val setupPermLauncher =
+                rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission(),
+                ) { setupViewModel.onPermissionGranted() }
             AnkiDroidSetupScreen(
                 uiState = setupUiState,
                 showBackButton = true,
@@ -343,22 +355,25 @@ fun MainScreen(
 
         composable(
             route = MainNavRoutes.REVIEW,
-            arguments = listOf(
-                navArgument("deckId") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-            ),
+            arguments =
+                listOf(
+                    navArgument("deckId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
         ) { backStackEntry ->
-            val deckId = backStackEntry.arguments?.getString("deckId")?.let {
-                URLDecoder.decode(it, "UTF-8")
-            }
-            val reviewViewModel: ReviewViewModel = hiltViewModel<ReviewViewModel, ReviewViewModel.Factory>(
-                key = "review:${deckId ?: "all"}",
-            ) { factory ->
-                factory.create(deckId = deckId)
-            }
+            val deckId =
+                backStackEntry.arguments?.getString("deckId")?.let {
+                    URLDecoder.decode(it, "UTF-8")
+                }
+            val reviewViewModel: ReviewViewModel =
+                hiltViewModel<ReviewViewModel, ReviewViewModel.Factory>(
+                    key = "review:${deckId ?: "all"}",
+                ) { factory ->
+                    factory.create(deckId = deckId)
+                }
             LaunchedEffect(reviewViewModel) {
                 reviewViewModel.unauthorizedEvent.collect {
                     onUnauthorized()
@@ -383,11 +398,12 @@ fun MainScreen(
             val offlineQueueViewModel: OfflineQueueViewModel = hiltViewModel()
             LaunchedEffect(offlineQueueViewModel) {
                 offlineQueueViewModel.navigateToCardCreation.collect { request ->
-                    val route = MainNavRoutes.cardCreation(
-                        word = request.word,
-                        context = request.context,
-                        offlineEntryId = request.entryId,
-                    )
+                    val route =
+                        MainNavRoutes.cardCreation(
+                            word = request.word,
+                            context = request.context,
+                            offlineEntryId = request.entryId,
+                        )
                     navController.navigate(route)
                 }
             }
@@ -450,10 +466,11 @@ private fun AnkiStatusChangeDialog(
                 }
             }
         },
-        dismissButton = if (showSetupAction) {
-            { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ankidroid_status_not_now)) } }
-        } else {
-            null
-        },
+        dismissButton =
+            if (showSetupAction) {
+                { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ankidroid_status_not_now)) } }
+            } else {
+                null
+            },
     )
 }

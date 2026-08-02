@@ -25,7 +25,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,22 +41,25 @@ fun AuthLandingScreen(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(GreenPrimary),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(GreenPrimary),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(top = 56.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(Color.White.copy(alpha = 0.14f)),
+                modifier =
+                    Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(Color.White.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
                 LangueeLeafIcon(
@@ -86,12 +88,13 @@ fun AuthLandingScreen(
         }
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(Color.White)
-                .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                    .background(Color.White)
+                    .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 32.dp),
         ) {
             Text(
                 text = "Get started",
@@ -107,9 +110,10 @@ fun AuthLandingScreen(
             Spacer(modifier = Modifier.height(22.dp))
             Button(
                 onClick = onNavigateToLogin,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
             ) {
@@ -122,9 +126,10 @@ fun AuthLandingScreen(
             Spacer(modifier = Modifier.height(10.dp))
             OutlinedButton(
                 onClick = onNavigateToRegister,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
                 shape = RoundedCornerShape(14.dp),
                 border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
             ) {
@@ -148,14 +153,15 @@ internal fun LangueeLeafIcon(
         val h = size.height
         val scale = minOf(w, h) / 44f
 
-        val leafPath = Path().apply {
-            moveTo(w * 0.5f, h * 0.114f)
-            cubicTo(w * 0.341f, h * 0.114f, w * 0.227f, h * 0.284f, w * 0.227f, h * 0.477f)
-            cubicTo(w * 0.227f, h * 0.648f, w * 0.341f, h * 0.795f, w * 0.5f, h * 0.841f)
-            cubicTo(w * 0.608f, h * 0.705f, w * 0.670f, h * 0.511f, w * 0.670f, h * 0.352f)
-            cubicTo(w * 0.670f, h * 0.193f, w * 0.608f, h * 0.114f, w * 0.5f, h * 0.114f)
-            close()
-        }
+        val leafPath =
+            Path().apply {
+                moveTo(w * 0.5f, h * 0.114f)
+                cubicTo(w * 0.341f, h * 0.114f, w * 0.227f, h * 0.284f, w * 0.227f, h * 0.477f)
+                cubicTo(w * 0.227f, h * 0.648f, w * 0.341f, h * 0.795f, w * 0.5f, h * 0.841f)
+                cubicTo(w * 0.608f, h * 0.705f, w * 0.670f, h * 0.511f, w * 0.670f, h * 0.352f)
+                cubicTo(w * 0.670f, h * 0.193f, w * 0.608f, h * 0.114f, w * 0.5f, h * 0.114f)
+                close()
+            }
         drawPath(leafPath, leafColor.copy(alpha = leafColor.alpha * 0.92f))
 
         drawLine(

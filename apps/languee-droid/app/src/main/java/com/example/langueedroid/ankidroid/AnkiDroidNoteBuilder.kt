@@ -1,7 +1,6 @@
 package com.example.langueedroid.ankidroid
 
 object AnkiDroidNoteBuilder {
-
     fun buildFields(
         cardId: String,
         word: String,
@@ -36,20 +35,24 @@ object AnkiDroidNoteBuilder {
         if (forms.isNullOrEmpty()) return emptyList()
 
         val byKey = forms.mapKeys { it.key.lowercase() }
-        val selected = when (partOfSpeech.lowercase()) {
-            "verb" -> listOf(
-                "past" to byKey["past"],
-                "past participle" to (byKey["pastparticiple"] ?: byKey["past_participle"]),
-            )
-            "noun" -> listOf("plural" to byKey["plural"])
-            "adjective" -> listOf(
-                "comparative" to byKey["comparative"],
-                "superlative" to byKey["superlative"],
-            )
-            else -> forms.entries
-                .filterNot { it.key.lowercase() in setOf("type", "base", "singular", "positive") }
-                .map { labelFor(it.key) to it.value }
-        }
+        val selected =
+            when (partOfSpeech.lowercase()) {
+                "verb" ->
+                    listOf(
+                        "past" to byKey["past"],
+                        "past participle" to (byKey["pastparticiple"] ?: byKey["past_participle"]),
+                    )
+                "noun" -> listOf("plural" to byKey["plural"])
+                "adjective" ->
+                    listOf(
+                        "comparative" to byKey["comparative"],
+                        "superlative" to byKey["superlative"],
+                    )
+                else ->
+                    forms.entries
+                        .filterNot { it.key.lowercase() in setOf("type", "base", "singular", "positive") }
+                        .map { labelFor(it.key) to it.value }
+            }
 
         return selected
             .filter { (_, value) -> !value.isNullOrBlank() }

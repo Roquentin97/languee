@@ -1,9 +1,9 @@
 package com.example.langueedroid.data.remote
 
 import com.example.langueedroid.core.data.AuthRepository
-import com.example.langueedroid.core.network.AuthAuthenticator
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.network.AuthAuthenticator
 import kotlinx.coroutines.runBlocking
 import okhttp3.Protocol
 import okhttp3.Request
@@ -19,7 +19,6 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 class AuthAuthenticatorTest {
-
     private lateinit var sessionStore: AuthSessionStore
     private lateinit var authRepository: AuthRepository
     private lateinit var authenticator: AuthAuthenticator
@@ -28,10 +27,11 @@ class AuthAuthenticatorTest {
     fun setUp() {
         sessionStore = mock()
         authRepository = mock()
-        authenticator = AuthAuthenticator(
-            sessionStore = sessionStore,
-            repositoryProvider = { authRepository },
-        )
+        authenticator =
+            AuthAuthenticator(
+                sessionStore = sessionStore,
+                repositoryProvider = { authRepository },
+            )
     }
 
     // -----------------------------------------------------------------------
@@ -136,15 +136,14 @@ class AuthAuthenticatorTest {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private fun storedSession(
-        accessToken: String = "storedToken",
-    ) = AuthSession(
-        accessToken = accessToken,
-        refreshToken = "refresh",
-        sessionId = "sid",
-        userId = "uid1",
-        userEmail = "a@b.com",
-    )
+    private fun storedSession(accessToken: String = "storedToken") =
+        AuthSession(
+            accessToken = accessToken,
+            refreshToken = "refresh",
+            sessionId = "sid",
+            userId = "uid1",
+            userEmail = "a@b.com",
+        )
 
     /**
      * Builds a minimal OkHttp [Response] whose request carries the given [token]
@@ -156,16 +155,20 @@ class AuthAuthenticatorTest {
         token: String,
         prior: Response?,
     ): Response {
-        val request = Request.Builder()
-            .url("https://api.example.com/protected")
-            .header("Authorization", "Bearer $token")
-            .build()
+        val request =
+            Request
+                .Builder()
+                .url("https://api.example.com/protected")
+                .header("Authorization", "Bearer $token")
+                .build()
 
-        val builder = Response.Builder()
-            .request(request)
-            .protocol(Protocol.HTTP_1_1)
-            .code(code)
-            .message("Unauthorized")
+        val builder =
+            Response
+                .Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(code)
+                .message("Unauthorized")
 
         if (prior != null) {
             builder.priorResponse(prior)

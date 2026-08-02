@@ -13,13 +13,14 @@ internal class BasicModel {
         val QFMT = arrayOf("{{Front}}")
 
         @JvmField
-        val AFMT = arrayOf(
-            """{{FrontSide}}
+        val AFMT =
+            arrayOf(
+                """{{FrontSide}}
 
         |<hr id="answer">
 
         |{{Back}}
-            """.trimMargin()
-        )
+                """.trimMargin(),
+            )
     }
 }
