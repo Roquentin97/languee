@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.languee.droid.R
 import com.example.langueedroid.core.audio.Speaker
+import com.example.langueedroid.core.domain.InflectionFormLabels
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.RevealedWord
@@ -450,8 +451,11 @@ private fun CorrectContent(
                             color = TextSecondary,
                         )
                         displayForms.forEach { (key, value) ->
+                            val label = InflectionFormLabels.resourceFor(key)
+                                ?.let { stringResource(it) }
+                                ?: InflectionFormLabels.humanize(key)
                             Text(
-                                text = "$key: $value",
+                                text = "$label: $value",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary,
                             )

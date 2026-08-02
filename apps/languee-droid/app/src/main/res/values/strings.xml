@@ -204,4 +204,18 @@
     <string name="error_review_load_failed">Failed to load review queue</string>
     <string name="error_review_submit_failed">Failed to submit answer</string>
     <string name="error_review_grade_failed">Failed to save your review</string>
+
+    <!-- Inflection form labels (dictionary lookup + review reveal) -->
+    <string name="inflection_form_positive">Positive</string>
+    <string name="inflection_form_comparative">Comparative</string>
+    <string name="inflection_form_superlative">Superlative</string>
+    <string name="inflection_form_base">Base form</string>
+    <string name="inflection_form_past">Past</string>
+    <string name="inflection_form_present3sg">Present (he/she/it)</string>
+    <string name="inflection_form_present_non3sg">Present (I/you/we/they)</string>
+    <string name="inflection_form_past_participle">Past participle</string>
+    <string name="inflection_form_gerund_participle">Present participle (-ing)</string>
+    <string name="inflection_form_singular">Singular</string>
+    <string name="inflection_form_plural">Plural</string>
+    <string name="inflection_form_context_form">In context</string>
 </resources>
