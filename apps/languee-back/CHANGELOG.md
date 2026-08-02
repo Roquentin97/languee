@@ -1,5 +1,103 @@
 # Changelog
 
+## [2.0.0](https://github.com/Roquentin97/languee/compare/languee-back-v1.0.0...languee-back-v2.0.0) (2026-08-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **languee-back:** definition inflectionForms no longer includes the es/de extra-forms shape in API responses.
+* **languee-back:** GET /vocabulary/lookup no longer returns 422 MULTI_WORD_INPUT_NOT_SUPPORTED, and NLP-rejected input maps to 400 INPUT_INVALID (replacing EXPRESSION_INVALID).
+* **reviews:** card_review_states and review_logs change shape. There is no production data; the database is reset rather than migrated.
+
+### Features
+
+* **auth:** add mobile auth transport endpoints ([da2f022](https://github.com/Roquentin97/languee/commit/da2f02210f31caa989291eb696f88607cac11a63))
+* **auth:** add mobile auth transport endpoints ([61fab53](https://github.com/Roquentin97/languee/commit/61fab53ec5df356076682f22f0a501dd89692d9d))
+* **auth:** add register endpoint ([4de8196](https://github.com/Roquentin97/languee/commit/4de81963024581210907acabfdad4969a445ed26))
+* **auth:** add register endpoint ([c8d4c29](https://github.com/Roquentin97/languee/commit/c8d4c29968be17f7219ef445bdb3ddf7a44bbe2a))
+* **auth:** implement JWT auth ([3899348](https://github.com/Roquentin97/languee/commit/38993483d9b335f044e571365eb8b54e520ad323))
+* **auth:** implement JWT auth with Redis sessions, refresh rotation, multi-device support ([fc94621](https://github.com/Roquentin97/languee/commit/fc946213c958453f3f10354a619654b88dafb012))
+* **billing:** add sandboxed stripe subscriptions behind payment adapter ([ecdf343](https://github.com/Roquentin97/languee/commit/ecdf3437936ef40503cddaadf147d85a4371004d))
+* **cards:** add AnkiDroid export state tracking ([b4dead8](https://github.com/Roquentin97/languee/commit/b4dead8f36f432eb1f6cdb430e99a6794e91ae8f))
+* **cards:** add AnkiDroid export state tracking ([52a7231](https://github.com/Roquentin97/languee/commit/52a7231479a95413d182da704c63163613d632fa))
+* **chat:** add stub chat bot with conversation analysis ([a3d5e80](https://github.com/Roquentin97/languee/commit/a3d5e806ec733bf7c70945ddc77de12362496c8e))
+* **chat:** track suggestion progress with weekly stats ([6a3b4f0](https://github.com/Roquentin97/languee/commit/6a3b4f077127cd5bdd5ffb259b7986ff9d6d1bbd))
+* **config:** add config module with joi validation and system/env endpoint ([0c2aba3](https://github.com/Roquentin97/languee/commit/0c2aba3a5501fd775123a1f9624a3eedac7323d7))
+* **definitions:** introduce pluggable adapter pattern and custom error types ([3f9bc55](https://github.com/Roquentin97/languee/commit/3f9bc558d2bbb42126ef53cef2a6b2ca5d63acb6))
+* **dictionary:** add configurable FreeDictionaryAPI provider adapter ([dbd4836](https://github.com/Roquentin97/languee/commit/dbd48360a9d202b18e35cf6ff0d4c2f421493c11))
+* **dictionary:** add configurable FreeDictionaryAPI provider adapter ([2cec474](https://github.com/Roquentin97/languee/commit/2cec47453ad4983cbe90d212e7e1ce8b6a378ed5))
+* **dictionary:** add GET /dictionary/lookup endpoint ([325cc21](https://github.com/Roquentin97/languee/commit/325cc2197a9be91753800cada0d74543dd38b18a))
+* **dictionary:** add wiktionary provider as primary adapter ([5fe3555](https://github.com/Roquentin97/languee/commit/5fe3555e6edd095ed69e9daf0bf086a143f26233))
+* **dictionary:** source word IPA from Wiktionary wikitext ([4f00219](https://github.com/Roquentin97/languee/commit/4f002194fb790921d5e695f961a4463e18795363))
+* expose build commit id in service version output ([9da1fe1](https://github.com/Roquentin97/languee/commit/9da1fe1434d7c6e576c725873b93dc7eb2af1ef1))
+* expose build commit id in service version output ([7331ae6](https://github.com/Roquentin97/languee/commit/7331ae606cb0a68dae860e7b76030ada61711a97))
+* improve login-logout workflow ([94ffeac](https://github.com/Roquentin97/languee/commit/94ffeac07d06a88498db74d4edc85c65c7828ad1))
+* **languee-back:** add context and inflectionForms to Card model ([a4df7b5](https://github.com/Roquentin97/languee/commit/a4df7b592cecdcf205eb7885e690e768b2699012))
+* **languee-back:** add OTel SDK, request context, log correlation, and sanitization ([ce4eca4](https://github.com/Roquentin97/languee/commit/ce4eca4907379f444863ea3d6478cb089797728b))
+* **languee-back:** add structured debug/info/warn logs to services ([f47e830](https://github.com/Roquentin97/languee/commit/f47e8304b52c70c05305fb74e01f4d7a4ab493e6))
+* **languee-back:** add structured JSON logging and Loki observability stack ([2dae51b](https://github.com/Roquentin97/languee/commit/2dae51b03a1472dd5f49b8d02147670c6a25807a))
+* **languee-back:** add structured JSON logging and Loki observability stack ([e7f88d5](https://github.com/Roquentin97/languee/commit/e7f88d5382f8136f9b1013c8a0343da8ac0df67e))
+* **languee-back:** adopt unified NLP /analyze endpoint ([ecf0f2b](https://github.com/Roquentin97/languee/commit/ecf0f2bdbead5680e7f3145d0ae1000f629de1e4))
+* **languee-back:** drop non-English extraForms inflection plumbing ([71a3c11](https://github.com/Roquentin97/languee/commit/71a3c117fbed08cd441ca51639aca26b3a2cd0e2))
+* **languee-back:** integrate nlp service into vocabulary lookup ([8fd3da3](https://github.com/Roquentin97/languee/commit/8fd3da3837c11ac271505bc7fc17dd7880b572bd))
+* **languee-nlp:** raise expression bound to 10 tokens and give NLP sole ownership ([c8aafc3](https://github.com/Roquentin97/languee/commit/c8aafc32e214fe69749f9c0646a82d66aa8bfb81))
+* make defintions filtering by POS optional ([ed76f3c](https://github.com/Roquentin97/languee/commit/ed76f3cb7fd1f998c0255bbcc14caa03c8d686d0))
+* make JWT expiration time configurable ([840de1a](https://github.com/Roquentin97/languee/commit/840de1a30bc76d9014e286afaf08fc131dd106dc))
+* **nlp:** refactor words analysis to contextual get ([27d5284](https://github.com/Roquentin97/languee/commit/27d52842f8f9559b3059e373bc71e8fe3cc1ecb5))
+* **observability:** end-to-end distributed tracing, metrics, and RED dashboards ([a62b350](https://github.com/Roquentin97/languee/commit/a62b3508ddd108f5154a4929c340873aa2af2424))
+* **pipeline:** add Definition Provider with words/definitions persistence ([cd7abbd](https://github.com/Roquentin97/languee/commit/cd7abbd5bd5f0880bd02ca8a205475060d2ae821))
+* **pipeline:** add T0 skeleton with stubbed end-to-end pipeline ([64ce757](https://github.com/Roquentin97/languee/commit/64ce757a1cbaa9110612cc29136a0abfbd46e9eb))
+* **pipeline:** add T0 skeleton with stubbed end-to-end pipeline ([d5a1b37](https://github.com/Roquentin97/languee/commit/d5a1b377af0c800f8d47939670f42b1704d2b1e7))
+* **pipeline:** implement Lemmatizer scaffold with 3-level mechanism … ([396da56](https://github.com/Roquentin97/languee/commit/396da565c30c0b9053955d7a0fa107571bef45fb))
+* **pipeline:** implement Lemmatizer scaffold with 3-level mechanism hierarchy ([5483dfb](https://github.com/Roquentin97/languee/commit/5483dfbaed7b09242557bcfe09c3340dca4a1bdf))
+* **pipeline:** implement real Normalizer replacing T0 stub ([e694a34](https://github.com/Roquentin97/languee/commit/e694a347e3ce58d8ece0014352c5b7b6a4db702d))
+* **pipeline:** implement real Normalizer replacing T0 stub ([b1e9865](https://github.com/Roquentin97/languee/commit/b1e98654fc09d31d9a547b7df8f31a5341fee068))
+* **prisma:** add lexical kind, meaning links, and review models ([bdd7fea](https://github.com/Roquentin97/languee/commit/bdd7fea22a203c8c9a847d1ca4e6161a771c58ed))
+* **reviews:** add spaced repetition engine ([f7d9f78](https://github.com/Roquentin97/languee/commit/f7d9f78ef82a1e7f5bb941a18b23f924c37d2030))
+* **reviews:** deck-agnostic scheduling, definitions-first capture, deck browsing, and post-answer reveal ([e4061d3](https://github.com/Roquentin97/languee/commit/e4061d3b930c834015bab2359f6c08070319cfe7))
+* **reviews:** make scheduling deck-agnostic and reveal word details after correct answers ([afa8fca](https://github.com/Roquentin97/languee/commit/afa8fcaae8c267d5289a38a49fca7c0f5d3d2537))
+* **reviews:** make scheduling deck-agnostic and reveal word details after correct answers ([6565d5c](https://github.com/Roquentin97/languee/commit/6565d5cb5ee3c48f0ef62e3ed3f47196bec48204))
+* **reviews:** move review state to DefinitionReviewState in schema and services ([bfad8e0](https://github.com/Roquentin97/languee/commit/bfad8e0383ba81c9a6c125f67e326839edbdef01))
+* **reviews:** rewrite reviews service for per-definition scheduling ([6f1066a](https://github.com/Roquentin97/languee/commit/6f1066a5dd1408f996cf9e2637ae74363d719a17))
+* **reviews:** schedule reviews with FSRS instead of SM-2 ([7524068](https://github.com/Roquentin97/languee/commit/7524068b364a648f51f70624ad490d1c832e6cfb))
+* standalone MVP — SRS review, green redesign, and language services (no chat/billing) ([96391f1](https://github.com/Roquentin97/languee/commit/96391f1b7308df274fd2e4737e69f18b4536f3e5))
+* **swagger:** add Swagger UI with Basic Auth ([cfa43e0](https://github.com/Roquentin97/languee/commit/cfa43e097429e536e460d5c6c07fad231560e6c5))
+* **synonyms:** add meaning link module with overlap detection ([99ee47e](https://github.com/Roquentin97/languee/commit/99ee47e784f550a748e798a83b41d07485853199))
+* **users:** scaffold users module with Prisma User model and UsersService ([f9d30df](https://github.com/Roquentin97/languee/commit/f9d30df35cb52160d3f853e01475910b58c1f0f5))
+* **vocabulary:** add decks, cards, and vocab lookup modules ([c1649d0](https://github.com/Roquentin97/languee/commit/c1649d0b3ab9d3afa6f6c623622d42b817da7374))
+* **vocabulary:** add expression-aware lookup and user definitions ([10e58d0](https://github.com/Roquentin97/languee/commit/10e58d02293680a3f421041593653187028efa76))
+* **vocabulary:** add POS-aware definition filtering ([8b66f18](https://github.com/Roquentin97/languee/commit/8b66f18e2477b41e73182b5c595a12d41938c06c))
+* **vocabulary:** add POS-aware definition filtering with canonical enum and mappers ([e2bf74c](https://github.com/Roquentin97/languee/commit/e2bf74c0ae9b58c49368a28de9cd5c5439f6bb67))
+* **vocabulary:** thread language through lookup, NLP client, and review prompts for Spanish/German ([3354218](https://github.com/Roquentin97/languee/commit/3354218e275271e1eb84a5ed169ecdc3d3e62b44))
+
+
+### Bug Fixes
+
+* **api:** redact sanitized observability fields ([8fa4ff7](https://github.com/Roquentin97/languee/commit/8fa4ff78a45f2c43073e7252eb3441df5ce51d01))
+* **api:** sync otel dependencies ([01ce02f](https://github.com/Roquentin97/languee/commit/01ce02f04e2e928c5b31c266ab04da03052c7890))
+* **auth:** normalize email on register and login to prevent case/whitespace mismatch ([e08b99f](https://github.com/Roquentin97/languee/commit/e08b99f0ab72b1f367cf0a80c51be2ad25111122))
+* **auth:** normalize email on register and login to prevent case/whitespace mismatch ([eddb4d9](https://github.com/Roquentin97/languee/commit/eddb4d933e68c6f4562dc6c4dab341387a9a9559))
+* **definitions:** add DefinitionsModule and move IDefinitionProvider to DefinitionService ([7836ff0](https://github.com/Roquentin97/languee/commit/7836ff0c04f5a06c8bdbad47952de6023dc41d69))
+* **definitions:** delegate word persistence to WordsService, use create-or-find for words ([96b16f9](https://github.com/Roquentin97/languee/commit/96b16f9b2350233ca5c382beb162904a77ac71a6))
+* **dictionary:** add timeouts and diagnosable failures to outbound calls ([c9bc565](https://github.com/Roquentin97/languee/commit/c9bc565890791b1327a8f6f720a4ac3b5e7c374c))
+* **dictionary:** align FreeDictionaryAPI adapter with actual v1 API contract ([bad40d6](https://github.com/Roquentin97/languee/commit/bad40d69258b682bdfb75aea5225c8436c669cb3))
+* **dictionary:** fall through to provider when word exists but has no definitions ([39467d6](https://github.com/Roquentin97/languee/commit/39467d6352b3db5ffd19f839ec9a5579608b39d6))
+* **dictionary:** resolve unused _language parameter lint error ([1733d06](https://github.com/Roquentin97/languee/commit/1733d06ac92300940c4a1bdf0294bce28649d1b5))
+* dist is tracked by git ([dcede82](https://github.com/Roquentin97/languee/commit/dcede827aba4d4945f825be9ebe8d8912214383f))
+* domain ownership boundaries ([df66027](https://github.com/Roquentin97/languee/commit/df66027ae5aed8062d04daaf136ec2d77173dfb8))
+* **formatting:** auto-formatted ([037f01b](https://github.com/Roquentin97/languee/commit/037f01bc4e04ca3101a1f35965ed2db2d19360a5))
+* imports ([f87398f](https://github.com/Roquentin97/languee/commit/f87398fe8445ffb8afa127b1bb610806949ca4a3))
+* imports ([f46e578](https://github.com/Roquentin97/languee/commit/f46e57823cf7699a6a69b2b0439bf74278a73ca9))
+* **languee-back:** resolve all linter warnings and errors ([4beb353](https://github.com/Roquentin97/languee/commit/4beb35347310f37de80e11742f534c010105a0e0))
+* **languee-back:** resolve all linter warnings and errors ([8cea280](https://github.com/Roquentin97/languee/commit/8cea28046dd78e7d194e5facf4dcd503fb95238d))
+* **logs-enrichment:** lint errors and test setup after logging additions ([7c14657](https://github.com/Roquentin97/languee/commit/7c14657ee1c8379e699043241c8ec8a22b4e21a2))
+* **prisma:** map users table name ([5eba323](https://github.com/Roquentin97/languee/commit/5eba323907f458ba2890e4c19953f04554092d30))
+* repair Bruno protected request auth flow ([3384aa3](https://github.com/Roquentin97/languee/commit/3384aa3fc94cc3674fe6b21235f01d312abfc1ab))
+* tests ([73e8606](https://github.com/Roquentin97/languee/commit/73e860623c80e464b29b4cdbd8f5b8ecda0b618b))
+* tests merge conflicts ([5e3b704](https://github.com/Roquentin97/languee/commit/5e3b7044e35ee4b88dd1c53ee3017f6a7a7b98f5))
+* **vocabulary:** carry matched context form for expression cards ([b75a22d](https://github.com/Roquentin97/languee/commit/b75a22dd66a91d73e39e72e4d4e406e825b3b2be))
+* watch mode ([c49f0dc](https://github.com/Roquentin97/languee/commit/c49f0dc0ff38d8c6e6542353f1e03946c14c6957))
+
 ## [1.0.0](https://github.com/Roquentin97/languee/compare/v0.0.6...v1.0.0) (2026-07-25)
 
 
