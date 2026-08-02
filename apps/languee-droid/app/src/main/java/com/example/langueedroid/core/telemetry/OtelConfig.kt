@@ -1,5 +1,6 @@
 package com.example.langueedroid.core.telemetry
 
+import com.languee.droid.BuildConfig
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
@@ -15,6 +16,8 @@ fun initOpenTelemetry(endpoint: String, environment: String): OpenTelemetry {
         Resource.create(
             Attributes.builder()
                 .put("service.name", "languee-droid")
+                .put("service.version", BuildConfig.VERSION_NAME)
+                .put("service.build.commit", BuildConfig.GIT_SHA)
                 .put("deployment.environment", environment)
                 .build(),
         ),

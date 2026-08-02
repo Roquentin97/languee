@@ -21,4 +21,8 @@ tests {
   test("returns version field", function() {
     expect(res.body.version).to.be.a("string");
   });
+
+  test("returns commit field", function() {
+    expect(res.body.commit).to.be.a("string");
+  });
 }

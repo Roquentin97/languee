@@ -4,6 +4,7 @@ import com.languee.droid.BuildConfig
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry
+import okhttp3.Call
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -16,8 +17,6 @@ class ApiClient(
     private val authAuthenticator: AuthAuthenticator,
     openTelemetry: OpenTelemetry = OpenTelemetry.noop(),
 ) {
-
-    private val otelInterceptor = OkHttpTelemetry.builder(openTelemetry).build().newInterceptor()
 
     private val requestIdInterceptor = Interceptor { chain ->
         chain.proceed(
@@ -40,7 +39,6 @@ class ApiClient(
     }
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(otelInterceptor)
         .addInterceptor(requestIdInterceptor)
         .addInterceptor(authInterceptor)
         .apply {
@@ -58,9 +56,12 @@ class ApiClient(
         .authenticator(authAuthenticator)
         .build()
 
+    private val callFactory: Call.Factory =
+        OkHttpTelemetry.builder(openTelemetry).build().createCallFactory(okHttpClient)
+
     private val retrofit: Retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.BACKEND_BASE_URL)
-        .client(okHttpClient)
+        .callFactory(callFactory)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
