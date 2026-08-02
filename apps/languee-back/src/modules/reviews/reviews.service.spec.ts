@@ -99,8 +99,8 @@ const mockPrismaService = {
   reviewLog: {
     create: jest.fn(),
   },
-  $transaction: jest.fn(
-    async (ops: unknown[]): Promise<unknown[]> => Promise.all(ops),
+  $transaction: jest.fn(async (ops: unknown[]): Promise<unknown[]> =>
+    Promise.all(ops),
   ),
 };
 

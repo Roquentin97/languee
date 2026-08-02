@@ -190,10 +190,7 @@ export class ReviewsService {
     const inflectionForms =
       (card.inflectionForms as InflectionForms | null) ??
       (card.definition.inflectionForms as InflectionForms | null);
-    return collectTargetForms(
-      card.definition.word.lemma,
-      inflectionForms as unknown as Record<string, unknown> | null,
-    );
+    return collectTargetForms(card.definition.word.lemma, inflectionForms);
   }
 
   private buildQueueItem(card: CardWithDeck, isNew: boolean): ReviewQueueItem {
