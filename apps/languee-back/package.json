@@ -40,7 +40,7 @@
     "@prisma/instrumentation": "^7.9.1",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.4",
+    "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "ioredis": "^5.11.1",
     "joi": "^18.2.3",
