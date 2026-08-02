@@ -35,6 +35,20 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # These androidx releases require compileSdk 37; the app is on compileSdk 36.
+      # Remove these entries when compileSdk is raised (dedicated migration PR).
+      - dependency-name: "androidx.core:core-ktx"
+        versions: ["[1.19,)"]
+      - dependency-name: "androidx.lifecycle:*"
+        versions: ["[2.11,)"]
+      - dependency-name: "androidx.hilt:hilt-navigation-compose"
+        versions: ["[1.4,)"]
+      # ktlint plugin >=13 wires up source sets the 12.x config never linted,
+      # forcing a codebase-wide reformat plus manual fixes - a separate scoped
+      # cleanup task, not a version bump. Remove after that cleanup lands.
+      - dependency-name: "org.jlleitschuh.gradle.ktlint"
+        versions: ["[13,)"]
 
   - package-ecosystem: "docker"
     directory: "/"
