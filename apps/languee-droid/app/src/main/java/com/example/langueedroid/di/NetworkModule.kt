@@ -18,6 +18,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry
+import okhttp3.Call
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -45,9 +46,7 @@ object NetworkModule {
     fun provideOkHttpClient(
         sessionStore: AuthSessionStore,
         authAuthenticator: AuthAuthenticator,
-        openTelemetry: OpenTelemetry,
     ): OkHttpClient {
-        val otelInterceptor = OkHttpTelemetry.builder(openTelemetry).build().newInterceptor()
         val requestIdInterceptor = Interceptor { chain ->
             chain.proceed(
                 chain.request().newBuilder()
@@ -67,7 +66,6 @@ object NetworkModule {
             chain.proceed(request)
         }
         return OkHttpClient.Builder()
-            .addInterceptor(otelInterceptor)
             .addInterceptor(requestIdInterceptor)
             .addInterceptor(authInterceptor)
             .apply {
@@ -88,16 +86,23 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit = Retrofit.Builder()
+    fun provideInstrumentedCallFactory(
+        okHttpClient: OkHttpClient,
+        openTelemetry: OpenTelemetry,
+    ): Call.Factory = OkHttpTelemetry.builder(openTelemetry).build().createCallFactory(okHttpClient)
+
+    @Provides
+    @Singleton
+    fun provideRetrofit(callFactory: Call.Factory): Retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.BACKEND_BASE_URL)
-        .client(okHttpClient)
+        .callFactory(callFactory)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
     @Provides
     @Singleton
-    fun provideServerReachabilityChecker(okHttpClient: OkHttpClient): ServerReachabilityChecker =
-        ServerReachabilityChecker(okHttpClient, BuildConfig.BACKEND_BASE_URL)
+    fun provideServerReachabilityChecker(callFactory: Call.Factory): ServerReachabilityChecker =
+        ServerReachabilityChecker(callFactory, BuildConfig.BACKEND_BASE_URL)
 
     @Provides
     @Singleton

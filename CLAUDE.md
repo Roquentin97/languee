@@ -146,21 +146,30 @@ Branch name must match the conventional commit type of the change.
 
 ## GitHub remote operations
 
-Use GitHub MCP for remote repository operations. Agents must not use native `git` or
-`gh` for pulling remote changes, pushing branches or commits, creating remote branches,
-or opening pull requests unless the human explicitly overrides this rule for a specific
-task.
+Remote operations are split into two planes:
 
-Local repository operations such as `git status`, `git diff`, `git log`, `git add`, and
-`git commit` remain allowed. When a workflow needs remote state, branch publication, or a
-PR, use the GitHub MCP tools instead of `git pull`, `git push`, or `gh pr`.
+- **Metadata plane - GitHub MCP.** Opening or updating pull requests, PR comments,
+  issues, and inspecting remote branches or files go through GitHub MCP, not `gh`.
+  `gh` remains a human-approved fallback only for operations MCP lacks (for example
+  merging a PR).
+- **Code plane - native git.** `git fetch` and `git pull` are always allowed for
+  syncing remote state. `git push` is allowed ONLY to branches matching the allowed
+  prefixes (`feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`,
+  `deps/`) and is the REQUIRED way to publish local commits. Do not re-create local
+  commits remotely with `mcp__github__push_files` or `create_or_update_file`:
+  inline re-typing loses commit history and risks silent content drift (see PR #77).
+  Reserve those MCP write tools for small changes that have no local commit.
+
+Never push to `master`, `develop`, `staging`, `bb_develop`, or any environment
+branch - via git, `gh`, or GitHub MCP. Never force-push a branch that was not
+created in the current task without explicit human approval.
 
 ## PR opening skill
 
 Whenever the human asks to open, create, publish, or prepare a PR, or asks to "use the
 skill" in a PR-opening context, Claude must use `.claude/skills/open-pr/SKILL.md`.
 Forge PR stages must also use that skill. The skill is required because it enforces
-GitHub MCP-only remote operations, release-please-compatible PR metadata,
+the remote-operations policy above, release-please-compatible PR metadata,
 `make cc <affected-service>` for each affected service, and PR/Notion bookkeeping.
 Do not manually bump app versions or changelogs in feature PRs; Release Please owns
 version and changelog updates through generated release PRs.

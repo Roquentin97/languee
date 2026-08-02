@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter
 
 from languee_nlp.constants import VERSION
@@ -12,4 +14,4 @@ router = APIRouter(tags=["version"])
     summary="Service version",
 )
 def version() -> VersionResponse:
-    return VersionResponse(version=VERSION)
+    return VersionResponse(version=VERSION, commit=os.getenv("GIT_SHA", "unknown"))
