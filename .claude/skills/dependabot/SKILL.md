@@ -27,11 +27,13 @@ Resolve the full dependency backlog — open dependabot PRs AND the hidden queue
 4. **Verification is local-only.** This repo's CI workflows are push-triggered on
    `bb_develop` only — **PRs get NO CI**. `make cc <service>` in the worktree is the only
    quality gate; it must genuinely pass before any PR is opened (open-pr skill rule).
-5. **Publish via GitHub MCP** (open-pr skill): local commit first (commit-msg hook +
-   commitlint validate the message), then `create_branch` from `bb_develop` →
-   `push_files` with exact final file contents → `create_pull_request` (base
-   `bb_develop`). Never `git push` / `gh` from agents; if a large generated file fails
-   MCP transit, use the lockfile recovery pass below (verification + human-run push).
+5. **Publish with native git push; MCP for metadata** (two-plane policy, PR #96):
+   workers verify and commit locally in their worktrees; the coordinator pushes each
+   branch with `git push origin HEAD:deps/<branch>` (allowed-prefix branches only;
+   `--force` only over branches this batch itself created) and opens the PR via
+   `create_pull_request` (base `bb_develop`). Never re-create local commits with
+   `push_files` — that path truncated large lockfiles (see below) and loses history.
+   Merging uses `gh pr merge` with human authorization (MCP has no merge endpoint).
 6. **Same-file overlap.** Migration PRs share manifests/lockfiles with their lane PR
    (yarn.lock, libs.versions.toml). Merge order: lane PR first, then migrations. When a
    sibling then shows conflicts, know that two shortcuts DON'T work: pushing "pre-merged"
@@ -91,11 +93,39 @@ Machine-specific current state lives in session memory, not here.
   source, not changelog summaries, before "fixing" call sites);
   `auto-instrumentations-node` carries an undeclared peer dep on `core@^2` (harmless on
   Yarn Classic, hard-fails under strict peer-dep managers).
-- **Workflow files may be unpushable via MCP**: a token lacking the `workflow` scope
-  rejects `.github/workflows/*` writes with "Resource not accessible by personal access
-  token" (state as of 2026-07). Recovery: on that signature, don't fight it — triage
-  dependabot's own actions PRs instead (breaking changes? mergeable?) and hand the merge
-  decision to the human. Re-test on later runs; the scope may have been granted.
+- **Workflow files and the MCP token**: the MCP token lacks the `workflow` scope and
+  rejects `.github/workflows/*` writes ("Resource not accessible by personal access
+  token", still true 2026-08). Native `git push` — the standard publishing path —
+  carries the user's credentials and pushes workflow files fine (verified 2026-08,
+  merged workflow PRs). Actions bumps are therefore fully self-serviceable: audit each
+  action's release notes for breaking changes AND license changes (see below), edit the
+  workflows locally, push, open the PR.
+- **Action majors can be license changes, not just code changes**: gradle/actions v6
+  moved caching into a proprietary, non-MIT component whose commercial Terms of Use are
+  accepted implicitly by upgrading (caching defaults on). Read every actions major's
+  release notes for licensing/ToU language; on a hit, hold at the last permissive major,
+  encode an ignore rule, and leave the upgrade as an explicit human licensing decision.
+- **Runtime-image bumps are policy decisions, not version bumps**: reject non-LTS
+  runtime lines (odd-numbered Node majors — check the `lts` key in nodejs/Release
+  schedule.json; Node 25 was already past its own EOL when dependabot proposed it,
+  2026-08). Interpreter minors (python 3.12→3.14) are gated on the slowest
+  native-wheel publisher in the stack: check the actual release FILE LIST on PyPI for
+  cpXYZ wheels — `requires_python` classifiers can be aspirational (spacy claimed
+  <3.15 support while shipping nothing past cp313; `-slim` images have no compiler for
+  the sdist fallback). Keep Dockerfile and CI interpreter versions in lockstep.
+- **Type-stub packages track the runtime, not latest**: `@types/node` stays on the
+  runtime's Node major (Dockerfile base image / CI node-version); ignore stub majors
+  until the runtime itself moves.
+- **Linter-plugin majors can expand coverage**: the ktlint gradle plugin ≥13 wires up
+  source sets the 12.x config never actually linted, turning a "version bump" into a
+  codebase-wide reformat plus manual fixes. That is a separate scoped cleanup task —
+  ignore-rule the major until the cleanup lands.
+- **Encode every discovered gate as a `dependabot.yml` ignore rule** (with a comment
+  naming the gate and its removal condition): compileSdk waves, licensing holds,
+  reformat cliffs, runtime-alignment holds. Otherwise the bot re-proposes known-blocked
+  updates every scan and the queue never stays clean. For one-off rejections on an open
+  bot PR, an `@dependabot ignore this major version` comment closes it and persists the
+  ignore bot-side.
 - **nlp**: if `uv` is missing on the machine (it has been), download a standalone binary
   to `$TMPDIR` and use the Makefile's `UV=` override. Version-dependent footgun: `make cc languee-nlp`
   runs `uv run --extra dev`, whose implicit sync USED to strip the manually installed
@@ -141,18 +171,13 @@ Machine-specific current state lives in session memory, not here.
 - **MCP `get_pull_request` may omit `mergeable`/`mergeable_state`** (it did in 2026-07).
   If absent, infer mergeability (have the PR's target files changed on the base since
   branching? is `merge_commit_sha` non-null?) and confirm in the GitHub UI before merging.
-- **Large generated files (lockfiles) may not survive MCP `push_files`.** Observed
-  2026-07: a worker's single tool call topped out ~45–50KB of content; a stalled call
-  still EXECUTES, committing a truncated file to the remote branch, and partial re-pushes
-  never converge (each push replaces the whole file). Recovery pass, in order:
-  (1) push the lockfile ALONE in one complete-content call; (2) verify remotely via
-  `get_file_contents` — line count + tail must match local; (3) at most ONE retry if
-  truncated; (4) still truncated → stop pushing, worker reports `ready-for-manual-push`
-  (worktree path, branch, commit hash), the human runs
-  `git -C <worktree> push --force origin HEAD:<deps-branch>` (their own push — no rule
-  conflict), and the coordinator re-verifies remotely and opens the PR via MCP (metadata
-  only, no size risk). Never open a PR against an unverified lockfile. Small files
-  (manifests, sources) go via `push_files` normally.
+- **Lockfiles vs `push_files` (historical, 2026-07)**: MCP `push_files` topped out at
+  ~45–50KB per call; stalled calls still EXECUTED, committing truncated lockfiles to
+  remote branches, and partial re-pushes never converge (each push replaces the whole
+  file). The two-plane policy (native push, PR #96) removed this failure class — kept
+  here as the signature to recognize if `push_files` is ever pointed at a generated
+  file again. If that happens: verify remotely via `get_file_contents` (line count +
+  tail vs local) and never open a PR against an unverified lockfile.
 
 ## Per-PR body requirements
 
