@@ -9,6 +9,9 @@ import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.UnauthorizedException
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,15 +21,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 private const val DEFAULT_LIMIT = 20
 
-@HiltViewModel
-class ReviewViewModel @Inject constructor(
+/**
+ * [deckId] scopes the review queue to a single deck (started from a deck tap on the
+ * decks screen). When null, the queue spans all decks (started from the global review
+ * entry point on the decks screen top bar).
+ */
+@HiltViewModel(assistedFactory = ReviewViewModel.Factory::class)
+class ReviewViewModel @AssistedInject constructor(
+    @Assisted private val deckId: String?,
     private val reviewRepository: ReviewRepository,
     val speaker: Speaker,
 ) : ViewModel() {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(deckId: String?): ReviewViewModel
+    }
 
     private val _state = MutableStateFlow<ReviewSessionState>(ReviewSessionState.Loading)
     val state: StateFlow<ReviewSessionState> = _state.asStateFlow()
@@ -37,16 +50,16 @@ class ReviewViewModel @Inject constructor(
     private var queue: List<ReviewItem> = emptyList()
     private var currentIndex: Int = 0
     private var reviewedCount: Int = 0
-    private var lastDeckId: String? = null
+    private var lastDeckId: String? = deckId
     private var lastLimit: Int = DEFAULT_LIMIT
 
     private var actionJob: Job? = null
 
     init {
-        loadQueue()
+        loadQueue(deckId = deckId)
     }
 
-    fun loadQueue(deckId: String? = null, limit: Int = DEFAULT_LIMIT) {
+    fun loadQueue(deckId: String? = lastDeckId, limit: Int = DEFAULT_LIMIT) {
         lastDeckId = deckId
         lastLimit = limit
         _state.value = ReviewSessionState.Loading

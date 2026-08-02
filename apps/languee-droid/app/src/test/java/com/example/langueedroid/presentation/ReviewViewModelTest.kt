@@ -56,7 +56,11 @@ class ReviewViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = ReviewViewModel(reviewRepository = reviewRepository, speaker = speaker)
+    private fun buildViewModel(deckId: String? = null) = ReviewViewModel(
+        deckId = deckId,
+        reviewRepository = reviewRepository,
+        speaker = speaker,
+    )
 
     // -------------------------------------------------------------------------
     // Helpers
@@ -102,6 +106,30 @@ class ReviewViewModelTest {
         assertEquals(1, state.index)
         assertEquals(1, state.total)
         assertEquals(QuestionFeedback.None, state.feedback)
+    }
+
+    // -------------------------------------------------------------------------
+    // deckId-scoped review — loads the queue filtered to that deck, and retry
+    // preserves the scope
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `deck-scoped view model — loads queue filtered to that deck`() = runTest {
+        val item = anItem()
+        whenever(reviewRepository.queue(deckId = eq("deck-1"), limit = any())).thenReturn(Result.success(listOf(item)))
+
+        val vm = buildViewModel(deckId = "deck-1")
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value is ReviewSessionState.Question)
+
+        whenever(reviewRepository.queue(deckId = eq("deck-1"), limit = any())).thenReturn(
+            Result.failure(RuntimeException("network failure")),
+        )
+        vm.retry()
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value is ReviewSessionState.Error)
     }
 
     // -------------------------------------------------------------------------
