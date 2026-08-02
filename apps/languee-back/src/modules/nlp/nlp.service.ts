@@ -171,7 +171,7 @@ export class NlpService {
         method: this.buildInflectionForms.name,
         data: { pos, formKeys: Object.keys(compact) },
       });
-      return { type: 'noun', ...compact } as InflectionForms;
+      return { type: 'noun', ...compact };
     }
 
     if (pos === 'ADJ' || pos === 'ADV') {

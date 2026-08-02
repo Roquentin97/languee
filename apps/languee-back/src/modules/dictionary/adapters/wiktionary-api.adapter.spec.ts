@@ -14,7 +14,7 @@ function mockFetchOk(body: unknown) {
     ok: true,
     status: 200,
     json: jest.fn().mockResolvedValue(body),
-  } as unknown as Response);
+  });
 }
 
 function mockFetchStatus(status: number) {
@@ -23,7 +23,7 @@ function mockFetchStatus(status: number) {
     status,
     text: jest.fn().mockResolvedValue(''),
     json: jest.fn(),
-  } as unknown as Response);
+  });
 }
 
 describe('WiktionaryApiAdapter', () => {

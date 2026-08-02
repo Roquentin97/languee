@@ -1,5 +1,5 @@
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
@@ -18,13 +18,13 @@ if (tracingEnabled) {
   const exporter = new OTLPTraceExporter({ url: `${endpoint}/v1/traces` });
 
   sdk = new NodeSDK({
-    resource: new Resource({
+    resource: resourceFromAttributes({
       'service.name': process.env['SERVICE_NAME'] ?? 'languee-back',
       'deployment.environment': process.env['NODE_ENV'] ?? 'development',
     }),
-    spanProcessor: new SanitizingSpanProcessor(
-      new BatchSpanProcessor(exporter),
-    ),
+    spanProcessors: [
+      new SanitizingSpanProcessor(new BatchSpanProcessor(exporter)),
+    ],
     instrumentations: [
       getNodeAutoInstrumentations({
         // Do not capture any request/response headers as span attributes to

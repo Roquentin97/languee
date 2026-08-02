@@ -219,7 +219,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeNounResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('dog');
 
@@ -238,7 +238,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeAdjResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('fast');
 
@@ -291,7 +291,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(response),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('hmm');
 
@@ -313,7 +313,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(response),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('walked');
 
@@ -329,7 +329,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(response),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('walked');
 
@@ -383,7 +383,7 @@ describe('NlpService', () => {
         text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('walk')).rejects.toBeInstanceOf(
         NlpUnavailableError,
@@ -392,7 +392,7 @@ describe('NlpService', () => {
 
     it('network failure (fetch throws) throws NlpUnavailableError', async () => {
       const mockFetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('walk')).rejects.toBeInstanceOf(
         NlpUnavailableError,
@@ -402,7 +402,7 @@ describe('NlpService', () => {
     it('network failure wraps original error as cause', async () => {
       const cause = new Error('ECONNREFUSED');
       const mockFetch = jest.fn().mockRejectedValue(cause);
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const err = await service.analyze('walk').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(NlpUnavailableError);
@@ -424,7 +424,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(response),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('walk')).rejects.toBeInstanceOf(
         NlpUnavailableError,
@@ -436,7 +436,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeVerbResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await service.analyze('walk');
 
@@ -454,7 +454,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeVerbResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await service.analyze('saw', 'The saw was sharp enough to cut oak');
 
@@ -493,7 +493,7 @@ describe('NlpService', () => {
         text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('a b c d e f g')).rejects.toBeInstanceOf(
         NlpInputInvalidError,
@@ -507,7 +507,7 @@ describe('NlpService', () => {
         text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('xyzzy')).rejects.toBeInstanceOf(
         NlpInputInvalidError,
@@ -525,7 +525,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeExpressionResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('ran into');
 
@@ -549,7 +549,7 @@ describe('NlpService', () => {
             }),
           ),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('kick the bucket');
 
@@ -572,7 +572,7 @@ describe('NlpService', () => {
             }),
           ),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze(
         'ran into',
@@ -592,7 +592,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeExpressionResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const result = await service.analyze('ran into');
 
@@ -635,7 +635,7 @@ describe('NlpService', () => {
         ok: true,
         json: () => Promise.resolve(makeExpressionResponse()),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await service.analyze('ran into');
 
@@ -686,7 +686,7 @@ describe('NlpService', () => {
         text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('a b c d e f g')).rejects.toBeInstanceOf(
         NlpInputInvalidError,
@@ -700,7 +700,7 @@ describe('NlpService', () => {
         text: jest.fn().mockResolvedValue(''),
         json: () => Promise.resolve({}),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('ran into')).rejects.toBeInstanceOf(
         NlpUnavailableError,
@@ -709,7 +709,7 @@ describe('NlpService', () => {
 
     it('network failure (fetch throws) throws NlpUnavailableError', async () => {
       const mockFetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       await expect(service.analyze('ran into')).rejects.toBeInstanceOf(
         NlpUnavailableError,
@@ -719,7 +719,7 @@ describe('NlpService', () => {
     it('network failure wraps original error as cause', async () => {
       const cause = new Error('ECONNREFUSED');
       const mockFetch = jest.fn().mockRejectedValue(cause);
-      global.fetch = mockFetch as unknown as typeof fetch;
+      global.fetch = mockFetch;
 
       const err = await service.analyze('ran into').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(NlpUnavailableError);

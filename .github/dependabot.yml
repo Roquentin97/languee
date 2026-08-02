@@ -84,3 +84,9 @@ updates:
           - "major"
           - "minor"
           - "patch"
+    ignore:
+      # gradle/actions v6 bundles a proprietary (non-MIT) caching component whose
+      # Terms of Use are accepted implicitly on upgrade. Held at v5 (last fully
+      # MIT line) until a human decides on the v6 licensing. Remove this to allow.
+      - dependency-name: "gradle/actions"
+        update-types: ["version-update:semver-major"]
