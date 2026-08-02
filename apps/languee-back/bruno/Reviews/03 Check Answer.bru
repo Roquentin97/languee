@@ -27,8 +27,14 @@ body:json {
   }
 }
 
+docs {
+  `cloze` cards only. For `inflection` cards use
+  POST /reviews/:cardId/check-forms instead - this returns 400 if the card
+  is not a `cloze` card.
+}
+
 tests {
-  test("checks the answer or reports an unknown card", function() {
+  test("checks the answer, or reports an unknown/wrong-type card", function() {
     expect(res.status).to.be.oneOf([200, 400, 404]);
   });
 

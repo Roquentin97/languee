@@ -1,10 +1,11 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CardNotFoundError } from '../cards/cards.errors';
 import { DeckNotFoundError } from '../decks/decks.errors';
+import { UnsupportedCardTypeError } from './reviews.errors';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
 const mockUser: CurrentUserPayload = {
@@ -16,6 +17,7 @@ const mockReviewsService = {
   getSummary: jest.fn(),
   getQueue: jest.fn(),
   checkTypedAnswer: jest.fn(),
+  checkForms: jest.fn(),
   gradeCard: jest.fn(),
 };
 
@@ -88,14 +90,14 @@ describe('ReviewsController', () => {
       });
     });
 
-    it('serializes queue items returned by the service', async () => {
+    it('serializes queue items returned by the service, one payload per type', async () => {
       mockReviewsService.getQueue.mockResolvedValue([
         {
           cardId: 'card-id-1',
-          deckId: 'deck-id-1',
-          deckName: 'English basics',
+          type: 'cloze',
+          decks: [{ id: 'deck-id-1', name: 'English basics' }],
           isNew: false,
-          prompt: {
+          cloze: {
             definition: 'To encounter unexpectedly.',
             maskedSentence: 'Guess who I ____ at the station!',
             partOfSpeech: 'verb',
@@ -103,28 +105,28 @@ describe('ReviewsController', () => {
             lemmaLength: 8,
             language: 'en',
           },
+          inflection: null,
+          definition: null,
         },
       ]);
 
       const result = await controller.queue({}, mockUser);
 
-      expect(result).toEqual({
-        items: [
-          {
-            cardId: 'card-id-1',
-            deckId: 'deck-id-1',
-            deckName: 'English basics',
-            isNew: false,
-            prompt: {
-              definition: 'To encounter unexpectedly.',
-              maskedSentence: 'Guess who I ____ at the station!',
-              partOfSpeech: 'verb',
-              kind: 'phrasal_verb',
-              lemmaLength: 8,
-              language: 'en',
-            },
-          },
-        ],
+      expect(result.items[0]).toEqual({
+        cardId: 'card-id-1',
+        type: 'cloze',
+        decks: [{ id: 'deck-id-1', name: 'English basics' }],
+        isNew: false,
+        cloze: {
+          definition: 'To encounter unexpectedly.',
+          maskedSentence: 'Guess who I ____ at the station!',
+          partOfSpeech: 'verb',
+          kind: 'phrasal_verb',
+          lemmaLength: 8,
+          language: 'en',
+        },
+        inflection: null,
+        definition: null,
       });
     });
 
@@ -201,6 +203,18 @@ describe('ReviewsController', () => {
       });
     });
 
+    it('edge case — UnsupportedCardTypeError maps to 400 BadRequestException', async () => {
+      mockReviewsService.checkTypedAnswer.mockRejectedValue(
+        new UnsupportedCardTypeError('Only `cloze` cards support this'),
+      );
+
+      const err = await controller
+        .answer('card-id-2', { typedAnswer: 'run' }, mockUser)
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+    });
+
     it('edge case — unknown error is re-thrown', async () => {
       mockReviewsService.checkTypedAnswer.mockRejectedValue(
         new Error('Unexpected failure'),
@@ -209,6 +223,57 @@ describe('ReviewsController', () => {
       await expect(
         controller.answer('card-id-1', { typedAnswer: 'run into' }, mockUser),
       ).rejects.toThrow('Unexpected failure');
+    });
+  });
+
+  describe('checkForms()', () => {
+    it('happy path — returns per-form feedback', async () => {
+      mockReviewsService.checkForms.mockResolvedValue({
+        results: {
+          base: { typed: 'run', expected: 'run', correct: true },
+          past: { typed: 'runned', expected: 'ran', correct: false },
+        },
+        allCorrect: false,
+        revealed: { lemma: 'run', ipa: null, inflectionForms: { base: 'run' } },
+      });
+
+      const result = await controller.checkForms(
+        'card-id-2',
+        { typedForms: { base: 'run', past: 'runned' } },
+        mockUser,
+      );
+
+      expect(result.allCorrect).toBe(false);
+      expect(mockReviewsService.checkForms).toHaveBeenCalledWith(
+        'user-id-1',
+        'card-id-2',
+        { base: 'run', past: 'runned' },
+      );
+    });
+
+    it('edge case — CardNotFoundError maps to 404 NotFoundException with CARD_NOT_FOUND', async () => {
+      mockReviewsService.checkForms.mockRejectedValue(new CardNotFoundError());
+
+      const err = await controller
+        .checkForms('card-id-2', { typedForms: { base: 'run' } }, mockUser)
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect((err as NotFoundException).getResponse()).toMatchObject({
+        message: 'CARD_NOT_FOUND',
+      });
+    });
+
+    it('edge case — UnsupportedCardTypeError maps to 400 BadRequestException', async () => {
+      mockReviewsService.checkForms.mockRejectedValue(
+        new UnsupportedCardTypeError('Only `inflection` cards support this'),
+      );
+
+      const err = await controller
+        .checkForms('card-id-1', { typedForms: { base: 'run' } }, mockUser)
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
     });
   });
 
@@ -231,11 +296,16 @@ describe('ReviewsController', () => {
       expect(mockReviewsService.gradeCard).toHaveBeenCalledWith(
         'user-id-1',
         'card-id-1',
-        { rating: 'good', typedAnswer: undefined, answerResult: undefined },
+        {
+          rating: 'good',
+          typedAnswer: undefined,
+          typedForms: undefined,
+          answerResult: undefined,
+        },
       );
     });
 
-    it('passes optional typedAnswer and answerResult through to the service', async () => {
+    it('passes optional typedForms through to the service', async () => {
       mockReviewsService.gradeCard.mockResolvedValue({
         nextDueAt: new Date(),
         intervalDays: 1,
@@ -243,23 +313,18 @@ describe('ReviewsController', () => {
       });
 
       await controller.grade(
-        'card-id-1',
-        {
-          rating: 'good',
-          typedAnswer: 'run into',
-          answerResult: 'correct',
-        },
+        'card-id-2',
+        { rating: 'easy', typedForms: { base: 'run', past: 'ran' } },
         mockUser,
       );
 
       expect(mockReviewsService.gradeCard).toHaveBeenCalledWith(
         'user-id-1',
-        'card-id-1',
-        {
-          rating: 'good',
-          typedAnswer: 'run into',
-          answerResult: 'correct',
-        },
+        'card-id-2',
+        expect.objectContaining({
+          rating: 'easy',
+          typedForms: { base: 'run', past: 'ran' },
+        }),
       );
     });
 

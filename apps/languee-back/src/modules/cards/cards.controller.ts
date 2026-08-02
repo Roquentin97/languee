@@ -33,14 +33,14 @@ import { CreateCardDto } from './dto/create-card.dto';
 import {
   CardDetailResponseDto,
   CardListItemResponseDto,
-  CardResponseDto,
+  CreateCardsResponseDto,
 } from './dto/card-response.dto';
 import { ListCardsQueryDto } from './dto/list-cards-query.dto';
 import { CardsService } from './cards.service';
 import {
-  serializeCard,
   serializeCardDetail,
   serializeCardListItem,
+  serializeCards,
 } from './serializers/card.serializer';
 
 @ApiTags('cards')
@@ -83,25 +83,30 @@ export class CardsController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a card from a deck and definition' })
+  @ApiOperation({
+    summary:
+      'Save a definition into a deck, generating every applicable card type',
+    description:
+      'Fans out into a `cloze` and a `definition` card (always), plus a shared `inflection` card when the word inflects. Cards already generated for this sense (or lemma + part of speech) are reused across decks - only a new deck membership is added.',
+  })
   @ApiBody({ type: CreateCardDto })
-  @ApiCreatedResponse({ type: CardResponseDto })
-  @ApiConflictResponse({ description: 'Card already exists' })
+  @ApiCreatedResponse({ type: CreateCardsResponseDto })
+  @ApiConflictResponse({ description: 'This deck already holds this card' })
   @ApiNotFoundResponse({ description: 'Deck or definition not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async create(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateCardDto,
-  ): Promise<CardResponseDto> {
+  ): Promise<CreateCardsResponseDto> {
     try {
-      const card = await this.cardsService.create(
+      const cards = await this.cardsService.create(
         user.userId,
         dto.deckId,
         dto.definitionId,
         dto.context,
         dto.inflectionForms,
       );
-      return serializeCard(card);
+      return serializeCards(cards);
     } catch (err: unknown) {
       if (err instanceof DeckNotFoundError) {
         throw new NotFoundException('DECK_NOT_FOUND');

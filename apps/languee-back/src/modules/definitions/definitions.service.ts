@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { Definition as DbDefinition } from '@prisma/client';
+import type { Definition as DbDefinition, Word } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import type { RawDefinitionEntry } from '../dictionary/interfaces/dictionary-api-adapter.interface';
 import { DefinitionAlreadyExistsError } from './definitions.errors';
 
 export type { DbDefinition };
+
+export type DefinitionWithWord = DbDefinition & { word: Word };
 
 export type DefinitionSummary = {
   id: string;
@@ -20,6 +22,13 @@ export class DefinitionService {
 
   async findByWordId(wordId: string): Promise<DbDefinition[]> {
     return this.prisma.definition.findMany({ where: { wordId } });
+  }
+
+  findByIdWithWord(id: string): Promise<DefinitionWithWord | null> {
+    return this.prisma.definition.findUnique({
+      where: { id },
+      include: { word: true },
+    });
   }
 
   findManyByIds(ids: string[]): Promise<DefinitionSummary[]> {

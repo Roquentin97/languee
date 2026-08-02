@@ -37,11 +37,22 @@ const mockDefinition: Definition = {
 
 const mockCard: Card = {
   id: 'card-id-1',
-  deckId: 'deck-id-1',
+  type: 'cloze',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
+  wordId: null,
+  partOfSpeech: null,
   context: null,
   inflectionForms: null,
+  state: 'new',
+  dueAt: new Date('2026-01-01T00:00:00.000Z'),
+  stability: 0,
+  difficulty: 0,
+  scheduledDays: 0,
+  learningSteps: 0,
+  reps: 0,
+  lapses: 0,
+  lastReviewedAt: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
