@@ -73,6 +73,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Node runtime majors are deliberate migrations (image + CI node-version +
+      # engines move in lockstep), and dependabot proposes non-LTS odd majors
+      # (25, then 23 after 25 was ignored). Remove when planning the Node 24 LTS move.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker"
     directory: "/apps/languee-nlp"
