@@ -6,7 +6,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.52.1",
     "spacy>=3.8.14",
-    "pydantic-settings>=2.14.2",
+    "pydantic-settings>=2.15.0",
     "lemminflect==0.2.3",
     "opentelemetry-sdk>=1.44.0",
     "opentelemetry-exporter-otlp-proto-http>=1.44.0",
