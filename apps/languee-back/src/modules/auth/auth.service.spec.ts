@@ -9,7 +9,10 @@ import { AuthService } from './auth.service';
 
 jest.mock('bcrypt');
 
-const bcryptMock = bcrypt as jest.Mocked<typeof bcrypt>;
+const bcryptMock = bcrypt as unknown as {
+  hash: jest.Mock<Promise<string>, [string | Buffer, string | number]>;
+  compare: jest.Mock<Promise<boolean>, [string | Buffer, string]>;
+};
 
 const mockRedisService = {
   get: jest.fn(),
@@ -75,7 +78,7 @@ describe('AuthService', () => {
     const updatedAt = new Date('2026-01-01T00:00:00.000Z');
 
     it('hashes password and creates user with normalized email and hash', async () => {
-      bcryptMock.hash.mockResolvedValue('hashed-password' as never);
+      bcryptMock.hash.mockResolvedValue('hashed-password');
       mockUsersService.create.mockResolvedValue({
         id: 'user-123',
         email: dto.email,
@@ -98,7 +101,7 @@ describe('AuthService', () => {
         email: '  NEW@Example.COM  ',
         password: 'password123',
       };
-      bcryptMock.hash.mockResolvedValue('hashed-password' as never);
+      bcryptMock.hash.mockResolvedValue('hashed-password');
       mockUsersService.create.mockResolvedValue({
         id: 'user-123',
         email: 'new@example.com',
@@ -116,7 +119,7 @@ describe('AuthService', () => {
     });
 
     it('returns registered user without passwordHash', async () => {
-      bcryptMock.hash.mockResolvedValue('hashed-password' as never);
+      bcryptMock.hash.mockResolvedValue('hashed-password');
       mockUsersService.create.mockResolvedValue({
         id: 'user-123',
         email: dto.email,
@@ -147,8 +150,8 @@ describe('AuthService', () => {
         id: 'user-123',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -165,8 +168,8 @@ describe('AuthService', () => {
         id: 'user-123',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -185,7 +188,7 @@ describe('AuthService', () => {
 
     it('throws 401 with "Invalid credentials" when email not found — no email leak', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
-      bcryptMock.compare.mockResolvedValue(false as never);
+      bcryptMock.compare.mockResolvedValue(false);
 
       await expect(service.login(dto, 'agent', 'ip')).rejects.toThrow(
         UnauthorizedException,
@@ -204,7 +207,7 @@ describe('AuthService', () => {
         id: 'user-123',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(false as never);
+      bcryptMock.compare.mockResolvedValue(false);
 
       await expect(service.login(dto, 'agent', 'ip')).rejects.toThrow(
         UnauthorizedException,
@@ -220,8 +223,8 @@ describe('AuthService', () => {
         id: 'user-123',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -239,8 +242,8 @@ describe('AuthService', () => {
         id: 'user-123',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -262,8 +265,8 @@ describe('AuthService', () => {
         id: 'user-123',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -287,8 +290,8 @@ describe('AuthService', () => {
         email: dto.email,
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -304,7 +307,7 @@ describe('AuthService', () => {
 
     it('throws 401 with "Invalid credentials" when email is not found — no email leak', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
-      bcryptMock.compare.mockResolvedValue(false as never);
+      bcryptMock.compare.mockResolvedValue(false);
 
       await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
         UnauthorizedException,
@@ -324,7 +327,7 @@ describe('AuthService', () => {
         email: dto.email,
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(false as never);
+      bcryptMock.compare.mockResolvedValue(false);
 
       await expect(service.loginMobile(dto, 'agent', 'ip')).rejects.toThrow(
         UnauthorizedException,
@@ -345,8 +348,8 @@ describe('AuthService', () => {
         email: 'user@example.com',
         passwordHash: 'hashed-pw',
       });
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.sadd.mockResolvedValue(1);
       mockJwtService.sign.mockReturnValue('access-token');
@@ -364,8 +367,8 @@ describe('AuthService', () => {
   describe('refresh', () => {
     it('returns new accessToken and plainRefreshToken on valid session', async () => {
       mockRedisService.get.mockResolvedValue(makeSession());
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('new-hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('new-hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockJwtService.sign.mockReturnValue('new-access-token');
 
@@ -403,7 +406,7 @@ describe('AuthService', () => {
 
     it('throws 401 "Invalid refresh token" when bcrypt.compare returns false (tampered token)', async () => {
       mockRedisService.get.mockResolvedValue(makeSession());
-      bcryptMock.compare.mockResolvedValue(false as never);
+      bcryptMock.compare.mockResolvedValue(false);
 
       await expect(
         service.refresh('tampered-token', 'session-uuid'),
@@ -416,7 +419,7 @@ describe('AuthService', () => {
     it('throws 401 "Session expired" when expiresAt is in the past', async () => {
       const past = new Date(Date.now() - 1000).toISOString();
       mockRedisService.get.mockResolvedValue(makeSession({ expiresAt: past }));
-      bcryptMock.compare.mockResolvedValue(true as never);
+      bcryptMock.compare.mockResolvedValue(true);
 
       await expect(
         service.refresh('plain-token', 'session-uuid'),
@@ -425,8 +428,8 @@ describe('AuthService', () => {
 
     it('updates hashedRefreshToken in Redis after successful refresh', async () => {
       mockRedisService.get.mockResolvedValue(makeSession());
-      bcryptMock.compare.mockResolvedValue(true as never);
-      bcryptMock.hash.mockResolvedValue('new-hashed-refresh' as never);
+      bcryptMock.compare.mockResolvedValue(true);
+      bcryptMock.hash.mockResolvedValue('new-hashed-refresh');
       mockRedisService.set.mockResolvedValue('OK');
       mockJwtService.sign.mockReturnValue('new-access-token');
 
@@ -444,7 +447,7 @@ describe('AuthService', () => {
 
     it('does not revokeAllUserSessions when token is merely invalid (tampered)', async () => {
       mockRedisService.get.mockResolvedValue(makeSession());
-      bcryptMock.compare.mockResolvedValue(false as never);
+      bcryptMock.compare.mockResolvedValue(false);
 
       await expect(service.refresh('bad', 'session-uuid')).rejects.toThrow(
         'Invalid refresh token',

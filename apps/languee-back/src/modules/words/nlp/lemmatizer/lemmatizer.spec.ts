@@ -86,11 +86,11 @@ describe('Lemmatizer', () => {
     const input: PreLemmatizedOutput = { lemma: 'run', shortCircuited: false };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: 'ran' });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(irregularTable.lookup).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(ruleEngine.apply).not.toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(passthrough.resolve).not.toHaveBeenCalled();
   });
 
@@ -104,11 +104,11 @@ describe('Lemmatizer', () => {
     };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: 'walk' });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(irregularTable.lookup).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(ruleEngine.apply).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(passthrough.resolve).not.toHaveBeenCalled();
   });
 
@@ -158,11 +158,11 @@ describe('Lemmatizer', () => {
     };
     const result = lemmatizer.lemmatize(input);
     expect(result).toEqual({ lemma: 'despite' });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(irregularTable.lookup).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(ruleEngine.apply).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(passthrough.resolve).toHaveBeenCalledTimes(1);
   });
 });

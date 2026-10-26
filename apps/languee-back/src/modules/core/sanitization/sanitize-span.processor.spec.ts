@@ -70,7 +70,7 @@ describe('SanitizingSpanProcessor', () => {
 
     processor.onEnd(span);
 
-    expect(Object.keys(span.attributes as object)).toHaveLength(12);
+    expect(Object.keys(span.attributes)).toHaveLength(12);
     expect(Object.values(span.attributes as object)).toEqual(
       Array(12).fill(REDACTED_VALUE),
     );

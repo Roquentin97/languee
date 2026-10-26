@@ -70,7 +70,6 @@ describe('createBasicAuthMiddleware', () => {
 
       middleware(req, res, next);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- jest.fn() mock property, not a bound class method
       expect(res.setHeader).toHaveBeenCalledWith(
         'WWW-Authenticate',
         'Basic realm="Protected"',
@@ -167,7 +166,6 @@ describe('createBasicAuthMiddleware', () => {
 
       middleware(req, res, next);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- jest.fn() mock property, not a bound class method
       expect(res.status).not.toHaveBeenCalled();
       expect(res.send).not.toHaveBeenCalled();
     });
@@ -254,7 +252,6 @@ describe('createBasicAuthMiddleware', () => {
 
       middleware(req, res, next);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- jest.fn() mock property, not a bound class method
       expect(res.setHeader).toHaveBeenCalledWith(
         'WWW-Authenticate',
         'Basic realm="Protected"',
@@ -273,7 +270,6 @@ describe('createBasicAuthMiddleware', () => {
 
       swaggerMiddleware(req, res, next);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- jest.fn() mock property, not a bound class method
       expect(res.setHeader).toHaveBeenCalledWith(
         'WWW-Authenticate',
         'Basic realm="Swagger"',
@@ -292,7 +288,6 @@ describe('createBasicAuthMiddleware', () => {
 
       systemMiddleware(req, res, next);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method -- jest.fn() mock property, not a bound class method
       expect(res.setHeader).toHaveBeenCalledWith(
         'WWW-Authenticate',
         'Basic realm="System"',
