@@ -1187,10 +1187,10 @@
   resolved "https://registry.yarnpkg.com/@nestjs/passport/-/passport-11.0.5.tgz#dd3e506c2fb7ddc80fd1321c01cc1a0ca6d6b609"
   integrity sha512-ulQX6mbjlws92PIM15Naes4F4p2JoxGnIJuUsdXQPT+Oo2sqQmENEZXM7eYuimocfHnKlcfZOuyzbA33LwUlOQ==
 
-"@nestjs/platform-express@^11.1.28":
-  version "11.1.28"
-  resolved "https://registry.yarnpkg.com/@nestjs/platform-express/-/platform-express-11.1.28.tgz#d90edd6329d8a23a33e851727b876a52e3bd53c3"
-  integrity sha512-hU+9Sz4m+onHrR5AmelI59QKmY/Re546bPnygnpqqeQdHDiJpBgjWbL4t6Jr73CBpS60cpyng7WzjgphNB9iwA==
+"@nestjs/platform-express@^12.0.0":
+  version "12.0.0"
+  resolved "https://registry.yarnpkg.com/@nestjs/platform-express/-/platform-express-12.0.0.tgz#0c5bae04485009fefcb0318ebb43978a8ec060c4"
+  integrity sha512-34H2cHJyVs2EkCbR9RrPPXEbANOEMQSxNapD1QyRBFyGyr3YvMB2nwbp0R6EM2WexxGoyrfb9CqJfDz3AknNQA==
   dependencies:
     cors "2.8.6"
     express "5.2.1"
@@ -6574,15 +6574,10 @@ path-scurry@^2.0.2:
     lru-cache "^11.0.0"
     minipass "^7.1.2"
 
-path-to-regexp@8.4.2:
+path-to-regexp@8.4.2, path-to-regexp@^8.0.0:
   version "8.4.2"
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-8.4.2.tgz#795c420c4f7ca45c5b887366f622ee0c9852cccd"
   integrity sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA==
-
-path-to-regexp@^8.0.0:
-  version "8.3.0"
-  resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-8.3.0.tgz#aa818a6981f99321003a08987d3cec9c3474cd1f"
-  integrity sha512-7jdwVIRtsP8MYpdXSwOS0YdD0Du+qOoF/AEPIt88PcCFrZCzx41oxku1jD88hZBwbNUIEfpqvuhjFaMAqMTWnA==
 
 path-type@^4.0.0:
   version "4.0.0"
