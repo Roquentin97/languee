@@ -82,9 +82,11 @@ Copy the three templates from `deploy/env/` to the server, dropping the
 `/opt/languee/languee-nlp.env`. Fill in real secrets and `chmod 600` all three.
 
 The file names match the compose service that reads each one (`.env` is the
-stack-level file compose reads for interpolation). Cross-file values that must
-match are commented in the templates (Postgres creds, Redis password, NLP
-basic auth).
+stack-level file compose reads for interpolation). Postgres and Redis
+credentials live only in `.env` — compose derives `languee-back`'s
+`DATABASE_URL` and `REDIS_PASSWORD` from them, so there is nothing to keep in
+sync. The one remaining cross-file pair is the NLP basic auth, commented in
+both templates.
 
 ### 5. DNS
 

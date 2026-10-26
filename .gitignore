@@ -43,6 +43,9 @@ coverage/
 !.env.example
 !.env.test
 .envrc
+# Filled-in server env files. The deploy templates are <name>.env.example, which
+# the patterns above do not cover, so ignore the real files explicitly.
+deploy/env/*.env
 
 
 #Documentation

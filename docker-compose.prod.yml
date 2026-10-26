@@ -86,6 +86,12 @@ services:
     restart: unless-stopped
     env_file:
       - ./languee-back.env
+    # Derived from the stack vars in /opt/languee/.env so Postgres and Redis
+    # credentials are declared in exactly one place. `environment` wins over
+    # `env_file`, so these are authoritative.
+    environment:
+      DATABASE_URL: postgresql://${LANGUEE_BACK_POSTGRES_USER}:${LANGUEE_BACK_POSTGRES_PASSWORD}@postgres:5432/${LANGUEE_BACK_POSTGRES_DB}
+      REDIS_PASSWORD: ${LANGUEE_BACK_REDIS_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,6 +112,8 @@ services:
       - tools
     env_file:
       - ./languee-back.env
+    environment:
+      DATABASE_URL: postgresql://${LANGUEE_BACK_POSTGRES_USER}:${LANGUEE_BACK_POSTGRES_PASSWORD}@postgres:5432/${LANGUEE_BACK_POSTGRES_DB}
     depends_on:
       postgres:
         condition: service_healthy
