@@ -18,9 +18,9 @@ Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
   docker-compose.prod.yml   # synced by the Deploy workflow
   caddy/Caddyfile           # synced by the Deploy workflow
   scripts/backup-db.sh      # synced by the Deploy workflow
-  .env                      # from deploy/env/stack.env.example  (never in git)
-  api.env                   # from deploy/env/api.env.example    (never in git)
-  nlp.env                   # from deploy/env/nlp.env.example    (never in git)
+  .env                      # from deploy/env/stack.env.example         (never in git)
+  languee-back.env          # from deploy/env/languee-back.env.example (never in git)
+  languee-nlp.env           # from deploy/env/languee-nlp.env.example  (never in git)
   backups/                  # local dump retention (7 days)
 ```
 
@@ -77,10 +77,14 @@ Credentials persist in the deploy user's Docker config.
 
 ### 4. Env files
 
-Copy the three templates from `deploy/env/` to the server as
-`/opt/languee/.env`, `/opt/languee/api.env`, `/opt/languee/nlp.env`; fill in
-real secrets; `chmod 600` all three. Cross-file values that must match are
-commented in the templates (Postgres creds, Redis password, NLP basic auth).
+Copy the three templates from `deploy/env/` to the server, dropping the
+`.example` suffix: `/opt/languee/.env`, `/opt/languee/languee-back.env`,
+`/opt/languee/languee-nlp.env`. Fill in real secrets and `chmod 600` all three.
+
+The file names match the compose service that reads each one (`.env` is the
+stack-level file compose reads for interpolation). Cross-file values that must
+match are commented in the templates (Postgres creds, Redis password, NLP
+basic auth).
 
 ### 5. DNS
 
@@ -137,8 +141,9 @@ layer cache makes subsequent builds fast until `uv.lock` changes.
 ## Observability (Grafana Cloud free tier)
 
 Self-hosted Loki/Tempo/Prometheus/Grafana from the dev compose file stay off
-the server. When wanted: create a free Grafana Cloud stack, then in `api.env`
-set `TRACING_ENABLED=true` and uncomment the `OTEL_EXPORTER_OTLP_*` lines with
+the server. When wanted: create a free Grafana Cloud stack, then in
+`languee-back.env` set `TRACING_ENABLED=true` and uncomment the
+`OTEL_EXPORTER_OTLP_*` lines with
 the stack's OTLP gateway URL and basic-auth token (Grafana Cloud → OpenTelemetry
 → instance ID + token, base64 `id:token`). For the NLP service, set
 `LANGUEE_NLP_TRACING_ENABLED=true` and its endpoint var. Container logs remain
@@ -154,10 +159,10 @@ prohibits commercial use since Dec 2024.)
 ```bash
 cd /opt/languee
 rclone copy r2:languee-db-backups/languee-<stamp>.sql.gz backups/
-docker compose stop api
+docker compose stop languee-back
 gunzip -c backups/languee-<stamp>.sql.gz | docker compose exec -T postgres \
   psql -U "$LANGUEE_BACK_POSTGRES_USER" -d "$LANGUEE_BACK_POSTGRES_DB"
-docker compose start api
+docker compose start languee-back
 ```
 
 For a full server loss: provision a new server (steps 1–7), then restore the

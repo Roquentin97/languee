@@ -2,11 +2,16 @@
 # are multi-arch). Designed to run from /opt/languee on the server, where the
 # deploy workflow places this file together with caddy/Caddyfile and
 # scripts/backup-db.sh. Interpolation values come from /opt/languee/.env
-# (see deploy/env/stack.env.example); service env comes from api.env / nlp.env.
+# (see deploy/env/stack.env.example); service env comes from languee-back.env /
+# languee-nlp.env.
+#
+# Service names match the app directories and image names (languee-back,
+# languee-nlp) so one vocabulary covers compose, images, Forge targets, commit
+# scopes, and the SERVICE_NAME each app reports in logs and traces.
 #
 # Observability is intentionally absent: apps ship OTLP directly to Grafana
-# Cloud when enabled in api.env / nlp.env. Postgres, Redis, and the NLP
-# service publish no host ports — only Caddy is reachable from outside.
+# Cloud when enabled in languee-back.env / languee-nlp.env. Postgres, Redis, and
+# the NLP service publish no host ports — only Caddy is reachable from outside.
 
 name: languee
 
@@ -24,7 +29,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      api:
+      languee-back:
         condition: service_healthy
 
   postgres:
@@ -60,11 +65,11 @@ services:
       retries: 5
       start_period: 5s
 
-  nlp:
+  languee-nlp:
     image: ghcr.io/roquentin97/languee/languee-nlp:${TAG:-latest}
     restart: unless-stopped
     env_file:
-      - ./nlp.env
+      - ./languee-nlp.env
     healthcheck:
       test:
         [
@@ -76,17 +81,17 @@ services:
       retries: 5
       start_period: 30s
 
-  api:
+  languee-back:
     image: ghcr.io/roquentin97/languee/languee-back:${TAG:-latest}
     restart: unless-stopped
     env_file:
-      - ./api.env
+      - ./languee-back.env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      nlp:
+      languee-nlp:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
@@ -100,7 +105,7 @@ services:
     profiles:
       - tools
     env_file:
-      - ./api.env
+      - ./languee-back.env
     depends_on:
       postgres:
         condition: service_healthy

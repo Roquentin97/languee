@@ -3,7 +3,7 @@
 # when running languee-droid checks.
 #
 # Usage:
-#   make <target> [CONTAINER=api] [TAIL=100]
+#   make <target> [CONTAINER=languee-back] [TAIL=100]
 #   make redis languee-back
 #   make cc [languee-back|languee-nlp|languee-droid]
 
@@ -28,7 +28,7 @@ _CC_SVC := $(word 2,$(MAKECMDGOALS))
 start:
 	$(COMPOSE) up -d postgres redis
 	$(COMPOSE) run --rm migrate yarn prisma migrate deploy
-	$(COMPOSE) up -d api
+	$(COMPOSE) up -d languee-back
 	$(COMPOSE) up -d $(OBSERVABILITY_SERVICES)
 
 # Run pending database migrations against the Compose Postgres service
@@ -51,7 +51,7 @@ restart: down start
 clean:
 	$(COMPOSE) down --volumes --remove-orphans
 
-# Tail service logs. Use CONTAINER=api to filter, TAIL=100 to set line count.
+# Tail service logs. Use CONTAINER=languee-back to filter, TAIL=100 to set line count.
 logs:
 	$(if $(CONTAINER), \
 		$(COMPOSE) logs -f --tail=$(TAIL) $(CONTAINER), \
