@@ -87,13 +87,15 @@ Return a JSON object:
 
 - Lives at monorepo root.
 - References each app's Dockerfile via `build: context: ./apps/<app>`.
-- Current services include `api`, `postgres`, and `redis`; new app services should use
-  clear service names such as `nlp`.
+- App service names match their `apps/<app>` directory and image name, e.g.
+  `languee-back`, `languee-nlp`; infrastructure services keep short generic names
+  such as `postgres` and `redis`. The same names are used in
+  `docker-compose.prod.yml` so dev and prod share one vocabulary.
 - All services defined with explicit healthchecks.
 - Use named volumes for any database (SQL, NoSQL) data persistence.
 - Use runtime-appropriate dependency volumes only when needed for local development.
 - Environment variables referenced from `.env` - never hardcoded.
-- `api` service depends_on `postgres` and `redis` with `condition: service_healthy`.
+- `languee-back` depends_on `postgres` and `redis` with `condition: service_healthy`.
 - FastAPI service healthchecks should call its `/health` or equivalent readiness endpoint.
 - Use service-specific env vars such as `LANGUEE_BACK_API_PORT`, `LANGUEE_NLP_PORT`,
   and `LANGUEE_NLP_SPACY_MODEL`.
@@ -104,7 +106,7 @@ Return a JSON object:
 - All targets operate from the monorepo root.
 - App-specific commands use explicit service paths, e.g. `cd apps/languee-back &&`,
   `cd apps/languee-nlp &&`, or `cd apps/languee-droid &&`.
-- Optional args passed via environment variables e.g. `make logs CONTAINER=api TAIL=100`.
+- Optional args passed via environment variables e.g. `make logs CONTAINER=languee-back TAIL=100`.
 - Each target has a brief comment explaining what it does.
 - Must be POSIX-compatible - no bash-specific syntax.
 
@@ -115,7 +117,7 @@ Return a JSON object:
 - `build` - rebuild all images.
 - `restart` - down then start.
 - `clean` - down, remove volumes and orphaned containers.
-- `logs` - tail logs, optional `CONTAINER=api` and `TAIL=100` flags.
+- `logs` - tail logs, optional `CONTAINER=languee-back` and `TAIL=100` flags.
 - `cc` - runs checks for all services or a service selected by `SERVICE=<name>`.
 - `cc-back` or equivalent - runs for `apps/languee-back`:
   1. `yarn format`
