@@ -86,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Copy compose file
-        uses: appleboy/scp-action@v1.0.3
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -94,7 +94,7 @@ jobs:
           source: docker-compose.prod.yml
           target: /opt/languee/
       - name: Copy deploy assets
-        uses: appleboy/scp-action@v1.0.3
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
