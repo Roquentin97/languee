@@ -194,7 +194,7 @@ const expectations: OperationExpectation[] = [
     method: 'post',
     requestBodySchema: 'CreateCardDto',
     responses: ['201', '401', '404', '409'],
-    responseSchema: 'CardResponseDto',
+    responseSchema: 'CreateCardsResponseDto',
   },
   {
     path: '/api/v1/cards',

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -29,15 +30,19 @@ import type { CurrentUserPayload } from '../auth/decorators/current-user.decorat
 import { ReviewsService } from './reviews.service';
 import { CardNotFoundError } from '../cards/cards.errors';
 import { DeckNotFoundError } from '../decks/decks.errors';
+import { UnsupportedCardTypeError } from './reviews.errors';
 import { AnswerCardDto } from './dto/answer-card.dto';
+import { CheckFormsDto } from './dto/check-forms.dto';
 import { GradeCardDto } from './dto/grade-card.dto';
 import { ReviewQueueQueryDto } from './dto/review-queue-query.dto';
 import { ReviewSummaryResponseDto } from './dto/review-summary-response.dto';
 import { ReviewQueueResponseDto } from './dto/review-queue-response.dto';
 import { AnswerCardResponseDto } from './dto/answer-card-response.dto';
+import { CheckFormsResponseDto } from './dto/check-forms-response.dto';
 import { GradeCardResponseDto } from './dto/grade-card-response.dto';
 import {
   serializeAnswerResult,
+  serializeFormCheckResult,
   serializeGradeResult,
   serializeQueue,
   serializeSummary,
@@ -67,7 +72,11 @@ export class ReviewsController {
   }
 
   @Get('queue')
-  @ApiOperation({ summary: 'Get the review queue for the current user' })
+  @ApiOperation({
+    summary: 'Get the review queue for the current user',
+    description:
+      'Each item carries a `type` (cloze / inflection / definition) and only the matching payload field is populated.',
+  })
   @ApiQuery({
     name: 'deckId',
     type: String,
@@ -111,7 +120,8 @@ export class ReviewsController {
   @Post(':cardId/answer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Check a typed answer without mutating review state',
+    summary:
+      'Check a typed answer against a `cloze` card without mutating review state',
   })
   @ApiParam({
     name: 'cardId',
@@ -120,7 +130,9 @@ export class ReviewsController {
   })
   @ApiBody({ type: AnswerCardDto })
   @ApiOkResponse({ type: AnswerCardResponseDto })
-  @ApiBadRequestResponse({ description: 'Blank typed answer' })
+  @ApiBadRequestResponse({
+    description: 'Blank typed answer, or the card is not a `cloze` card',
+  })
   @ApiNotFoundResponse({ description: 'Card not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async answer(
@@ -139,6 +151,52 @@ export class ReviewsController {
       if (err instanceof CardNotFoundError) {
         throw new NotFoundException('CARD_NOT_FOUND');
       }
+      if (err instanceof UnsupportedCardTypeError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+  }
+
+  @Post(':cardId/check-forms')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Check typed paradigm forms against an `inflection` card without mutating review state',
+    description:
+      'Feedback only - grading an inflection card is always a self-assessed rating via POST /reviews/:cardId/grade.',
+  })
+  @ApiParam({
+    name: 'cardId',
+    type: String,
+    example: '1db3f769-e154-44c6-9b98-87de1037a395',
+  })
+  @ApiBody({ type: CheckFormsDto })
+  @ApiOkResponse({ type: CheckFormsResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Empty typedForms, or the card is not an `inflection` card',
+  })
+  @ApiNotFoundResponse({ description: 'Card not found' })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  async checkForms(
+    @Param('cardId') cardId: string,
+    @Body() dto: CheckFormsDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<CheckFormsResponseDto> {
+    try {
+      const outcome = await this.reviewsService.checkForms(
+        user.userId,
+        cardId,
+        dto.typedForms,
+      );
+      return serializeFormCheckResult(outcome);
+    } catch (err: unknown) {
+      if (err instanceof CardNotFoundError) {
+        throw new NotFoundException('CARD_NOT_FOUND');
+      }
+      if (err instanceof UnsupportedCardTypeError) {
+        throw new BadRequestException(err.message);
+      }
       throw err;
     }
   }
@@ -147,6 +205,8 @@ export class ReviewsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Grade a review and schedule the next due date via FSRS',
+    description:
+      'Works for every card type: `cloze` cards are typically graded from typed-answer correctness, `inflection` and `definition` cards are always self-rated.',
   })
   @ApiParam({
     name: 'cardId',
@@ -166,6 +226,7 @@ export class ReviewsController {
       const result = await this.reviewsService.gradeCard(user.userId, cardId, {
         rating: dto.rating,
         typedAnswer: dto.typedAnswer,
+        typedForms: dto.typedForms,
         answerResult: dto.answerResult,
       });
       return serializeGradeResult(result);

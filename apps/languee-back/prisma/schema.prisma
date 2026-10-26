@@ -7,14 +7,13 @@ datasource db {
 }
 
 model User {
-  id           String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  email        String                  @unique
-  passwordHash String                  @map("password_hash")
-  createdAt    DateTime                @default(now()) @map("created_at")
-  updatedAt    DateTime                @updatedAt @map("updated_at")
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   decks        Deck[]
   cards        Card[]
-  reviewStates DefinitionReviewState[]
 
   @@map("users")
 }
@@ -33,6 +32,7 @@ model Word {
   kind        LexicalKind  @default(word)
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
   definitions Definition[]
+  cards       Card[]
 
   @@unique([lemma, language])
   @@index([lemma, language])
@@ -49,10 +49,9 @@ model Definition {
   provider          String
   gapFillMetadata   Json?    @map("gap_fill_metadata") @db.JsonB
   hasIrregularForms Boolean  @default(false) @map("has_irregular_forms")
-  inflectionForms   Json?                   @map("inflection_forms") @db.JsonB
-  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  inflectionForms   Json?    @map("inflection_forms") @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   cards             Card[]
-  reviewStates      DefinitionReviewState[]
 
   @@unique([wordId, partOfSpeech, definition])
   @@index([wordId])
@@ -61,36 +60,98 @@ model Definition {
   @@map("definitions")
 }
 
+/// Decks are grouping sugar over cards, not a scheduling boundary: this is a
+/// pure join table. A card reviewed through one deck is done for every other
+/// deck it also belongs to, because scheduling state lives on the card, not
+/// on the membership row.
 model Deck {
-  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  user      User     @relation(fields: [userId], references: [id])
+  id        String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  user      User       @relation(fields: [userId], references: [id])
   name      String
-  cards     Card[]
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  cardDecks CardDeck[]
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([userId, name])
   @@map("decks")
 }
 
+enum CardType {
+  cloze
+  inflection
+  definition
+}
+
+/// The card is the scheduled unit (item-centric model): each row carries its
+/// own FSRS state and is reviewed independently of every other card,
+/// regardless of how many decks it belongs to. A saved word yields up to
+/// three cards - see docs/review-model.md.
 model Card {
-  id              String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  deckId          String               @map("deck_id") @db.Uuid
-  deck            Deck                 @relation(fields: [deckId], references: [id])
-  userId          String               @map("user_id") @db.Uuid
-  user            User                 @relation(fields: [userId], references: [id])
-  definitionId    String               @map("definition_id") @db.Uuid
-  definition      Definition           @relation(fields: [definitionId], references: [id])
+  id     String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String   @map("user_id") @db.Uuid
+  user   User     @relation(fields: [userId], references: [id])
+  type   CardType
+
+  /// Set for `cloze` and `definition` cards: the saved sense this card
+  /// tests. Null for `inflection` cards, which are shared across every sense
+  /// of the same lemma + part of speech.
+  definitionId String?     @map("definition_id") @db.Uuid
+  definition   Definition? @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+
+  /// Set for `inflection` cards: the lemma + part of speech whose paradigm
+  /// this card tests. Null for `cloze` and `definition` cards, which are
+  /// anchored to a single definition instead.
+  wordId       String? @map("word_id") @db.Uuid
+  word         Word?   @relation(fields: [wordId], references: [id], onDelete: Restrict)
+  partOfSpeech String? @map("part_of_speech")
+
+  /// Captured usage sentence, populated on `cloze` cards for masking.
+  /// `definition` cards have no context of their own - they borrow their
+  /// sibling `cloze` card's context as a hint instead.
   context         String?
-  inflectionForms Json?                @map("inflection_forms") @db.JsonB
+  inflectionForms Json?   @map("inflection_forms") @db.JsonB
+
+  decks CardDeck[]
+
+  /// Per-card FSRS scheduling state.
+  state          ReviewCardState @default(new)
+  dueAt          DateTime        @default(now()) @map("due_at") @db.Timestamptz
+  stability      Float           @default(0)
+  difficulty     Float           @default(0)
+  scheduledDays  Int             @default(0) @map("scheduled_days")
+  learningSteps  Int             @default(0) @map("learning_steps")
+  reps           Int             @default(0)
+  lapses         Int             @default(0)
+  lastReviewedAt DateTime?       @map("last_reviewed_at") @db.Timestamptz
+
   createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
   ankidroidExport CardAnkiDroidExport?
   reviewLogs      ReviewLog[]
 
-  @@unique([deckId, definitionId])
+  @@unique([userId, definitionId, type])
+  @@unique([userId, wordId, partOfSpeech, type])
+  @@index([userId, dueAt])
+  @@index([userId, type])
+  @@index([definitionId])
+  @@index([wordId, partOfSpeech])
   @@map("cards")
+}
+
+/// Pure deck-membership join. A card may belong to any number of decks; it
+/// still has exactly one schedule (see `Card`).
+model CardDeck {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  cardId    String   @map("card_id") @db.Uuid
+  card      Card     @relation(fields: [cardId], references: [id])
+  deckId    String   @map("deck_id") @db.Uuid
+  deck      Deck     @relation(fields: [deckId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([cardId, deckId])
+  @@index([deckId])
+  @@map("card_decks")
 }
 
 enum CardAnkiDroidExportStatus {
@@ -156,38 +217,16 @@ enum ReviewAnswerResult {
   revealed
 }
 
-/// One review schedule per (user, definition). Scheduling is deliberately
-/// deck-agnostic: a definition saved into several decks is still a single
-/// item for the spaced-repetition engine.
-model DefinitionReviewState {
-  id             String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId         String          @map("user_id") @db.Uuid
-  user           User            @relation(fields: [userId], references: [id])
-  definitionId   String          @map("definition_id") @db.Uuid
-  definition     Definition      @relation(fields: [definitionId], references: [id])
-  state          ReviewCardState @default(new)
-  dueAt          DateTime        @default(now()) @map("due_at") @db.Timestamptz
-  stability      Float           @default(0)
-  difficulty     Float           @default(0)
-  scheduledDays  Int             @default(0) @map("scheduled_days")
-  learningSteps  Int             @default(0) @map("learning_steps")
-  reps           Int             @default(0)
-  lapses         Int             @default(0)
-  lastReviewedAt DateTime?       @map("last_reviewed_at") @db.Timestamptz
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
-
-  @@unique([userId, definitionId])
-  @@index([userId, dueAt])
-  @@map("definition_review_states")
-}
-
 model ReviewLog {
   id                   String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
   cardId               String              @map("card_id") @db.Uuid
   card                 Card                @relation(fields: [cardId], references: [id])
   rating               ReviewRating
   typedAnswer          String?             @map("typed_answer")
+  /// Per-form typed values for `inflection` cards, kept for feedback and
+  /// FSRS training data. The rating itself is always the learner's
+  /// self-assessment, never derived from these.
+  typedForms           Json?               @map("typed_forms") @db.JsonB
   answerResult         ReviewAnswerResult? @map("answer_result")
   /// State the card was in when this review was answered. FSRS parameter
   /// fitting needs it, and it cannot be recovered from the row alone.

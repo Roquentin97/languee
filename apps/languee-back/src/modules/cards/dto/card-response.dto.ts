@@ -2,6 +2,17 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { InflectionForms } from '../../dictionary/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../dictionary/types/inflection-forms.types';
 
+export const CARD_TYPES = ['cloze', 'inflection', 'definition'] as const;
+export type CardTypeValue = (typeof CARD_TYPES)[number];
+
+export class CardDeckRefDto {
+  @ApiProperty({ example: 'deck_123' })
+  id!: string;
+
+  @ApiProperty({ example: 'English basics' })
+  name!: string;
+}
+
 export class CardDefinitionResponseDto {
   @ApiProperty({ example: 'def_123' })
   id!: string;
@@ -37,14 +48,35 @@ export class CardResponseDto {
   @ApiProperty({ example: 'card_123' })
   id!: string;
 
-  @ApiProperty({ example: 'deck_123' })
-  deckId!: string;
+  @ApiProperty({ enum: CARD_TYPES, example: 'cloze' })
+  type!: CardTypeValue;
 
   @ApiProperty({ example: 'user_123' })
   userId!: string;
 
-  @ApiProperty({ example: 'def_123' })
-  definitionId!: string;
+  @ApiProperty({ type: [CardDeckRefDto] })
+  decks!: CardDeckRefDto[];
+
+  @ApiPropertyOptional({
+    description: 'Set for `cloze` and `definition` cards',
+    example: 'def_123',
+    nullable: true,
+  })
+  definitionId!: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Set for `inflection` cards',
+    example: 'word_123',
+    nullable: true,
+  })
+  wordId!: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Set for `inflection` cards',
+    example: 'verb',
+    nullable: true,
+  })
+  partOfSpeech!: string | null;
 
   @ApiPropertyOptional({
     description: 'User-provided context for the card',
@@ -62,11 +94,24 @@ export class CardResponseDto {
   @ApiProperty({ type: String, format: 'date-time' })
   updatedAt!: Date;
 
-  @ApiProperty({ type: CardDefinitionResponseDto })
-  definition!: CardDefinitionResponseDto;
+  @ApiPropertyOptional({
+    description: 'Null for `inflection` cards',
+    type: CardDefinitionResponseDto,
+    nullable: true,
+  })
+  definition!: CardDefinitionResponseDto | null;
 
   @ApiProperty({ type: CardWordResponseDto })
   word!: CardWordResponseDto;
+}
+
+export class CreateCardsResponseDto {
+  @ApiProperty({
+    type: [CardResponseDto],
+    description:
+      'Every card generated or reused by this save: always a `cloze` and a `definition` card, plus an `inflection` card when the word inflects.',
+  })
+  cards!: CardResponseDto[];
 }
 
 export class CardAnkiDroidExportSummaryResponseDto {
@@ -86,41 +131,7 @@ export class CardAnkiDroidExportSummaryResponseDto {
   completedAt!: Date | null;
 }
 
-export class CardListItemResponseDto {
-  @ApiProperty({ example: 'card_123' })
-  id!: string;
-
-  @ApiProperty({ example: 'deck_123' })
-  deckId!: string;
-
-  @ApiProperty({ example: 'user_123' })
-  userId!: string;
-
-  @ApiProperty({ example: 'def_123' })
-  definitionId!: string;
-
-  @ApiPropertyOptional({
-    description: 'User-provided context for the card',
-    example: 'She walked to the store.',
-    nullable: true,
-  })
-  context!: string | null;
-
-  @ApiPropertyOptional(INFLECTION_FORMS_SWAGGER)
-  inflectionForms!: InflectionForms | null;
-
-  @ApiProperty({ type: String, format: 'date-time' })
-  createdAt!: Date;
-
-  @ApiProperty({ type: String, format: 'date-time' })
-  updatedAt!: Date;
-
-  @ApiProperty({ type: CardDefinitionResponseDto })
-  definition!: CardDefinitionResponseDto;
-
-  @ApiProperty({ type: CardWordResponseDto })
-  word!: CardWordResponseDto;
-
+export class CardListItemResponseDto extends CardResponseDto {
   @ApiPropertyOptional({
     type: CardAnkiDroidExportSummaryResponseDto,
     nullable: true,

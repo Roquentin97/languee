@@ -1,10 +1,12 @@
 import type {
   AnswerCheckOutcome,
+  FormCheckOutcome,
   GradeOutcome,
   ReviewQueueItem,
   ReviewSummary,
 } from '../reviews.types';
 import { AnswerCardResponseDto } from '../dto/answer-card-response.dto';
+import { CheckFormsResponseDto } from '../dto/check-forms-response.dto';
 import { GradeCardResponseDto } from '../dto/grade-card-response.dto';
 import {
   ReviewQueueItemResponseDto,
@@ -21,17 +23,12 @@ export function serializeSummary(
 function serializeQueueItem(item: ReviewQueueItem): ReviewQueueItemResponseDto {
   return {
     cardId: item.cardId,
-    deckId: item.deckId,
-    deckName: item.deckName,
+    type: item.type,
+    decks: item.decks,
     isNew: item.isNew,
-    prompt: {
-      definition: item.prompt.definition,
-      maskedSentence: item.prompt.maskedSentence,
-      partOfSpeech: item.prompt.partOfSpeech,
-      kind: item.prompt.kind,
-      lemmaLength: item.prompt.lemmaLength,
-      language: item.prompt.language,
-    },
+    cloze: item.cloze,
+    inflection: item.inflection,
+    definition: item.definition,
   };
 }
 
@@ -57,12 +54,26 @@ export function serializeAnswerResult(
   };
 }
 
+export function serializeFormCheckResult(
+  outcome: FormCheckOutcome,
+): CheckFormsResponseDto {
+  return {
+    results: outcome.results,
+    allCorrect: outcome.allCorrect,
+    revealed: {
+      lemma: outcome.revealed.lemma,
+      ipa: outcome.revealed.ipa,
+      inflectionForms: outcome.revealed.inflectionForms,
+    },
+  };
+}
+
 export function serializeGradeResult(
   result: GradeOutcome,
 ): GradeCardResponseDto {
   return {
     nextDueAt: result.nextDueAt,
     intervalDays: result.intervalDays,
-    state: result.state as 'learning' | 'review',
+    state: result.state as 'learning' | 'review' | 'relearning',
   };
 }
