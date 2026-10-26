@@ -42,6 +42,26 @@ updates:
         versions: ["[1.19,)"]
       - dependency-name: "androidx.lifecycle:*"
         versions: ["[2.11,)"]
+      # compose-bom releases from 2026.08.00 onward pull in compose/lifecycle
+      # artifacts requiring compileSdk 37 (verified: 2026.08.00 and 2026.09.00
+      # both fail checkDebugAarMetadata on compileSdk 36). Remove when compileSdk
+      # is raised (dedicated migration PR).
+      - dependency-name: "androidx.compose:compose-bom"
+        versions: ["[2026.08,)"]
+      # navigation-compose 2.10.x requires compileSdk 37 (verified: 2.10.2 fails
+      # checkDebugAarMetadata on compileSdk 36). Remove when compileSdk is raised.
+      - dependency-name: "androidx.navigation:navigation-compose"
+        versions: ["[2.10,)"]
+      # okhttp 5.5.0 (okhttp-android artifact) requires compileSdk 37, both as a
+      # direct bump and transitively via opentelemetry-exporter-otlp >=1.65 (which
+      # pulls opentelemetry-exporter-sender-okhttp -> okhttp-android 5.5.0).
+      # Remove when compileSdk is raised.
+      - dependency-name: "com.squareup.okhttp3:*"
+        versions: ["[5.5,)"]
+      - dependency-name: "io.opentelemetry:*"
+        versions: ["[1.65,)"]
+      - dependency-name: "io.opentelemetry.instrumentation:*"
+        versions: ["[2.31,)"]
       - dependency-name: "androidx.hilt:hilt-navigation-compose"
         versions: ["[1.4,)"]
       # ktlint plugin >=13 wires up source sets the 12.x config never linted,
