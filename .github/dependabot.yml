@@ -11,6 +11,27 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # NestJS 11->12 is a whole-framework major: the whole @nestjs/* family
+      # ships as pure ESM with no CJS entry point, and this repo's Jest 30
+      # test harness can't require() it without either bumping the pinned
+      # Node runtime to >=24.9 or rewriting every jest.mock()/jest.fn() call
+      # across all spec files to jest.unstable_mockModule() (ts-jest doesn't
+      # hoist mocks in ESM mode). Remove once that migration is deliberately
+      # scheduled. See PR #176.
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      # OTel JS SDK 3.0 (0.221.x -> 0.300.x on the experimental packages) is
+      # a coordinated ecosystem-wide migration: BatchSpanProcessor moves from
+      # sdk-trace-base to a new sdk-trace package with a changed constructor
+      # signature, sdk-node pins @opentelemetry/api to a narrow 1.10.x peer
+      # range, and auto-instrumentations-node needs @opentelemetry/core 3.x.
+      # No test covers real exported span shape. Remove once scheduled as its
+      # own migration. See PR #172.
+      - dependency-name: "@opentelemetry/sdk-node"
+        versions: ["[0.300,)"]
+      - dependency-name: "@opentelemetry/exporter-trace-otlp-http"
+        versions: ["[0.300,)"]
 
   - package-ecosystem: "pip"
     directory: "/apps/languee-nlp"
