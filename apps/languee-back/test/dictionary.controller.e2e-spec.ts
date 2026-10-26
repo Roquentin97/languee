@@ -115,9 +115,9 @@ describe('DictionaryController (e2e)', () => {
       expect(res.body.lemma).toBe('despite');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.definitions).toHaveLength(1);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+
       expect(mockAdapter.fetch).toHaveBeenCalledTimes(1);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+
       expect(mockAdapter.fetch).toHaveBeenCalledWith('despite', 'en');
     });
 
@@ -133,7 +133,7 @@ describe('DictionaryController (e2e)', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.source).toBe('cache');
       // Adapter should not be called since word is in DB from previous test
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+
       expect(mockAdapter.fetch).not.toHaveBeenCalled();
     });
 

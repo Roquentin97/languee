@@ -7,9 +7,11 @@ const mockConfigService = {
   getOrThrow: jest.fn().mockReturnValue('jwt-secret'),
 } as unknown as ConfigService;
 
-const mockRedisService = {
+const mockRedisServiceImpl = {
   get: jest.fn(),
-} as unknown as jest.Mocked<Pick<RedisService, 'get'>>;
+};
+
+const mockRedisService = mockRedisServiceImpl as unknown as RedisService;
 
 function makeSession(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -30,24 +32,23 @@ describe('JwtStrategy', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    strategy = new JwtStrategy(
-      mockConfigService,
-      mockRedisService as unknown as RedisService,
-    );
+    strategy = new JwtStrategy(mockConfigService, mockRedisService);
   });
 
   it('returns the current user when the Redis session is active', async () => {
-    mockRedisService.get.mockResolvedValue(makeSession());
+    mockRedisServiceImpl.get.mockResolvedValue(makeSession());
 
     await expect(
       strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
     ).resolves.toEqual({ userId: 'user-123', sessionId: 'session-123' });
 
-    expect(mockRedisService.get).toHaveBeenCalledWith('session:session-123');
+    expect(mockRedisServiceImpl.get).toHaveBeenCalledWith(
+      'session:session-123',
+    );
   });
 
   it('rejects access tokens whose session no longer exists', async () => {
-    mockRedisService.get.mockResolvedValue(null);
+    mockRedisServiceImpl.get.mockResolvedValue(null);
 
     await expect(
       strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
@@ -55,7 +56,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rejects access tokens for revoked sessions', async () => {
-    mockRedisService.get.mockResolvedValue(makeSession({ revoked: true }));
+    mockRedisServiceImpl.get.mockResolvedValue(makeSession({ revoked: true }));
 
     await expect(
       strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
@@ -63,7 +64,9 @@ describe('JwtStrategy', () => {
   });
 
   it('rejects access tokens when the session belongs to another user', async () => {
-    mockRedisService.get.mockResolvedValue(makeSession({ userId: 'user-456' }));
+    mockRedisServiceImpl.get.mockResolvedValue(
+      makeSession({ userId: 'user-456' }),
+    );
 
     await expect(
       strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
@@ -71,7 +74,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rejects access tokens when the stored session id does not match', async () => {
-    mockRedisService.get.mockResolvedValue(
+    mockRedisServiceImpl.get.mockResolvedValue(
       makeSession({ sessionId: 'session-456' }),
     );
 
@@ -81,7 +84,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rejects malformed session data', async () => {
-    mockRedisService.get.mockResolvedValue('not-json');
+    mockRedisServiceImpl.get.mockResolvedValue('not-json');
 
     await expect(
       strategy.validate({ sub: 'user-123', session_id: 'session-123' }),

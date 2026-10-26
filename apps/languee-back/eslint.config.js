@@ -74,4 +74,15 @@ module.exports = tseslint.config(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
+  {
+    // Jest mock methods (e.g. `expect(mockService.method).toHaveBeenCalled()`)
+    // reference a class/interface method without calling it. TypeScript's
+    // stricter type resolution surfaces this as an unbound-method risk, but
+    // jest.fn()-backed mocks never rely on `this`, so it is a false positive
+    // in test files specifically.
+    files: ['**/*.spec.ts', 'test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
 );
