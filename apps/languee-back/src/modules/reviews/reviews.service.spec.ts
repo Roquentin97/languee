@@ -348,6 +348,29 @@ describe('ReviewsService', () => {
     });
   });
 
+  describe('revealDefinition()', () => {
+    it('returns the selected saved meaning without grading or scheduling', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockDefinitionCard);
+
+      await expect(
+        service.revealDefinition('user-id-1', 'card-id-3'),
+      ).resolves.toEqual({
+        lemma: 'run into',
+        definition: 'To encounter unexpectedly.',
+      });
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+      expect(mockCardsService.buildGradeUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects cards of another type', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);
+
+      await expect(
+        service.revealDefinition('user-id-1', 'card-id-1'),
+      ).rejects.toThrow('Only `definition` cards support meaning reveal');
+    });
+  });
+
   describe('checkTypedAnswer()', () => {
     it('happy path — correct via lemma', async () => {
       mockCardsService.findOwnedOrThrow.mockResolvedValue(mockClozeCard);

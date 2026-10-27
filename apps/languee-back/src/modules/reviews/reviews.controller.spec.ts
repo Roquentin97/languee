@@ -18,6 +18,7 @@ const mockReviewsService = {
   getQueue: jest.fn(),
   checkTypedAnswer: jest.fn(),
   checkForms: jest.fn(),
+  revealDefinition: jest.fn(),
   gradeCard: jest.fn(),
 };
 
@@ -223,6 +224,26 @@ describe('ReviewsController', () => {
       await expect(
         controller.answer('card-id-1', { typedAnswer: 'run into' }, mockUser),
       ).rejects.toThrow('Unexpected failure');
+    });
+  });
+
+  describe('revealDefinition()', () => {
+    it('returns the saved meaning without grading the card', async () => {
+      mockReviewsService.revealDefinition.mockResolvedValue({
+        lemma: 'run into',
+        definition: 'To encounter unexpectedly.',
+      });
+
+      await expect(
+        controller.revealDefinition('card-id-1', mockUser),
+      ).resolves.toEqual({
+        lemma: 'run into',
+        definition: 'To encounter unexpectedly.',
+      });
+      expect(mockReviewsService.revealDefinition).toHaveBeenCalledWith(
+        'user-id-1',
+        'card-id-1',
+      );
     });
   });
 

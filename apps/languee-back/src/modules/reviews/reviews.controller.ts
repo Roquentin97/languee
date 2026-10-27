@@ -40,6 +40,7 @@ import { ReviewQueueResponseDto } from './dto/review-queue-response.dto';
 import { AnswerCardResponseDto } from './dto/answer-card-response.dto';
 import { CheckFormsResponseDto } from './dto/check-forms-response.dto';
 import { GradeCardResponseDto } from './dto/grade-card-response.dto';
+import { RevealDefinitionResponseDto } from './dto/reveal-definition-response.dto';
 import {
   serializeAnswerResult,
   serializeFormCheckResult,
@@ -190,6 +191,34 @@ export class ReviewsController {
         dto.typedForms,
       );
       return serializeFormCheckResult(outcome);
+    } catch (err: unknown) {
+      if (err instanceof CardNotFoundError) {
+        throw new NotFoundException('CARD_NOT_FOUND');
+      }
+      if (err instanceof UnsupportedCardTypeError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+  }
+
+  @Post(':cardId/reveal')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Reveal the saved meaning for a `definition` card without grading it',
+  })
+  @ApiParam({ name: 'cardId', type: String })
+  @ApiOkResponse({ type: RevealDefinitionResponseDto })
+  @ApiBadRequestResponse({ description: 'The card is not a `definition` card' })
+  @ApiNotFoundResponse({ description: 'Card not found' })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  async revealDefinition(
+    @Param('cardId') cardId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<RevealDefinitionResponseDto> {
+    try {
+      return await this.reviewsService.revealDefinition(user.userId, cardId);
     } catch (err: unknown) {
       if (err instanceof CardNotFoundError) {
         throw new NotFoundException('CARD_NOT_FOUND');

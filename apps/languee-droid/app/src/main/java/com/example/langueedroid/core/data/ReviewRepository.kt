@@ -5,6 +5,7 @@ import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.GradeOutcome
+import com.example.langueedroid.core.domain.RevealedWord
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.ReviewSummary
@@ -93,6 +94,25 @@ class ReviewRepository(
                 response.code() == 401 -> throw UnauthorizedException()
                 response.code() == 404 -> throw StaleReferenceException()
                 else -> throw Exception("Failed to check review forms: HTTP ${response.code()}")
+            }
+        }
+
+    suspend fun revealDefinition(cardId: String): Result<RevealedWord> =
+        runCatching {
+            val response = reviewsApi.revealDefinition(cardId)
+            when {
+                response.isSuccessful -> {
+                    val body = response.body() ?: throw Exception("Empty response body from definition reveal")
+                    RevealedWord(
+                        lemma = body.lemma,
+                        ipa = null,
+                        inflectionForms = null,
+                        definition = body.definition,
+                    )
+                }
+                response.code() == 401 -> throw UnauthorizedException()
+                response.code() == 404 -> throw StaleReferenceException()
+                else -> throw Exception("Failed to reveal definition: HTTP ${response.code()}")
             }
         }
 

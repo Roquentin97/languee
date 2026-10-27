@@ -4,10 +4,12 @@ import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.AnswerResult
+import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.GradeOutcome
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
 import com.example.langueedroid.core.domain.ReviewRating
@@ -34,6 +36,8 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -152,6 +156,58 @@ class ReviewViewModelTest {
             advanceUntilIdle()
 
             assertEquals(ReviewSessionState.Empty, vm.state.value)
+        }
+
+    @Test
+    fun `definition reveal returns saved meaning without grading and keeps self-rating`() =
+        runTest {
+            val item =
+                anItem().copy(
+                    type = ReviewCardType.DEFINITION,
+                    definition = DefinitionReview(lemma = "run into", hint1 = null, hint2 = null),
+                    prompt = aPrompt().copy(definition = "What does run into mean?", maskedSentence = null),
+                )
+            val revealed =
+                RevealedWord(
+                    lemma = "run into",
+                    ipa = null,
+                    inflectionForms = null,
+                    definition = "To encounter unexpectedly.",
+                )
+            whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
+            whenever(reviewRepository.revealDefinition("card-1")).thenReturn(Result.success(revealed))
+            whenever(
+                reviewRepository.grade(
+                    cardId = eq("card-1"),
+                    rating = eq(ReviewRating.GOOD),
+                    typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
+                    answerResult = anyOrNull(),
+                ),
+            ).thenReturn(Result.success(aGradeOutcome()))
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.submitAnswer()
+            advanceUntilIdle()
+            assertTrue(vm.state.value is ReviewSessionState.Question)
+            vm.reveal()
+            advanceUntilIdle()
+
+            val revealedState = vm.state.value as ReviewSessionState.Correct
+            assertEquals("To encounter unexpectedly.", revealedState.revealed?.definition)
+            verify(reviewRepository, never()).grade(
+                cardId = any(),
+                rating = any(),
+                typedAnswer = anyOrNull(),
+                typedForms = anyOrNull(),
+                answerResult = anyOrNull(),
+            )
+
+            vm.grade(ReviewRating.GOOD)
+            advanceUntilIdle()
+            assertTrue(vm.state.value is ReviewSessionState.Finished)
+            verify(reviewRepository).grade("card-1", ReviewRating.GOOD, null, null, null)
         }
 
     // -------------------------------------------------------------------------
