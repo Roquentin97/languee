@@ -384,6 +384,7 @@ fun MainScreen(
                 state = reviewState,
                 speaker = reviewViewModel.speaker,
                 onInputChange = { text -> reviewViewModel.updateInput(text) },
+                onFormInputChange = { key, text -> reviewViewModel.updateFormInput(key, text) },
                 onSubmit = { reviewViewModel.submitAnswer() },
                 onReveal = { reviewViewModel.reveal() },
                 onGrade = { rating -> reviewViewModel.grade(rating) },

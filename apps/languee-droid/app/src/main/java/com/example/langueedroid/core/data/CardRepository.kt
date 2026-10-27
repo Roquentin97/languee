@@ -32,11 +32,13 @@ class CardRepository(
                 )
             when {
                 response.isSuccessful -> {
-                    val body =
-                        response.body()
-                            ?: throw Exception("Empty response body from createCard")
-                    Log.i(TAG, "[event=card.created method=createCard] card created | cardId=${body.id}")
-                    body.id
+                    val body = response.body() ?: throw Exception("Empty response body from createCard")
+                    val cardId =
+                        body.cards.firstOrNull { it.type == "cloze" }?.id
+                            ?: body.cards.firstOrNull()?.id
+                            ?: throw Exception("Create card response contained no cards")
+                    Log.i(TAG, "[event=card.created method=createCard] card created | cardId=$cardId")
+                    cardId
                 }
                 response.code() == 401 -> throw UnauthorizedException()
                 response.code() == 404 -> throw StaleReferenceException()
@@ -53,7 +55,7 @@ class CardRepository(
                     val body =
                         response.body()
                             ?: throw Exception("Empty response body from listCards")
-                    body.map { it.toDomain() }
+                    body.map { it.toDomain(requestedDeckId = deckId) }
                 }
                 response.code() == 401 -> throw UnauthorizedException()
                 else -> throw Exception("Failed to list cards: HTTP ${response.code()}")

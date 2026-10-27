@@ -2,6 +2,7 @@ package com.example.langueedroid.core.network
 
 import com.example.langueedroid.core.network.dto.CardResponseDto
 import com.example.langueedroid.core.network.dto.CreateCardRequest
+import com.example.langueedroid.core.network.dto.CreateCardsResponseDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -13,7 +14,7 @@ interface CardsApi {
     @POST("/api/v1/cards")
     suspend fun createCard(
         @Body body: CreateCardRequest,
-    ): Response<CardResponseDto>
+    ): Response<CreateCardsResponseDto>
 
     @GET("/api/v1/cards/{id}")
     suspend fun getCard(

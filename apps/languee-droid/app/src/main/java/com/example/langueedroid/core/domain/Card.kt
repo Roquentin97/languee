@@ -1,5 +1,7 @@
 package com.example.langueedroid.core.domain
 
+enum class CardType { CLOZE, INFLECTION, DEFINITION }
+
 data class Card(
     val id: String,
     val deckId: String,
@@ -9,4 +11,5 @@ data class Card(
     val example: String?,
     val context: String? = null,
     val inflectionForms: Map<String, String>? = null,
+    val type: CardType = CardType.CLOZE,
 )

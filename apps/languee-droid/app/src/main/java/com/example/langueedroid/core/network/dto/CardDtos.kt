@@ -4,7 +4,7 @@ data class CreateCardRequest(
     val deckId: String,
     val definitionId: String,
     val context: String? = null,
-    val inflectionForms: Map<String, String>? = null,
+    val inflectionForms: Map<String, String>?,
 )
 
 data class CardDefinitionDto(
@@ -13,6 +13,12 @@ data class CardDefinitionDto(
     val definition: String,
     val example: String?,
     val provider: String,
+    val inflectionForms: Map<String, String>? = null,
+)
+
+data class CardDeckDto(
+    val id: String,
+    val name: String,
 )
 
 data class CardWordDto(
@@ -23,13 +29,20 @@ data class CardWordDto(
 
 data class CardResponseDto(
     val id: String,
-    val deckId: String,
+    val type: String,
     val userId: String,
-    val definitionId: String,
-    val context: String? = null,
-    val inflectionForms: Map<String, String>? = null,
+    val decks: List<CardDeckDto>,
+    val definitionId: String?,
+    val wordId: String?,
+    val partOfSpeech: String?,
+    val context: String?,
+    val inflectionForms: Map<String, String>?,
     val createdAt: String,
     val updatedAt: String,
-    val definition: CardDefinitionDto,
+    val definition: CardDefinitionDto?,
     val word: CardWordDto,
+)
+
+data class CreateCardsResponseDto(
+    val cards: List<CardResponseDto>,
 )

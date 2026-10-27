@@ -2,6 +2,8 @@ package com.example.langueedroid.core.network
 
 import com.example.langueedroid.core.network.dto.CheckAnswerRequest
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
+import com.example.langueedroid.core.network.dto.CheckFormsRequest
+import com.example.langueedroid.core.network.dto.CheckFormsResponseDto
 import com.example.langueedroid.core.network.dto.GradeRequest
 import com.example.langueedroid.core.network.dto.GradeResponseDto
 import com.example.langueedroid.core.network.dto.ReviewQueueResponseDto
@@ -28,6 +30,12 @@ interface ReviewsApi {
         @Path("cardId") cardId: String,
         @Body body: CheckAnswerRequest,
     ): Response<CheckAnswerResponseDto>
+
+    @POST("/api/v1/reviews/{cardId}/check-forms")
+    suspend fun checkForms(
+        @Path("cardId") cardId: String,
+        @Body body: CheckFormsRequest,
+    ): Response<CheckFormsResponseDto>
 
     @POST("/api/v1/reviews/{cardId}/grade")
     suspend fun grade(

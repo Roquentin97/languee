@@ -12,6 +12,8 @@ import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.dto.CheckAnswerRequest
+import com.example.langueedroid.core.network.dto.CheckFormsRequest
+import com.example.langueedroid.core.network.dto.CheckFormsResponseDto
 import com.example.langueedroid.core.network.dto.GradeRequest
 
 private const val TAG = "ReviewRepository"
@@ -80,10 +82,25 @@ class ReviewRepository(
             }
         }
 
+    suspend fun checkForms(
+        cardId: String,
+        typedForms: Map<String, String>,
+    ): Result<CheckFormsResponseDto> =
+        runCatching {
+            val response = reviewsApi.checkForms(cardId, CheckFormsRequest(typedForms))
+            when {
+                response.isSuccessful -> response.body() ?: throw Exception("Empty response body from review forms check")
+                response.code() == 401 -> throw UnauthorizedException()
+                response.code() == 404 -> throw StaleReferenceException()
+                else -> throw Exception("Failed to check review forms: HTTP ${response.code()}")
+            }
+        }
+
     suspend fun grade(
         cardId: String,
         rating: ReviewRating,
         typedAnswer: String? = null,
+        typedForms: Map<String, String>? = null,
         answerResult: GradeAnswerResult? = null,
     ): Result<GradeOutcome> =
         runCatching {
@@ -94,6 +111,7 @@ class ReviewRepository(
                         GradeRequest(
                             rating = rating.toWireValue(),
                             typedAnswer = typedAnswer,
+                            typedForms = typedForms,
                             answerResult = answerResult?.toWireValue(),
                         ),
                 )

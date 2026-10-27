@@ -185,18 +185,20 @@ private fun DeckCardItem(
                         .padding(horizontal = 8.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = card.partOfSpeech.uppercase(),
+                    text = card.partOfSpeech.uppercase().ifBlank { card.type.name },
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary,
                 )
             }
         }
         Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = card.definition,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextPrimary,
-        )
+        if (card.definition.isNotBlank()) {
+            Text(
+                text = card.definition,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextPrimary,
+            )
+        }
         val sentence = card.context ?: card.example
         if (sentence != null) {
             Spacer(modifier = Modifier.height(6.dp))
@@ -205,6 +207,17 @@ private fun DeckCardItem(
                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                 color = TextSecondary,
             )
+        }
+        if (card.type == com.example.langueedroid.core.domain.CardType.INFLECTION) {
+            val forms = card.inflectionForms.orEmpty().filterKeys { it != "type" }
+            if (forms.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = forms.entries.joinToString { (key, value) -> "$key: $value" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
         }
     }
 }

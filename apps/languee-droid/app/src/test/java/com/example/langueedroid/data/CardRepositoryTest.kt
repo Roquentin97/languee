@@ -5,9 +5,11 @@ import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.CardsApi
+import com.example.langueedroid.core.network.dto.CardDeckDto
 import com.example.langueedroid.core.network.dto.CardDefinitionDto
 import com.example.langueedroid.core.network.dto.CardResponseDto
 import com.example.langueedroid.core.network.dto.CardWordDto
+import com.example.langueedroid.core.network.dto.CreateCardsResponseDto
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertTrue
@@ -33,13 +35,20 @@ class CardRepositoryTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createCard success returns Unit`() =
+    fun `createCard success returns cloze card id from generated cards`() =
         runTest {
-            whenever(cardsApi.createCard(any())).thenReturn(Response.success(aCardResponseDto()))
+            whenever(cardsApi.createCard(any())).thenReturn(
+                Response.success(
+                    CreateCardsResponseDto(
+                        cards = listOf(aCardResponseDto(type = "definition"), aCardResponseDto(id = "cloze-id", type = "cloze")),
+                    ),
+                ),
+            )
 
             val result = repository.createCard(deckId = "d1", definitionId = "def1")
 
             assertTrue(result.isSuccess)
+            org.junit.Assert.assertEquals("cloze-id", result.getOrThrow())
         }
 
     // -------------------------------------------------------------------------
@@ -141,6 +150,20 @@ class CardRepositoryTest {
         }
 
     @Test
+    fun `listCards maps inflection cards without a definition payload`() =
+        runTest {
+            whenever(cardsApi.listCards("d1")).thenReturn(
+                Response.success(listOf(aCardResponseDto(id = "inflection-id", type = "inflection"))),
+            )
+
+            val card = repository.listCards("d1").getOrThrow().single()
+
+            org.junit.Assert.assertEquals(com.example.langueedroid.core.domain.CardType.INFLECTION, card.type)
+            org.junit.Assert.assertEquals("verb", card.partOfSpeech)
+            org.junit.Assert.assertEquals("ran", card.inflectionForms?.get("past"))
+        }
+
+    @Test
     fun `listCards 401 throws UnauthorizedException`() =
         runTest {
             whenever(cardsApi.listCards("d1")).thenReturn(Response.error(401, "{}".toResponseBody()))
@@ -161,22 +184,34 @@ class CardRepositoryTest {
             assertTrue(result.isFailure)
         }
 
-    private fun aCardResponseDto() =
-        CardResponseDto(
-            id = "c1",
-            deckId = "d1",
-            userId = "u1",
-            definitionId = "def1",
-            createdAt = "2024-01-01T00:00:00Z",
-            updatedAt = "2024-01-01T00:00:00Z",
-            definition =
+    private fun aCardResponseDto(
+        id: String = "c1",
+        type: String = "cloze",
+    ) = CardResponseDto(
+        id = id,
+        type = type,
+        userId = "u1",
+        decks = listOf(CardDeckDto(id = "d1", name = "English")),
+        definitionId = if (type == "inflection") null else "def1",
+        wordId = if (type == "inflection") "w1" else null,
+        partOfSpeech = if (type == "inflection") "verb" else null,
+        context = null,
+        createdAt = "2024-01-01T00:00:00Z",
+        updatedAt = "2024-01-01T00:00:00Z",
+        definition =
+            if (type != "inflection") {
                 CardDefinitionDto(
                     id = "def1",
                     partOfSpeech = "noun",
                     definition = "A small animal",
                     example = null,
                     provider = "dict",
-                ),
-            word = CardWordDto(id = "w1", lemma = "cat", language = "en"),
-        )
+                    inflectionForms = null,
+                )
+            } else {
+                null
+            },
+        inflectionForms = if (type == "inflection") mapOf("type" to "verb", "base" to "run", "past" to "ran") else null,
+        word = CardWordDto(id = "w1", lemma = "cat", language = "en"),
+    )
 }

@@ -172,6 +172,7 @@ class ReviewViewModelTest {
                     cardId = eq("card-1"),
                     rating = eq(ReviewRating.GOOD),
                     typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
                     answerResult = eq(GradeAnswerResult.CORRECT),
                 ),
             ).thenReturn(Result.success(aGradeOutcome()))
@@ -257,6 +258,7 @@ class ReviewViewModelTest {
                     cardId = eq("card-1"),
                     rating = eq(ReviewRating.AGAIN),
                     typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
                     answerResult = eq(GradeAnswerResult.REVEALED),
                 ),
             ).thenReturn(Result.success(aGradeOutcome()))
@@ -287,6 +289,7 @@ class ReviewViewModelTest {
                     cardId = eq("card-1"),
                     rating = eq(ReviewRating.GOOD),
                     typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
                     answerResult = eq(GradeAnswerResult.CORRECT),
                 ),
             ).thenReturn(Result.success(aGradeOutcome()))
@@ -322,6 +325,7 @@ class ReviewViewModelTest {
                     cardId = eq("card-1"),
                     rating = eq(ReviewRating.AGAIN),
                     typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
                     answerResult = eq(GradeAnswerResult.REVEALED),
                 ),
             ).thenReturn(Result.success(aGradeOutcome()))

@@ -50,6 +50,8 @@ import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.InflectionFormLabels
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.ReviewCardType
+import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.ui.components.SpeakerIconButton
 import com.example.langueedroid.core.ui.theme.AmberWarning
@@ -72,6 +74,7 @@ fun ReviewScreen(
     state: ReviewSessionState,
     speaker: Speaker,
     onInputChange: (String) -> Unit,
+    onFormInputChange: (String, String) -> Unit,
     onSubmit: () -> Unit,
     onReveal: () -> Unit,
     onGrade: (ReviewRating) -> Unit,
@@ -148,6 +151,7 @@ fun ReviewScreen(
                     QuestionContent(
                         state = state,
                         onInputChange = onInputChange,
+                        onFormInputChange = onFormInputChange,
                         onSubmit = onSubmit,
                         onReveal = onReveal,
                     )
@@ -157,6 +161,8 @@ fun ReviewScreen(
                     CorrectContent(
                         matchedForm = state.matchedForm,
                         revealed = state.revealed,
+                        item = state.item,
+                        typedForms = state.typedForms,
                         language = state.item.prompt.language,
                         speaker = speaker,
                         onGrade = onGrade,
@@ -243,6 +249,7 @@ private fun ErrorContent(
 private fun QuestionContent(
     state: ReviewSessionState.Question,
     onInputChange: (String) -> Unit,
+    onFormInputChange: (String, String) -> Unit,
     onSubmit: () -> Unit,
     onReveal: () -> Unit,
 ) {
@@ -342,25 +349,49 @@ private fun QuestionContent(
             is QuestionFeedback.None -> Unit
         }
 
-        OutlinedTextField(
-            value = state.typedAnswer,
-            onValueChange = onInputChange,
-            label = { Text(stringResource(R.string.review_answer_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-            shape = RoundedCornerShape(11.dp),
-            colors =
-                OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenPrimary,
-                    unfocusedBorderColor = GreenBorder,
-                    focusedLabelColor = GreenPrimary,
-                    unfocusedLabelColor = TextSecondary,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                ),
-        )
+        if (state.item.type == ReviewCardType.INFLECTION) {
+            state.item.inflection?.formKeys.orEmpty().forEach { key ->
+                OutlinedTextField(
+                    value = state.typedForms[key].orEmpty(),
+                    onValueChange = { onFormInputChange(key, it) },
+                    label = {
+                        Text(
+                            InflectionFormLabels.resourceFor(key)?.let { stringResource(it) } ?: InflectionFormLabels.humanize(key),
+                        )
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(11.dp),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GreenPrimary,
+                            unfocusedBorderColor = GreenBorder,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                        ),
+                )
+            }
+        } else {
+            OutlinedTextField(
+                value = state.typedAnswer,
+                onValueChange = onInputChange,
+                label = { Text(stringResource(R.string.review_answer_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+                shape = RoundedCornerShape(11.dp),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GreenBorder,
+                        focusedLabelColor = GreenPrimary,
+                        unfocusedLabelColor = TextSecondary,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                    ),
+            )
+        }
 
         Button(
             onClick = onSubmit,
@@ -392,6 +423,8 @@ private fun QuestionContent(
 private fun CorrectContent(
     matchedForm: String?,
     revealed: RevealedWord?,
+    item: ReviewItem,
+    typedForms: Map<String, String>?,
     language: String,
     speaker: Speaker,
     onGrade: (ReviewRating) -> Unit,
@@ -430,6 +463,14 @@ private fun CorrectContent(
                         )
                     }
                 }
+                item.definition?.hint1?.forEach { hint ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                }
+                item.definition?.hint2?.let { hint ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                }
                 if (revealed != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -467,7 +508,7 @@ private fun CorrectContent(
                                     ?.let { stringResource(it) }
                                     ?: InflectionFormLabels.humanize(key)
                             Text(
-                                text = "$label: $value",
+                                text = "$label: $value${typedForms?.get(key)?.let { " (you: $it)" } ?: ""}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary,
                             )

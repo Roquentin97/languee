@@ -22,6 +22,7 @@ sealed class ReviewSessionState {
         val total: Int,
         val typedAnswer: String,
         val feedback: QuestionFeedback,
+        val typedForms: Map<String, String> = emptyMap(),
     ) : ReviewSessionState()
 
     data class Correct(
@@ -30,6 +31,7 @@ sealed class ReviewSessionState {
         val total: Int,
         val matchedForm: String?,
         val revealed: RevealedWord? = null,
+        val typedForms: Map<String, String>? = null,
     ) : ReviewSessionState()
 
     data class Revealed(
