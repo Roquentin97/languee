@@ -79,7 +79,7 @@ class ReviewMapperTest {
     }
 
     // -------------------------------------------------------------------------
-    // ReviewPromptDto.language -> ReviewPrompt.language — tolerant parsing
+    // ReviewPromptDto.language -> ReviewPrompt.language
     // -------------------------------------------------------------------------
 
     @Test
@@ -87,34 +87,9 @@ class ReviewMapperTest {
         assertEquals("es", aPromptDto(language = "es").toDomain().language)
     }
 
-    @Test
-    fun `missing language on dto defaults to en`() {
-        assertEquals("en", aPromptDto(language = null).toDomain().language)
-    }
-
     // -------------------------------------------------------------------------
     // ReviewItemDto -> ReviewItem
     // -------------------------------------------------------------------------
-
-    @Test
-    fun `ReviewItemDto maps fields and nested prompt`() {
-        val dto =
-            ReviewItemDto(
-                cardId = "card-1",
-                deckId = "deck-1",
-                deckName = "English basics",
-                isNew = true,
-                prompt = aPromptDto(),
-            )
-
-        val domain = dto.toDomain()
-
-        assertEquals("card-1", domain.cardId)
-        assertEquals("deck-1", domain.deckId)
-        assertEquals("English basics", domain.deckName)
-        assertEquals(true, domain.isNew)
-        assertEquals(LexicalKind.WORD, domain.prompt.kind)
-    }
 
     @Test
     fun `current cloze queue contract maps decks and payload`() {
@@ -125,6 +100,8 @@ class ReviewMapperTest {
                 decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
                 isNew = false,
                 cloze = aPromptDto(),
+                inflection = null,
+                definition = null,
             ).toDomain()
 
         assertEquals(ReviewCardType.CLOZE, domain.type)
@@ -141,7 +118,16 @@ class ReviewMapperTest {
                 type = "inflection",
                 decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
                 isNew = true,
-                inflection = InflectionReviewDto(lemma = "run", partOfSpeech = "verb", formKeys = listOf("base", "past")),
+                cloze = null,
+                inflection =
+                    InflectionReviewDto(
+                        lemma = "run",
+                        partOfSpeech = "verb",
+                        kind = "word",
+                        language = "en",
+                        formKeys = listOf("base", "past"),
+                    ),
+                definition = null,
             ).toDomain()
 
         assertEquals(ReviewCardType.INFLECTION, domain.type)
@@ -157,10 +143,14 @@ class ReviewMapperTest {
                 type = "definition",
                 decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
                 isNew = false,
+                cloze = null,
+                inflection = null,
                 definition =
                     DefinitionReviewDto(
                         lemma = "run into",
                         partOfSpeech = "verb",
+                        kind = "phrasal_verb",
+                        language = "en",
                         hint1 = listOf("meet by chance"),
                         hint2 = "at the station",
                     ),
@@ -238,7 +228,7 @@ class ReviewMapperTest {
     private fun aPromptDto(
         maskedSentence: String? = "Guess who I ____ at the station!",
         kind: String = "word",
-        language: String? = null,
+        language: String = "en",
     ) = ReviewPromptDto(
         definition = "To encounter unexpectedly.",
         maskedSentence = maskedSentence,

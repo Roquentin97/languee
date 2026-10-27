@@ -8,6 +8,7 @@ import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
+import com.example.langueedroid.core.network.dto.ReviewDeckDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
 import com.example.langueedroid.core.network.dto.ReviewQueueResponseDto
@@ -167,16 +168,19 @@ class ReviewRepositoryTest {
     private fun aReviewItemDto() =
         ReviewItemDto(
             cardId = "card-1",
-            deckId = "deck-1",
-            deckName = "English basics",
+            type = "cloze",
+            decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
             isNew = false,
-            prompt =
+            inflection = null,
+            definition = null,
+            cloze =
                 ReviewPromptDto(
                     definition = "To encounter unexpectedly.",
                     maskedSentence = "Guess who I ____ at the station!",
                     partOfSpeech = "verb",
                     kind = "phrasal_verb",
                     lemmaLength = 8,
+                    language = "en",
                 ),
         )
 }

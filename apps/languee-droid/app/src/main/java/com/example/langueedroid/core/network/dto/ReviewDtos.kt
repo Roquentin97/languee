@@ -6,12 +6,12 @@ data class ReviewSummaryDto(
 )
 
 data class ReviewPromptDto(
-    val definition: String = "",
-    val maskedSentence: String? = null,
-    val partOfSpeech: String = "",
-    val kind: String = "word",
-    val lemmaLength: Int = 0,
-    val language: String? = "en",
+    val definition: String,
+    val maskedSentence: String?,
+    val partOfSpeech: String,
+    val kind: String,
+    val lemmaLength: Int,
+    val language: String,
 )
 
 data class ReviewDeckDto(
@@ -20,34 +20,30 @@ data class ReviewDeckDto(
 )
 
 data class InflectionReviewDto(
-    val lemma: String = "",
-    val partOfSpeech: String = "",
-    val kind: String = "word",
-    val language: String? = "en",
-    val formKeys: List<String> = emptyList(),
+    val lemma: String,
+    val partOfSpeech: String,
+    val kind: String,
+    val language: String,
+    val formKeys: List<String>,
 )
 
 data class DefinitionReviewDto(
-    val lemma: String = "",
-    val partOfSpeech: String = "",
-    val kind: String = "word",
-    val language: String? = "en",
-    val hint1: List<String>? = null,
-    val hint2: String? = null,
+    val lemma: String,
+    val partOfSpeech: String,
+    val kind: String,
+    val language: String,
+    val hint1: List<String>?,
+    val hint2: String?,
 )
 
 data class ReviewItemDto(
     val cardId: String,
-    val type: String? = null,
-    val decks: List<ReviewDeckDto>? = null,
+    val type: String,
+    val decks: List<ReviewDeckDto>,
     val isNew: Boolean,
-    val cloze: ReviewPromptDto? = null,
-    val inflection: InflectionReviewDto? = null,
-    val definition: DefinitionReviewDto? = null,
-    // Compatibility with the original single-prompt queue response.
-    val deckId: String? = null,
-    val deckName: String? = null,
-    val prompt: ReviewPromptDto? = null,
+    val cloze: ReviewPromptDto?,
+    val inflection: InflectionReviewDto?,
+    val definition: DefinitionReviewDto?,
 )
 
 data class ReviewQueueResponseDto(

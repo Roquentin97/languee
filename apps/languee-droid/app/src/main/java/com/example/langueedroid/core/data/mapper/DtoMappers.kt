@@ -37,16 +37,17 @@ fun DeckResponseDto.toDomain(): Deck =
     )
 
 fun CardResponseDto.toDomain(requestedDeckId: String? = null): Card {
-    val deck = decks?.firstOrNull { it.id == requestedDeckId } ?: decks?.firstOrNull()
+    val deck = decks.firstOrNull { it.id == requestedDeckId } ?: decks.firstOrNull()
     val cardType =
         when (type) {
+            "cloze" -> CardType.CLOZE
             "inflection" -> CardType.INFLECTION
             "definition" -> CardType.DEFINITION
-            else -> CardType.CLOZE
+            else -> error("Unknown card type '$type' for card $id")
         }
     return Card(
         id = id,
-        deckId = deck?.id ?: deckId.orEmpty(),
+        deckId = deck?.id.orEmpty(),
         lemma = word.lemma,
         partOfSpeech = definition?.partOfSpeech ?: partOfSpeech.orEmpty(),
         definition = definition?.definition.orEmpty(),
@@ -113,7 +114,7 @@ fun ReviewPromptDto.toDomain(): ReviewPrompt =
         partOfSpeech = partOfSpeech,
         kind = kind.toLexicalKind(),
         lemmaLength = lemmaLength,
-        language = language ?: "en",
+        language = language,
     )
 
 fun ReviewItemDto.toDomain(): ReviewItem {
@@ -121,16 +122,16 @@ fun ReviewItemDto.toDomain(): ReviewItem {
         when (type) {
             "inflection" -> ReviewCardType.INFLECTION
             "definition" -> ReviewCardType.DEFINITION
-            else -> ReviewCardType.CLOZE
+            "cloze" -> ReviewCardType.CLOZE
+            else -> error("Unknown review card type '$type' for card $cardId")
         }
-    val deck = decks?.firstOrNull()
-    val clozePrompt = cloze ?: prompt
+    val deck = decks.firstOrNull()
     val inflectionData = inflection
     val definitionData = definition
     val prompt =
         when (cardType) {
             ReviewCardType.CLOZE ->
-                requireNotNull(clozePrompt) { "Review item $cardId has no cloze payload" }.toDomain()
+                requireNotNull(cloze) { "Review item $cardId has no cloze payload" }.toDomain()
             ReviewCardType.INFLECTION -> {
                 val data = requireNotNull(inflectionData) { "Review item $cardId has no inflection payload" }
                 ReviewPrompt(
@@ -139,7 +140,7 @@ fun ReviewItemDto.toDomain(): ReviewItem {
                     partOfSpeech = data.partOfSpeech,
                     kind = data.kind.toLexicalKind(),
                     lemmaLength = data.lemma.length,
-                    language = data.language ?: "en",
+                    language = data.language,
                 )
             }
             ReviewCardType.DEFINITION -> {
@@ -150,14 +151,14 @@ fun ReviewItemDto.toDomain(): ReviewItem {
                     partOfSpeech = data.partOfSpeech,
                     kind = data.kind.toLexicalKind(),
                     lemmaLength = data.lemma.length,
-                    language = data.language ?: "en",
+                    language = data.language,
                 )
             }
         }
     return ReviewItem(
         cardId = cardId,
-        deckId = deck?.id ?: deckId.orEmpty(),
-        deckName = deck?.name ?: deckName.orEmpty(),
+        deckId = deck?.id.orEmpty(),
+        deckName = deck?.name.orEmpty(),
         isNew = isNew,
         prompt = prompt,
         type = cardType,
