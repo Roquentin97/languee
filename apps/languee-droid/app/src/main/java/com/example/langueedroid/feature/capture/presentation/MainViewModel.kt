@@ -82,7 +82,6 @@ class MainViewModel
 
         private var previousAnkiResult: AnkiDroidSetupCheckResult? = null
 
-        /** Navigate to the manual add screen, optionally carrying a shared word into its editable field. */
         fun startManualAdd(prefilledWord: String = "") {
             _state.value = AppState.Screen.ManualCapture(prefilledWord = prefilledWord)
         }
