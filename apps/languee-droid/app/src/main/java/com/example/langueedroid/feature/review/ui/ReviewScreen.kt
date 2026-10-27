@@ -393,30 +393,31 @@ private fun QuestionContent(
             )
         }
 
-        if (state.item.type != ReviewCardType.DEFINITION) {
-            Button(
-                onClick = onSubmit,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-            ) {
-                Text(
-                    text = stringResource(R.string.review_submit_button),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                )
-            }
+        val isDefinition = state.item.type == ReviewCardType.DEFINITION
+        Button(
+            onClick = if (isDefinition) onReveal else onSubmit,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(
+                text = stringResource(if (isDefinition) R.string.review_show_answer_button else R.string.review_submit_button),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
         }
 
-        TextButton(onClick = onReveal) {
-            Text(
-                text = stringResource(R.string.review_reveal_button),
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-            )
+        if (!isDefinition) {
+            TextButton(onClick = onReveal) {
+                Text(
+                    text = stringResource(R.string.review_reveal_button),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+            }
         }
     }
 }

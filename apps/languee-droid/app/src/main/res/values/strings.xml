@@ -185,6 +185,7 @@
     <string name="review_progress">%1$d of %2$d</string>
     <string name="review_answer_label">Your answer</string>
     <string name="review_submit_button">Submit</string>
+    <string name="review_show_answer_button">Show answer</string>
     <string name="review_reveal_button">Can\'t recall</string>
     <string name="review_incorrect_feedback">Not quite. Try again, or tap Can\'t recall.</string>
     <string name="review_correct_title">Correct!</string>
