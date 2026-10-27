@@ -131,6 +131,59 @@ describe('parseWiktionaryResponse', () => {
     ]);
   });
 
+  it('keeps a nested Wiktionary subsense out of its parent definition', () => {
+    // Captured from /api/rest_v1/page/definition/incident on 2026-10-27.
+    // The REST response includes the nested aircraft sense both in the parent
+    // HTML list and as its own definition record.
+    const incidentResponse = {
+      en: [
+        {
+          partOfSpeech: 'Noun',
+          language: 'English',
+          definitions: [
+            {
+              definition:
+                'An event that causes or may cause an <a rel="mw:WikiLink" href="/wiki/interruption" title="interruption">interruption</a> or a <a rel="mw:WikiLink" href="/wiki/crisis" title="crisis">crisis</a>, such as a <a rel="mw:WikiLink" href="/wiki/workplace" title="workplace">workplace</a> <a rel="mw:WikiLink" href="/wiki/illness" title="illness">illness</a> or a <a rel="mw:WikiLink" href="/wiki/software" title="software">software</a> <a rel="mw:WikiLink" href="/wiki/error" title="error">error</a>.\n<ol><li><span class="usage-label-sense" about="#mwt21" typeof="mw:Transclusion"></span> An event affecting an aircraft, usually a plane crash.</li></ol>',
+            },
+            {
+              definition:
+                '<span class="usage-label-sense" about="#mwt21" typeof="mw:Transclusion"></span> An event affecting an aircraft, usually a plane crash.',
+            },
+            {
+              definition:
+                'A normal definition with <i>inline emphasis</i> remains intact.',
+              examples: ['A <b>representative</b> example.'],
+            },
+          ],
+        },
+      ],
+      fr: [
+        {
+          partOfSpeech: 'Noun',
+          language: 'French',
+          definitions: [{ definition: 'doit not be included' }],
+        },
+      ],
+    };
+
+    expect(parseWiktionaryResponse(incidentResponse, 'en')).toEqual([
+      {
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition:
+          'An event that causes or may cause an interruption or a crisis, such as a workplace illness or a software error.',
+      },
+      {
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'An event affecting an aircraft, usually a plane crash.',
+      },
+      {
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: 'A normal definition with inline emphasis remains intact.',
+        example: 'A representative example.',
+      },
+    ]);
+  });
+
   it('picks the example from parsedExamples over the plain examples array', () => {
     const [firstEntry] = parseWiktionaryResponse(buildFixture(), 'en');
     expect(firstEntry.example).toBe(
