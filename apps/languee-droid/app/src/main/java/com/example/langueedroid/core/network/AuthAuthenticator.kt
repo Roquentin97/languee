@@ -16,6 +16,11 @@ class AuthAuthenticator(
         route: Route?,
         response: Response,
     ): Request? {
+        // Auth endpoints must not trigger another refresh. In particular, a
+        // rejected refresh request would otherwise call refreshSession() again
+        // through the same OkHttp client and recurse indefinitely.
+        if (response.request.url.encodedPath in authPathsWithoutRefresh) return null
+
         // Break infinite retry loops: if the prior response was also 401, stop.
         if (response.priorResponse?.code == 401) return null
 
@@ -48,5 +53,14 @@ class AuthAuthenticator(
             .newBuilder()
             .header("Authorization", "Bearer ${newSession.accessToken}")
             .build()
+    }
+
+    private companion object {
+        val authPathsWithoutRefresh =
+            setOf(
+                "/auth/mobile/login",
+                "/auth/mobile/register",
+                "/auth/mobile/refresh",
+            )
     }
 }
