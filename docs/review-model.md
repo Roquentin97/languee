@@ -27,8 +27,8 @@ A saved word generates up to **three card types, each independently scheduled**:
 | 3 | **Definition card** | lemma + part of speech | recall the meaning, then reveal | self-rate |
 
 - The **inflection card** is **one per lemma+POS** (forms are lemma-level, shared across
-  senses), and is generated only when the word actually inflects. It is a single combined
-  card covering the whole paradigm on one schedule — not one card per form.
+  senses). It is generated when the selected definition is flagged irregular and has
+  at least one learnable form. The card covers the whole paradigm on one schedule.
 - The **definition card** is **one per saved sense**. When a lemma has multiple saved
   senses, each has its own definition card.
 
