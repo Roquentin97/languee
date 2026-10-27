@@ -29,6 +29,43 @@ export function stripWiktionaryHtml(html: string): string {
     .trim();
 }
 
+/**
+ * Removes nested sense lists from a definition fragment before extracting
+ * its text. The Wiktionary REST API also returns those nested senses as their
+ * own definition records, so flattening the list duplicates child senses in
+ * the parent definition.
+ */
+function stripNestedSenseLists(html: string): string {
+  const listTagRegex = /<\/?ol\b[^>]*>/gi;
+  let result = '';
+  let cursor = 0;
+  let listDepth = 0;
+
+  for (const match of html.matchAll(listTagRegex)) {
+    const index = match.index;
+    if (index === undefined) {
+      continue;
+    }
+
+    if (listDepth === 0) {
+      result += html.slice(cursor, index);
+    }
+
+    if (match[0].startsWith('</')) {
+      listDepth = Math.max(0, listDepth - 1);
+    } else {
+      listDepth += 1;
+    }
+    cursor = index + match[0].length;
+  }
+
+  if (listDepth === 0) {
+    result += html.slice(cursor);
+  }
+
+  return result;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -95,7 +132,9 @@ function parseUsage(usage: unknown): RawDefinitionEntry[] {
       continue;
     }
 
-    const definition = stripWiktionaryHtml(rawDefinition['definition']);
+    const definition = stripWiktionaryHtml(
+      stripNestedSenseLists(rawDefinition['definition']),
+    );
     if (definition.length === 0) {
       continue;
     }
