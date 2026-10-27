@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.data.ReviewRepository
+import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.GradeAnswerResult
+import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.UnauthorizedException
@@ -90,42 +93,107 @@ class ReviewViewModel
             _state.value = current.copy(typedAnswer = text)
         }
 
+        fun updateFormInput(
+            key: String,
+            text: String,
+        ) {
+            val current = _state.value as? ReviewSessionState.Question ?: return
+            _state.value = current.copy(typedForms = current.typedForms + (key to text))
+        }
+
         fun submitAnswer() {
             val current = _state.value as? ReviewSessionState.Question ?: return
             if (actionJob?.isActive == true) return
+            if (current.item.type == ReviewCardType.DEFINITION) {
+                showSelfRatedAnswer(current)
+                return
+            }
+            if (current.item.type == ReviewCardType.INFLECTION &&
+                current.item.inflection
+                    ?.formKeys
+                    .isNullOrEmpty()
+            ) {
+                showSelfRatedAnswer(current)
+                return
+            }
             actionJob =
                 viewModelScope.launch {
-                    reviewRepository
-                        .checkAnswer(
-                            cardId = current.item.cardId,
-                            typedAnswer = current.typedAnswer,
-                        ).fold(
-                            onSuccess = { check ->
-                                _state.value =
-                                    when (check.result) {
-                                        AnswerResult.CORRECT ->
-                                            ReviewSessionState.Correct(
-                                                item = current.item,
-                                                index = current.index,
-                                                total = current.total,
-                                                matchedForm = check.matchedForm,
-                                                revealed = check.revealed,
-                                            )
-                                        AnswerResult.INCORRECT ->
-                                            current.copy(
-                                                typedAnswer = "",
-                                                feedback = QuestionFeedback.Incorrect,
-                                            )
-                                    }
-                            },
-                            onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
-                        )
+                    if (current.item.type == ReviewCardType.INFLECTION) {
+                        reviewRepository
+                            .checkForms(
+                                cardId = current.item.cardId,
+                                typedForms =
+                                    current.item.inflection!!
+                                        .formKeys
+                                        .associateWith { current.typedForms[it].orEmpty() },
+                            ).fold(
+                                onSuccess = { response ->
+                                    _state.value =
+                                        ReviewSessionState.Correct(
+                                            item = current.item,
+                                            index = current.index,
+                                            total = current.total,
+                                            matchedForm = null,
+                                            revealed = response.revealed.toDomain(),
+                                            typedForms = current.typedForms,
+                                        )
+                                },
+                                onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                            )
+                    } else {
+                        reviewRepository
+                            .checkAnswer(
+                                cardId = current.item.cardId,
+                                typedAnswer = current.typedAnswer,
+                            ).fold(
+                                onSuccess = { check ->
+                                    _state.value =
+                                        when (check.result) {
+                                            AnswerResult.CORRECT ->
+                                                ReviewSessionState.Correct(
+                                                    item = current.item,
+                                                    index = current.index,
+                                                    total = current.total,
+                                                    matchedForm = check.matchedForm,
+                                                    revealed = check.revealed,
+                                                )
+                                            AnswerResult.INCORRECT ->
+                                                current.copy(
+                                                    typedAnswer = "",
+                                                    feedback = QuestionFeedback.Incorrect,
+                                                )
+                                        }
+                                },
+                                onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                            )
+                    }
                 }
+        }
+
+        private fun showSelfRatedAnswer(current: ReviewSessionState.Question) {
+            val lemma = current.item.definition?.lemma ?: current.item.inflection?.lemma ?: current.item.prompt.definition
+            _state.value =
+                ReviewSessionState.Correct(
+                    item = current.item,
+                    index = current.index,
+                    total = current.total,
+                    matchedForm = current.typedAnswer.ifBlank { null },
+                    revealed = RevealedWord(lemma = lemma, ipa = null, inflectionForms = null),
+                    typedForms = current.typedForms.takeIf { it.isNotEmpty() },
+                )
         }
 
         fun reveal() {
             val current = _state.value as? ReviewSessionState.Question ?: return
             if (actionJob?.isActive == true) return
+            if (current.item.type == ReviewCardType.INFLECTION) {
+                submitAnswer()
+                return
+            }
+            if (current.item.type == ReviewCardType.DEFINITION) {
+                showSelfRatedAnswer(current)
+                return
+            }
             actionJob =
                 viewModelScope.launch {
                     reviewRepository
@@ -161,6 +229,7 @@ class ReviewViewModel
                             cardId = current.item.cardId,
                             rating = rating,
                             answerResult = GradeAnswerResult.CORRECT,
+                            typedForms = current.typedForms,
                         ).fold(
                             onSuccess = {
                                 reviewedCount += 1

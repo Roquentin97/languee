@@ -3,9 +3,13 @@ package com.example.langueedroid.data
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
+import com.example.langueedroid.core.network.dto.DefinitionReviewDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
+import com.example.langueedroid.core.network.dto.InflectionReviewDto
 import com.example.langueedroid.core.network.dto.RevealedWordDto
+import com.example.langueedroid.core.network.dto.ReviewDeckDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
 import com.example.langueedroid.core.network.dto.ReviewSummaryDto
@@ -110,6 +114,62 @@ class ReviewMapperTest {
         assertEquals("English basics", domain.deckName)
         assertEquals(true, domain.isNew)
         assertEquals(LexicalKind.WORD, domain.prompt.kind)
+    }
+
+    @Test
+    fun `current cloze queue contract maps decks and payload`() {
+        val domain =
+            ReviewItemDto(
+                cardId = "card-cloze",
+                type = "cloze",
+                decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
+                isNew = false,
+                cloze = aPromptDto(),
+            ).toDomain()
+
+        assertEquals(ReviewCardType.CLOZE, domain.type)
+        assertEquals("deck-1", domain.deckId)
+        assertEquals("English basics", domain.deckName)
+        assertEquals("To encounter unexpectedly.", domain.prompt.definition)
+    }
+
+    @Test
+    fun `inflection queue contract maps form keys`() {
+        val domain =
+            ReviewItemDto(
+                cardId = "card-inflection",
+                type = "inflection",
+                decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
+                isNew = true,
+                inflection = InflectionReviewDto(lemma = "run", partOfSpeech = "verb", formKeys = listOf("base", "past")),
+            ).toDomain()
+
+        assertEquals(ReviewCardType.INFLECTION, domain.type)
+        assertEquals("run", domain.inflection?.lemma)
+        assertEquals(listOf("base", "past"), domain.inflection?.formKeys)
+    }
+
+    @Test
+    fun `definition queue contract maps hints`() {
+        val domain =
+            ReviewItemDto(
+                cardId = "card-definition",
+                type = "definition",
+                decks = listOf(ReviewDeckDto(id = "deck-1", name = "English basics")),
+                isNew = false,
+                definition =
+                    DefinitionReviewDto(
+                        lemma = "run into",
+                        partOfSpeech = "verb",
+                        hint1 = listOf("meet by chance"),
+                        hint2 = "at the station",
+                    ),
+            ).toDomain()
+
+        assertEquals(ReviewCardType.DEFINITION, domain.type)
+        assertEquals("run into", domain.definition?.lemma)
+        assertEquals("meet by chance", domain.definition?.hint1?.first())
+        assertEquals("at the station", domain.definition?.hint2)
     }
 
     // -------------------------------------------------------------------------

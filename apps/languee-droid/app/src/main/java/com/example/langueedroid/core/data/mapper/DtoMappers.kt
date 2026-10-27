@@ -7,10 +7,13 @@ import com.example.langueedroid.core.domain.CreatedUserDefinition
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DeckRef
 import com.example.langueedroid.core.domain.DefinitionResult
+import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeOutcome
+import com.example.langueedroid.core.domain.InflectionReview
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
 import com.example.langueedroid.core.domain.ReviewSummary
@@ -21,6 +24,7 @@ import com.example.langueedroid.core.network.dto.DeckResponseDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.network.dto.RevealedWordDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
 import com.example.langueedroid.core.network.dto.ReviewSummaryDto
@@ -102,13 +106,61 @@ fun ReviewPromptDto.toDomain(): ReviewPrompt =
         language = language ?: "en",
     )
 
-fun ReviewItemDto.toDomain(): ReviewItem =
-    ReviewItem(
+fun ReviewItemDto.toDomain(): ReviewItem {
+    val cardType =
+        when (type) {
+            "inflection" -> ReviewCardType.INFLECTION
+            "definition" -> ReviewCardType.DEFINITION
+            else -> ReviewCardType.CLOZE
+        }
+    val deck = decks?.firstOrNull()
+    val clozePrompt = cloze ?: prompt
+    val inflectionData = inflection
+    val definitionData = definition
+    val prompt =
+        when (cardType) {
+            ReviewCardType.CLOZE ->
+                requireNotNull(clozePrompt) { "Review item $cardId has no cloze payload" }.toDomain()
+            ReviewCardType.INFLECTION -> {
+                val data = requireNotNull(inflectionData) { "Review item $cardId has no inflection payload" }
+                ReviewPrompt(
+                    definition = "Enter the forms of ${data.lemma}",
+                    maskedSentence = null,
+                    partOfSpeech = data.partOfSpeech,
+                    kind = data.kind.toLexicalKind(),
+                    lemmaLength = data.lemma.length,
+                    language = data.language ?: "en",
+                )
+            }
+            ReviewCardType.DEFINITION -> {
+                val data = requireNotNull(definitionData) { "Review item $cardId has no definition payload" }
+                ReviewPrompt(
+                    definition = "What does ${data.lemma} mean?",
+                    maskedSentence = null,
+                    partOfSpeech = data.partOfSpeech,
+                    kind = data.kind.toLexicalKind(),
+                    lemmaLength = data.lemma.length,
+                    language = data.language ?: "en",
+                )
+            }
+        }
+    return ReviewItem(
         cardId = cardId,
-        deckId = deckId,
-        deckName = deckName,
+        deckId = deck?.id ?: deckId.orEmpty(),
+        deckName = deck?.name ?: deckName.orEmpty(),
         isNew = isNew,
-        prompt = prompt.toDomain(),
+        prompt = prompt,
+        type = cardType,
+        inflection = inflectionData?.let { InflectionReview(it.lemma, it.formKeys) },
+        definition = definitionData?.let { DefinitionReview(it.lemma, it.hint1, it.hint2) },
+    )
+}
+
+fun RevealedWordDto.toDomain(): RevealedWord =
+    RevealedWord(
+        lemma = lemma,
+        ipa = ipa,
+        inflectionForms = inflectionForms,
     )
 
 private fun String.toAnswerResult(): AnswerResult =

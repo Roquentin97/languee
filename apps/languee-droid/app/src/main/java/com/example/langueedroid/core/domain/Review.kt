@@ -16,12 +16,28 @@ data class ReviewPrompt(
     val language: String = "en",
 )
 
+enum class ReviewCardType { CLOZE, INFLECTION, DEFINITION }
+
+data class InflectionReview(
+    val lemma: String,
+    val formKeys: List<String>,
+)
+
+data class DefinitionReview(
+    val lemma: String,
+    val hint1: List<String>?,
+    val hint2: String?,
+)
+
 data class ReviewItem(
     val cardId: String,
     val deckId: String,
     val deckName: String,
     val isNew: Boolean,
     val prompt: ReviewPrompt,
+    val type: ReviewCardType = ReviewCardType.CLOZE,
+    val inflection: InflectionReview? = null,
+    val definition: DefinitionReview? = null,
 )
 
 enum class AnswerResult { CORRECT, INCORRECT }
