@@ -1,9 +1,7 @@
 # Wiktionary definition cache repair
 
-The nested-sense parsing fix applies to future provider fetches. Existing cached
-definitions are not rewritten automatically: dictionary lookups return cached
-rows before asking Wiktionary, and changing those rows can change the content
-shown by cards already in review.
+Dictionary lookups return cached definitions before asking Wiktionary. Repairing
+a cached definition changes the content shown by cards that reference it.
 
 ## Review procedure
 
@@ -25,5 +23,4 @@ shown by cards already in review.
 Definition rows are referenced by cards with a restrictive foreign key, and
 definition content has a unique key per word and part of speech. A repair must
 therefore preserve IDs and associations, leave scheduling state attached to
-the same cards, and stop for review on any uniqueness conflict. This document
-does not authorize or implement a database rewrite.
+the same cards, and stop for review on any uniqueness conflict.
