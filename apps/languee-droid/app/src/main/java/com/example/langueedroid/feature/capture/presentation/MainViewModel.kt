@@ -82,9 +82,8 @@ class MainViewModel
 
         private var previousAnkiResult: AnkiDroidSetupCheckResult? = null
 
-        /** Navigate to the manual add screen with no pre-filled word. */
-        fun startManualAdd() {
-            _state.value = AppState.Screen.ManualCapture()
+        fun startManualAdd(prefilledWord: String = "") {
+            _state.value = AppState.Screen.ManualCapture(prefilledWord = prefilledWord)
         }
 
         /**

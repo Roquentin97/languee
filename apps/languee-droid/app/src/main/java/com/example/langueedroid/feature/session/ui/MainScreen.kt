@@ -214,7 +214,7 @@ fun MainScreen(
                         ?: com.example.langueedroid.feature.capture.presentation.AppState.Screen
                             .ManualCapture(),
                 onAddEntry = { word, context -> mainViewModel.addEntry(word, context) },
-                onStartManualAdd = { mainViewModel.startManualAdd() },
+                onStartManualAdd = { prefilledWord -> mainViewModel.startManualAdd(prefilledWord) },
                 onWordTokenTapped = { index -> mainViewModel.onWordTokenTapped(index) },
                 onConfirmWordSelection = { mainViewModel.confirmWordSelection() },
                 onConfirmTruncation = { mainViewModel.confirmTruncation() },

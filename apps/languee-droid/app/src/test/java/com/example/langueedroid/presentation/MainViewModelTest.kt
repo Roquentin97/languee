@@ -93,6 +93,17 @@ class MainViewModelTest {
         assertEquals("", (state as AppState.Screen.ManualCapture).prefilledWord)
     }
 
+    @Test
+    fun `startManualAdd carries shared word into editable manual capture state`() {
+        viewModel.startSharedTextCapture("hello")
+        val sharedWord = currentState as AppState.Screen.SharedWordCapture
+
+        viewModel.startManualAdd(sharedWord.word)
+
+        val manualCapture = currentState as AppState.Screen.ManualCapture
+        assertEquals("hello", manualCapture.prefilledWord)
+    }
+
     // -------------------------------------------------------------------------
     // dismissCapture
     // -------------------------------------------------------------------------
