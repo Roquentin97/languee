@@ -105,7 +105,6 @@ class ReviewViewModel
             val current = _state.value as? ReviewSessionState.Question ?: return
             if (actionJob?.isActive == true) return
             if (current.item.type == ReviewCardType.DEFINITION) {
-                showSelfRatedAnswer(current)
                 return
             }
             if (current.item.type == ReviewCardType.INFLECTION &&
@@ -191,7 +190,22 @@ class ReviewViewModel
                 return
             }
             if (current.item.type == ReviewCardType.DEFINITION) {
-                showSelfRatedAnswer(current)
+                actionJob =
+                    viewModelScope.launch {
+                        reviewRepository.revealDefinition(current.item.cardId).fold(
+                            onSuccess = { revealed ->
+                                _state.value =
+                                    ReviewSessionState.Correct(
+                                        item = current.item,
+                                        index = current.index,
+                                        total = current.total,
+                                        matchedForm = null,
+                                        revealed = revealed,
+                                    )
+                            },
+                            onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                        )
+                    }
                 return
             }
             actionJob =
@@ -228,8 +242,13 @@ class ReviewViewModel
                         .grade(
                             cardId = current.item.cardId,
                             rating = rating,
-                            answerResult = GradeAnswerResult.CORRECT,
-                            typedForms = current.typedForms,
+                            answerResult =
+                                if (current.item.type == ReviewCardType.DEFINITION) {
+                                    null
+                                } else {
+                                    GradeAnswerResult.CORRECT
+                                },
+                            typedForms = current.typedForms?.takeIf { it.isNotEmpty() },
                         ).fold(
                             onSuccess = {
                                 reviewedCount += 1

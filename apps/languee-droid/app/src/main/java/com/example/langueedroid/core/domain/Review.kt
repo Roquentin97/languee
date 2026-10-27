@@ -51,6 +51,7 @@ data class RevealedWord(
     val lemma: String,
     val ipa: String?,
     val inflectionForms: Map<String, String>?,
+    val definition: String? = null,
 )
 
 data class AnswerCheck(

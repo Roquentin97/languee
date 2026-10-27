@@ -1,0 +1,35 @@
+meta {
+  name: Reveal Definition
+  type: http
+  seq: 6
+  tags: [reviews]
+}
+
+post {
+  url: {{base_url}}/api/v1/reviews/{{card_id}}/reveal
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  card_id: 1db3f769-e154-44c6-9b98-87de1037a395
+}
+
+docs {
+  Returns the selected saved meaning for a definition card. This reveal-only
+  action does not grade the card or change its review schedule. The learner
+  submits a self-rating separately to POST /reviews/:cardId/grade.
+}
+
+tests {
+  test("returns the selected saved meaning or reports an unknown card", function() {
+    expect(res.status).to.be.oneOf([200, 400, 404]);
+  });
+
+  test("includes the saved meaning when successful", function() {
+    if (res.status === 200) {
+      expect(res.body.lemma).to.be.a("string");
+      expect(res.body.definition).to.be.a("string");
+    }
+  });
+}

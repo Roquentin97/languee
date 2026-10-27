@@ -94,3 +94,8 @@ data class RevealedWordDto(
     val ipa: String?,
     val inflectionForms: Map<String, String>?,
 )
+
+data class RevealedDefinitionDto(
+    val lemma: String,
+    val definition: String,
+)

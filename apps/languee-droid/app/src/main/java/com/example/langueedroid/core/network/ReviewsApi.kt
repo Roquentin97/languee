@@ -6,6 +6,7 @@ import com.example.langueedroid.core.network.dto.CheckFormsRequest
 import com.example.langueedroid.core.network.dto.CheckFormsResponseDto
 import com.example.langueedroid.core.network.dto.GradeRequest
 import com.example.langueedroid.core.network.dto.GradeResponseDto
+import com.example.langueedroid.core.network.dto.RevealedDefinitionDto
 import com.example.langueedroid.core.network.dto.ReviewQueueResponseDto
 import com.example.langueedroid.core.network.dto.ReviewSummaryDto
 import retrofit2.Response
@@ -36,6 +37,11 @@ interface ReviewsApi {
         @Path("cardId") cardId: String,
         @Body body: CheckFormsRequest,
     ): Response<CheckFormsResponseDto>
+
+    @POST("/api/v1/reviews/{cardId}/reveal")
+    suspend fun revealDefinition(
+        @Path("cardId") cardId: String,
+    ): Response<RevealedDefinitionDto>
 
     @POST("/api/v1/reviews/{cardId}/grade")
     suspend fun grade(

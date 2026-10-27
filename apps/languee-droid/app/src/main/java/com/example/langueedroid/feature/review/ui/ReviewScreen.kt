@@ -371,7 +371,7 @@ private fun QuestionContent(
                         ),
                 )
             }
-        } else {
+        } else if (state.item.type != ReviewCardType.DEFINITION) {
             OutlinedTextField(
                 value = state.typedAnswer,
                 onValueChange = onInputChange,
@@ -393,20 +393,22 @@ private fun QuestionContent(
             )
         }
 
-        Button(
-            onClick = onSubmit,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-        ) {
-            Text(
-                text = stringResource(R.string.review_submit_button),
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
-            )
+        if (state.item.type != ReviewCardType.DEFINITION) {
+            Button(
+                onClick = onSubmit,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+            ) {
+                Text(
+                    text = stringResource(R.string.review_submit_button),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                )
+            }
         }
 
         TextButton(onClick = onReveal) {
@@ -443,12 +445,14 @@ private fun CorrectContent(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = stringResource(R.string.review_correct_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = GreenPrimary,
-                )
-                if (matchedForm != null) {
+                if (item.type != ReviewCardType.DEFINITION) {
+                    Text(
+                        text = stringResource(R.string.review_correct_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = GreenPrimary,
+                    )
+                }
+                if (matchedForm != null && item.type != ReviewCardType.DEFINITION) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -463,15 +467,24 @@ private fun CorrectContent(
                         )
                     }
                 }
-                item.definition?.hint1?.forEach { hint ->
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                }
-                item.definition?.hint2?.let { hint ->
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                if (item.type != ReviewCardType.DEFINITION) {
+                    item.definition?.hint1?.forEach { hint ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    }
+                    item.definition?.hint2?.let { hint ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    }
                 }
                 if (revealed != null) {
+                    revealed.definition?.let { meaning ->
+                        Text(
+                            text = meaning,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = TextPrimary,
+                        )
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(

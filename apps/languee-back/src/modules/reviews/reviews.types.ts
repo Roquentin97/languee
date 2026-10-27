@@ -89,6 +89,11 @@ export type FormCheckOutcome = {
   revealed: RevealedWordInfo;
 };
 
+export type RevealedDefinition = {
+  lemma: string;
+  definition: string;
+};
+
 export type GradeInput = {
   rating: ReviewRating;
   typedAnswer?: string;

@@ -26,6 +26,7 @@ import type {
   InflectionCardPayload,
   ReviewQueueItem,
   ReviewSummary,
+  RevealedDefinition,
 } from './reviews.types';
 
 type DefinitionHints = {
@@ -163,6 +164,23 @@ export class ReviewsService {
         ipa: card.word.ipa,
         inflectionForms: card.inflectionForms as Record<string, string>,
       },
+    };
+  }
+
+  async revealDefinition(
+    userId: string,
+    cardId: string,
+  ): Promise<RevealedDefinition> {
+    const card = await this.cardsService.findOwnedOrThrow(cardId, userId);
+    if (card.type !== CardType.definition || !card.definition) {
+      throw new UnsupportedCardTypeError(
+        'Only `definition` cards support meaning reveal',
+      );
+    }
+
+    return {
+      lemma: card.definition.word.lemma,
+      definition: card.definition.definition,
     };
   }
 
