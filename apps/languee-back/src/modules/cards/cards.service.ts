@@ -95,7 +95,8 @@ export class CardsService {
    * Fans a single "save this word into this deck" request out into the
    * card(s) the definition needs: a `cloze` card and a `definition` card
    * always, plus a shared `inflection` card when the word's persisted NLP
-   * paradigm actually inflects. Cards already generated for a definition (or
+   * paradigm is flagged irregular by NLP and has at least one learnable form.
+   * Cards already generated for a definition (or
    * lemma + part of speech, for inflection cards) are reused - the deck is
    * simply joined - so saving the same sense into a second deck never
    * duplicates scheduling state. Throws `CardAlreadyExistsError` only when
@@ -142,7 +143,10 @@ export class CardsService {
 
       const ids = [clozeCard.id, definitionCard.id];
 
-      if (wordInflects(definition.inflectionForms as InflectionForms | null)) {
+      if (
+        definition.hasIrregularForms &&
+        wordInflects(definition.inflectionForms as InflectionForms | null)
+      ) {
         const inflectionCard = await this.findOrCreateInflectionCard(tx, {
           userId,
           wordId: definition.wordId,

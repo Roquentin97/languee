@@ -47,6 +47,7 @@ const mockDefinition: DefinitionWithWord = {
 const mockDefinitionInflecting: DefinitionWithWord = {
   ...mockDefinition,
   id: 'def-id-2',
+  hasIrregularForms: true,
   inflectionForms: {
     type: 'verb',
     base: 'run',
@@ -227,6 +228,115 @@ describe('CardsService', () => {
         'definition',
         'inflection',
       ]);
+    });
+
+    it('does not generate an inflection card for a regular word even when forms exist', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithWord.mockResolvedValue({
+        ...mockDefinitionInflecting,
+        hasIrregularForms: false,
+      });
+      mockTx.card.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      mockTx.card.create
+        .mockResolvedValueOnce(mockClozeCard)
+        .mockResolvedValueOnce(mockDefinitionCard);
+      mockTx.cardDeck.findUnique.mockResolvedValue(null);
+      mockTx.cardDeck.createMany.mockResolvedValue({ count: 2 });
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(mockClozeCard, 'deck-id-1'),
+        withRelations(mockDefinitionCard, 'deck-id-1'),
+      ]);
+
+      const result = await service.create('user-id-1', 'deck-id-1', 'def-id-2');
+
+      expect(result.map((card) => card.type)).toEqual(['cloze', 'definition']);
+      expect(mockTx.card.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not generate an inflection card when an irregular definition has no learnable forms', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithWord.mockResolvedValue({
+        ...mockDefinitionInflecting,
+        inflectionForms: { type: 'verb', base: 'run' },
+      });
+      mockTx.card.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      mockTx.card.create
+        .mockResolvedValueOnce(mockClozeCard)
+        .mockResolvedValueOnce(mockDefinitionCard);
+      mockTx.cardDeck.findUnique.mockResolvedValue(null);
+      mockTx.cardDeck.createMany.mockResolvedValue({ count: 2 });
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(mockClozeCard, 'deck-id-1'),
+        withRelations(mockDefinitionCard, 'deck-id-1'),
+      ]);
+
+      const result = await service.create('user-id-1', 'deck-id-1', 'def-id-2');
+
+      expect(result.map((card) => card.type)).toEqual(['cloze', 'definition']);
+      expect(mockTx.card.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('reuses an eligible lemma+POS inflection card when saving another sense to another deck', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue({
+        ...mockDeck,
+        id: 'deck-id-2',
+      });
+      mockDefinitionService.findByIdWithWord.mockResolvedValue({
+        ...mockDefinitionInflecting,
+        id: 'def-id-other-sense',
+      });
+      mockTx.card.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockInflectionCard);
+      mockTx.card.create
+        .mockResolvedValueOnce(mockClozeCard)
+        .mockResolvedValueOnce(mockDefinitionCard);
+      mockTx.cardDeck.findUnique.mockResolvedValue(null);
+      mockTx.cardDeck.createMany.mockResolvedValue({ count: 3 });
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(mockClozeCard, 'deck-id-2'),
+        withRelations(mockDefinitionCard, 'deck-id-2'),
+        withRelations(mockInflectionCard, 'deck-id-2'),
+      ]);
+
+      const result = await service.create(
+        'user-id-1',
+        'deck-id-2',
+        'def-id-other-sense',
+      );
+
+      expect(result.map((card) => card.type)).toEqual([
+        'cloze',
+        'definition',
+        'inflection',
+      ]);
+      expect(mockTx.card.findUnique).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({
+          where: {
+            userId_wordId_partOfSpeech_type: {
+              userId: 'user-id-1',
+              wordId: 'word-id-1',
+              partOfSpeech: 'verb',
+              type: 'inflection',
+            },
+          },
+        }),
+      );
+      expect(mockTx.card.create).toHaveBeenCalledTimes(2);
+      expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
+        data: [
+          { cardId: 'card-id-cloze', deckId: 'deck-id-2' },
+          { cardId: 'card-id-definition', deckId: 'deck-id-2' },
+          { cardId: 'card-id-inflection', deckId: 'deck-id-2' },
+        ],
+        skipDuplicates: true,
+      });
     });
 
     it('happy path — reuses cards already generated for the definition, only joining the new deck', async () => {
