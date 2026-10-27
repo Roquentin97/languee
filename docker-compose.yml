@@ -128,7 +128,7 @@ services:
       languee-nlp:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -224,3 +224,8 @@ volumes:
   alloy-data:
   grafana-data:
   prometheus-data:
+
+networks:
+  default:
+    external: true
+    name: anki-agent_default
