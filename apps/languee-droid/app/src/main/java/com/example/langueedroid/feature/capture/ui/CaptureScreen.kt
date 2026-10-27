@@ -72,7 +72,7 @@ import com.languee.droid.R
 fun CaptureScreen(
     state: AppState.Screen,
     onAddEntry: (word: String, context: String?) -> Unit,
-    onStartManualAdd: () -> Unit,
+    onStartManualAdd: (prefilledWord: String) -> Unit,
     onWordTokenTapped: (index: Int) -> Unit,
     onConfirmWordSelection: () -> Unit,
     onConfirmTruncation: () -> Unit,
@@ -98,7 +98,7 @@ fun CaptureScreen(
             is AppState.Screen.SharedWordCapture ->
                 SharedWordCaptureContent(
                     word = state.word,
-                    onAddContextManually = onStartManualAdd,
+                    onAddContextManually = { onStartManualAdd(state.word) },
                     onSaveWithoutContext = { onAddEntry(state.word, null) },
                     onCancel = onDismiss,
                 )
@@ -213,7 +213,7 @@ private fun ManualCaptureContent(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var word by rememberSaveable { mutableStateOf(prefilledWord) }
+    var word by rememberSaveable(prefilledWord) { mutableStateOf(prefilledWord) }
     var context by rememberSaveable { mutableStateOf("") }
 
     val contextIsNonBlank = context.isNotBlank()
