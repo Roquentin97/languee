@@ -195,6 +195,7 @@ class CardRepositoryTest {
         definitionId = if (type == "inflection") null else "def1",
         wordId = if (type == "inflection") "w1" else null,
         partOfSpeech = if (type == "inflection") "verb" else null,
+        context = null,
         createdAt = "2024-01-01T00:00:00Z",
         updatedAt = "2024-01-01T00:00:00Z",
         definition =
@@ -205,6 +206,7 @@ class CardRepositoryTest {
                     definition = "A small animal",
                     example = null,
                     provider = "dict",
+                    inflectionForms = null,
                 )
             } else {
                 null
