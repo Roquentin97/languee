@@ -3,6 +3,7 @@ package com.example.langueedroid.core.data.mapper
 import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.Card
+import com.example.langueedroid.core.domain.CardType
 import com.example.langueedroid.core.domain.CreatedUserDefinition
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DeckRef
@@ -35,17 +36,26 @@ fun DeckResponseDto.toDomain(): Deck =
         name = name,
     )
 
-fun CardResponseDto.toDomain(): Card =
-    Card(
+fun CardResponseDto.toDomain(requestedDeckId: String? = null): Card {
+    val deck = decks?.firstOrNull { it.id == requestedDeckId } ?: decks?.firstOrNull()
+    val cardType =
+        when (type) {
+            "inflection" -> CardType.INFLECTION
+            "definition" -> CardType.DEFINITION
+            else -> CardType.CLOZE
+        }
+    return Card(
         id = id,
-        deckId = deckId,
+        deckId = deck?.id ?: deckId.orEmpty(),
         lemma = word.lemma,
-        partOfSpeech = definition.partOfSpeech,
-        definition = definition.definition,
-        example = definition.example,
+        partOfSpeech = definition?.partOfSpeech ?: partOfSpeech.orEmpty(),
+        definition = definition?.definition.orEmpty(),
+        example = definition?.example,
         context = context,
         inflectionForms = inflectionForms,
+        type = cardType,
     )
+}
 
 fun EnrichedDefinitionDto.toDomain(): DefinitionResult =
     DefinitionResult(
