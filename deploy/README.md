@@ -204,7 +204,7 @@ docker compose exec -T postgres createdb -U "$LANGUEE_BACK_POSTGRES_USER" restor
 gunzip -c backups/languee-<stamp>.sql.gz | docker compose exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U "$LANGUEE_BACK_POSTGRES_USER" -d restore_probe
 docker compose exec -T postgres psql -U "$LANGUEE_BACK_POSTGRES_USER" -d restore_probe \
-  -c '\dt' -c 'select count(*) from "Card";'
+  -c '\dt' -c 'select count(*) from cards;'
 docker compose exec -T postgres dropdb -U "$LANGUEE_BACK_POSTGRES_USER" restore_probe
 ```
 
