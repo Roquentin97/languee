@@ -33,12 +33,19 @@ commands work from `/opt/languee`.
 
 **Oracle Cloud (free, ARM):**
 
-1. Create an Always Free account, then **upgrade to Pay As You Go** (Billing →
-   Upgrade). This removes idle-instance reclamation and most capacity errors
-   while still costing $0 within Always Free limits. Do not skip this.
-2. Launch a VM.Standard.A1.Flex instance (2 OCPU / 12 GB fits the free cap),
-   Ubuntu 24.04, in your home region. "Out of host capacity" errors are
-   common — retry at different hours or script the retry.
+1. Create an Always Free account and stay on it. Do not upgrade to Pay As You
+   Go as a matter of course: the claim that it removes idle-instance
+   reclamation is unverified in Oracle's documentation, and it does not
+   guarantee an A1 shape ("out of host capacity" errors happen at
+   instance-creation time on any billing tier). The upgrade is irreversible
+   (Oracle states an upgraded account cannot return to free), and budget alerts
+   are soft, periodically evaluated notifications, not a hard spending cap.
+   Reassess only if idle reclamation actually disrupts you, weighing it against
+   a cheap paid VPS with the billing exposure made explicit.
+2. Launch a VM.Standard.A1.Flex instance at 2 OCPU / 12 GB, Ubuntu 24.04, in
+   your home region. This size is inside the Always Free allowance under both
+   the current and the previously documented larger limits. "Out of host
+   capacity" errors are common — retry at different hours or script the retry.
 3. In the instance's subnet **Security List**, add ingress rules for TCP 80
    and 443 from 0.0.0.0/0 (22 is open by default).
 
@@ -163,13 +170,50 @@ cd /opt/languee
 rclone copy r2:languee-db-backups/languee-<stamp>.sql.gz backups/
 docker compose stop languee-back
 gunzip -c backups/languee-<stamp>.sql.gz | docker compose exec -T postgres \
-  psql -U "$LANGUEE_BACK_POSTGRES_USER" -d "$LANGUEE_BACK_POSTGRES_DB"
+  psql -v ON_ERROR_STOP=1 --single-transaction \
+  -U "$LANGUEE_BACK_POSTGRES_USER" -d "$LANGUEE_BACK_POSTGRES_DB"
 docker compose start languee-back
 ```
 
-For a full server loss: provision a new server (steps 1–7), then restore the
-dump before the first deploy's migration step has anything to conflict with —
-i.e. deploy first (creates empty schema), then `psql` the dump in.
+`ON_ERROR_STOP` and `--single-transaction` make a mid-stream failure roll back
+instead of leaving a partially restored database.
+
+The dump contains the full schema, so it must load into an empty database;
+restoring over a schema that migrations already built fails with "relation
+already exists". For a full server loss: provision a new server (steps 1–7),
+run the Deploy workflow (it syncs the stack files and applies migrations), then
+stop `languee-back`, recreate the database empty, and restore:
+
+```bash
+docker compose stop languee-back
+docker compose exec -T postgres dropdb -U "$LANGUEE_BACK_POSTGRES_USER" "$LANGUEE_BACK_POSTGRES_DB"
+docker compose exec -T postgres createdb -U "$LANGUEE_BACK_POSTGRES_USER" "$LANGUEE_BACK_POSTGRES_DB"
+```
+
+then run the restore command above. The dump includes Prisma's migration
+history, so later deploys apply only newer migrations.
+
+### Verifying a backup
+
+A backup is unverified until it has been restored and its contents inspected.
+Restore into a fresh, separate database and assert on content, not on the
+restore command's exit code:
+
+```bash
+docker compose exec -T postgres createdb -U "$LANGUEE_BACK_POSTGRES_USER" restore_probe
+gunzip -c backups/languee-<stamp>.sql.gz | docker compose exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U "$LANGUEE_BACK_POSTGRES_USER" -d restore_probe
+docker compose exec -T postgres psql -U "$LANGUEE_BACK_POSTGRES_USER" -d restore_probe \
+  -c '\dt' -c 'select count(*) from cards;'
+docker compose exec -T postgres dropdb -U "$LANGUEE_BACK_POSTGRES_USER" restore_probe
+```
+
+### What is not backed up
+
+`backup-db.sh` covers Postgres only. The `.env` files, the rclone remote
+configuration, and the crontab are not included. Keep an independent copy
+(for example encrypted, off the server): a backup destination whose
+credentials exist only on the lost host is not a recovery path.
 
 ## Moving Oracle → Hetzner (or back)
 
