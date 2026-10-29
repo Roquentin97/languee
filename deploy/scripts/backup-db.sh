@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 # Nightly Postgres backup: pg_dump -> gzip -> rclone copy to object storage,
 # with local + remote retention and an optional healthchecks.io heartbeat.
 # Runs on the server from /opt/languee. Install as a cron for the deploy user:
 #   10 3 * * * /opt/languee/scripts/backup-db.sh >> /opt/languee/backups/backup.log 2>&1
-set -eu
+set -euo pipefail
 
 APP_DIR=/opt/languee
 cd "$APP_DIR"
