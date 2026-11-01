@@ -32,6 +32,14 @@ updates:
         versions: ["[0.300,)"]
       - dependency-name: "@opentelemetry/exporter-trace-otlp-http"
         versions: ["[0.300,)"]
+      # resources 3.x belongs to the same OTel 3.0 migration; bumping it alone
+      # splits the SDK across majors. Remove together with the entries above.
+      - dependency-name: "@opentelemetry/resources"
+        update-types: ["version-update:semver-major"]
+      # Type stubs track the runtime's Node major (Dockerfile base image and CI
+      # node-version, currently 22), not the latest. Remove when the runtime moves.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "pip"
     directory: "/apps/languee-nlp"
