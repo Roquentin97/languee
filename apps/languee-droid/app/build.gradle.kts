@@ -41,7 +41,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 3
-        versionName = "2.0.0" // x-release-please-version
+        versionName = "3.0.0" // x-release-please-version
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
