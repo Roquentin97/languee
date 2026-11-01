@@ -7,6 +7,12 @@ on an Oracle Always Free Ampere (ARM) instance or a Hetzner CX-class (x86)
 server** — switching provider later means re-running provisioning and restoring
 a backup, nothing else.
 
+Configuration lives in OCI Vault ([VAULT.md](VAULT.md)); CI, the merge-triggered
+dev deployment, Release Please, and the branch-migration checklist are in
+[CICD.md](CICD.md). The sections below describe the generic server setup and
+operations; where they conflict with those two documents for the Oracle dev VM,
+those win.
+
 Cost research and provider trade-offs live in the deployment-plan artifact
 (2026-08); short version: start on Oracle Always Free while solo, move to
 Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
@@ -17,10 +23,11 @@ Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
 /opt/languee/
   docker-compose.prod.yml   # synced by the Deploy workflow
   caddy/Caddyfile           # synced by the Deploy workflow
-  scripts/backup-db.sh      # synced by the Deploy workflow
-  .env                      # from deploy/env/stack.env.example         (never in git)
-  languee-back.env          # from deploy/env/languee-back.env.example (never in git)
-  languee-nlp.env           # from deploy/env/languee-nlp.env.example  (never in git)
+  scripts/                  # backup-db.sh, deploy-stack.sh, sync-vault-config.py (synced)
+  .env                      # generated from OCI Vault on deploy (0600, never edit)
+  languee-back.env          # generated from OCI Vault on deploy
+  languee-nlp.env           # generated from OCI Vault on deploy
+  .deploy-state.json        # applied image tag + secret version
   backups/                  # local dump retention (7 days)
 ```
 
@@ -74,7 +81,8 @@ with the Security List open.
 ### 3. GHCR pull access
 
 Images in GHCR are private. On the server, as the `deploy` user, log in once
-with a fine-grained PAT that has only `read:packages`:
+with a **classic** PAT that has only `read:packages` (fine-grained PATs do not
+work for `docker login` to GHCR):
 
 ```bash
 docker login ghcr.io -u Roquentin97
@@ -84,16 +92,13 @@ Credentials persist in the deploy user's Docker config.
 
 ### 4. Env files
 
-Copy the three templates from `deploy/env/` to the server, dropping the
-`.example` suffix: `/opt/languee/.env`, `/opt/languee/languee-back.env`,
-`/opt/languee/languee-nlp.env`. Fill in real secrets and `chmod 600` all three.
-
-The file names match the compose service that reads each one (`.env` is the
-stack-level file compose reads for interpolation). Postgres and Redis
-credentials live only in `.env` — compose derives `languee-back`'s
-`DATABASE_URL` and `REDIS_PASSWORD` from them, so there is nothing to keep in
-sync. The one remaining cross-file pair is the NLP basic auth, commented in
-both templates.
+Generated, not hand-written: put the configuration JSON in OCI Vault and let
+the deploy render `.env`, `languee-back.env` and `languee-nlp.env`
+([VAULT.md](VAULT.md)). `deploy/env/*.env.example` are annotated key
+references only. Postgres and Redis credentials live once in the secret;
+compose derives `DATABASE_URL` and `REDIS_PASSWORD` from them. For a host
+without OCI (for example Hetzner), the same files can be written by hand
+from the templates, but then nothing regenerates them.
 
 ### 5. DNS
 
@@ -103,7 +108,9 @@ ACME challenge. Set the same name as `DOMAIN` in `/opt/languee/.env`.
 
 ### 6. GitHub Actions secrets
 
-In the repo, create environment `production` and add secrets:
+In the repo, create environment `languee-dev` (restricted to the `develop`
+branch), add the secrets below and the variables `VAULT_SECRET_OCID` and
+`OCI_REGION` ([CICD.md](CICD.md#github-environment-languee-dev)):
 
 | Secret           | Value                                    |
 | ---------------- | ---------------------------------------- |
@@ -121,27 +128,28 @@ In the repo, create environment `production` and add secrets:
 3. Install the cron: `crontab -e` →
    `10 3 * * * /opt/languee/scripts/backup-db.sh >> /opt/languee/backups/backup.log 2>&1`
 4. Create a check at healthchecks.io (free) and put its ping URL into
-   `BACKUP_HEALTHCHECK_URL` in `/opt/languee/.env` — a silently failing backup
+   `BACKUP_HEALTHCHECK_URL` in the Vault secret — a silently failing backup
    then alerts you.
 5. After the first run, **test a restore** (see below).
 
 ## Deploying
 
-Run the **Deploy** workflow from the Actions tab (branch of your choice):
+Merging a PR into `develop` runs **Deploy (dev)** automatically
+([CICD.md](CICD.md#deployment-deployyml-deploy-dev)): it builds the three
+images for amd64+arm64 as `sha-<commit>`, copies the stack files to the server,
+and runs `deploy-stack.sh --tag sha-<commit>`, which applies and validates the
+Vault configuration, pulls images, runs Prisma migrations through the migrator
+image, recreates the services, and checks health over HTTPS.
 
-- **Empty `tag` input:** builds all three images (`languee-back`,
-  `languee-back-migrator`, `languee-nlp`) for amd64+arm64, pushes them to GHCR
-  as `sha-<short>` and `latest`, then on the server: syncs stack files, pins
-  `TAG` in `.env`, `docker compose pull`, runs `prisma migrate deploy` via the
-  migrator image, `docker compose up -d`.
-- **`tag` set (e.g. `sha-1a2b3c4`):** skips the build and redeploys that
-  existing tag — this is the rollback path. Note: `migrate` runs Prisma's
-  forward migrations only; rolling back code is safe, rolling back a deployed
-  migration is manual.
+- **Rollback:** run Deploy (dev) manually on `develop` with
+  `tag: sha-<commit>`. Migrations are forward-only: rolling back code is safe,
+  rolling back a deployed migration is manual.
+- **Config-only change:** edit the Vault secret and run **Apply config (dev)**;
+  the image tag is preserved.
 
 First deploy on a fresh server is the same workflow — Postgres initializes
-from env, migrations create the schema, Caddy fetches certificates on first
-request.
+from the Vault credentials, migrations create the schema, Caddy fetches
+certificates on first request.
 
 The arm64 half of the NLP image builds under QEMU emulation (spaCy model
 download included), so an uncached build takes a while (~10–20 min); the GHA
@@ -151,8 +159,8 @@ layer cache makes subsequent builds fast until `uv.lock` changes.
 
 Self-hosted Loki/Tempo/Prometheus/Grafana from the dev compose file stay off
 the server. When wanted: create a free Grafana Cloud stack, then in
-`languee-back.env` set `TRACING_ENABLED=true` and uncomment the
-`OTEL_EXPORTER_OTLP_*` lines with
+the Vault secret set `TRACING_ENABLED=true` and add the
+`OTEL_EXPORTER_OTLP_*` keys with
 the stack's OTLP gateway URL and basic-auth token (Grafana Cloud → OpenTelemetry
 → instance ID + token, base64 `id:token`). For the NLP service, set
 `LANGUEE_NLP_TRACING_ENABLED=true` and its endpoint var. Container logs remain
@@ -181,7 +189,7 @@ instead of leaving a partially restored database.
 The dump contains the full schema, so it must load into an empty database;
 restoring over a schema that migrations already built fails with "relation
 already exists". For a full server loss: provision a new server (steps 1–7),
-run the Deploy workflow (it syncs the stack files and applies migrations), then
+run Deploy (dev) (it syncs the stack files and applies migrations), then
 stop `languee-back`, recreate the database empty, and restore:
 
 ```bash
@@ -210,9 +218,10 @@ docker compose exec -T postgres dropdb -U "$LANGUEE_BACK_POSTGRES_USER" restore_
 
 ### What is not backed up
 
-`backup-db.sh` covers Postgres only. The `.env` files, the rclone remote
-configuration, and the crontab are not included. Keep an independent copy
-(for example encrypted, off the server): a backup destination whose
+`backup-db.sh` covers Postgres only. The Vault secret, the rclone remote
+configuration, and the crontab are not included. OCI Vault is not an
+off-provider copy; keep an independent, encrypted export of the secret and of
+the rclone config outside the VM and outside OCI: a backup destination whose
 credentials exist only on the lost host is not a recovery path.
 
 ## Moving Oracle → Hetzner (or back)

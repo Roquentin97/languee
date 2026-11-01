@@ -46,6 +46,12 @@ coverage/
 # Filled-in server env files. The deploy templates are <name>.env.example, which
 # the patterns above do not cover, so ignore the real files explicitly.
 deploy/env/*.env
+/languee-back.env
+/languee-nlp.env
+# Local copies of the OCI Vault config secret and server-side deploy bookkeeping.
+languee-*-config.json
+.deploy-state.json
+.config-previous/
 
 
 #Documentation
@@ -58,3 +64,5 @@ forge/runs/
 #local
 .lab
 .local.notes
+__pycache__/
+.pytest_cache/

@@ -1,0 +1,45 @@
+name: Apply config (dev)
+
+# Re-reads the OCI Vault secret and recreates the app services on the dev VM
+# without changing the deployed image tag or running migrations. It runs the
+# scripts already installed on the server by the last deploy, so it cannot be
+# used to ship new code. Edit the secret in OCI first; leave `secret_version`
+# empty for the current version, or set it to apply (or roll back to) a
+# specific one.
+on:
+  workflow_dispatch:
+    inputs:
+      secret_version:
+        description: OCI secret version number to apply (empty = current)
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: languee-dev
+    steps:
+      - name: Apply Vault config
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          SECRET_VERSION: ${{ inputs.secret_version }}
+          VAULT_SECRET_OCID: ${{ vars.VAULT_SECRET_OCID }}
+          OCI_REGION: ${{ vars.OCI_REGION }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: SECRET_VERSION,VAULT_SECRET_OCID,OCI_REGION
+          script_stop: true
+          script: |
+            args=(--preserve-tag)
+            if [ -n "$SECRET_VERSION" ]; then args+=(--secret-version "$SECRET_VERSION"); fi
+            /opt/languee/scripts/deploy-stack.sh "${args[@]}"
