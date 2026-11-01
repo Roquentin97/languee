@@ -1,49 +1,83 @@
-name: Deploy
+name: Deploy (dev)
 
-# Manual deploys only for now: build multi-arch images (amd64 for Hetzner-class
-# hosts, arm64 for Oracle Ampere), push to GHCR, then update the stack on the
-# server over SSH. Trigger from the Actions tab; pass a tag to redeploy a
-# previously built version (rollback), or leave empty to build from the chosen ref.
+# Deploys to the Oracle dev VM only after a merge into `develop`: the trigger is
+# the resulting push, built from that exact commit (github.sha). Unmerged PR
+# code never reaches this workflow. develop is PR-only (branch ruleset), so a
+# push is a merge; Release Please only opens PRs and never pushes to develop.
+#
+# workflow_dispatch from develop re-runs the pipeline for the branch head, or
+# with `tag` rolls back to an image built from an earlier develop commit.
 on:
+  push:
+    branches:
+      - develop
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing image tag to deploy without rebuilding (leave empty to build from this ref)
+        description: Existing sha-<commit> image tag to deploy without rebuilding (rollback). Leave empty to build and deploy the develop head.
         required: false
         type: string
 
+# Serialize deploys. A run waiting behind an active one is replaced by newer
+# runs, and `resolve` skips any run whose commit is no longer the develop head.
 concurrency:
-  group: deploy
+  group: deploy-dev
   cancel-in-progress: false
 
 permissions:
   contents: read
-  packages: write
 
 env:
   IMAGE_PREFIX: ghcr.io/roquentin97/languee
 
 jobs:
-  resolve-tag:
+  resolve:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       build: ${{ steps.tag.outputs.build }}
+      stale: ${{ steps.tag.outputs.stale }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-            echo "build=false" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          stale=false
+          if [ -n "$INPUT_TAG" ]; then
+            if ! [[ "$INPUT_TAG" =~ ^sha-[0-9a-f]{7,40}$ ]]; then
+              echo "tag must look like sha-<commit>" >&2; exit 1
+            fi
+            commit="${INPUT_TAG#sha-}"
+            if ! git merge-base --is-ancestor "$commit" origin/develop; then
+              echo "$INPUT_TAG was not built from a commit on develop" >&2; exit 1
+            fi
+            tag="$INPUT_TAG"; build=false
           else
-            echo "tag=sha-$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
-            echo "build=true" >> "$GITHUB_OUTPUT"
+            tag="sha-${GITHUB_SHA::7}"; build=true
+            head=$(git rev-parse origin/develop)
+            if [ "$head" != "$GITHUB_SHA" ]; then
+              echo "::notice::$GITHUB_SHA is no longer the develop head; skipping stale deploy"
+              stale=true
+            fi
           fi
+          {
+            echo "tag=$tag"
+            echo "build=$build"
+            echo "stale=$stale"
+          } >> "$GITHUB_OUTPUT"
 
   build:
-    needs: resolve-tag
-    if: needs.resolve-tag.outputs.build == 'true'
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true' && needs.resolve.outputs.stale != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         include:
@@ -72,17 +106,20 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve-tag.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
             ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
 
   deploy:
-    needs: [resolve-tag, build]
-    # Run when building succeeded, or when build was skipped for a tag-only redeploy.
-    if: always() && needs.resolve-tag.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    needs: [resolve, build]
+    # Build succeeded, or was skipped for a rollback. A stale run deploys nothing.
+    if: >-
+      always() && needs.resolve.result == 'success'
+      && needs.resolve.outputs.stale != 'true'
+      && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
-    environment: production
+    environment: languee-dev
     steps:
       - uses: actions/checkout@v7
       - name: Copy compose file
@@ -99,21 +136,30 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh
+          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py
           target: /opt/languee/
           strip_components: 1
-      - name: Migrate and restart stack
+      - name: Apply Vault config, migrate, restart
         uses: appleboy/ssh-action@v1.2.5
+        env:
+          DEPLOY_TAG: ${{ needs.resolve.outputs.tag }}
+          VAULT_SECRET_OCID: ${{ vars.VAULT_SECRET_OCID }}
+          OCI_REGION: ${{ vars.OCI_REGION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_TAG,VAULT_SECRET_OCID,OCI_REGION
           script_stop: true
           script: |
-            cd /opt/languee
-            chmod +x scripts/backup-db.sh
-            sed -i "s/^TAG=.*/TAG=${{ needs.resolve-tag.outputs.tag }}/" .env
-            docker compose pull
-            docker compose run --rm migrate
-            docker compose up -d --remove-orphans
-            docker image prune -f
+            chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh
+            /opt/languee/scripts/deploy-stack.sh --tag "$DEPLOY_TAG"
+      - name: Public readiness check
+        env:
+          HEALTHCHECK_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$HEALTHCHECK_URL" ]; then
+            echo "DEPLOY_HEALTHCHECK_URL not set; skipping public check"
+            exit 0
+          fi
+          curl -fsS -o /dev/null --max-time 15 --retry 10 --retry-delay 6 --retry-all-errors "$HEALTHCHECK_URL"

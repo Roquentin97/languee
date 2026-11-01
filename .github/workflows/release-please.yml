@@ -3,7 +3,6 @@ name: release-please
 on:
   push:
     branches:
-      - bb_develop
       - develop
   workflow_dispatch:
 
@@ -14,6 +13,8 @@ permissions:
 
 jobs:
   release-please:
+    # A manual run from another branch would open release PRs against it.
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v5
