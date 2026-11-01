@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.162.0",
     "uvicorn[standard]>=0.54.0",
-    "spacy>=3.8.16",
+    "spacy>=3.8.18",
     "pydantic-settings>=2.16.1",
     "lemminflect==0.2.3",
     "opentelemetry-sdk>=1.45.1",
