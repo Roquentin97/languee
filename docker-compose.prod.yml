@@ -1,5 +1,5 @@
-# Production stack for a single small VPS (Hetzner x86 or Oracle ARM — images
-# are multi-arch). Designed to run from /opt/languee on the server, where the
+# Production stack for a single small VPS (Oracle ARM — images are
+# linux/arm64 only). Designed to run from /opt/languee on the server, where the
 # deploy workflow places this file together with caddy/Caddyfile and
 # scripts/backup-db.sh. Interpolation values come from /opt/languee/.env
 # (see deploy/env/stack.env.example); service env comes from languee-back.env /
