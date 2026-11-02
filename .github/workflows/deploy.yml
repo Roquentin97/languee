@@ -150,7 +150,6 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: DEPLOY_TAG,VAULT_SECRET_OCID,OCI_REGION
-          script_stop: true
           script: |
             chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh
             /opt/languee/scripts/deploy-stack.sh --tag "$DEPLOY_TAG"

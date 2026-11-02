@@ -105,6 +105,21 @@ jobs:
       - name: Prisma schema validate
         run: yarn prisma validate
 
+      - name: Migrator image loads Prisma config
+        # `migrate deploy` fails with "datasource.url property is required" when
+        # prisma.config.ts is missing from the image. With the config present and
+        # an unreachable dummy URL it fails later, with a connection error (P1001).
+        run: |
+          docker build --target migrator -t migrator-ci .
+          status=0
+          out=$(docker run --rm -e DATABASE_URL=postgresql://ci:ci@127.0.0.1:1/ci \
+            migrator-ci yarn prisma migrate deploy 2>&1) || status=$?
+          echo "$out"
+          if [ "$status" -eq 0 ] || ! grep -q 'P1001' <<< "$out"; then
+            echo "::error::migrator did not reach the database connection stage"
+            exit 1
+          fi
+
   nlp:
     name: languee-nlp
     needs: changes
