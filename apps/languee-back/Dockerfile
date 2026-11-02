@@ -34,11 +34,14 @@ RUN yarn prisma generate && yarn build
 
 # ─── Stage 3b: migrator ──────────────────────────────────────────────────────
 # Deploy-time migration runner: full node_modules (prisma CLI) plus the schema
-# and migrations, without app source. Published alongside the production image.
+# and migrations, without app source. Prisma 7 reads the datasource URL from
+# prisma.config.ts (DATABASE_URL at run time), so the image must carry it.
+# Published alongside the production image.
 FROM deps AS migrator
 
 WORKDIR /app
 
+COPY --chown=node:node prisma.config.ts ./prisma.config.ts
 COPY --chown=node:node prisma ./prisma
 
 CMD ["yarn", "prisma", "migrate", "deploy"]

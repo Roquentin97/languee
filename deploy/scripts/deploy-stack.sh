@@ -8,7 +8,9 @@
 # Needs VAULT_SECRET_OCID (and optionally OCI_REGION) in the environment. The
 # configuration is fetched and validated before anything is stopped or migrated;
 # if a later step fails, the previous configuration is restored and the app
-# services are recreated with it. Database migrations are not reverted.
+# services are recreated with it. The very first apply has no previous
+# configuration, so a failure there is reported as is. Database migrations are
+# not reverted.
 set -euo pipefail
 
 APP_DIR=${APP_DIR:-/opt/languee}
@@ -22,6 +24,8 @@ done
 vault_sync() { python3 scripts/sync-vault-config.py --app-dir "$APP_DIR" "$@"; }
 
 state_before=$(vault_sync --status)
+initial=false
+if [ "$state_before" = "{}" ]; then initial=true; fi
 vault_sync "$@"
 # Only roll back what this run changed; a no-op apply must not resurrect an
 # older snapshot.
@@ -31,9 +35,13 @@ if [ "$(vault_sync --status)" != "$state_before" ]; then changed=true; fi
 on_exit() {
   local status=$?
   if [ "$status" -ne 0 ] && [ "$changed" = true ]; then
-    echo "deploy failed; restoring previous configuration" >&2
-    if vault_sync --restore-previous; then
-      docker compose up -d --force-recreate --no-deps languee-nlp languee-back || true
+    if [ "$initial" = true ]; then
+      echo "deploy failed on the initial configuration apply; there is no earlier configuration to restore" >&2
+    else
+      echo "deploy failed; restoring previous configuration" >&2
+      if vault_sync --restore-previous; then
+        docker compose up -d --force-recreate --no-deps languee-nlp languee-back || true
+      fi
     fi
   fi
 }
