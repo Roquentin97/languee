@@ -1,0 +1,25 @@
+meta {
+  name: System Env
+  type: http
+  seq: 2
+  tags: [
+    system
+  ]
+}
+
+get {
+  url: {{base_url}}/system/env
+  body: none
+  auth: basic
+}
+
+auth:basic {
+  username: {{basic_login}}
+  password: {{basic_password}}
+}
+
+tests {
+  test("returns 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

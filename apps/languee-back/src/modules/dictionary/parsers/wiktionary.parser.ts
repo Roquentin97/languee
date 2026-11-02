@@ -1,0 +1,210 @@
+import { Logger } from '@nestjs/common';
+import { RawDefinitionEntry } from '../interfaces/dictionary-api-adapter.interface';
+import { mapWiktionaryPos } from '../mappers/wiktionary-pos.mapper';
+
+const logger = new Logger('WiktionaryParser');
+
+const HTML_TAG_REGEX = /<[^>]+>/g;
+const WHITESPACE_REGEX = /\s+/g;
+const HTML_ENTITY_REGEX = /&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;/g;
+
+const HTML_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&nbsp;': ' ',
+};
+
+/**
+ * Strips HTML tags and decodes common entities from a Wiktionary REST API
+ * definition/example fragment, collapsing whitespace runs.
+ */
+export function stripWiktionaryHtml(html: string): string {
+  return html
+    .replace(HTML_TAG_REGEX, '')
+    .replace(HTML_ENTITY_REGEX, (entity) => HTML_ENTITIES[entity] ?? entity)
+    .replace(WHITESPACE_REGEX, ' ')
+    .trim();
+}
+
+/**
+ * Removes nested sense lists from a definition fragment before extracting
+ * its text. The Wiktionary REST API also returns those nested senses as their
+ * own definition records, so flattening the list duplicates child senses in
+ * the parent definition.
+ */
+function stripNestedSenseLists(html: string): string {
+  const listTagRegex = /<\/?ol\b[^>]*>/gi;
+  let result = '';
+  let cursor = 0;
+  let listDepth = 0;
+
+  for (const match of html.matchAll(listTagRegex)) {
+    const index = match.index;
+    if (index === undefined) {
+      continue;
+    }
+
+    if (listDepth === 0) {
+      result += html.slice(cursor, index);
+    }
+
+    if (match[0].startsWith('</')) {
+      listDepth = Math.max(0, listDepth - 1);
+    } else {
+      listDepth += 1;
+    }
+    cursor = index + match[0].length;
+  }
+
+  if (listDepth === 0) {
+    result += html.slice(cursor);
+  }
+
+  return result;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function extractRawExample(
+  definitionRecord: Record<string, unknown>,
+): string | undefined {
+  const parsedExamples = definitionRecord['parsedExamples'];
+  if (Array.isArray(parsedExamples)) {
+    for (const parsedExample of parsedExamples) {
+      if (
+        isRecord(parsedExample) &&
+        typeof parsedExample['example'] === 'string'
+      ) {
+        return parsedExample['example'];
+      }
+    }
+  }
+
+  const examples = definitionRecord['examples'];
+  if (Array.isArray(examples)) {
+    for (const example of examples) {
+      if (typeof example === 'string') {
+        return example;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function parseUsage(usage: unknown): RawDefinitionEntry[] {
+  if (!isRecord(usage)) {
+    return [];
+  }
+
+  const rawPartOfSpeech = usage['partOfSpeech'];
+  if (typeof rawPartOfSpeech !== 'string') {
+    return [];
+  }
+
+  const partOfSpeech = mapWiktionaryPos(rawPartOfSpeech);
+  if (partOfSpeech === null) {
+    logger.debug({
+      message: 'unrecognised part of speech, skipping usage',
+      event: 'wiktionary.pos_skipped',
+      method: parseUsage.name,
+      data: { partOfSpeech: rawPartOfSpeech },
+    });
+    return [];
+  }
+
+  const definitions = usage['definitions'];
+  if (!Array.isArray(definitions)) {
+    return [];
+  }
+
+  const entries: RawDefinitionEntry[] = [];
+  for (const rawDefinition of definitions) {
+    if (
+      !isRecord(rawDefinition) ||
+      typeof rawDefinition['definition'] !== 'string'
+    ) {
+      continue;
+    }
+
+    const definition = stripWiktionaryHtml(
+      stripNestedSenseLists(rawDefinition['definition']),
+    );
+    if (definition.length === 0) {
+      continue;
+    }
+
+    const rawExample = extractRawExample(rawDefinition);
+    const example =
+      rawExample !== undefined ? stripWiktionaryHtml(rawExample) : undefined;
+
+    entries.push({
+      partOfSpeech,
+      definition,
+      ...(example !== undefined && example.length > 0 ? { example } : {}),
+    });
+  }
+
+  return entries;
+}
+
+const ENGLISH_SECTION_HEADING = '==English==';
+const NEXT_LANGUAGE_HEADING_REGEX = /^==[^=]/m;
+const IPA_TEMPLATE_REGEX = /\{\{IPA\|en\|([^|}]+)/;
+
+/**
+ * Extracts the first English IPA transcription from a Wiktionary wikitext
+ * page. Pronunciations live in `{{IPA|en|...}}` templates; the search is
+ * restricted to the `==English==` section because the same page holds every
+ * language's entry for the spelling.
+ */
+export function extractEnglishIpaFromWikitext(
+  wikitext: unknown,
+): string | null {
+  if (typeof wikitext !== 'string') {
+    return null;
+  }
+
+  const englishStart = wikitext.indexOf(ENGLISH_SECTION_HEADING);
+  if (englishStart === -1) {
+    return null;
+  }
+
+  const afterHeading = wikitext.slice(
+    englishStart + ENGLISH_SECTION_HEADING.length,
+  );
+  const nextLanguageAt = afterHeading.search(NEXT_LANGUAGE_HEADING_REGEX);
+  const englishSection =
+    nextLanguageAt === -1
+      ? afterHeading
+      : afterHeading.slice(0, nextLanguageAt);
+
+  const ipa = englishSection.match(IPA_TEMPLATE_REGEX)?.[1]?.trim();
+  return ipa ? ipa : null;
+}
+
+/**
+ * Parses a Wiktionary REST API `/page/definition/{term}` response body into
+ * RawDefinitionEntry[] for the given language code. Defensive throughout —
+ * malformed or unexpected shapes are skipped rather than throwing.
+ */
+export function parseWiktionaryResponse(
+  body: unknown,
+  language: string,
+): RawDefinitionEntry[] {
+  if (!isRecord(body)) {
+    return [];
+  }
+
+  const usages = body[language];
+  if (!Array.isArray(usages)) {
+    return [];
+  }
+
+  return usages.flatMap((usage) => parseUsage(usage));
+}

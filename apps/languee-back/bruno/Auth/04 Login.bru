@@ -1,0 +1,39 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+  tags: [
+    auth
+    smoke
+  ]
+}
+
+post {
+  url: {{base_url}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "email": "{{jack_login}}",
+    "password": "{{jack_password}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 && res.body?.accessToken) {
+    bru.setVar("accessToken", res.body.accessToken);
+  }
+}
+
+tests {
+  test("returns an access token", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.accessToken).to.be.a("string");
+  });
+}

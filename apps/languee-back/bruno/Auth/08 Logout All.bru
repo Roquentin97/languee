@@ -1,0 +1,25 @@
+meta {
+  name: Logout All
+  type: http
+  seq: 4
+  tags: [
+    auth
+  ]
+}
+
+post {
+  url: {{base_url}}/auth/logout-all
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+tests {
+  test("revokes all sessions", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.message).to.equal("All sessions revoked");
+  });
+}

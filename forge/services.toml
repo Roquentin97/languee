@@ -1,0 +1,123 @@
+[services.languee-back]
+path = "apps/languee-back"
+runtime = "node"
+framework = "nestjs"
+package_manager = "yarn"
+persistence = "prisma"
+dev_port = 3000
+api_docs_url = "http://localhost:3000/api/v1/docs"
+api_docs_port_env = "LANGUEE_BACK_API_PORT"
+affected_components = ["auth", "users"]
+app_version_files = ["src/modules/health/health.service.ts"]
+app_version_bump = "Do not bump manually in feature PRs; Release Please updates APP_VERSION in release PRs."
+rulesets = ["common", "boundary", "nestjs", "prisma", "jest"]
+environment = [
+  "DATABASE_URL",
+  "JWT_SECRET",
+  "REDIS_URL",
+  "LANGUEE_BACK_API_PORT",
+]
+
+[services.languee-back.commands]
+install = "yarn install --frozen-lockfile"
+format = "yarn format"
+lint = "yarn lint"
+test = "yarn test"
+coverage = "yarn test:cov"
+build = "yarn build"
+validate_persistence = "yarn prisma validate"
+persistence_migrate = "sh scripts/load-env.sh yarn prisma migrate dev --name <feature-name>"
+persistence_generate = "sh scripts/load-env.sh yarn prisma generate"
+
+[services.languee-back.context]
+include = ["src/**/*.ts", "test/**/*.ts", "prisma/schema.prisma", "package.json"]
+exclude = ["node_modules/**", "dist/**", "build/**", "coverage/**"]
+always_full = ["prisma/schema.prisma", "package.json", "src/modules/health/health.service.ts"]
+
+[services.languee-nlp]
+path = "apps/languee-nlp"
+runtime = "python"
+framework = "fastapi"
+package_manager = "uv"
+persistence = ""
+dev_port = 8000
+api_docs_url = "http://localhost:8000/docs"
+api_docs_port_env = "LANGUEE_NLP_PORT"
+affected_components = ["api", "nlp", "spacy"]
+app_version_files = ["src/languee_nlp/constants.py"]
+app_version_bump = "Do not bump manually in feature PRs; Release Please updates VERSION in release PRs."
+rulesets = ["common", "boundary", "fastapi", "spacy", "pytest"]
+environment = [
+  "LANGUEE_NLP_PORT",
+  "LANGUEE_NLP_SPACY_MODEL",
+]
+
+[services.languee-nlp.commands]
+install = "uv sync"
+format = "uv run ruff format ."
+lint = "uv run ruff check ."
+test = "uv run pytest"
+coverage = "uv run pytest --cov=languee_nlp"
+
+[services.languee-nlp.context]
+include = ["src/**/*.py", "tests/**/*.py", "pyproject.toml"]
+exclude = [
+  ".venv/**",
+  "__pycache__/**",
+  ".pytest_cache/**",
+  ".ruff_cache/**",
+  "dist/**",
+  "build/**",
+  "coverage/**",
+]
+always_full = ["pyproject.toml", "src/languee_nlp/constants.py"]
+
+[services.languee-droid]
+path = "apps/languee-droid"
+runtime = "android"
+framework = "android-kotlin"
+package_manager = "gradle"
+persistence = ""
+dev_port = 0
+affected_components = ["app", "ui", "presentation", "data"]
+app_version_files = ["app/build.gradle.kts"]
+app_version_bump = "Do not bump versionName manually in feature PRs; Release Please updates SemVer release files in release PRs. Change versionCode only for explicit release/publication tasks."
+rulesets = ["common", "boundary", "android-kotlin"]
+environment = [
+  "ANDROID_HOME",
+  "JAVA_HOME",
+]
+
+[services.languee-droid.commands]
+install = "./gradlew --version"
+format = "./gradlew ktlintFormat"
+lint = "./gradlew lintDebug"
+test = "./gradlew testDebugUnitTest"
+build = "./gradlew assembleDebug"
+
+[services.languee-droid.context]
+include = [
+  "app/src/**/*.kt",
+  "app/src/**/*.java",
+  "app/src/**/*.xml",
+  "app/src/**/*.kts",
+  "app/src/**/AndroidManifest.xml",
+  "app/build.gradle.kts",
+  "build.gradle.kts",
+  "settings.gradle.kts",
+  "gradle/libs.versions.toml",
+]
+exclude = [
+  ".gradle/**",
+  "build/**",
+  "app/build/**",
+  "**/generated/**",
+  "**/.idea/**",
+]
+always_full = [
+  "app/src/main/AndroidManifest.xml",
+  "app/build.gradle.kts",
+  "build.gradle.kts",
+  "settings.gradle.kts",
+  "gradle/libs.versions.toml",
+]

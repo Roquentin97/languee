@@ -1,0 +1,28 @@
+meta {
+  name: Create Export
+  type: http
+  seq: 1
+  tags: [
+    ankidroid-exports
+  ]
+}
+
+post {
+  url: {{base_url}}/api/v1/cards/{{card_id}}/ankidroid-exports
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("creates or returns existing export", function() {
+    expect(res.status).to.be.oneOf([200, 201, 404]);
+  });
+
+  test("returns export shape on success", function() {
+    if (res.status === 200 || res.status === 201) {
+      expect(res.body.id).to.be.a("string");
+      expect(res.body.cardId).to.be.a("string");
+      expect(res.body.status).to.be.a("string");
+    }
+  });
+}

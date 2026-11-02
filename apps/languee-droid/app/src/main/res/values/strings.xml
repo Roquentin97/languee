@@ -1,0 +1,223 @@
+<resources>
+    <string name="app_name">Languee</string>
+
+    <!-- Button labels -->
+    <string name="btn_add_entry">Add entry</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_save_without_context">Save without context</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_keep_full_context">Keep full context</string>
+    <string name="btn_truncate_to_sentence">Truncate to sentence</string>
+    <string name="btn_edit_context">Edit context</string>
+    <string name="btn_add_context_manually">Add context manually</string>
+    <string name="btn_continue_selection">Continue</string>
+    <string name="btn_submit_definition">Save definition</string>
+
+    <!-- Input labels -->
+    <string name="label_target_word">Target word</string>
+    <string name="label_context_optional">Context (optional)</string>
+    <string name="label_tap_word_to_learn">Tap a word to start. Tap adjacent words to extend the selection (up to 6 words).</string>
+    <string name="label_selection_preview">Selected: %1$s</string>
+    <string name="label_definition">Definition</string>
+    <string name="label_example_optional">Example (optional)</string>
+
+    <!-- Language selection (capture, TTS) -->
+    <string name="language_en" translatable="false">English</string>
+    <string name="tts_pronounce_description">Pronounce</string>
+
+    <!-- Validation messages -->
+    <string name="validation_context_must_contain_word">Context must contain the target word as a standalone token</string>
+    <string name="validation_word_cannot_be_empty">Target word cannot be empty</string>
+
+    <!-- Multi-sentence warning -->
+    <string name="warning_multi_sentence">This context may be too long or clumsy for learning. Do you want to truncate it to the sentence containing the target word?</string>
+
+    <!-- Auth screen -->
+    <string name="auth_screen_title">Sign in to Languee</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_login_button">Log in</string>
+    <string name="auth_register_button">Register</string>
+    <string name="auth_loading">Signing in…</string>
+    <string name="auth_error_generic">Something went wrong. Please try again.</string>
+
+    <!-- Home screen -->
+    <string name="home_greeting">Welcome, %1$s</string>
+    <string name="home_logout_button">Log out</string>
+    <string name="home_empty_state">No entries yet. Tap + to add one.</string>
+
+    <!-- Session check -->
+    <string name="checking_session_label">Checking session…</string>
+
+    <!-- Auth landing / register -->
+    <string name="auth_landing_title">Welcome to Languee</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_confirm_password">Confirm password</string>
+    <string name="auth_passwords_do_not_match">Passwords do not match</string>
+    <string name="auth_account_created">Account created!</string>
+    <string name="auth_already_have_account">Already have an account? Log in</string>
+
+    <!-- Context edit -->
+    <string name="context_edit_title">Edit context</string>
+    <string name="context_edit_empty_warning">You removed all context. Save this word without context?</string>
+    <string name="context_edit_save_without_context">Save without context</string>
+    <string name="context_edit_word_missing">The context no longer contains \'%1$s\'. Add the word back or clear context completely to save without context.</string>
+
+    <!-- Logout -->
+    <string name="logout_description">Log out</string>
+
+    <!-- Decks screen -->
+    <string name="decks_screen_title">My Decks</string>
+    <string name="decks_empty_state">No decks yet. Tap + to create one.</string>
+    <string name="deck_detail_empty">No cards in this deck yet. Tap + to add a word.</string>
+    <string name="deck_detail_error">Couldn\'t load the cards of this deck.</string>
+    <string name="deck_detail_add_word">Add a word</string>
+    <string name="decks_create_deck_button">Create deck</string>
+    <string name="decks_deck_context_menu_browse">Browse</string>
+
+    <!-- Deck create dialog -->
+    <string name="deck_create_dialog_title">Create a deck</string>
+    <string name="deck_create_mode_new">Create Languee deck</string>
+    <string name="deck_create_mode_existing">Use existing deck</string>
+    <string name="deck_create_confirm_button">Create</string>
+
+    <!-- Card creation screen -->
+    <string name="card_creation_title">Add card: %1$s</string>
+    <string name="card_creation_deck_label">Deck</string>
+    <string name="card_creation_select_deck_placeholder">Select a deck</string>
+    <string name="card_creation_no_decks_hint">Create a deck first to add cards</string>
+    <string name="card_creation_saved_in_this_deck">In this deck</string>
+    <string name="card_creation_saved_in_decks">Saved in %1$s</string>
+    <string name="card_creation_definitions_header">Definitions for %1$s</string>
+    <string name="card_creation_no_definitions">No definitions found for "%1$s"</string>
+    <string name="card_creation_add_button">Add to deck</string>
+    <string name="card_creation_already_in_deck">This definition is already in the selected deck</string>
+    <string name="card_creation_exists_in_another_deck">This definition already exists in another deck</string>
+    <string name="card_creation_success">Card added successfully!</string>
+    <string name="card_creation_syncing">Syncing with AnkiDroid…</string>
+    <string name="card_creation_sync_success">Synced to AnkiDroid!</string>
+    <string name="card_creation_sync_failed">Failed to sync with AnkiDroid</string>
+    <string name="card_creation_retry">Retry</string>
+    <string name="card_creation_expression_context_not_found">This expression was not found in your saved context.</string>
+    <string name="card_creation_manual_definition_title">No definition found — add your own</string>
+
+    <!-- Example selection step -->
+    <string name="card_creation_example_selection_title">Choose example sentence</string>
+    <string name="card_creation_example_user_context_label">My context</string>
+    <string name="card_creation_example_dictionary_label">Dictionary example</string>
+    <string name="card_creation_example_no_context_warning">No context provided for this word</string>
+    <string name="card_creation_example_no_example">No example available</string>
+    <string name="card_creation_example_confirm">Confirm</string>
+    <string name="card_creation_example_skip">Continue without example</string>
+
+    <!-- AnkiDroid setup -->
+    <string name="ankidroid_setup_title">AnkiDroid Setup</string>
+    <string name="ankidroid_setup_not_installed">AnkiDroid is not installed. Install it from the Play Store to enable export.</string>
+    <string name="ankidroid_setup_api_unavailable">AnkiDroid API is unavailable. Enable AnkiDroid API in AnkiDroid settings (Advanced &gt; Enable AnkiDroid API).</string>
+    <string name="ankidroid_setup_permission_denied">Languee needs permission to access AnkiDroid.</string>
+    <string name="ankidroid_setup_grant_permission">Grant permission</string>
+    <string name="ankidroid_setup_dedicated_deck_name_label">Subdeck name (optional)</string>
+    <string name="ankidroid_setup_dedicated_deck_prefix">Languee::</string>
+    <string name="ankidroid_setup_no_note_type">Select a note type for AnkiDroid cards.</string>
+    <string name="ankidroid_setup_save">Save setup</string>
+    <string name="ankidroid_setup_skip">Skip for now</string>
+    <string name="ankidroid_export_preference_auto">Auto-export after card creation</string>
+    <string name="ankidroid_export_preference_manual">Manual export</string>
+    <string name="ankidroid_note_type_type_in">Languee Mobile Native Type Vocabulary (recommended)</string>
+    <string name="ankidroid_note_type_basic_reversed">Languee Basic + Reversed Vocabulary</string>
+    <string name="ankidroid_deck_selector_title">Select AnkiDroid Deck</string>
+    <string name="ankidroid_deck_selector_search_hint">Search decks</string>
+    <string name="ankidroid_sync_description">Push your saved Languee cards into your AnkiDroid collection.</string>
+    <string name="ankidroid_sync_title">Sync with AnkiDroid</string>
+    <string name="ankidroid_sync_button">Sync now</string>
+    <string name="ankidroid_sync_in_progress">Sync in progress…</string>
+    <string name="ankidroid_sync_up_to_date">Everything is already up to date</string>
+    <string name="ankidroid_sync_result_summary">Synced %1$d card(s), %2$d failed</string>
+    <string name="ankidroid_sync_failed_words_header">Failed cards</string>
+    <string name="ankidroid_export_status_pending">Pending</string>
+    <string name="ankidroid_export_status_failed">Failed</string>
+    <string name="ankidroid_export_status_completed">Exported</string>
+    <string name="ankidroid_integrations_description">AnkiDroid integration settings</string>
+    <string name="ankidroid_installed_title">AnkiDroid Detected</string>
+    <string name="ankidroid_installed_message">AnkiDroid was installed. Would you like to set up the integration now?</string>
+    <string name="ankidroid_uninstalled_title">AnkiDroid Removed</string>
+    <string name="ankidroid_uninstalled_message">AnkiDroid was removed. Cards will no longer be exported automatically.</string>
+    <string name="ankidroid_permission_granted_title">Permission Granted</string>
+    <string name="ankidroid_permission_granted_message">AnkiDroid permission was granted. Open integration settings to finish setup.</string>
+    <string name="ankidroid_permission_revoked_title">Permission Revoked</string>
+    <string name="ankidroid_permission_revoked_message">AnkiDroid permission was revoked. Export is paused until permission is restored.</string>
+    <string name="ankidroid_status_setup_now">Set up now</string>
+    <string name="ankidroid_status_not_now">Not now</string>
+    <string name="ankidroid_status_ok">OK</string>
+
+    <!-- Offline queue -->
+    <string name="decks_offline_strip_offline">You\'re offline — captures are saved to your queue</string>
+    <string name="decks_offline_strip_queued">Offline · %1$d captures queued</string>
+    <string name="decks_offline_strip_back_online">Back online — %1$d queued captures ready</string>
+    <string name="offline_queue_title">Offline Queue</string>
+    <string name="offline_queue_empty">No words saved offline yet.</string>
+    <string name="offline_queue_offline_banner">Offline · reconnect to start reviewing</string>
+    <string name="offline_queue_online_banner">Back online — tap any word to pick its definition</string>
+    <string name="offline_queue_start_reviewing">Start reviewing →</string>
+    <string name="offline_queue_reconnect_to_review">Reconnect to start reviewing</string>
+    <string name="navigate_back_description">Navigate back</string>
+
+    <!-- Error messages (resolved in UI from typed ViewModel errors) -->
+    <string name="error_load_decks_failed">Failed to load decks</string>
+    <string name="error_create_deck_failed">Failed to create deck</string>
+    <string name="error_load_decks_for_card_failed">Failed to load decks</string>
+    <string name="error_lookup_failed">Failed to look up word</string>
+    <string name="error_create_card_failed">Failed to create card</string>
+    <string name="error_stale_reference">Deck or definition no longer exists</string>
+    <string name="error_export_record_failed">Failed to record export</string>
+    <string name="error_expression_too_long">Expression is too long (maximum 10 words)</string>
+    <string name="error_lookup_input_invalid">This selection can\'t be analyzed — try a shorter or simpler selection</string>
+    <string name="error_manual_definition_failed">Failed to save your definition</string>
+    <string name="error_definition_already_exists">This definition already exists</string>
+
+    <!-- Review session -->
+    <string name="decks_review_button">Review</string>
+    <string name="review_screen_title">Review</string>
+    <string name="review_empty_state">No cards due for review right now.</string>
+    <string name="review_new_badge">New</string>
+    <string name="review_kind_phrasal_verb">phrasal verb</string>
+    <string name="review_kind_expression">expression</string>
+    <string name="review_progress">%1$d of %2$d</string>
+    <string name="review_answer_label">Your answer</string>
+    <string name="review_submit_button">Submit</string>
+    <string name="review_show_answer_button">Show answer</string>
+    <string name="review_reveal_button">Can\'t recall</string>
+    <string name="review_incorrect_feedback">Not quite. Try again, or tap Can\'t recall.</string>
+    <string name="review_correct_title">Correct!</string>
+    <string name="review_accepted_answer">Accepted: %1$s</string>
+    <string name="review_word_forms_title">WORD FORMS</string>
+    <string name="review_rating_again">Again</string>
+    <string name="review_rating_hard">Hard</string>
+    <string name="review_rating_good">Good</string>
+    <string name="review_rating_easy">Easy</string>
+    <string name="review_revealed_title">Keep practicing</string>
+    <string name="review_revealed_message">The answer stays hidden until you recall it — this card will come back soon.</string>
+    <string name="review_next_due_info">Next review %1$s.</string>
+    <string name="review_continue_button">Continue</string>
+    <string name="review_finished_title">Session complete</string>
+    <string name="review_finished_summary">You reviewed %1$d card(s).</string>
+    <string name="review_done_button">Done</string>
+    <string name="review_retry_button">Retry</string>
+    <string name="error_review_load_failed">Failed to load review queue</string>
+    <string name="error_review_submit_failed">Failed to submit answer</string>
+    <string name="error_review_grade_failed">Failed to save your review</string>
+
+    <!-- Inflection form labels (dictionary lookup + review reveal) -->
+    <string name="inflection_form_positive">Positive</string>
+    <string name="inflection_form_comparative">Comparative</string>
+    <string name="inflection_form_superlative">Superlative</string>
+    <string name="inflection_form_base">Base form</string>
+    <string name="inflection_form_past">Past</string>
+    <string name="inflection_form_present3sg">Present (he/she/it)</string>
+    <string name="inflection_form_present_non3sg">Present (I/you/we/they)</string>
+    <string name="inflection_form_past_participle">Past participle</string>
+    <string name="inflection_form_gerund_participle">Present participle (-ing)</string>
+    <string name="inflection_form_singular">Singular</string>
+    <string name="inflection_form_plural">Plural</string>
+    <string name="inflection_form_context_form">In context</string>
+</resources>

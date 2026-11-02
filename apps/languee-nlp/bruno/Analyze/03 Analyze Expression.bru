@@ -1,0 +1,26 @@
+meta {
+  name: Analyze Expression
+  type: http
+  seq: 3
+  tags: [
+    analyze
+    smoke
+  ]
+}
+
+get {
+  url: {{base_url}}/analyze?text={{expression}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns expression analysis", function() {
+    expect(res.status).to.equal(200);
+    expect(["phrasal_verb", "expression"]).to.include(res.body.kind);
+    expect(res.body.input_text).to.be.a("string");
+    expect(res.body.canonical).to.be.a("string");
+    expect(res.body.head_lemma).to.be.a("string");
+    expect(res.body.tokens).to.be.an("array");
+  });
+}

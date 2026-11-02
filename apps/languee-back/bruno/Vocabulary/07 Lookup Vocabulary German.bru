@@ -1,0 +1,24 @@
+meta {
+  name: Lookup Vocabulary German
+  type: http
+  seq: 7
+  tags: [
+    vocabulary
+  ]
+}
+
+get {
+  url: {{base_url}}/api/v1/vocabulary/lookup?word=laufe&language=de
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns vocabulary for a German word with language echoed back", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.input).to.equal("laufe");
+    expect(res.body.language).to.equal("de");
+    expect(res.body.lemma).to.be.a("string");
+    expect(res.body.definitions).to.be.an("array");
+  });
+}

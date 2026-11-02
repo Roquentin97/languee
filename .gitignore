@@ -1,7 +1,9 @@
 # compiled output
 /dist
-/node_modules
-
+**/dist/
+*/**/node_modules
+./node_modules
+node_modules/
 # Logs
 logs
 *.log
@@ -15,8 +17,8 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
-/coverage
-/.nyc_output
+coverage/
+.nyc_output
 
 # IDEs and editors
 /.idea
@@ -40,10 +42,27 @@ lerna-debug.log*
 .env.*
 !.env.example
 !.env.test
+.envrc
+# Filled-in server env files. The deploy templates are <name>.env.example, which
+# the patterns above do not cover, so ignore the real files explicitly.
+deploy/env/*.env
+/languee-back.env
+/languee-nlp.env
+# Local copies of the OCI Vault config secret and server-side deploy bookkeeping.
+languee-*-config.json
+.deploy-state.json
+.config-previous/
 
 
 #Documentation
 /documentation
 
-#forge artifacts
+#forge 
 forge/runs/
+.tasks
+
+#local
+.lab
+.local.notes
+__pycache__/
+.pytest_cache/

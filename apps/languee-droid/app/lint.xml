@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Suppress all lint issues in bundled AnkiDroid API source (third-party, not our code) -->
+    <issue id="all">
+        <ignore path="src/main/java/com/ichi2/**" />
+    </issue>
+</lint>

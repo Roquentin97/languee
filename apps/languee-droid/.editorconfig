@@ -1,0 +1,7 @@
+root = true
+
+[*.{kt,kts}]
+# Jetpack Compose convention: @Composable functions are PascalCase because they act like
+# UI factory/widget declarations, not regular functions. Without this, ktlint's
+# standard:function-naming rule flags every @Composable function in the codebase.
+ktlint_function_naming_ignore_when_annotated_with = Composable

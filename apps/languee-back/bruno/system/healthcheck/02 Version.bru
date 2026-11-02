@@ -1,0 +1,28 @@
+meta {
+  name: Version
+  type: http
+  seq: 3
+  tags: [
+    health
+  ]
+}
+
+get {
+  url: {{base_url}}/version
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns 200", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("returns version field", function() {
+    expect(res.body.version).to.be.a("string");
+  });
+
+  test("returns commit field", function() {
+    expect(res.body.commit).to.be.a("string");
+  });
+}

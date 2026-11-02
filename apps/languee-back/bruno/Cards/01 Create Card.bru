@@ -1,0 +1,47 @@
+meta {
+  name: Create Card
+  type: http
+  seq: 1
+  tags: [
+    cards
+  ]
+}
+
+post {
+  url: {{base_url}}/api/v1/cards
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "deckId": "{{deck_id}}",
+    "definitionId": "{{definition_id}}"
+  }
+}
+
+tests {
+  test("fans out into the applicable cards", function() {
+    expect(res.status).to.be.oneOf([201, 404, 409]);
+  });
+
+  test("returns every generated card, typed and deck-linked", function() {
+    if (res.status === 201) {
+      expect(res.body.cards).to.be.an("array");
+      const types = res.body.cards.map((c) => c.type);
+      // Always a cloze + definition card; inflection only when the word inflects.
+      expect(types).to.include("cloze");
+      expect(types).to.include("definition");
+      for (const card of res.body.cards) {
+        expect(card.id).to.be.a("string");
+        expect(card.type).to.be.oneOf(["cloze", "inflection", "definition"]);
+        expect(card.decks).to.be.an("array");
+        expect(card.word).to.be.an("object");
+      }
+    }
+  });
+}

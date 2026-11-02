@@ -1,0 +1,25 @@
+meta {
+  name: Logout
+  type: http
+  seq: 3
+  tags: [
+    auth
+  ]
+}
+
+post {
+  url: {{base_url}}/auth/logout
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+tests {
+  test("revokes the current session", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.message).to.equal("Logged out");
+  });
+}

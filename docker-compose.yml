@@ -1,0 +1,231 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LANGUEE_BACK_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${LANGUEE_BACK_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${LANGUEE_BACK_POSTGRES_DB}
+    ports:
+      - "${LANGUEE_BACK_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${LANGUEE_BACK_POSTGRES_USER} -d ${LANGUEE_BACK_POSTGRES_DB}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${LANGUEE_BACK_REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${LANGUEE_BACK_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  languee-nlp:
+    build:
+      context: ./apps/languee-nlp
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    labels:
+      logging: alloy
+      service: languee-nlp
+      app: backend
+      environment: ${NODE_ENV:-development}
+    environment:
+      LANGUEE_NLP_SPACY_MODEL: ${LANGUEE_NLP_SPACY_MODEL:-en_core_web_md}
+      BASIC_LOGIN: ${BASIC_LOGIN:?BASIC_LOGIN is required}
+      BASIC_PASSWORD: ${BASIC_PASSWORD:?BASIC_PASSWORD is required}
+      LANGUEE_NLP_LOG_FORMAT: json
+      LANGUEE_NLP_LOG_LEVEL: ${LANGUEE_NLP_LOG_LEVEL:-info}
+      LANGUEE_NLP_SERVICE_NAME: languee-nlp
+      LANGUEE_NLP_ENVIRONMENT: ${NODE_ENV:-development}
+      LANGUEE_NLP_TRACING_ENABLED: "${TRACING_ENABLED:-true}"
+      LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318"
+    ports:
+      - "${LANGUEE_NLP_PORT:-8000}:8000"
+    volumes:
+      - ./apps/languee-nlp/src:/app/src
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5).read()\"",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  migrate:
+    build:
+      context: ./apps/languee-back
+      dockerfile: Dockerfile
+      target: development
+    profiles:
+      - tools
+    env_file:
+      - ./apps/languee-back/.env
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./apps/languee-back:/app
+      - languee_back_node_modules:/app/node_modules
+    command: yarn prisma migrate deploy
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  languee-back:
+    build:
+      context: ./apps/languee-back
+      dockerfile: Dockerfile
+      target: development
+    restart: unless-stopped
+    env_file:
+      - ./apps/languee-back/.env
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      LOG_FORMAT: json
+      PRINT_PRETTY_JSON_LOGS: "false"
+      PRINT_DEBUG_LOGS: "${PRINT_DEBUG_LOGS:-false}"
+      SERVICE_NAME: "languee-back"
+      TRACING_ENABLED: "${TRACING_ENABLED:-true}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318"
+      OTEL_TRACES_SAMPLER: "${OTEL_TRACES_SAMPLER:-parentbased_always_on}"
+      OTEL_TRACES_SAMPLER_ARG: "${OTEL_TRACES_SAMPLER_ARG:-1.0}"
+      OTEL_METRICS_EXPORTER: "otlp"
+    labels:
+      logging: "alloy"
+      service: "languee-back"
+      app: "backend"
+      environment: "${NODE_ENV:-development}"
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "${LANGUEE_BACK_API_PORT:-3000}:3000"
+    volumes:
+      - ./apps/languee-back:/app
+      - languee_back_node_modules:/app/node_modules
+    command: sh -c "yarn install --frozen-lockfile && yarn start:dev"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      languee-nlp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  loki:
+    image: grafana/loki:3.7.2
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./provision/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  prometheus:
+    image: prom/prometheus:v3.4.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./provision/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  alloy:
+    image: grafana/alloy:v1.16.0
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./provision/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+
+  grafana:
+    image: grafana/grafana:13.0.1-security-01
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./provision/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./provision/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  languee_back_node_modules:
+  loki-data:
+  tempo-data:
+  alloy-data:
+  grafana-data:
+  prometheus-data:
+
+networks:
+  default:
+    external: true
+    name: anki-agent_default

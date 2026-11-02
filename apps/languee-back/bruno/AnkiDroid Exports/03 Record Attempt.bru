@@ -1,0 +1,44 @@
+meta {
+  name: Record Attempt
+  type: http
+  seq: 3
+  tags: [
+    ankidroid-exports
+  ]
+}
+
+post {
+  url: {{base_url}}/api/v1/ankidroid-exports/{{export_id}}/attempts
+  body: json
+  auth: inherit
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "status": "completed",
+    "ankiNoteId": "1234567890",
+    "ankiDeckId": "9876543210",
+    "ankiDeckNameSnapshot": "English Vocabulary",
+    "ankiModelId": "1122334455",
+    "ankiModelNameSnapshot": "Basic",
+    "templateVersion": "1.0.0"
+  }
+}
+
+tests {
+  test("records attempt or 404", function() {
+    expect(res.status).to.be.oneOf([201, 404]);
+  });
+
+  test("returns export detail on success", function() {
+    if (res.status === 201) {
+      expect(res.body.id).to.be.a("string");
+      expect(res.body.attempts).to.be.an("array");
+      expect(res.body.attempts.length).to.be.greaterThan(0);
+    }
+  });
+}

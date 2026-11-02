@@ -1,0 +1,161 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/apps/languee-back"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # NestJS 11->12 is a whole-framework major: the whole @nestjs/* family
+      # ships as pure ESM with no CJS entry point, and this repo's Jest 30
+      # test harness can't require() it without either bumping the pinned
+      # Node runtime to >=24.9 or rewriting every jest.mock()/jest.fn() call
+      # across all spec files to jest.unstable_mockModule() (ts-jest doesn't
+      # hoist mocks in ESM mode). Remove once that migration is deliberately
+      # scheduled. See PR #176.
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      # OTel JS SDK 3.0 (0.221.x -> 0.300.x on the experimental packages) is
+      # a coordinated ecosystem-wide migration: BatchSpanProcessor moves from
+      # sdk-trace-base to a new sdk-trace package with a changed constructor
+      # signature, sdk-node pins @opentelemetry/api to a narrow 1.10.x peer
+      # range, and auto-instrumentations-node needs @opentelemetry/core 3.x.
+      # No test covers real exported span shape. Remove once scheduled as its
+      # own migration. See PR #172.
+      - dependency-name: "@opentelemetry/sdk-node"
+        versions: ["[0.300,)"]
+      - dependency-name: "@opentelemetry/exporter-trace-otlp-http"
+        versions: ["[0.300,)"]
+      # resources 3.x belongs to the same OTel 3.0 migration; bumping it alone
+      # splits the SDK across majors. Remove together with the entries above.
+      - dependency-name: "@opentelemetry/resources"
+        update-types: ["version-update:semver-major"]
+      # Type stubs track the runtime's Node major (Dockerfile base image and CI
+      # node-version, currently 22), not the latest. Remove when the runtime moves.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "pip"
+    directory: "/apps/languee-nlp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "gradle"
+    directory: "/apps/languee-droid"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # These androidx releases require compileSdk 37; the app is on compileSdk 36.
+      # Remove these entries when compileSdk is raised (dedicated migration PR).
+      - dependency-name: "androidx.core:core-ktx"
+        versions: ["[1.19,)"]
+      - dependency-name: "androidx.lifecycle:*"
+        versions: ["[2.11,)"]
+      # compose-bom releases from 2026.08.00 onward pull in compose/lifecycle
+      # artifacts requiring compileSdk 37 (verified: 2026.08.00 and 2026.09.00
+      # both fail checkDebugAarMetadata on compileSdk 36). Remove when compileSdk
+      # is raised (dedicated migration PR).
+      - dependency-name: "androidx.compose:compose-bom"
+        versions: ["[2026.08,)"]
+      # navigation-compose 2.10.x requires compileSdk 37 (verified: 2.10.2 fails
+      # checkDebugAarMetadata on compileSdk 36). Remove when compileSdk is raised.
+      - dependency-name: "androidx.navigation:navigation-compose"
+        versions: ["[2.10,)"]
+      # okhttp 5.5.0 (okhttp-android artifact) requires compileSdk 37, both as a
+      # direct bump and transitively via opentelemetry-exporter-otlp >=1.65 (which
+      # pulls opentelemetry-exporter-sender-okhttp -> okhttp-android 5.5.0).
+      # Remove when compileSdk is raised.
+      - dependency-name: "com.squareup.okhttp3:*"
+        versions: ["[5.5,)"]
+      - dependency-name: "io.opentelemetry:*"
+        versions: ["[1.65,)"]
+      - dependency-name: "io.opentelemetry.instrumentation:*"
+        versions: ["[2.31,)"]
+      - dependency-name: "androidx.hilt:hilt-navigation-compose"
+        versions: ["[1.4,)"]
+      # ktlint plugin >=13 wires up source sets the 12.x config never linted,
+      # forcing a codebase-wide reformat plus manual fixes - a separate scoped
+      # cleanup task, not a version bump. Remove after that cleanup lands.
+      - dependency-name: "org.jlleitschuh.gradle.ktlint"
+        versions: ["[13,)"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/languee-back"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Node runtime majors are deliberate migrations (image + CI node-version +
+      # engines move in lockstep), and dependabot proposes non-LTS odd majors
+      # (25, then 23 after 25 was ignored). Remove when planning the Node 24 LTS move.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "docker"
+    directory: "/apps/languee-nlp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      all-actions:
+        applies-to: version-updates
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+    ignore:
+      # gradle/actions v6 bundles a proprietary (non-MIT) caching component whose
+      # Terms of Use are accepted implicitly on upgrade. Held at v5 (last fully
+      # MIT line) until a human decides on the v6 licensing. Remove this to allow.
+      - dependency-name: "gradle/actions"
+        update-types: ["version-update:semver-major"]

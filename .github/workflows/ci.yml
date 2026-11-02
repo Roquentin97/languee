@@ -1,0 +1,226 @@
+name: PR CI
+
+# One always-triggered workflow so the aggregate `required` job exists on every
+# PR. Per-service jobs run only when their paths changed; a skipped job counts
+# as a pass only if change detection succeeded. Read-only token, no secrets:
+# PR code never reaches the deploy host or OCI.
+on:
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - master
+      # Transitional: remove once development moves from bb_develop to develop.
+      - bb_develop
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      back: ${{ steps.detect.outputs.back }}
+      nlp: ${{ steps.detect.outputs.nlp }}
+      droid: ${{ steps.detect.outputs.droid }}
+      deploy: ${{ steps.detect.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The default PR ref is a merge commit: its first parent is the base.
+          fetch-depth: 2
+      - id: detect
+        run: |
+          files=$(git diff --name-only HEAD^1 HEAD)
+          flag() { # flag <output> <extended-regex>
+            if printf '%s\n' "$files" | grep -Eq "$2"; then v=true; else v=false; fi
+            echo "$1=$v" >> "$GITHUB_OUTPUT"
+          }
+          flag back '^(apps/languee-back/|\.github/workflows/ci\.yml$)'
+          flag nlp '^(apps/languee-nlp/|\.github/workflows/ci\.yml$)'
+          flag droid '^(apps/languee-droid/|\.github/workflows/ci\.yml$)'
+          flag deploy '^(deploy/|docker-compose\.prod\.yml$|\.github/workflows/|release-please-config\.json$|\.release-please-manifest\.json$)'
+
+  pr-title:
+    name: PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+      # Scripts are skipped so husky's `prepare` hook does not run.
+      - run: yarn install --frozen-lockfile --ignore-scripts
+      - name: Validate Conventional Commits title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | yarn --silent commitlint
+
+  back:
+    name: languee-back
+    needs: changes
+    if: needs.changes.outputs.back == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/languee-back
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: apps/languee-back/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: yarn prisma generate
+
+      - name: Format check
+        run: |
+          yarn format
+          git diff --exit-code
+
+      - name: Lint
+        run: |
+          yarn lint
+          git diff --exit-code
+
+      - name: Tests
+        run: yarn test
+
+      - name: Build
+        run: yarn build
+
+      - name: Prisma schema validate
+        run: yarn prisma validate
+
+  nlp:
+    name: languee-nlp
+    needs: changes
+    if: needs.changes.outputs.nlp == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/languee-nlp
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Format check
+        run: uv run --extra dev ruff format --check .
+
+      - name: Lint
+        run: uv run --extra dev ruff check .
+
+      - name: Install spaCy model
+        run: uv pip install "en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl"
+
+      - name: Tests
+        run: uv run --no-sync pytest
+
+  droid:
+    name: languee-droid
+    needs: changes
+    if: needs.changes.outputs.droid == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/languee-droid
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Format check
+        run: ./gradlew ktlintCheck
+
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build
+        run: ./gradlew assembleDebug
+
+  deploy-tooling:
+    name: Workflows and deploy scripts
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+
+      - name: shellcheck
+        # SC1091: backup-db.sh sources a server-only .env.
+        run: shellcheck -e SC1091 deploy/scripts/*.sh
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Vault sync unit tests
+        run: |
+          python -m pip install --quiet pytest==8.3.4
+          python -m pytest deploy/tests -q
+
+      - name: Compose file renders
+        env:
+          DOMAIN: ci.example.com
+          LANGUEE_BACK_POSTGRES_USER: ci
+          LANGUEE_BACK_POSTGRES_PASSWORD: ci-not-a-secret
+          LANGUEE_BACK_POSTGRES_DB: ci
+          LANGUEE_BACK_REDIS_PASSWORD: ci-not-a-secret
+        run: |
+          touch languee-back.env languee-nlp.env
+          docker compose -f docker-compose.prod.yml --profile tools config --quiet
+
+  required:
+    name: required
+    # Single stable check name for the branch ruleset: "PR CI / required".
+    if: always()
+    needs: [changes, pr-title, back, nlp, droid, deploy-tooling]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every needed job passed or was legitimately skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          # `changes` and `pr-title` always run; the rest may be skipped only
+          # because `changes` reported no relevant files.
+          echo "$RESULTS" | jq -e '
+            (.changes.result == "success") and (.["pr-title"].result == "success")
+            and ([.[] | .result] | all(. == "success" or . == "skipped"))' > /dev/null
