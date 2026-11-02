@@ -38,7 +38,7 @@ merge that deploys once.
    runs; a run queued behind another is replaced by newer ones, so the latest
    head wins.
 2. `build` — builds `languee-back`, `languee-back-migrator`, `languee-nlp` for
-   amd64+arm64 and pushes `sha-<7>` (+ `latest`) to GHCR.
+   `linux/arm64` on a native ARM64 runner and pushes `sha-<7>` (+ `latest`) to GHCR.
 3. `deploy` (environment `languee-dev`) — copies compose, Caddyfile, backup
    script, `deploy-stack.sh`, `sync-vault-config.py` to `/opt/languee`, then runs
    `deploy-stack.sh --tag sha-<7>` ([details](VAULT.md#what-the-deploy-does)):
