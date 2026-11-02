@@ -2,10 +2,9 @@
 
 Single-VPS production stack: Caddy (TLS) → languee-back → languee-nlp, plus
 Postgres and Redis, all via `docker-compose.prod.yml`. Images are built
-multi-arch (`linux/amd64` + `linux/arm64`), so the **same setup runs unchanged
-on an Oracle Always Free Ampere (ARM) instance or a Hetzner CX-class (x86)
-server** — switching provider later means re-running provisioning and restoring
-a backup, nothing else.
+for `linux/arm64` only (the Oracle Always Free Ampere host). Moving to an x86
+server such as a Hetzner CX-class requires adding `linux/amd64` to the build
+first.
 
 Configuration lives in OCI Vault ([VAULT.md](VAULT.md)); CI, the merge-triggered
 dev deployment, Release Please, and the branch-migration checklist are in
@@ -136,7 +135,7 @@ branch), add the secrets below and the variables `VAULT_SECRET_OCID` and
 
 Merging a PR into `develop` runs **Deploy (dev)** automatically
 ([CICD.md](CICD.md#deployment-deployyml-deploy-dev)): it builds the three
-images for amd64+arm64 as `sha-<commit>`, copies the stack files to the server,
+images for `linux/arm64` as `sha-<commit>`, copies the stack files to the server,
 and runs `deploy-stack.sh --tag sha-<commit>`, which applies and validates the
 Vault configuration, pulls images, runs Prisma migrations through the migrator
 image, recreates the services, and checks health over HTTPS.
@@ -151,9 +150,8 @@ First deploy on a fresh server is the same workflow — Postgres initializes
 from the Vault credentials, migrations create the schema, Caddy fetches
 certificates on first request.
 
-The arm64 half of the NLP image builds under QEMU emulation (spaCy model
-download included), so an uncached build takes a while (~10–20 min); the GHA
-layer cache makes subsequent builds fast until `uv.lock` changes.
+Images build natively on a GitHub-hosted ARM64 runner; the GHA layer cache
+makes rebuilds fast until `uv.lock` changes.
 
 ## Observability (Grafana Cloud free tier)
 
@@ -229,4 +227,5 @@ credentials exist only on the lost host is not a recovery path.
 1. Provision the new server (steps 1–6).
 2. Run the Deploy workflow against the new `DEPLOY_HOST`.
 3. Restore the latest dump (above).
-4. Flip the DNS A record. Done — images are multi-arch, config is identical.
+4. Flip the DNS A record. Done — config is identical (add `linux/amd64` to the
+   image build first if the new host is x86).
