@@ -1,25 +1,24 @@
 name: Deploy (dev)
 
-# Deploys to the Oracle dev VM only after a merge into `develop`: the trigger is
-# the resulting push, built from that exact commit (github.sha). Unmerged PR
-# code never reaches this workflow. develop is PR-only (branch ruleset), so a
-# push is a merge; Release Please only opens PRs and never pushes to develop.
-#
-# workflow_dispatch from develop re-runs the pipeline for the branch head, or
-# with `tag` rolls back to an image built from an earlier develop commit.
 on:
   push:
-    branches:
-      - develop
+    branches: [develop]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing sha-<commit> image tag to deploy without rebuilding (rollback). Leave empty to build and deploy the develop head.
+      back_tag:
+        description: Existing backend image tag for rollback
         required: false
         type: string
+      nlp_tag:
+        description: Existing NLP image tag for rollback
+        required: false
+        type: string
+      force_deploy:
+        description: Force deployment for docs or otherwise unrelated changes
+        required: false
+        type: boolean
+        default: false
 
-# Serialize deploys. A run waiting behind an active one is replaced by newer
-# runs, and `resolve` skips any run whose commit is no longer the develop head.
 concurrency:
   group: deploy-dev
   cancel-in-progress: false
@@ -35,130 +34,171 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      build: ${{ steps.tag.outputs.build }}
-      stale: ${{ steps.tag.outputs.stale }}
+      back: ${{ steps.plan.outputs.back }}
+      nlp: ${{ steps.plan.outputs.nlp }}
+      deploy: ${{ steps.plan.outputs.deploy }}
+      stale: ${{ steps.plan.outputs.stale }}
+      patch: ${{ steps.plan.outputs.patch }}
+      build_id: ${{ steps.plan.outputs.build_id }}
+      back_tag: ${{ steps.plan.outputs.back_tag }}
+      nlp_tag: ${{ steps.plan.outputs.nlp_tag }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - id: tag
+      - id: plan
         env:
-          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_BACK: ${{ inputs.back_tag }}
+          INPUT_NLP: ${{ inputs.nlp_tag }}
+          FORCE_DEPLOY: ${{ inputs.force_deploy }}
         run: |
           set -euo pipefail
-          stale=false
-          if [ -n "$INPUT_TAG" ]; then
-            if ! [[ "$INPUT_TAG" =~ ^sha-[0-9a-f]{7,40}$ ]]; then
-              echo "tag must look like sha-<commit>" >&2; exit 1
-            fi
-            commit="${INPUT_TAG#sha-}"
-            if ! git merge-base --is-ancestor "$commit" origin/develop; then
-              echo "$INPUT_TAG was not built from a commit on develop" >&2; exit 1
-            fi
-            tag="$INPUT_TAG"; build=false
+          back=false; nlp=false; deploy=false; stale=false
+          if [[ -n "$INPUT_BACK" || -n "$INPUT_NLP" ]]; then
+            [[ -z "$INPUT_BACK" || "$INPUT_BACK" =~ ^dev-[0-9]+-[0-9a-f]{12}$ ]]
+            [[ -z "$INPUT_NLP" || "$INPUT_NLP" =~ ^dev-[0-9]+-[0-9a-f]{12}$ ]]
+            deploy=true
           else
-            tag="sha-${GITHUB_SHA::7}"; build=true
-            head=$(git rev-parse origin/develop)
-            if [ "$head" != "$GITHUB_SHA" ]; then
-              echo "::notice::$GITHUB_SHA is no longer the develop head; skipping stale deploy"
-              stale=true
+            if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+              before="${{ github.event.before }}"
+              if [[ "$before" =~ ^0+$ ]] || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+                files="*"
+              else
+                files=$(git diff --name-only "$before" "$GITHUB_SHA")
+              fi
+              head=$(git rev-parse origin/develop)
+              [[ "$head" == "$GITHUB_SHA" ]] || stale=true
+            else
+              files="*"
+            fi
+            if [[ "$files" == "*" ]]; then back=true; nlp=true; deploy=true
+            else
+              while IFS= read -r f; do
+                case "$f" in
+                  apps/languee-back/*) back=true; deploy=true ;;
+                  apps/languee-nlp/*) nlp=true; deploy=true ;;
+                  docker-compose.prod.yml|deploy/*|.github/workflows/deploy.yml|.github/workflows/apply-config.yml) deploy=true ;;
+                  .github/workflows/*|docker-compose.yml|apps/languee-droid/*|*.md|.claude/*|forge/*) ;;
+                  *) back=true; nlp=true; deploy=true ;;
+                esac
+              done <<< "$files"
             fi
           fi
+          [[ "$FORCE_DEPLOY" == true ]] && deploy=true
+          patch=$((GITHUB_RUN_NUMBER * 1000 + GITHUB_RUN_ATTEMPT))
+          (( GITHUB_RUN_ATTEMPT < 1000 )) || { echo 'run_attempt must be below 1000' >&2; exit 1; }
+          sha="$GITHUB_SHA"; build_id="${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          version="0.1.$patch"; tag="dev-$patch-${GITHUB_SHA:0:12}"
+          [[ -z "$INPUT_BACK" ]] || back_tag="$INPUT_BACK"
+          [[ -z "$INPUT_NLP" ]] || nlp_tag="$INPUT_NLP"
           {
-            echo "tag=$tag"
-            echo "build=$build"
-            echo "stale=$stale"
+            echo "back=$back"; echo "nlp=$nlp"; echo "deploy=$deploy"; echo "stale=$stale"
+            echo "patch=$patch"; echo "build_id=$build_id"; echo "version=$version"; echo "sha=$sha"
+            echo "back_tag=${back_tag:-$tag}"; echo "nlp_tag=${nlp_tag:-$tag}"
           } >> "$GITHUB_OUTPUT"
 
-  build:
+  build-back:
     needs: resolve
-    if: needs.resolve.outputs.build == 'true' && needs.resolve.outputs.stale != 'true'
-    # Native ARM64 runner: the Oracle Ampere host is the only target, no emulation.
+    if: needs.resolve.outputs.back == 'true' && needs.resolve.outputs.stale != 'true' && inputs.back_tag == ''
     runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - name: languee-back
-            context: apps/languee-back
-            target: production
-          - name: languee-back-migrator
-            context: apps/languee-back
-            target: migrator
-          - name: languee-nlp
-            context: apps/languee-nlp
-            target: production
+    permissions: {contents: read, packages: write}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        with: {registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}'}
       - uses: docker/build-push-action@v7
         with:
-          context: ${{ matrix.context }}
-          target: ${{ matrix.target }}
+          context: apps/languee-back
+          target: production
           platforms: linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+          tags: ${{ env.IMAGE_PREFIX }}/languee-back:${{ needs.resolve.outputs.back_tag }}
+          build-args: |
+            APP_VERSION=${{ needs.resolve.outputs.version }}
+            GIT_SHA=${{ needs.resolve.outputs.sha }}
+            BUILD_ID=${{ needs.resolve.outputs.build_id }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.build.id=${{ needs.resolve.outputs.build_id }}
+          cache-from: type=gha,scope=languee-back
+          cache-to: type=gha,scope=languee-back,mode=max
+      - uses: docker/build-push-action@v7
+        with:
+          context: apps/languee-back
+          target: migrator
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/languee-back-migrator:${{ needs.resolve.outputs.back_tag }}
+          build-args: |
+            APP_VERSION=${{ needs.resolve.outputs.version }}
+            GIT_SHA=${{ needs.resolve.outputs.sha }}
+            BUILD_ID=${{ needs.resolve.outputs.build_id }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.build.id=${{ needs.resolve.outputs.build_id }}
+
+  build-nlp:
+    needs: resolve
+    if: needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.stale != 'true' && inputs.nlp_tag == ''
+    runs-on: ubuntu-24.04-arm
+    permissions: {contents: read, packages: write}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with: {registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}'}
+      - uses: docker/build-push-action@v7
+        with:
+          context: apps/languee-nlp
+          target: production
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ needs.resolve.outputs.nlp_tag }}
+          build-args: |
+            APP_VERSION=${{ needs.resolve.outputs.version }}
+            GIT_SHA=${{ needs.resolve.outputs.sha }}
+            BUILD_ID=${{ needs.resolve.outputs.build_id }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.build.id=${{ needs.resolve.outputs.build_id }}
+          cache-from: type=gha,scope=languee-nlp
+          cache-to: type=gha,scope=languee-nlp,mode=max
 
   deploy:
-    needs: [resolve, build]
-    # Build succeeded, or was skipped for a rollback. A stale run deploys nothing.
-    if: >-
-      always() && needs.resolve.result == 'success'
-      && needs.resolve.outputs.stale != 'true'
-      && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    needs: [resolve, build-back, build-nlp]
+    if: always() && needs.resolve.result == 'success' && needs.resolve.outputs.deploy == 'true' && needs.resolve.outputs.stale != 'true' && (needs.build-back.result == 'success' || needs.build-back.result == 'skipped') && (needs.build-nlp.result == 'success' || needs.build-nlp.result == 'skipped')
     runs-on: ubuntu-latest
     environment: languee-dev
     steps:
       - uses: actions/checkout@v7
-      - name: Copy compose file
-        uses: appleboy/scp-action@v1.0.0
+      - uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: docker-compose.prod.yml
+          source: docker-compose.prod.yml,deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py
           target: /opt/languee/
-      - name: Copy deploy assets
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py
-          target: /opt/languee/
-          strip_components: 1
-      - name: Apply Vault config, migrate, restart
-        uses: appleboy/ssh-action@v1.2.5
+      - uses: appleboy/ssh-action@v1.2.5
         env:
-          DEPLOY_TAG: ${{ needs.resolve.outputs.tag }}
+          BACK_TAG: ${{ inputs.back_tag != '' && inputs.back_tag || (needs.resolve.outputs.back == 'true' && needs.resolve.outputs.back_tag || '') }}
+          NLP_TAG: ${{ inputs.nlp_tag != '' && inputs.nlp_tag || (needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.nlp_tag || '') }}
           VAULT_SECRET_OCID: ${{ vars.VAULT_SECRET_OCID }}
           OCI_REGION: ${{ vars.OCI_REGION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_TAG,VAULT_SECRET_OCID,OCI_REGION
+          envs: BACK_TAG,NLP_TAG,VAULT_SECRET_OCID,OCI_REGION
           script: |
             chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh
-            /opt/languee/scripts/deploy-stack.sh --tag "$DEPLOY_TAG"
-      - name: Public readiness check
-        env:
-          HEALTHCHECK_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
-        run: |
-          if [ -z "$HEALTHCHECK_URL" ]; then
-            echo "DEPLOY_HEALTHCHECK_URL not set; skipping public check"
-            exit 0
-          fi
-          curl -fsS -o /dev/null --max-time 15 --retry 10 --retry-delay 6 --retry-all-errors "$HEALTHCHECK_URL"
+            args=()
+            [ -z "$BACK_TAG" ] || args+=(--back-tag "$BACK_TAG")
+            [ -z "$NLP_TAG" ] || args+=(--nlp-tag "$NLP_TAG")
+            [ ${#args[@]} -gt 0 ] || args+=(--preserve-tags)
+            /opt/languee/scripts/deploy-stack.sh "${args[@]}"
