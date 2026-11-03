@@ -9,15 +9,15 @@ these generated files in the app directory (default /opt/languee):
   .env               compose interpolation + backup script (also shell-sourced)
   languee-back.env   languee-back env_file
   languee-nlp.env    languee-nlp env_file
-  .deploy-state.json image tag + applied secret version (bookkeeping, not config)
+.deploy-state.json service image tags + applied secret version (bookkeeping, not config)
 
 Secret values are never printed, logged, or passed on a command line. Standard
 library only, so it runs on a bare Ubuntu host.
 
 Usage:
-  sync-vault-config.py --tag sha-1a2b3c4      # code deploy: pin this image tag
-  sync-vault-config.py --preserve-tag         # config-only: keep the deployed tag
-  sync-vault-config.py --check --preserve-tag # validate only, write nothing
+  sync-vault-config.py --back-tag dev-123-sha # deploy backend image
+  sync-vault-config.py --nlp-tag dev-123-sha  # deploy NLP image
+  sync-vault-config.py --preserve-tags        # config-only: retain both images
   sync-vault-config.py --secret-version 7 ... # apply a specific secret version
   sync-vault-config.py --restore-previous     # undo the last apply
   sync-vault-config.py --status               # show applied version and tag
@@ -260,7 +260,7 @@ def _relationship_problems(config: Mapping[str, str]) -> list[str]:
     return problems
 
 
-def render(config: Mapping[str, str], tag: str, secret_version: int) -> dict[str, str]:
+def render(config: Mapping[str, str], back_tag: str, secret_version: int, nlp_tag: str | None = None) -> dict[str, str]:
     """Map validated secret keys onto the three env files (explicit allowlist)."""
     header = (
         f"# Generated from OCI secret version {secret_version}. Do not edit: the next\n"
@@ -270,7 +270,7 @@ def render(config: Mapping[str, str], tag: str, secret_version: int) -> dict[str
     def lines(pairs: list[tuple[str, str]]) -> str:
         return header + "".join(f"{k}={v}\n" for k, v in pairs)
 
-    stack = [("COMPOSE_FILE", COMPOSE_FILE), ("TAG", tag)]
+    stack = [("COMPOSE_FILE", COMPOSE_FILE), ("LANGUEE_BACK_TAG", back_tag), ("LANGUEE_NLP_TAG", nlp_tag or back_tag)]
     stack += [(k, config[k]) for k in STACK_SCHEMA if k in config]
     back = [(k, config[k]) for k in BACK_SCHEMA if k in config]
     nlp = [(k, config[k]) for k in NLP_SCHEMA if k in config]
@@ -297,17 +297,23 @@ def read_state(app_dir: Path) -> dict[str, object]:
     return state
 
 
-def deployed_tag(app_dir: Path) -> str | None:
-    """Tag currently deployed: managed state first, then a pre-existing .env."""
-    tag = read_state(app_dir).get("tag")
-    if isinstance(tag, str) and TAG_PATTERN.fullmatch(tag):
-        return tag
+def deployed_tags(app_dir: Path) -> tuple[str | None, str | None]:
+    """Image tags from managed state, with migration support for shared TAG."""
+    state = read_state(app_dir)
+    back, nlp = state.get("back_tag"), state.get("nlp_tag")
+    legacy = state.get("tag")
+    if isinstance(legacy, str):
+        back = back or legacy
+        nlp = nlp or legacy
     env_path = app_dir / STACK_ENV
     if env_path.exists():
-        match = re.search(r"^TAG=(\S+)$", env_path.read_text(encoding="utf-8"), re.MULTILINE)
-        if match and TAG_PATTERN.fullmatch(match.group(1)):
-            return match.group(1)
-    return None
+        env = env_path.read_text(encoding="utf-8")
+        old = re.search(r"^TAG=(\S+)$", env, re.MULTILINE)
+        b = re.search(r"^LANGUEE_BACK_TAG=(\S+)$", env, re.MULTILINE)
+        n = re.search(r"^LANGUEE_NLP_TAG=(\S+)$", env, re.MULTILINE)
+        back = back or (b.group(1) if b else None) or (old.group(1) if old else None)
+        nlp = nlp or (n.group(1) if n else None) or (old.group(1) if old else None)
+    return tuple(validate_tag(v) if isinstance(v, str) else None for v in (back, nlp))
 
 
 def _write_private(directory: Path, text: str) -> Path:
@@ -365,7 +371,7 @@ def restore_previous(app_dir: Path, *, allow_initial: bool = False) -> None:
     _fsync_dir(app_dir)
 
 
-def apply(app_dir: Path, files: Mapping[str, str], tag: str, secret_version: int) -> list[str]:
+def apply(app_dir: Path, files: Mapping[str, str], back_tag: str, nlp_tag: str, secret_version: int) -> list[str]:
     """Replace the managed files together; undo everything if any step fails.
 
     Returns the names of env files whose content changed (empty = no-op).
@@ -376,13 +382,16 @@ def apply(app_dir: Path, files: Mapping[str, str], tag: str, secret_version: int
     }
     state = read_state(app_dir)
     changed = [name for name, text in files.items() if current[name] != text]
-    if not changed and state.get("tag") == tag and state.get("secret_version") == secret_version:
+    old_back, old_nlp = deployed_tags(app_dir)
+    if not changed and old_back == back_tag and old_nlp == nlp_tag and state.get("secret_version") == secret_version:
         return []
 
     new_state = json.dumps(
         {
-            "tag": tag,
-            "previous_tag": state.get("tag"),
+            "back_tag": back_tag,
+            "nlp_tag": nlp_tag,
+            "previous_back_tag": old_back,
+            "previous_nlp_tag": old_nlp,
             "secret_version": secret_version,
             "applied_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         },
@@ -456,8 +465,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--region", help=f"default: $OCI_REGION or {DEFAULT_REGION}")
     parser.add_argument("--oci-bin", help="default: $OCI_CLI_BIN, ~/.venvs/oci/bin/oci, PATH")
     parser.add_argument("--secret-version", type=int, help="default: CURRENT version")
-    parser.add_argument("--tag", help="image tag to pin (code deploy)")
-    parser.add_argument("--preserve-tag", action="store_true", help="keep the deployed tag")
+    parser.add_argument("--back-tag", help="backend image tag to pin")
+    parser.add_argument("--nlp-tag", help="NLP image tag to pin")
+    parser.add_argument("--preserve-tags", action="store_true", help="keep both deployed image tags")
+    parser.add_argument("--tag", help=argparse.SUPPRESS)
+    parser.add_argument("--preserve-tag", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--check", action="store_true", help="validate only; write nothing")
     parser.add_argument("--restore-previous", action="store_true")
     parser.add_argument("--status", action="store_true")
@@ -467,30 +479,43 @@ def build_parser() -> argparse.ArgumentParser:
 def run(args: argparse.Namespace, fetcher: Fetcher) -> None:
     app_dir: Path = args.app_dir
     if args.status:
-        print(json.dumps(read_state(app_dir), indent=2))
+        state = read_state(app_dir)
+        back, nlp = deployed_tags(app_dir)
+        print(json.dumps({
+            "back_tag": back, "nlp_tag": nlp,
+            "previous_back_tag": state.get("previous_back_tag", state.get("previous_tag")),
+            "previous_nlp_tag": state.get("previous_nlp_tag", state.get("previous_tag")),
+            "secret_version": state.get("secret_version"),
+        }, indent=2))
         return
     if args.restore_previous:
         restore_previous(app_dir)
         print("restored previous configuration")
         return
 
-    if args.tag and args.preserve_tag:
-        raise ConfigError("use either --tag or --preserve-tag, not both")
-    if not (args.tag or args.preserve_tag or args.check):
-        raise ConfigError("pass --tag <tag> or --preserve-tag")
+    back_arg = args.back_tag or args.tag
+    nlp_arg = args.nlp_tag
+    preserve = args.preserve_tags or args.preserve_tag
+    if args.tag and (args.back_tag or args.nlp_tag):
+        raise ConfigError("legacy --tag cannot be combined with --back-tag or --nlp-tag")
+    if preserve and (back_arg or nlp_arg):
+        raise ConfigError("pass image tags or --preserve-tags, not both")
+    if not (back_arg or nlp_arg or preserve or args.check):
+        raise ConfigError("pass --back-tag/--nlp-tag or --preserve-tags")
     secret_ocid = args.secret_ocid or os.environ.get("VAULT_SECRET_OCID")
     if not secret_ocid:
         raise ConfigError("secret OCID missing: pass --secret-ocid or set VAULT_SECRET_OCID")
     region = args.region or os.environ.get("OCI_REGION") or DEFAULT_REGION
 
-    tag = "unset"
+    old_back, old_nlp = deployed_tags(app_dir)
     if args.tag:
-        tag = validate_tag(args.tag)
-    elif args.preserve_tag:
-        existing = deployed_tag(app_dir)
-        if existing is None:
-            raise ConfigError("no deployed tag recorded; use --tag on the first deploy")
-        tag = existing
+        back_arg = nlp_arg = args.tag
+    back_tag = validate_tag(back_arg) if back_arg else old_back
+    nlp_tag = validate_tag(nlp_arg) if nlp_arg else old_nlp
+    if args.check and back_tag is None:
+        back_tag = nlp_tag = "check-only"
+    if back_tag is None or nlp_tag is None:
+        raise ConfigError("initial deployment requires both --back-tag and --nlp-tag (or legacy --tag)")
 
     payload, version = fetcher(
         oci_bin=args.oci_bin,
@@ -500,13 +525,13 @@ def run(args: argparse.Namespace, fetcher: Fetcher) -> None:
     )
     config = parse_secret_json(payload)
     validate(config)
-    files = render(config, tag, version)
+    files = render(config, back_tag, version, nlp_tag)
     print(f"secret version {version} validated")
     if args.check:
         return
 
-    changed = apply(app_dir, files, tag, version)
-    print(f"tag {tag}; updated: {', '.join(changed) if changed else 'no env changes'}")
+    changed = apply(app_dir, files, back_tag, nlp_tag, version)
+    print(f"backend tag {back_tag}; NLP tag {nlp_tag}; updated: {', '.join(changed) if changed else 'no env changes'}")
 
 
 def main(argv: list[str] | None = None, fetcher: Fetcher = fetch_with_oci_cli) -> int:

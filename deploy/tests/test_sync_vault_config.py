@@ -99,7 +99,7 @@ def test_render_maps_keys_into_three_files():
     stack, back, nlp = (parse_env(files[n]) for n in (".env", "languee-back.env", "languee-nlp.env"))
 
     assert stack["COMPOSE_FILE"] == "docker-compose.prod.yml"
-    assert stack["TAG"] == "sha-abc1234"
+    assert stack["LANGUEE_BACK_TAG"] == stack["LANGUEE_NLP_TAG"] == "sha-abc1234"
     assert stack["DOMAIN"] == "languee-dev.example.com"
     assert stack["BACKUP_HEALTHCHECK_URL"] == HEALTH_URL
     assert "JWT_SECRET" not in stack and "DATABASE_URL" not in back
@@ -241,9 +241,9 @@ def test_initial_deploy_writes_private_files_and_state(app_dir):
     for name in (".env", "languee-back.env", "languee-nlp.env", ".deploy-state.json"):
         mode = stat.S_IMODE((app_dir / name).stat().st_mode)
         assert mode == 0o600, name
-    assert parse_env((app_dir / ".env").read_text())["TAG"] == "sha-abc1234"
+    assert parse_env((app_dir / ".env").read_text())["LANGUEE_BACK_TAG"] == "sha-abc1234"
     state = json.loads((app_dir / ".deploy-state.json").read_text())
-    assert state["tag"] == "sha-abc1234" and state["secret_version"] == 5
+    assert state["back_tag"] == state["nlp_tag"] == "sha-abc1234" and state["secret_version"] == 5
     assert not [p for p in app_dir.iterdir() if p.name.startswith(".tmp-")]
 
 
@@ -253,16 +253,17 @@ def test_config_only_apply_preserves_deployed_tag(app_dir):
 
     assert run(app_dir, "--preserve-tag", fetcher=fake_fetcher(updated, version=2)) == 0
 
-    assert parse_env((app_dir / ".env").read_text())["TAG"] == "sha-abc1234"
+    assert parse_env((app_dir / ".env").read_text())["LANGUEE_NLP_TAG"] == "sha-abc1234"
     assert parse_env((app_dir / "languee-back.env").read_text())["JWT_EXPIRES_IN"] == "30m"
     state = json.loads((app_dir / ".deploy-state.json").read_text())
-    assert state["tag"] == "sha-abc1234" and state["secret_version"] == 2
+    assert state["back_tag"] == state["nlp_tag"] == "sha-abc1234" and state["secret_version"] == 2
 
 
 def test_preserve_tag_adopts_tag_from_preexisting_env(app_dir):
     (app_dir / ".env").write_text("COMPOSE_FILE=x\nTAG=sha-legacy1\n")
     run(app_dir, "--preserve-tag", fetcher=fake_fetcher())
-    assert parse_env((app_dir / ".env").read_text())["TAG"] == "sha-legacy1"
+    env = parse_env((app_dir / ".env").read_text())
+    assert env["LANGUEE_BACK_TAG"] == env["LANGUEE_NLP_TAG"] == "sha-legacy1"
 
 
 def test_preserve_tag_without_any_deployed_tag_fails(app_dir, capsys):
@@ -282,7 +283,34 @@ def test_new_tag_records_previous_tag(app_dir):
     run(app_dir, "--tag", "sha-1111111", fetcher=fake_fetcher())
     run(app_dir, "--tag", "sha-2222222", fetcher=fake_fetcher())
     state = json.loads((app_dir / ".deploy-state.json").read_text())
-    assert (state["tag"], state["previous_tag"]) == ("sha-2222222", "sha-1111111")
+    assert (state["back_tag"], state["nlp_tag"]) == ("sha-2222222", "sha-2222222")
+    assert (state["previous_back_tag"], state["previous_nlp_tag"]) == ("sha-1111111", "sha-1111111")
+
+
+def test_service_tag_update_preserves_unchanged_sibling(app_dir):
+    run(app_dir, "--back-tag", "dev-1000-aaaaaaaaaaaa", "--nlp-tag", "dev-1000-bbbbbbbbbbbb", fetcher=fake_fetcher())
+    run(app_dir, "--back-tag", "dev-2000-cccccccccccc", fetcher=fake_fetcher(version=2))
+    state = json.loads((app_dir / ".deploy-state.json").read_text())
+    assert state["back_tag"] == "dev-2000-cccccccccccc"
+    assert state["nlp_tag"] == "dev-1000-bbbbbbbbbbbb"
+
+
+def test_migrates_legacy_state_to_both_tags(app_dir):
+    (app_dir / ".deploy-state.json").write_text(json.dumps({"tag": "sha-old", "secret_version": 4}))
+    run(app_dir, "--preserve-tags", fetcher=fake_fetcher(version=5))
+    state = json.loads((app_dir / ".deploy-state.json").read_text())
+    env = parse_env((app_dir / ".env").read_text())
+    assert state["back_tag"] == state["nlp_tag"] == "sha-old"
+    assert env["LANGUEE_BACK_TAG"] == env["LANGUEE_NLP_TAG"] == "sha-old"
+
+
+def test_legacy_shared_env_is_converted_and_status_is_redacted(app_dir, capsys):
+    (app_dir / ".env").write_text("COMPOSE_FILE=x\nTAG=sha-legacy\n")
+    run(app_dir, "--preserve-tags", fetcher=fake_fetcher())
+    assert run(app_dir, "--status") == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["back_tag"] == output["nlp_tag"] == "sha-legacy"
+    assert "PG_PASSWORD" not in capsys.readouterr().out
 
 
 def test_identical_reapply_is_a_noop_and_keeps_rollback_snapshot(app_dir, capsys):
@@ -306,7 +334,7 @@ def test_status_reports_applied_version_and_tag(app_dir, capsys):
     capsys.readouterr()
     assert run(app_dir, "--status") == 0
     out = json.loads(capsys.readouterr().out)
-    assert out["secret_version"] == 9 and out["tag"] == "sha-abc1234"
+    assert out["secret_version"] == 9 and out["back_tag"] == out["nlp_tag"] == "sha-abc1234"
 
 
 def test_requested_secret_version_is_forwarded_to_fetcher(app_dir):
@@ -392,7 +420,7 @@ def test_restore_previous_returns_to_prior_config_and_tag(app_dir):
 
     assert run(app_dir, "--restore-previous") == 0
 
-    assert parse_env((app_dir / ".env").read_text())["TAG"] == "sha-1111111"
+    assert parse_env((app_dir / ".env").read_text())["LANGUEE_BACK_TAG"] == "sha-1111111"
     assert parse_env((app_dir / "languee-back.env").read_text())["JWT_EXPIRES_IN"] == "15m"
     assert json.loads((app_dir / ".deploy-state.json").read_text())["secret_version"] == 1
     assert stat.S_IMODE((app_dir / ".env").stat().st_mode) == 0o600
