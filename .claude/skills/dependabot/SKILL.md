@@ -24,9 +24,11 @@ Resolve the full dependency backlog — open dependabot PRs AND the hidden queue
      PR per lane, branch `deps/<service>-minor-patch`.
    - Each major or toolchain jump (e.g. Kotlin, an OpenTelemetry stack) gets its OWN
      migration PR so it is independently revertable and cannot block the easy merges.
-4. **Verification is local-only.** This repo's CI workflows are push-triggered on
-   `bb_develop` only — **PRs get NO CI**. `make cc <service>` in the worktree is the only
-   quality gate; it must genuinely pass before any PR is opened (open-pr skill rule).
+4. **Verification has local and CI gates.** PR checks now run from `.github/workflows/ci.yml`
+   (added in #204), so CI is an additional gate for the jobs it covers. Run
+   `make cc <service>` in the worktree and require it to pass before opening a PR
+   (open-pr skill rule); do not assume every job is covered by PR CI (the droid job may
+   not be).
 5. **Publish with native git push; MCP for metadata** (two-plane policy, PR #96):
    workers verify and commit locally in their worktrees; the coordinator pushes each
    branch with `git push origin HEAD:deps/<branch>` (allowed-prefix branches only;
@@ -66,7 +68,7 @@ precise blocked-reason) is produced.
 ## Constraints and recovery passes (hard-won — do not rediscover from scratch)
 
 These are dated field observations, not permanent truths. Repo-invariant rules (Release
-Please ownership, no-PR-CI, ecosystem version gates) can be relied on until the repo
+Please ownership, PR CI coverage, ecosystem version gates) can be relied on until the repo
 changes; anything environmental (tool availability, token scopes, API ceilings, sandbox
 behavior, filesystem paths) varies by machine and by harness version — attempt the
 normal path first, recognize the failure signature, then apply the documented recovery.
@@ -105,14 +107,15 @@ Machine-specific current state lives in session memory, not here.
   accepted implicitly by upgrading (caching defaults on). Read every actions major's
   release notes for licensing/ToU language; on a hit, hold at the last permissive major,
   encode an ignore rule, and leave the upgrade as an explicit human licensing decision.
-- **Runtime-image bumps are policy decisions, not version bumps**: reject non-LTS
-  runtime lines (odd-numbered Node majors — check the `lts` key in nodejs/Release
-  schedule.json; Node 25 was already past its own EOL when dependabot proposed it,
-  2026-08). Interpreter minors (python 3.12→3.14) are gated on the slowest
-  native-wheel publisher in the stack: check the actual release FILE LIST on PyPI for
-  cpXYZ wheels — `requires_python` classifiers can be aspirational (spacy claimed
-  <3.15 support while shipping nothing past cp313; `-slim` images have no compiler for
-  the sdist fallback). Keep Dockerfile and CI interpreter versions in lockstep.
+- **Runtime-image bumps are policy decisions, not version bumps**: Node 22 is in
+  maintenance until 2027-04-30, Node 24 is Active LTS, and Node 26 was promoted to LTS
+  on 2026-10-28; Node 25 is non-LTS and past EOL. Verify runtime status against the
+  Node release schedule when doing future bumps. Interpreter minors (Python 3.12→3.14)
+  are gated on the slowest native-wheel publisher in the stack. spaCy 3.8.18 declares
+  `<3.16` and ships cp315 wheels. The gate is `uv.lock`, not upstream availability:
+  inspect wheel tags for the versions actually locked, not just the latest release.
+  Move the interpreter, CI, and lock together in one PR. `-slim` images have no
+  compiler for the sdist fallback.
 - **Type-stub packages track the runtime, not latest**: `@types/node` stays on the
   runtime's Node major (Dockerfile base image / CI node-version); ignore stub majors
   until the runtime itself moves.
@@ -156,14 +159,41 @@ Machine-specific current state lives in session memory, not here.
   `androidTestImplementation` (the documented single-line `ksp(...)` workaround misses the
   Hilt Gradle plugin's javac aggregating task for test variants). Project-side override —
   remove once Dagger ships a real fix.
-- **Dependabot PRs can be known-bad**: with no PR CI, a bot PR that violates one of
-  these gates (e.g. a compileSdk-37 artifact) merges green and breaks `bb_develop`.
-  Never merge a droid bot PR UNVERIFIED. Two safe paths: (a) the audited lane PR, or
+- **Dependabot group PRs can contain gated halves**: #196 and #193 each mixed a safe
+  bump with a held bump (OTel 0.300 and otel-instrumentation 2.31). Never merge a
+  Dependabot group PR without reading its file diff against the ignore list. Compare
+  groups against the lane PR before assuming they overlap.
+- **Dependabot PR verification**: CI checks cover some failure classes, but not
+  necessarily every job (the droid job may not be covered). A bot PR that violates an
+  uncovered gate can still merge green and break `bb_develop`. Never merge a droid bot
+  PR unverified. Two safe paths: (a) the audited lane PR, or
   (b) for self-contained bot PRs (e.g. an AGP + Gradle-wrapper toolchain pair, whose
   regenerated wrapper files are easier to take than to replicate), check out the bot
   PR's exact head branch, merge current base into it, run the FULL service gate on
   that merged tree, and merge only on green (done 2026-08 for AGP 9.3.1/Gradle 9.6.1).
-  Gate-violating bot PRs get closed with a comment naming the gate.
+  Gate-violating bot PRs get closed with a comment naming the gate. Verify bot PR
+  contents directly; workers must not assume the PR's contents from its title or
+  description. For droid, rerun checks with
+  `./gradlew testDebugUnitTest lintDebug assembleDebug --rerun-tasks`; a `make cc` log
+  served from cache may show `UP-TO-DATE`. For back, run `yarn prisma generate` in a
+  fresh worktree before lint; otherwise lint can report about 865 false type errors.
+  The nlp venv was CPython 3.14.4 while CI used 3.12; state interpreter differences in
+  the PR body.
+- **Action pinning**: `astral-sh/setup-uv` v8 and later do not publish floating major
+  tags. Pin an exact tag, such as `@v10.3.3`.
+- **Dependabot close and ignore mechanics**: for a held dependency in a group PR, close
+  the group with a comment and add the corresponding `.github/dependabot.yml` ignore;
+  do not use an `@dependabot ignore` command. For a single-dependency PR, use
+  `@dependabot ignore this major version`, which also closes the PR.
+- **Dependabot tooling gotchas**: this repository is `Roquentin97/languee`, not
+  `anki-agent`. `list_pull_requests` output is too large for the context window; parse
+  the saved file with a script. `update_issue` with `labels` replaces the whole label
+  set, so include existing labels. If a Bash call fails with a seccomp error, apply
+  the documented recovery to every Bash call.
+- **Re-scan Dependabot**: there is no public Dependabot CLI or API call to trigger a
+  re-scan. Use GitHub UI with repository write access: open
+  `Roquentin97/languee` → Insights → Dependency graph → Dependabot, then select
+  "Check for updates" for each ecosystem.
 - **In-range refresh ≠ full minor/patch audit**: `yarn outdated` rows where
   `wanted == current < latest` (same major) are OUT-OF-RANGE minors — the specifier
   itself must be bumped (0.x caret ranges pin the minor, so every 0.x minor step is
@@ -195,4 +225,7 @@ Machine-specific current state lives in session memory, not here.
 
 Description, target service, affected modules, release impact (patch via `deps`), QA
 summary with real command results, and — where manifests overlap — the required merge
-order relative to sibling PRs.
+order relative to sibling PRs. State interpreter versions used locally and in CI when
+they differ. `make cc <service>` remains required locally; passing PR CI is an additional
+gate, limited to its covered jobs. Do not claim a PR is safe based only on green CI or a
+cached `UP-TO-DATE` local log; verify its file diff and run the relevant checks.
