@@ -105,8 +105,14 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      minor-and-patch:
+      reviewed-infrastructure-images:
         applies-to: version-updates
+        patterns:
+          - "caddy"
+          - "postgres"
+          - "redis"
+          - "grafana/*"
+          - "prom/prometheus"
         update-types:
           - "minor"
           - "patch"
