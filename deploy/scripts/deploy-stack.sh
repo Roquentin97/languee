@@ -159,7 +159,7 @@ fi
 
 domain=$(grep '^DOMAIN=' .env | cut -d= -f2-)
 curl -fsS -o /dev/null --max-time 15 --retry 10 --retry-delay 6 --retry-all-errors \
-  --resolve "$domain:443:127.0.0.1" "https://$domain/"
+  --resolve "$domain:443:127.0.0.1" "https://$domain/health/ready"
 
 if [ -n "$back_tag" ]; then
   curl -fsS --max-time 15 --resolve "$domain:443:127.0.0.1" "https://$domain/version" | \

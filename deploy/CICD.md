@@ -50,9 +50,9 @@ pushes). The workflow builds and deploys `github.sha`, the merged commit.
    script, `deploy-stack.sh`, `sync-vault-config.py` to `/opt/languee`, then
    deploys the selected backend and NLP tags ([details](VAULT.md#what-the-deploy-does)):
    Vault fetch/validate, pull, Postgres/Redis up, `migrate`, recreate services,
-   wait for health, HTTPS check against Caddy, and an internal NLP check over
-   the compose network. Optionally curls `DEPLOY_HEALTHCHECK_URL` from the
-   runner.
+   wait for liveness, then gates completion on the backend's `/health/ready`
+   endpoint over local Caddy HTTPS and public HTTPS from the runner. It also
+   performs an internal NLP check over the compose network.
 
 Manual runs (`workflow_dispatch`, branch `develop` only):
 
@@ -82,8 +82,10 @@ secrets across, then delete `production` if unused).
 
 - Secrets: `DEPLOY_HOST` (`languee-dev.aroquentin.com`), `DEPLOY_USER`
   (`deploy`), `DEPLOY_SSH_KEY`.
-- Variables: `VAULT_SECRET_OCID`, `OCI_REGION` (`eu-frankfurt-1`), optional
-  `DEPLOY_HEALTHCHECK_URL` (e.g. `https://languee-dev.aroquentin.com/`).
+- Variables: `VAULT_SECRET_OCID`, `OCI_REGION` (`eu-frankfurt-1`), and
+  `DEPLOY_HEALTHCHECK_URL` set to the complete public readiness URL (for
+  example, `https://languee-dev.aroquentin.com/health/ready`). The deployment
+  fails if this variable is absent or targets a different path.
 - Deployment branches: **selected branches → `develop`** only.
 
 ### First-run host prerequisites

@@ -30,6 +30,20 @@ fi
 if [ "$2" = run ]; then echo "migration boom" >&2; exit 1; fi
 """
 
+SUCCESS_DOCKER_STUB = """#!/bin/bash
+echo "docker $*" >> "$APP_DIR/calls.log"
+"""
+
+CURL_SUCCESS_STUB = """#!/bin/bash
+echo "curl $*" >> "$APP_DIR/calls.log"
+exit 0
+"""
+
+CURL_FAILURE_STUB = """#!/bin/bash
+echo "curl $*" >> "$APP_DIR/calls.log"
+exit 22
+"""
+
 
 def _executable(path: Path, body: str) -> None:
     path.write_text(body)
@@ -51,6 +65,29 @@ def _deploy(tmp_path: Path, state_before: str) -> tuple[subprocess.CompletedProc
     result = subprocess.run(
         ["bash", str(SCRIPT), "--back-tag", TAG, "--nlp-tag", TAG],
         env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result, (app / "calls.log").read_text()
+
+
+def _deploy_readiness(
+    tmp_path: Path, curl_stub: str
+) -> tuple[subprocess.CompletedProcess[str], str]:
+    app = tmp_path / "app"
+    (app / "scripts").mkdir(parents=True)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _executable(app / "scripts" / "sync-vault-config.py", SYNC_STUB)
+    _executable(bin_dir / "docker", SUCCESS_DOCKER_STUB)
+    _executable(bin_dir / "curl", curl_stub)
+    _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
+    (app / "state").write_text('{"back_tag": "old", "nlp_tag": "old"}')
+    (app / ".env").write_text("DOMAIN=example.test\n")
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--preserve-tags"],
+        env={**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"},
         capture_output=True,
         text=True,
         check=False,
@@ -91,3 +128,26 @@ def test_persistent_infrastructure_requires_explicit_maintenance_approval(tmp_pa
     )
     assert result.returncode == 2
     assert "verified backup and compatibility review" in result.stderr
+
+
+def test_deploy_gates_success_on_local_caddy_readiness(tmp_path):
+    result, calls = _deploy_readiness(tmp_path, CURL_SUCCESS_STUB)
+
+    assert result.returncode == 0
+    assert "https://example.test/health/ready" in calls
+    assert "--resolve example.test:443:127.0.0.1" in calls
+    assert "--retry 10" in calls
+
+
+def test_deploy_fails_when_local_caddy_is_not_ready(tmp_path):
+    result, calls = _deploy_readiness(tmp_path, CURL_FAILURE_STUB)
+
+    assert result.returncode == 22
+    assert "https://example.test/health/ready" in calls
+
+
+def test_production_backend_healthcheck_uses_liveness_endpoint():
+    compose = (Path(__file__).parents[2] / "docker-compose.prod.yml").read_text()
+
+    assert "http://localhost:3000/health/live" in compose
+    assert "http://localhost:3000/health/ready" not in compose
