@@ -97,7 +97,7 @@ Avoid brace expansion in shell commands.
 Agents may only push to branches with these prefixes:
 `feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`, `deps/`.
 
-Never push to `master`, `develop`, `staging`, `bb_develop`, or any environment branch -
+Never push to `master`, `develop`, `staging`, or any environment branch -
 via git, `gh`, or GitHub MCP.
 
 Use GitHub MCP for PR/issue metadata: opening or updating pull requests, PR comments,

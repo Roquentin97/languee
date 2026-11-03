@@ -95,7 +95,7 @@ updates every deck using it, Anki-style); the three cards generated from one wor
 
 ## Rollout
 
-Implementation is split into focused PRs on `bb_develop`:
+Implementation is split into focused PRs on `develop`:
 
 | PR | Scope | Services |
 |----|-------|----------|

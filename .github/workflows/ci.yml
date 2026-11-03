@@ -10,8 +10,6 @@ on:
       - develop
       - staging
       - master
-      # Transitional: remove once development moves from bb_develop to develop.
-      - bb_develop
 
 concurrency:
   group: pr-ci-${{ github.event.pull_request.number }}
