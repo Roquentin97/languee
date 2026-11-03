@@ -7,7 +7,7 @@ server such as a Hetzner CX-class requires adding `linux/amd64` to the build
 first.
 
 Configuration lives in OCI Vault ([VAULT.md](VAULT.md)); CI, the merge-triggered
-dev deployment, Release Please, and the branch-migration checklist are in
+dev deployment, build identity, and the branch-migration checklist are in
 [CICD.md](CICD.md). The sections below describe the generic server setup and
 operations; where they conflict with those two documents for the Oracle dev VM,
 those win.
@@ -26,7 +26,7 @@ Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
   .env                      # generated from OCI Vault on deploy (0600, never edit)
   languee-back.env          # generated from OCI Vault on deploy
   languee-nlp.env           # generated from OCI Vault on deploy
-  .deploy-state.json        # applied image tag + secret version
+  .deploy-state.json        # backend/NLP image tags + secret version
   backups/                  # local dump retention (7 days)
 ```
 
@@ -134,17 +134,29 @@ branch), add the secrets below and the variables `VAULT_SECRET_OCID` and
 ## Deploying
 
 Merging a PR into `develop` runs **Deploy (dev)** automatically
-([CICD.md](CICD.md#deployment-deployyml-deploy-dev)): it builds the three
-images for `linux/arm64` as `sha-<commit>`, copies the stack files to the server,
-and runs `deploy-stack.sh --tag sha-<commit>`, which applies and validates the
-Vault configuration, pulls images, runs Prisma migrations through the migrator
-image, recreates the services, and checks health over HTTPS.
+([CICD.md](CICD.md#deployment-deployyml-deploy-dev)). Each run computes
+`PATCH = github.run_number * 1000 + github.run_attempt`; backend and NLP report
+runtime version `0.1.<PATCH>`. Each service publishes an immutable
+`dev-<PATCH>-<12-character-commit-sha>` image tag. When both services are built,
+their repositories use the same tag. Build inputs are `APP_VERSION`, full
+`GIT_SHA`, and `BUILD_ID`; OCI labels `org.opencontainers.image.version`,
+`org.opencontainers.image.revision`, and `org.opencontainers.image.build-id`
+record the corresponding identity. The deployment pulls those artifacts, runs
+Prisma migrations through the backend migrator image, recreates services,
+checks health over HTTPS, and checks NLP from inside the compose network.
 
-- **Rollback:** run Deploy (dev) manually on `develop` with
-  `tag: sha-<commit>`. Migrations are forward-only: rolling back code is safe,
-  rolling back a deployed migration is manual.
+- **Rollback:** run Deploy (dev) manually on `develop`, setting
+  `rollback_back_tag` and/or `rollback_nlp_tag` to select an immutable artifact
+  for that service. This deploys selected existing artifacts; it does not
+  rebuild them. Migrations are forward-only. Check application compatibility
+  before rolling code back across a schema change.
 - **Config-only change:** edit the Vault secret and run **Apply config (dev)**;
-  the image tag is preserved.
+  deployed image artifacts and tags are preserved and no migrations run.
+- **Verify deployed identity:** check the backend's public `/version` response,
+  perform the internal NLP `/version` check, then compare each full commit SHA
+  with the `org.opencontainers.image.revision` label, verify version and
+  build-id labels, and compare each running image digest with its selected
+  immutable tag. See [CICD.md](CICD.md#deployment-deployyml-deploy-dev).
 
 First deploy on a fresh server is the same workflow — Postgres initializes
 from the Vault credentials, migrations create the schema, Caddy fetches
@@ -153,11 +165,12 @@ certificates on first request.
 Images build natively on a GitHub-hosted ARM64 runner; the GHA layer cache
 makes rebuilds fast until `uv.lock` changes.
 
-## Observability (Grafana Cloud free tier)
+## Observability
 
-Self-hosted Loki/Tempo/Prometheus/Grafana from the dev compose file stay off
-the server. When wanted: create a free Grafana Cloud stack, then in
-the Vault secret set `TRACING_ENABLED=true` and add the
+Local development observability is available from the development Compose
+stack. It is not part of the production VM stack. Production services can send
+OpenTelemetry data to Grafana Cloud when configured; create a Grafana Cloud
+stack, then in the Vault secret set `TRACING_ENABLED=true` and add the
 `OTEL_EXPORTER_OTLP_*` keys with
 the stack's OTLP gateway URL and basic-auth token (Grafana Cloud → OpenTelemetry
 → instance ID + token, base64 `id:token`). For the NLP service, set
@@ -168,6 +181,17 @@ added.
 Uptime: Better Stack free tier — one HTTPS monitor on `https://<DOMAIN>/`
 (health endpoint) plus certificate expiry alerting. (UptimeRobot's free plan
 prohibits commercial use since Dec 2024.)
+
+## Infrastructure maintenance
+
+Keep OS security updates enabled. Schedule upgrades to Docker, Compose, the
+production stack's pinned service images, or the VM as explicit maintenance:
+review release and compatibility notes, take a fresh database backup, and
+verify that a recent backup can be restored before any operation that may
+replace or reinitialize the host or database. Do not treat a VM snapshot or an
+unverified dump as a tested recovery path. After the upgrade, confirm service
+health, `/version` identities, image labels and digests, and the internal NLP
+check. Keep the previous immutable app images available for targeted rollback.
 
 ## Restore procedure
 

@@ -31,8 +31,8 @@ secret goes with it. Keep an encrypted export elsewhere (see
    temp files (mode `0600`), snapshots the current files to `.config-previous/`,
    then atomically replaces them. A failure mid-replacement restores the
    snapshot;
-4. records the image tag and applied secret **version number** in
-   `.deploy-state.json` (bookkeeping, not configuration).
+4. records the selected backend and NLP image tags and applied secret
+   **version number** in `.deploy-state.json` (bookkeeping, not configuration).
 
 Then the stack is pulled, migrated (code deploys only) and the app services are
 force-recreated so changed env values take effect. If any later step fails the
@@ -52,7 +52,7 @@ tests assert it matches the script's allowlist. Unknown keys are rejected.
 | `languee-back.env`  | `PORT`, `NODE_ENV`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `BASIC_AUTH`, `BASIC_PASSWORD`, `LANGUEE_NLP_BASE_URL`, `LANGUEE_NLP_BASIC_AUTH_LOGIN`, `LANGUEE_NLP_BASIC_AUTH_PASSWORD`, `LOG_FORMAT`, `SERVICE_NAME`, `PRINT_DEBUG_LOGS`, `PRINT_PRETTY_JSON_LOGS`, `TRACING_ENABLED`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`; optional `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` |
 | `languee-nlp.env`   | `LANGUEE_NLP_SPACY_MODEL`, `LANGUEE_NLP_LOG_FORMAT`, `LANGUEE_NLP_LOG_LEVEL`, `LANGUEE_NLP_SERVICE_NAME`, `LANGUEE_NLP_ENVIRONMENT`, `LANGUEE_NLP_TRACING_ENABLED`; optional `LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT` |
 | derived             | `languee-nlp.env` `BASIC_LOGIN` / `BASIC_PASSWORD` come from `LANGUEE_NLP_BASIC_AUTH_LOGIN` / `LANGUEE_NLP_BASIC_AUTH_PASSWORD` (stored once). The backend's `BASIC_PASSWORD` is Swagger auth and is never used for NLP. |
-| fixed by the deploy | `COMPOSE_FILE=docker-compose.prod.yml`, `TAG` (deployment-controlled) — not in Vault |
+| fixed by the deploy | `COMPOSE_FILE=docker-compose.prod.yml`, `LANGUEE_BACK_TAG`, `LANGUEE_NLP_TAG` (deployment-controlled) — not in Vault |
 
 Value rules worth knowing: values must be printable ASCII on one line, no
 leading/trailing whitespace. `.env` is also sourced by `backup-db.sh`, so its
@@ -74,9 +74,13 @@ fixed values compose and Caddy assume.
 2. Run the **Apply config (dev)** workflow (Actions tab, branch `develop`), or
    on the server:
    `VAULT_SECRET_OCID=<ocid> /opt/languee/scripts/deploy-stack.sh --preserve-tag`.
-   The deployed image tag is preserved and no migrations run.
+   The selected backend and NLP image tags are preserved and no migrations run.
 3. Inspect what is applied: `python3 /opt/languee/scripts/sync-vault-config.py --status`
-   (secret version, tag, previous tag, timestamp — no values).
+   (secret version, both image tags, previous state, timestamp — no values).
+
+`Apply config (dev)` changes configuration only. It reuses the existing
+immutable backend and NLP artifacts, does not build or select new images, and
+does not run migrations.
 
 Dry-run a new version without touching the server's files:
 `python3 scripts/sync-vault-config.py --check --secret-version <n>`.
