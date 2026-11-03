@@ -7,7 +7,7 @@ server such as a Hetzner CX-class requires adding `linux/amd64` to the build
 first.
 
 Configuration lives in OCI Vault ([VAULT.md](VAULT.md)); CI, the merge-triggered
-dev deployment, Release Please, and the branch-migration checklist are in
+dev deployment, and the branch-migration checklist are in
 [CICD.md](CICD.md). The sections below describe the generic server setup and
 operations; where they conflict with those two documents for the Oracle dev VM,
 those win.
@@ -26,7 +26,7 @@ Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
   .env                      # generated from OCI Vault on deploy (0600, never edit)
   languee-back.env          # generated from OCI Vault on deploy
   languee-nlp.env           # generated from OCI Vault on deploy
-  .deploy-state.json        # applied image tag + secret version
+  .deploy-state.json        # independent backend/NLP image tags + secret version
   backups/                  # local dump retention (7 days)
 ```
 
@@ -133,30 +133,42 @@ branch), add the secrets below and the variables `VAULT_SECRET_OCID` and
 
 ## Deploying
 
-Merging a PR into `develop` runs **Deploy (dev)** automatically
-([CICD.md](CICD.md#deployment-deployyml-deploy-dev)): it builds the three
-images for `linux/arm64` as `sha-<commit>`, copies the stack files to the server,
-and runs `deploy-stack.sh --tag sha-<commit>`, which applies and validates the
-Vault configuration, pulls images, runs Prisma migrations through the migrator
-image, recreates the services, and checks health over HTTPS.
+Merging a PR into `develop` runs **Deploy (dev)** automatically. It classifies
+the merge range and builds only affected server images for `linux/arm64`.
+Backend and its migrator are built together; NLP is independent. Android-only,
+documentation-only, and local observability changes do not deploy to Oracle.
+Each newly built image receives `APP_VERSION=0.1.<PATCH>`, the full source SHA,
+and an immutable `dev-<PATCH>-<12-character-SHA>` tag. The patch is
+`github.run_number * 1000 + github.run_attempt`; attempts at or above 1000 are
+rejected. OCI labels carry the same version, SHA, and build identity. Unchanged
+services keep their existing tags and running image identity.
 
-- **Rollback:** run Deploy (dev) manually on `develop` with
-  `tag: sha-<commit>`. Migrations are forward-only: rolling back code is safe,
-  rolling back a deployed migration is manual.
-- **Config-only change:** edit the Vault secret and run **Apply config (dev)**;
-  the image tag is preserved.
+- **Rollback:** select the backend image, NLP image, or both from already
+  published `dev-...` artifacts. Rollback does not rebuild. It restores only
+  selected image references; database migrations remain forward-only and are
+  not reversed by an image rollback.
+- **Config-only change:** edit the OCI Vault secret and run **Apply config
+  (dev)**. This preserves both image references and does not run migrations.
+- **No-op:** if changed paths require no server build or deployment, no image is
+  rebuilt and no app container is recreated.
 
 First deploy on a fresh server is the same workflow — Postgres initializes
 from the Vault credentials, migrations create the schema, Caddy fetches
 certificates on first request.
 
-Images build natively on a GitHub-hosted ARM64 runner; the GHA layer cache
-makes rebuilds fast until `uv.lock` changes.
+Images build natively on a GitHub-hosted ARM64 runner. Production Postgres,
+Redis, and Caddy use explicit versioned image references pinned to immutable
+digests. Routine app deploys do not refresh them; image-reference updates are
+reviewed infrastructure changes. Database-major and persistence-format changes
+require compatibility checks, a verified restorable backup, and an approved
+maintenance operation. No deploy removes persistent volumes.
 
 ## Observability (Grafana Cloud free tier)
 
-Self-hosted Loki/Tempo/Prometheus/Grafana from the dev compose file stay off
-the server. When wanted: create a free Grafana Cloud stack, then in
+Self-hosted Grafana/Loki/Tempo/Prometheus/Alloy in `docker-compose.yml` are for
+local development and stay off the server. Their image updates are local-only.
+Grafana Cloud is a separately managed external backend, not a repo-deployed
+image. When wanted: create a free Grafana Cloud stack, then in
 the Vault secret set `TRACING_ENABLED=true` and add the
 `OTEL_EXPORTER_OTLP_*` keys with
 the stack's OTLP gateway URL and basic-auth token (Grafana Cloud → OpenTelemetry

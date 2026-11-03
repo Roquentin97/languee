@@ -27,8 +27,9 @@ PR-opening context, this is the skill.
   operations remain allowed: `git status`, `git diff`, `git log`, `git add`, and
   `git commit`.
 - Do not open the PR until every required `make cc <affected-service>` command passes.
-- Do not manually bump app versions, version files, or changelogs in feature PRs unless
-  the human explicitly asks for a release/versioning change.
+- Server image versions come from each Deploy (dev) build attempt; do not edit app
+  version files or create version-only PRs. Android versionName/versionCode remain
+  separate and change only for explicit Android publication work.
 - Do not open the PR for endpoint changes until the matching Bruno collection entries
   and Swagger/OpenAPI schema metadata are updated.
 - If GitHub MCP is unavailable, stop and report that the PR cannot be opened safely.
@@ -45,26 +46,15 @@ cross-service contract changes:
   Use the spec and changed behavior to decide. If no app service can be determined,
   treat all three services as affected unless the human explicitly narrows the scope.
 
-## Release Please
+## Deployed build identity
 
-Release Please owns app SemVer updates and changelog generation. Ordinary feature, fix,
-docs, test, refactor, CI, and dependency PRs must not edit these files only to bump a
-version:
-
-- `apps/languee-back/version.txt`
-- `apps/languee-back/CHANGELOG.md`
-- `apps/languee-back/src/modules/health/health.service.ts`
-- `apps/languee-nlp/version.txt`
-- `apps/languee-nlp/CHANGELOG.md`
-- `apps/languee-nlp/src/languee_nlp/constants.py`
-- `apps/languee-droid/version.txt`
-- `apps/languee-droid/CHANGELOG.md`
-- `apps/languee-droid/app/build.gradle.kts` when changing only `versionName`
-
-Use release-please-compatible Conventional Commits so release PRs can derive the correct
-SemVer bump: `fix` and `deps` for patch, `feat` for minor, and `!` or a
-`BREAKING CHANGE` footer for major. Android `versionCode` is not a SemVer field; change
-it only for an explicit release/publication task or dedicated automation.
+Backend and NLP image builds receive `APP_VERSION=0.1.<PATCH>` and the full
+`GIT_SHA` from Deploy (dev). The patch uses the workflow run number and attempt;
+an unchanged service keeps its current image and version. `/version` and OCI
+image labels identify the running artifact. Do not bump these values in source,
+use Git tags or release metadata, or create version-only PRs. Release Please is
+disabled during development. Android versionName/versionCode are independent;
+change them only for an explicit Android publication task.
 
 ## Endpoint documentation
 
