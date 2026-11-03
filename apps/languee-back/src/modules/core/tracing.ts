@@ -20,6 +20,9 @@ if (tracingEnabled) {
   sdk = new NodeSDK({
     resource: resourceFromAttributes({
       'service.name': process.env['SERVICE_NAME'] ?? 'languee-back',
+      'service.version': process.env['APP_VERSION'] ?? '0.1.0-dev',
+      'vcs.revision': process.env['GIT_SHA'] ?? 'unknown',
+      'build.id': process.env['BUILD_ID'] ?? 'unknown',
       'deployment.environment': process.env['NODE_ENV'] ?? 'development',
     }),
     spanProcessors: [

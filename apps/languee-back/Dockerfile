@@ -1,5 +1,9 @@
 # syntax=docker/dockerfile:1
 
+ARG APP_VERSION=0.1.0-dev
+ARG GIT_SHA=unknown
+ARG BUILD_ID=unknown
+
 # ─── Stage 1: dependencies ───────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 
@@ -39,6 +43,16 @@ RUN yarn prisma generate && yarn build
 # Published alongside the production image.
 FROM deps AS migrator
 
+ARG APP_VERSION
+ARG GIT_SHA
+ARG BUILD_ID
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_SHA=${GIT_SHA} \
+    BUILD_ID=${BUILD_ID}
+LABEL org.opencontainers.image.version=${APP_VERSION} \
+      org.opencontainers.image.revision=${GIT_SHA} \
+      org.opencontainers.image.build-id=${BUILD_ID}
+
 WORKDIR /app
 
 COPY --chown=node:node prisma.config.ts ./prisma.config.ts
@@ -48,6 +62,16 @@ CMD ["yarn", "prisma", "migrate", "deploy"]
 
 # ─── Stage 4: production ─────────────────────────────────────────────────────
 FROM node:22-alpine AS production
+
+ARG APP_VERSION
+ARG GIT_SHA
+ARG BUILD_ID
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_SHA=${GIT_SHA} \
+    BUILD_ID=${BUILD_ID}
+LABEL org.opencontainers.image.version=${APP_VERSION} \
+      org.opencontainers.image.revision=${GIT_SHA} \
+      org.opencontainers.image.build-id=${BUILD_ID}
 
 WORKDIR /app
 

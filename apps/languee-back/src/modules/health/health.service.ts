@@ -9,6 +9,9 @@ export class HealthService {
   }
 
   getVersion(): { version: string; commit: string } {
-    return { version: APP_VERSION, commit: process.env.GIT_SHA ?? 'unknown' };
+    return {
+      version: process.env.APP_VERSION ?? APP_VERSION,
+      commit: process.env.GIT_SHA ?? 'unknown',
+    };
   }
 }

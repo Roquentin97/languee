@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from opentelemetry import metrics as otel_metrics
@@ -50,6 +51,9 @@ def configure_tracing(settings: Settings) -> None:
     resource = Resource.create(
         {
             "service.name": settings.service_name,
+            "service.version": os.getenv("APP_VERSION", "0.1.0-dev"),
+            "vcs.revision": os.getenv("GIT_SHA", "unknown"),
+            "build.id": os.getenv("BUILD_ID", "unknown"),
             "deployment.environment": settings.environment,
         }
     )
