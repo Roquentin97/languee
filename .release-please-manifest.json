@@ -1,5 +1,5 @@
 {
-  "apps/languee-back": "1.0.0",
-  "apps/languee-nlp": "1.0.0",
-  "apps/languee-droid": "2.0.0"
+  "apps/languee-back": "2.0.0",
+  "apps/languee-nlp": "2.0.0",
+  "apps/languee-droid": "3.0.0"
 }
