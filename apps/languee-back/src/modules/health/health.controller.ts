@@ -29,7 +29,10 @@ export class HealthController {
   @ApiOkResponse({
     description: 'Returns the application version and build commit',
     schema: {
-      example: { version: '1.0.0', commit: 'abc1234' },
+      example: {
+        version: '0.1.123001',
+        commit: '0123456789abcdef0123456789abcdef01234567',
+      },
       properties: {
         version: { type: 'string' },
         commit: { type: 'string' },

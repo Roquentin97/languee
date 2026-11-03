@@ -23,6 +23,7 @@ describe('HealthController', () => {
   describe('getVersion', () => {
     afterEach(() => {
       delete process.env.GIT_SHA;
+      delete process.env.APP_VERSION;
     });
 
     it('returns the app version and defaults commit to unknown', () => {
@@ -38,6 +39,14 @@ describe('HealthController', () => {
       expect(healthController.getVersion()).toEqual({
         version: APP_VERSION,
         commit: 'abc1234',
+      });
+    });
+
+    it('reflects APP_VERSION when set', () => {
+      process.env.APP_VERSION = '2.3.4';
+      expect(healthController.getVersion()).toEqual({
+        version: '2.3.4',
+        commit: 'unknown',
       });
     });
   });

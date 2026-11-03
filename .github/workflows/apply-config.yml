@@ -40,6 +40,6 @@ jobs:
           envs: SECRET_VERSION,VAULT_SECRET_OCID,OCI_REGION
           script_stop: true
           script: |
-            args=(--preserve-tag)
+            args=(--preserve-tags)
             if [ -n "$SECRET_VERSION" ]; then args+=(--secret-version "$SECRET_VERSION"); fi
             /opt/languee/scripts/deploy-stack.sh "${args[@]}"

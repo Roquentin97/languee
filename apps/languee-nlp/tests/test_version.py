@@ -19,3 +19,10 @@ def test_version_reflects_git_sha(monkeypatch):
     response = client.get("/version")
     assert response.status_code == 200
     assert response.json()["commit"] == "abc1234"
+
+
+def test_version_reflects_app_version(monkeypatch):
+    monkeypatch.setenv("APP_VERSION", "2.3.4")
+    response = client.get("/version")
+    assert response.status_code == 200
+    assert response.json()["version"] == "2.3.4"

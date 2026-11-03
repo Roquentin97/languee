@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${LANGUEE_BACK_POSTGRES_USER}
@@ -22,7 +22,7 @@ services:
       start_period: 10s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     restart: unless-stopped
     command: redis-server --requirepass ${LANGUEE_BACK_REDIS_PASSWORD}
     volumes:
@@ -135,7 +135,7 @@ services:
       start_period: 20s
 
   loki:
-    image: grafana/loki:3.7.2
+    image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
@@ -145,7 +145,7 @@ services:
     restart: unless-stopped
 
   tempo:
-    image: grafana/tempo:2.7.1
+    image: grafana/tempo:2.7.1@sha256:4443be217c396b065ee34845534199c36fdba4dc619cb96550e228d73fba6e69
     command: ["-config.file=/etc/tempo/tempo.yaml"]
     volumes:
       - ./provision/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
@@ -159,7 +159,7 @@ services:
       start_period: 15s
 
   prometheus:
-    image: prom/prometheus:v3.4.0
+    image: prom/prometheus:v3.4.0@sha256:78ed1f9050eb9eaf766af6e580230b1c4965728650e332cd1ee918c0c4699775
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --web.enable-remote-write-receiver
@@ -179,7 +179,7 @@ services:
       start_period: 10s
 
   alloy:
-    image: grafana/alloy:v1.16.0
+    image: grafana/alloy:v1.16.0@sha256:6e00cf7c5a692ff5f24844529416ed017d76fce922f8199004e73d5eca46b6b8
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
@@ -199,7 +199,7 @@ services:
       - prometheus
 
   grafana:
-    image: grafana/grafana:13.0.1-security-01
+    image: grafana/grafana:13.0.1-security-01@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin

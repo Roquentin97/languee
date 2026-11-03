@@ -1,3 +1,7 @@
+ARG APP_VERSION=0.1.0-dev
+ARG GIT_SHA=unknown
+ARG BUILD_ID=unknown
+
 FROM python:3.12-slim AS base
 RUN pip install uv
 WORKDIR /app
@@ -22,4 +26,13 @@ FROM runtime AS development
 CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src", "--no-access-log"]
 
 FROM runtime AS production
+ARG APP_VERSION
+ARG GIT_SHA
+ARG BUILD_ID
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_SHA=${GIT_SHA} \
+    BUILD_ID=${BUILD_ID}
+LABEL org.opencontainers.image.version=${APP_VERSION} \
+      org.opencontainers.image.revision=${GIT_SHA} \
+      org.opencontainers.image.build-id=${BUILD_ID}
 CMD ["uvicorn", "languee_nlp.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

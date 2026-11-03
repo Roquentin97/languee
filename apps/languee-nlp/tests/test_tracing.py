@@ -135,7 +135,12 @@ def test_configure_tracing_enabled_sets_correct_otlp_endpoint(nlp_settings_enabl
     assert call_kwargs["endpoint"] == "http://alloy:4318/v1/traces"
 
 
-def test_configure_tracing_enabled_resource_has_service_name(nlp_settings_enabled):
+def test_configure_tracing_enabled_resource_has_service_name(
+    nlp_settings_enabled, monkeypatch
+):
+    monkeypatch.delenv("APP_VERSION", raising=False)
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.delenv("BUILD_ID", raising=False)
     captured: list[TracerProvider] = []
 
     with (
@@ -152,6 +157,9 @@ def test_configure_tracing_enabled_resource_has_service_name(nlp_settings_enable
     provider = captured[0]
     attrs = provider.resource.attributes
     assert attrs.get("service.name") == "languee-nlp"
+    assert attrs.get("service.version") == "0.1.0-dev"
+    assert attrs.get("vcs.revision") == "unknown"
+    assert attrs.get("build.id") == "unknown"
     assert attrs.get("deployment.environment") == "development"
 
 

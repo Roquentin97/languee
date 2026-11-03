@@ -169,10 +169,9 @@ created in the current task without explicit human approval.
 Whenever the human asks to open, create, publish, or prepare a PR, or asks to "use the
 skill" in a PR-opening context, Claude must use `.claude/skills/open-pr/SKILL.md`.
 Forge PR stages must also use that skill. The skill is required because it enforces
-the remote-operations policy above, release-please-compatible PR metadata,
-`make cc <affected-service>` for each affected service, and PR/Notion bookkeeping.
-Do not manually bump app versions or changelogs in feature PRs; Release Please owns
-version and changelog updates through generated release PRs.
+the remote-operations policy above, `make cc <affected-service>` for each affected
+service, and PR/Notion bookkeeping. Build identity is stamped by deploy CI; do not
+create version-only or changelog-only PRs for backend or NLP development builds.
 
 ## Commit and PR conventions
 
@@ -199,9 +198,8 @@ Examples:
 PR titles follow the same format as commit messages.
 Commit messages are enforced via `commitlint` + `husky` at the `commit-msg` hook level.
 Agents must produce valid conventional commit messages - the hook will reject anything else.
-Release Please derives release impact from these messages: `fix` and `deps` trigger patch
-releases, `feat` triggers minor releases, and `!` or a `BREAKING CHANGE` footer triggers
-major releases. Do not hide user-facing fixes or features behind `chore`.
+Use the type that describes the user-visible change; it does not select a server
+version during development. Do not hide user-facing fixes or features behind `chore`.
 PR body must include: spec description, target service, affected modules/components,
 release impact, and QA summary.
 

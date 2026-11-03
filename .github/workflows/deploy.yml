@@ -1,25 +1,31 @@
 name: Deploy (dev)
 
-# Deploys to the Oracle dev VM only after a merge into `develop`: the trigger is
-# the resulting push, built from that exact commit (github.sha). Unmerged PR
-# code never reaches this workflow. develop is PR-only (branch ruleset), so a
-# push is a merge; Release Please only opens PRs and never pushes to develop.
-#
-# workflow_dispatch from develop re-runs the pipeline for the branch head, or
-# with `tag` rolls back to an image built from an earlier develop commit.
+# Build identities are workflow-attempt derived; this workflow never creates a
+# release, tag, changelog, or moving application image tag.
 on:
   push:
-    branches:
-      - develop
+    branches: [develop]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing sha-<commit> image tag to deploy without rebuilding (rollback). Leave empty to build and deploy the develop head.
+      rollback_back_tag:
+        description: Existing backend dev-* artifact to restore (optional)
         required: false
         type: string
+      rollback_nlp_tag:
+        description: Existing NLP dev-* artifact to restore (optional)
+        required: false
+        type: string
+      force_deploy:
+        description: Build both current services even without a detected source change
+        required: false
+        default: false
+        type: boolean
+      allow_persistent_infra:
+        description: Confirm backup and compatibility review for a PostgreSQL/Redis image update
+        required: false
+        default: false
+        type: boolean
 
-# Serialize deploys. A run waiting behind an active one is replaced by newer
-# runs, and `resolve` skips any run whose commit is no longer the develop head.
 concurrency:
   group: deploy-dev
   cancel-in-progress: false
@@ -35,30 +41,77 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      build: ${{ steps.tag.outputs.build }}
-      stale: ${{ steps.tag.outputs.stale }}
+      back: ${{ steps.resolve.outputs.back }}
+      nlp: ${{ steps.resolve.outputs.nlp }}
+      config: ${{ steps.resolve.outputs.config }}
+      infra: ${{ steps.resolve.outputs.infra }}
+      deploy: ${{ steps.resolve.outputs.deploy }}
+      stale: ${{ steps.resolve.outputs.stale }}
+      rollback: ${{ steps.resolve.outputs.rollback }}
+      patch: ${{ steps.resolve.outputs.patch }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - id: tag
+      - id: resolve
         env:
-          INPUT_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          ROLLBACK_BACK: ${{ inputs.rollback_back_tag }}
+          ROLLBACK_NLP: ${{ inputs.rollback_nlp_tag }}
+          FORCE_DEPLOY: ${{ inputs.force_deploy }}
         run: |
           set -euo pipefail
+          if [ "${GITHUB_RUN_ATTEMPT}" -ge 1000 ]; then
+            echo "github.run_attempt must be less than 1000" >&2
+            exit 1
+          fi
+          patch=$((GITHUB_RUN_NUMBER * 1000 + GITHUB_RUN_ATTEMPT))
+          sha12=${GITHUB_SHA:0:12}
+          tag="dev-${patch}-${sha12}"
+          version="0.1.${patch}"
+          rollback=false
           stale=false
-          if [ -n "$INPUT_TAG" ]; then
-            if ! [[ "$INPUT_TAG" =~ ^sha-[0-9a-f]{7,40}$ ]]; then
-              echo "tag must look like sha-<commit>" >&2; exit 1
-            fi
-            commit="${INPUT_TAG#sha-}"
-            if ! git merge-base --is-ancestor "$commit" origin/develop; then
-              echo "$INPUT_TAG was not built from a commit on develop" >&2; exit 1
-            fi
-            tag="$INPUT_TAG"; build=false
+          printf '' > changed-files
+
+          if [ "$EVENT_NAME" = workflow_dispatch ] && { [ -n "$ROLLBACK_BACK" ] || [ -n "$ROLLBACK_NLP" ]; }; then
+            rollback=true
+            for artifact in "$ROLLBACK_BACK" "$ROLLBACK_NLP"; do
+              if [ -n "$artifact" ] && ! [[ "$artifact" =~ ^dev-[0-9]+-[0-9a-f]{12}$ ]]; then
+                echo "rollback tags must use dev-<patch>-<12-character-sha>" >&2
+                exit 1
+              fi
+            done
+            back=false; nlp=false; config=false; infra=''
+            [ -n "$ROLLBACK_BACK" ] && back=true
+            [ -n "$ROLLBACK_NLP" ] && nlp=true
+            deploy=true
           else
-            tag="sha-${GITHUB_SHA::7}"; build=true
+            conservative=false
+            manual=false
+            if [ "$EVENT_NAME" = workflow_dispatch ]; then
+              manual=true
+            elif [ -z "$PUSH_BEFORE" ] || [[ "$PUSH_BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+              conservative=true
+            else
+              git diff --name-only "$PUSH_BEFORE" "$GITHUB_SHA" > changed-files
+            fi
+            if [ "$FORCE_DEPLOY" = true ]; then manual=true; fi
+            flags=()
+            [ "$conservative" = true ] && flags+=(--conservative)
+            [ "$manual" = true ] && flags+=(--manual)
+            decision=$(python3 deploy/scripts/classify-deploy-changes.py --files changed-files "${flags[@]}")
+            back=$(jq -r .back <<<"$decision")
+            nlp=$(jq -r .nlp <<<"$decision")
+            config=$(jq -r .config <<<"$decision")
+            deploy=$(jq -r .relevant <<<"$decision")
+            infra=''
+            if [ "$conservative" = false ] && git diff --unified=0 "$PUSH_BEFORE" "$GITHUB_SHA" -- docker-compose.prod.yml | grep -Eq '^[+-][[:space:]]*image:[[:space:]]*postgres:'; then infra="$infra postgres"; fi
+            if [ "$conservative" = false ] && git diff --unified=0 "$PUSH_BEFORE" "$GITHUB_SHA" -- docker-compose.prod.yml | grep -Eq '^[+-][[:space:]]*image:[[:space:]]*redis:'; then infra="$infra redis"; fi
+            if [ "$conservative" = false ] && git diff --unified=0 "$PUSH_BEFORE" "$GITHUB_SHA" -- docker-compose.prod.yml | grep -Eq '^[+-][[:space:]]*image:[[:space:]]*caddy:'; then infra="$infra caddy"; fi
+            [ -n "$infra" ] && deploy=true
             head=$(git rev-parse origin/develop)
             if [ "$head" != "$GITHUB_SHA" ]; then
               echo "::notice::$GITHUB_SHA is no longer the develop head; skipping stale deploy"
@@ -66,15 +119,21 @@ jobs:
             fi
           fi
           {
-            echo "tag=$tag"
-            echo "build=$build"
+            echo "back=$back"
+            echo "nlp=$nlp"
+            echo "config=$config"
+            echo "infra=${infra# }"
+            echo "deploy=$deploy"
             echo "stale=$stale"
+            echo "rollback=$rollback"
+            echo "patch=$patch"
+            echo "version=$version"
+            echo "tag=$tag"
           } >> "$GITHUB_OUTPUT"
 
-  build:
+  build-back:
     needs: resolve
-    if: needs.resolve.outputs.build == 'true' && needs.resolve.outputs.stale != 'true'
-    # Native ARM64 runner: the Oracle Ampere host is the only target, no emulation.
+    if: needs.resolve.outputs.back == 'true' && needs.resolve.outputs.rollback != 'true' && needs.resolve.outputs.stale != 'true'
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -83,14 +142,9 @@ jobs:
       matrix:
         include:
           - name: languee-back
-            context: apps/languee-back
             target: production
           - name: languee-back-migrator
-            context: apps/languee-back
             target: migrator
-          - name: languee-nlp
-            context: apps/languee-nlp
-            target: production
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
@@ -99,30 +153,81 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: exists
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then echo "value=true" >> "$GITHUB_OUTPUT"; else echo "value=false" >> "$GITHUB_OUTPUT"; fi
       - uses: docker/build-push-action@v7
+        if: steps.exists.outputs.value != 'true'
         with:
-          context: ${{ matrix.context }}
+          context: apps/languee-back
           target: ${{ matrix.target }}
           platforms: linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
+          build-args: |
+            APP_VERSION=${{ needs.resolve.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_ID=${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.build-id=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,scope=${{ matrix.name }},mode=max
 
+  build-nlp:
+    needs: resolve
+    if: needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.rollback != 'true' && needs.resolve.outputs.stale != 'true'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: exists
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ needs.resolve.outputs.tag }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then echo "value=true" >> "$GITHUB_OUTPUT"; else echo "value=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: docker/build-push-action@v7
+        if: steps.exists.outputs.value != 'true'
+        with:
+          context: apps/languee-nlp
+          target: production
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ needs.resolve.outputs.tag }}
+          build-args: |
+            APP_VERSION=${{ needs.resolve.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_ID=${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.build-id=${{ github.run_id }}-${{ github.run_attempt }}
+          cache-from: type=gha,scope=languee-nlp
+          cache-to: type=gha,scope=languee-nlp,mode=max
+
   deploy:
-    needs: [resolve, build]
-    # Build succeeded, or was skipped for a rollback. A stale run deploys nothing.
+    needs: [resolve, build-back, build-nlp]
     if: >-
-      always() && needs.resolve.result == 'success'
+      always() && needs.resolve.result == 'success' && needs.resolve.outputs.deploy == 'true'
       && needs.resolve.outputs.stale != 'true'
-      && (needs.build.result == 'success' || needs.build.result == 'skipped')
+      && (needs.build-back.result == 'success' || needs.build-back.result == 'skipped')
+      && (needs.build-nlp.result == 'success' || needs.build-nlp.result == 'skipped')
     runs-on: ubuntu-latest
     environment: languee-dev
     steps:
       - uses: actions/checkout@v7
-      - name: Copy compose file
+      - name: Copy production Compose file
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -130,7 +235,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: docker-compose.prod.yml
           target: /opt/languee/
-      - name: Copy deploy assets
+      - name: Copy deployment scripts and proxy configuration
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -139,26 +244,31 @@ jobs:
           source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py
           target: /opt/languee/
           strip_components: 1
-      - name: Apply Vault config, migrate, restart
+      - name: Apply selected artifacts
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DEPLOY_TAG: ${{ needs.resolve.outputs.tag }}
+          DEPLOY_BACK_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_back_tag || needs.resolve.outputs.back == 'true' && needs.resolve.outputs.tag || '' }}
+          DEPLOY_NLP_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_nlp_tag || needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.tag || '' }}
+          DEPLOY_ROLLBACK: ${{ needs.resolve.outputs.rollback }}
+          DEPLOY_INFRA: ${{ needs.resolve.outputs.infra }}
+          DEPLOY_CONFIG: ${{ needs.resolve.outputs.config }}
+          ALLOW_PERSISTENT_INFRA: ${{ inputs.allow_persistent_infra }}
           VAULT_SECRET_OCID: ${{ vars.VAULT_SECRET_OCID }}
           OCI_REGION: ${{ vars.OCI_REGION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: DEPLOY_TAG,VAULT_SECRET_OCID,OCI_REGION
+          envs: DEPLOY_BACK_TAG,DEPLOY_NLP_TAG,DEPLOY_ROLLBACK,DEPLOY_INFRA,DEPLOY_CONFIG,ALLOW_PERSISTENT_INFRA,VAULT_SECRET_OCID,OCI_REGION
+          script_stop: true
           script: |
             chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh
-            /opt/languee/scripts/deploy-stack.sh --tag "$DEPLOY_TAG"
-      - name: Public readiness check
-        env:
-          HEALTHCHECK_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
-        run: |
-          if [ -z "$HEALTHCHECK_URL" ]; then
-            echo "DEPLOY_HEALTHCHECK_URL not set; skipping public check"
-            exit 0
-          fi
-          curl -fsS -o /dev/null --max-time 15 --retry 10 --retry-delay 6 --retry-all-errors "$HEALTHCHECK_URL"
+            args=()
+            if [ -n "$DEPLOY_BACK_TAG" ]; then args+=(--back-tag "$DEPLOY_BACK_TAG"); fi
+            if [ -n "$DEPLOY_NLP_TAG" ]; then args+=(--nlp-tag "$DEPLOY_NLP_TAG"); fi
+            if [ -z "$DEPLOY_BACK_TAG" ] && [ -z "$DEPLOY_NLP_TAG" ]; then args+=(--preserve-tags); fi
+            if [ "$DEPLOY_ROLLBACK" = true ]; then args+=(--rollback); fi
+            if [ "$DEPLOY_CONFIG" = true ]; then args+=(--config); fi
+            for service in $DEPLOY_INFRA; do args+=(--infra "$service"); done
+            if [ "$ALLOW_PERSISTENT_INFRA" = true ]; then args+=(--allow-persistent-infra); fi
+            /opt/languee/scripts/deploy-stack.sh "${args[@]}"

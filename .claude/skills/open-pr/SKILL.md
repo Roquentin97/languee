@@ -27,8 +27,9 @@ PR-opening context, this is the skill.
   operations remain allowed: `git status`, `git diff`, `git log`, `git add`, and
   `git commit`.
 - Do not open the PR until every required `make cc <affected-service>` command passes.
-- Do not manually bump app versions, version files, or changelogs in feature PRs unless
-  the human explicitly asks for a release/versioning change.
+- Do not manually bump app versions or changelogs in ordinary PRs. Deployment builds
+  stamp runtime versions from the GitHub run identity; the version markers in each
+  service are build inputs, not release-PR-owned SemVer values.
 - Do not open the PR for endpoint changes until the matching Bruno collection entries
   and Swagger/OpenAPI schema metadata are updated.
 - If GitHub MCP is unavailable, stop and report that the PR cannot be opened safely.
@@ -45,26 +46,27 @@ cross-service contract changes:
   Use the spec and changed behavior to decide. If no app service can be determined,
   treat all three services as affected unless the human explicitly narrows the scope.
 
-## Release Please
+## Build versions and image identity
 
-Release Please owns app SemVer updates and changelog generation. Ordinary feature, fix,
-docs, test, refactor, CI, and dependency PRs must not edit these files only to bump a
-version:
+Deploy builds stamp the backend and NLP runtime versions as
+`0.1.<github.run_number * 1000 + github.run_attempt>`. Each service publishes its own
+immutable image tag in the form `dev-<patch>-<12-character-commit-sha>`. Runtime
+responses and OCI labels retain the full Git commit SHA. These build identities are
+generated in CI; ordinary PRs must not manually edit application versions or
+changelogs merely to identify a build.
 
 - `apps/languee-back/version.txt`
 - `apps/languee-back/CHANGELOG.md`
-- `apps/languee-back/src/modules/health/health.service.ts`
 - `apps/languee-nlp/version.txt`
 - `apps/languee-nlp/CHANGELOG.md`
-- `apps/languee-nlp/src/languee_nlp/constants.py`
 - `apps/languee-droid/version.txt`
 - `apps/languee-droid/CHANGELOG.md`
 - `apps/languee-droid/app/build.gradle.kts` when changing only `versionName`
 
-Use release-please-compatible Conventional Commits so release PRs can derive the correct
-SemVer bump: `fix` and `deps` for patch, `feat` for minor, and `!` or a
-`BREAKING CHANGE` footer for major. Android `versionCode` is not a SemVer field; change
-it only for an explicit release/publication task or dedicated automation.
+Conventional Commits remain required for PR titles and commit messages. They describe
+the change for review and history; they do not select the deployed runtime version.
+Android `versionCode` remains separate from these backend and NLP build versions and
+changes only for an explicit Android release/publication task or dedicated automation.
 
 ## Endpoint documentation
 

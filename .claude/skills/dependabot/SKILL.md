@@ -199,9 +199,9 @@ Machine-specific current state lives in session memory, not here.
   itself must be bumped (0.x caret ranges pin the minor, so every 0.x minor step is
   out-of-range, e.g. class-validator 0.14→0.15). A lane that only refreshes in-range
   versions leaves these behind and dependabot re-proposes them immediately.
-- **Release Please owns versions**: never touch `version.txt`, `CHANGELOG.md`,
-  `health.service.ts`, `constants.py`, or Android `versionName` in deps PRs. `deps` type
-  → patch release; don't hide dep bumps behind `chore`.
+- **Build identity is CI-owned**: dependency PRs do not edit backend/NLP runtime
+  versions or changelogs merely to identify a build. Use `deps` for dependency updates;
+  it does not select a deployed development version.
 - **Tooling-only files** (e.g. `dependabot.yml` itself) are not consumed by any build:
   state the `make cc` deviation explicitly in the PR body instead of running ceremony
   checks.
