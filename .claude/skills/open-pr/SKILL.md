@@ -20,7 +20,7 @@ PR-opening context, this is the skill.
   or `create_or_update_file` - inline re-typing loses commit history and risks
   silent content drift. Reserve those MCP write tools for small changes with no
   local commit.
-- Never push to `master`, `develop`, `staging`, `bb_develop`, or any environment
+- Never push to `master`, `develop`, `staging`, or any environment
   branch - via git, `gh`, or GitHub MCP. Never force-push a branch not created in
   the current task without explicit human approval.
 - `git fetch` and `git pull` are allowed for syncing remote state. Local git

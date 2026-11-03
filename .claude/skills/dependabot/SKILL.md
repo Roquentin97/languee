@@ -33,7 +33,7 @@ Resolve the full dependency backlog — open dependabot PRs AND the hidden queue
    workers verify and commit locally in their worktrees; the coordinator pushes each
    branch with `git push origin HEAD:deps/<branch>` (allowed-prefix branches only;
    `--force` only over branches this batch itself created) and opens the PR via
-   `create_pull_request` (base `bb_develop`). Never re-create local commits with
+   `create_pull_request` (base `develop`). Never re-create local commits with
    `push_files` — that path truncated large lockfiles (see below) and loses history.
    Merging uses `gh pr merge` with human authorization (MCP has no merge endpoint).
 6. **Same-file overlap.** Migration PRs share manifests/lockfiles with their lane PR
@@ -165,7 +165,7 @@ Machine-specific current state lives in session memory, not here.
   groups against the lane PR before assuming they overlap.
 - **Dependabot PR verification**: CI checks cover some failure classes, but not
   necessarily every job (the droid job may not be covered). A bot PR that violates an
-  uncovered gate can still merge green and break `bb_develop`. Never merge a droid bot
+  uncovered gate can still merge green and break `develop`. Never merge a droid bot
   PR unverified. Two safe paths: (a) the audited lane PR, or
   (b) for self-contained bot PRs (e.g. an AGP + Gradle-wrapper toolchain pair, whose
   regenerated wrapper files are easier to take than to replicate), check out the bot

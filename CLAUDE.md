@@ -160,7 +160,7 @@ Remote operations are split into two planes:
   inline re-typing loses commit history and risks silent content drift (see PR #77).
   Reserve those MCP write tools for small changes that have no local commit.
 
-Never push to `master`, `develop`, `staging`, `bb_develop`, or any environment
+Never push to `master`, `develop`, `staging`, or any environment
 branch - via git, `gh`, or GitHub MCP. Never force-push a branch that was not
 created in the current task without explicit human approval.
 
