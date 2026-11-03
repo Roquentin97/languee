@@ -82,7 +82,7 @@ secrets across, then delete `production` if unused).
 
 - Secrets: `DEPLOY_HOST` (`languee-dev.aroquentin.com`), `DEPLOY_USER`
   (`deploy`), `DEPLOY_SSH_KEY`.
-- Variables: `VAULT_SECRET_OCID`, `OCI_REGION` (`eu-frankfurt-1`), optional
+- Variables: `VAULT_SECRET_OCID`, `OCI_REGION` (for example `eu-frankfurt-1`; required), optional
   `DEPLOY_HEALTHCHECK_URL` (e.g. `https://languee-dev.aroquentin.com/`).
 - Deployment branches: **selected branches → `develop`** only.
 
@@ -107,7 +107,7 @@ secrets across, then delete `production` if unused).
 
 Existing hand-maintained env files are replaced on the first Vault deploy (the
 old copies land in `.config-previous/`). Populate the secret and run
-`sync-vault-config.py --check --preserve-tag` first.
+`OCI_REGION=eu-frankfurt-1 sync-vault-config.py --check --preserve-tags` first.
 
 ## Build identity and releases
 
