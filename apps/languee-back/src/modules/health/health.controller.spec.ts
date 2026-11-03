@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
-import { APP_VERSION, HealthService } from './health.service';
+import { HealthService } from './health.service';
 
 describe('HealthController', () => {
   let healthController: HealthController;
@@ -27,9 +27,19 @@ describe('HealthController', () => {
 
     it('returns the app version and defaults commit to unknown', () => {
       delete process.env.GIT_SHA;
+      delete process.env.APP_VERSION;
       expect(healthController.getVersion()).toEqual({
-        version: APP_VERSION,
+        version: '0.1.0-dev',
         commit: 'unknown',
+      });
+    });
+
+    it('reflects APP_VERSION when set', () => {
+      process.env.APP_VERSION = '0.1.123001';
+      process.env.GIT_SHA = 'a'.repeat(40);
+      expect(healthController.getVersion()).toEqual({
+        version: '0.1.123001',
+        commit: 'a'.repeat(40),
       });
     });
 

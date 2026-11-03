@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-export const APP_VERSION = '1.0.0'; // x-release-please-version
+export const APP_VERSION = process.env.APP_VERSION ?? '0.1.0-dev';
 
 @Injectable()
 export class HealthService {
@@ -9,6 +9,9 @@ export class HealthService {
   }
 
   getVersion(): { version: string; commit: string } {
-    return { version: APP_VERSION, commit: process.env.GIT_SHA ?? 'unknown' };
+    return {
+      version: process.env.APP_VERSION ?? APP_VERSION,
+      commit: process.env.GIT_SHA ?? 'unknown',
+    };
   }
 }
