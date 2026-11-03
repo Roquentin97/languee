@@ -82,8 +82,11 @@ def fake_fetcher(config: dict | None = None, version: int = 3, raw: bytes | None
     return fetch
 
 
-def run(app_dir: Path, *argv: str, fetcher=None) -> int:
-    return svc.main(["--app-dir", str(app_dir), "--secret-ocid", "ocid1.test", *argv], fetcher)
+def run(app_dir: Path, *argv: str, fetcher=None, region: str | None = "eu-test-1") -> int:
+    args = ["--app-dir", str(app_dir), "--secret-ocid", "ocid1.test"]
+    if region is not None:
+        args.extend(["--region", region])
+    return svc.main([*args, *argv], fetcher)
 
 
 @pytest.fixture
@@ -347,6 +350,64 @@ def test_requested_secret_version_is_forwarded_to_fetcher(app_dir):
     run(app_dir, "--back-tag", "back-t", "--nlp-tag", "nlp-t", "--secret-version", "4", "--region", "eu-test-1", fetcher=fetch)
     assert seen["version"] == 4 and seen["region"] == "eu-test-1"
     assert seen["secret_ocid"] == "ocid1.test"
+
+
+def test_cli_region_takes_precedence_over_environment(app_dir, monkeypatch):
+    monkeypatch.setenv("OCI_REGION", "us-env-9")
+    seen = {}
+
+    def fetch(**kwargs):
+        seen.update(kwargs)
+        return json.dumps(valid_config()).encode(), 4
+
+    assert run(
+        app_dir,
+        "--back-tag",
+        "back-t",
+        "--nlp-tag",
+        "nlp-t",
+        "--region",
+        "eu-cli-1",
+        fetcher=fetch,
+        region=None,
+    ) == 0
+    assert seen["region"] == "eu-cli-1"
+
+
+def test_environment_region_is_used_when_cli_region_is_absent(app_dir, monkeypatch):
+    monkeypatch.setenv("OCI_REGION", "us-env-9")
+    seen = {}
+
+    def fetch(**kwargs):
+        seen.update(kwargs)
+        return json.dumps(valid_config()).encode(), 4
+
+    assert run(app_dir, "--back-tag", "back-t", "--nlp-tag", "nlp-t", fetcher=fetch, region=None) == 0
+    assert seen["region"] == "us-env-9"
+
+
+def test_missing_region_fails_before_fetching(app_dir, monkeypatch, capsys):
+    monkeypatch.delenv("OCI_REGION", raising=False)
+    called = False
+
+    def fetch(**_kwargs):
+        nonlocal called
+        called = True
+        return json.dumps(valid_config()).encode(), 4
+
+    assert run(
+        app_dir, "--back-tag", "back-t", "--nlp-tag", "nlp-t", fetcher=fetch, region=None
+    ) == 2
+    assert "OCI region missing" in capsys.readouterr().err
+    assert not called
+
+
+@pytest.mark.parametrize("region", ["EU-FRANKFURT-1", "eu frankfurt 1", "eu-frankfurt"])
+def test_invalid_region_fails_before_fetching(app_dir, capsys, region):
+    assert run(
+        app_dir, "--back-tag", "back-t", "--nlp-tag", "nlp-t", fetcher=fake_fetcher(), region=region
+    ) == 2
+    assert "OCI region must be" in capsys.readouterr().err
 
 
 # --- failure handling: no partial writes, rollback ---------------------------

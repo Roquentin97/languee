@@ -108,7 +108,7 @@ ACME challenge. Set the same name as `DOMAIN` in `/opt/languee/.env`.
 ### 6. GitHub Actions secrets
 
 In the repo, create environment `languee-dev` (restricted to the `develop`
-branch), add the secrets below and the variables `VAULT_SECRET_OCID` and
+branch), add the secrets below and the required variables `VAULT_SECRET_OCID` and
 `OCI_REGION` ([CICD.md](CICD.md#github-environment-languee-dev)):
 
 | Secret           | Value                                    |

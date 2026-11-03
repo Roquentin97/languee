@@ -15,9 +15,9 @@ Secret values are never printed, logged, or passed on a command line. Standard
 library only, so it runs on a bare Ubuntu host.
 
 Usage:
-  sync-vault-config.py --back-tag sha-1a2b3c4 --nlp-tag sha-9f8e7d6
-  sync-vault-config.py --preserve-tags         # config-only: keep deployed tags
-  sync-vault-config.py --secret-version 7 ... # apply a specific secret version
+  sync-vault-config.py --region eu-frankfurt-1 --back-tag sha-1a2b3c4 --nlp-tag sha-9f8e7d6
+  sync-vault-config.py --region eu-frankfurt-1 --preserve-tags # config-only: keep deployed tags
+  sync-vault-config.py --region eu-frankfurt-1 --secret-version 7 ... # apply a specific secret version
   sync-vault-config.py --restore-previous     # undo the last apply
   sync-vault-config.py --status               # show applied version and tags
 """
@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 DEFAULT_APP_DIR = Path("/opt/languee")
-DEFAULT_REGION = "eu-frankfurt-1"
 COMPOSE_FILE = "docker-compose.prod.yml"
 
 STACK_ENV = ".env"
@@ -50,6 +49,7 @@ PREVIOUS_DIR = ".config-previous"
 MANAGED_FILES = (STACK_ENV, BACK_ENV, NLP_ENV, STATE_FILE)
 
 TAG_PATTERN = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
+OCI_REGION_PATTERN = re.compile(r"[a-z][a-z0-9-]*[a-z0-9]-[0-9]+")
 PLACEHOLDER_SECRETS = {"changeme", "replace-with-at-least-16-characters"}
 
 
@@ -459,11 +459,21 @@ def fetch_with_oci_cli(
 Fetcher = Callable[..., "tuple[bytes, int]"]
 
 
+def configured_region(cli_region: str | None) -> str:
+    """Resolve and validate the OCI region without exposing configuration values."""
+    region = cli_region or os.environ.get("OCI_REGION")
+    if not region:
+        raise ConfigError("OCI region missing: pass --region or set OCI_REGION")
+    if not OCI_REGION_PATTERN.fullmatch(region):
+        raise ConfigError("OCI region must be a lowercase OCI region identifier")
+    return region
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--app-dir", type=Path, default=DEFAULT_APP_DIR)
     parser.add_argument("--secret-ocid", help="default: $VAULT_SECRET_OCID")
-    parser.add_argument("--region", help=f"default: $OCI_REGION or {DEFAULT_REGION}")
+    parser.add_argument("--region", help="default: $OCI_REGION (required if unset)")
     parser.add_argument("--oci-bin", help="default: $OCI_CLI_BIN, ~/.venvs/oci/bin/oci, PATH")
     parser.add_argument("--secret-version", type=int, help="default: CURRENT version")
     parser.add_argument("--back-tag", help="languee-back image tag to pin")
@@ -515,7 +525,7 @@ def run(args: argparse.Namespace, fetcher: Fetcher) -> None:
     secret_ocid = args.secret_ocid or os.environ.get("VAULT_SECRET_OCID")
     if not secret_ocid:
         raise ConfigError("secret OCID missing: pass --secret-ocid or set VAULT_SECRET_OCID")
-    region = args.region or os.environ.get("OCI_REGION") or DEFAULT_REGION
+    region = configured_region(args.region)
 
     if back_tag or nlp_tag:
         # A code deployment may advance one artifact only. Fill the untouched

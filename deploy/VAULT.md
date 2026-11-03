@@ -34,6 +34,9 @@ secret goes with it. Keep an encrypted export elsewhere (see
 4. records the selected backend and NLP image tags and applied secret
    **version number** in `.deploy-state.json` (bookkeeping, not configuration).
 
+The OCI region is required. Set `OCI_REGION` in the deploy environment or
+pass `--region` when running the sync script directly.
+
 Then the stack is pulled, migrated (code deploys only) and the app services are
 force-recreated so changed env values take effect. If any later step fails the
 previous config is restored and the app services are recreated with it
@@ -73,7 +76,7 @@ fixed values compose and Caddy assume.
    `languee-dev-config` → Create new version). Each save is a new version.
 2. Run the **Apply config (dev)** workflow (Actions tab, branch `develop`), or
    on the server:
-   `VAULT_SECRET_OCID=<ocid> /opt/languee/scripts/deploy-stack.sh --preserve-tag`.
+   `OCI_REGION=eu-frankfurt-1 VAULT_SECRET_OCID=<ocid> /opt/languee/scripts/deploy-stack.sh --preserve-tags`.
    The selected backend and NLP image tags are preserved and no migrations run.
 3. Inspect what is applied: `python3 /opt/languee/scripts/sync-vault-config.py --status`
    (secret version, both image tags, previous state, timestamp — no values).
@@ -83,7 +86,7 @@ immutable backend and NLP artifacts, does not build or select new images, and
 does not run migrations.
 
 Dry-run a new version without touching the server's files:
-`python3 scripts/sync-vault-config.py --check --secret-version <n>`.
+`OCI_REGION=eu-frankfurt-1 python3 scripts/sync-vault-config.py --check --secret-version <n>`.
 
 ### Rolling back a bad configuration
 
@@ -94,7 +97,7 @@ Dry-run a new version without touching the server's files:
   `sync-vault-config.py --restore-previous` then
   `docker compose up -d --force-recreate --no-deps languee-nlp languee-back`.
 - To return to an older secret version, run Apply config with `secret_version`
-  set (or `deploy-stack.sh --preserve-tag --secret-version <n>`). Creating a
+  set (or `deploy-stack.sh --preserve-tags --secret-version <n>`). Creating a
   new Vault version is still needed to make that choice stick for later
   `current` applies.
 
