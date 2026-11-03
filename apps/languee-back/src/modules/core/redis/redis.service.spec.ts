@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from './redis.service';
 
 const mockRedisClient = {
+  ping: jest.fn(),
   get: jest.fn(),
   set: jest.fn(),
   del: jest.fn(),
@@ -24,6 +25,16 @@ describe('RedisService', () => {
     }).compile();
 
     service = module.get<RedisService>(RedisService);
+  });
+
+  describe('ping', () => {
+    it('pings Redis', async () => {
+      mockRedisClient.ping.mockResolvedValue('PONG');
+
+      await service.ping();
+
+      expect(mockRedisClient.ping).toHaveBeenCalledWith();
+    });
   });
 
   describe('get', () => {
