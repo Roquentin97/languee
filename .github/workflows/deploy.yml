@@ -272,3 +272,21 @@ jobs:
             for service in $DEPLOY_INFRA; do args+=(--infra "$service"); done
             if [ "$ALLOW_PERSISTENT_INFRA" = true ]; then args+=(--allow-persistent-infra); fi
             /opt/languee/scripts/deploy-stack.sh "${args[@]}"
+      - name: Check public backend readiness
+        env:
+          DEPLOY_HEALTHCHECK_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_HEALTHCHECK_URL" ]; then
+            echo "DEPLOY_HEALTHCHECK_URL must be the public /health/ready URL" >&2
+            exit 1
+          fi
+          case "$DEPLOY_HEALTHCHECK_URL" in
+            https://*/health/ready) ;;
+            *)
+              echo "DEPLOY_HEALTHCHECK_URL must be an HTTPS URL ending in /health/ready" >&2
+              exit 1
+              ;;
+          esac
+          curl --fail --show-error --silent --max-time 15 --retry 10 --retry-delay 6 \
+            --retry-all-errors "$DEPLOY_HEALTHCHECK_URL" > /dev/null
