@@ -3,8 +3,7 @@
 ## Pull request CI (`.github/workflows/ci.yml`, "PR CI")
 
 Runs on pull requests (opened, synchronize, reopened) whose base is `develop`,
-`staging` or `master`. `bb_develop` is also listed while it is the active
-integration branch; delete that line when development moves to `develop`.
+`staging` or `master`.
 Read-only token, no secrets, no deploys, no image pushes. A newer push to the
 same PR cancels the older run.
 
@@ -50,9 +49,9 @@ pushes). The workflow builds and deploys `github.sha`, the merged commit.
    script, `deploy-stack.sh`, `sync-vault-config.py` to `/opt/languee`, then
    deploys the selected backend and NLP tags ([details](VAULT.md#what-the-deploy-does)):
    Vault fetch/validate, pull, Postgres/Redis up, `migrate`, recreate services,
-   wait for health, HTTPS check against Caddy, and an internal NLP check over
-   the compose network. Optionally curls `DEPLOY_HEALTHCHECK_URL` from the
-   runner.
+   wait for liveness, then gates completion on the backend's `/health/ready`
+   endpoint over local Caddy HTTPS and public HTTPS from the runner. It also
+   performs an internal NLP check over the compose network.
 
 Manual runs (`workflow_dispatch`, branch `develop` only):
 
@@ -72,9 +71,6 @@ After a deploy, compare each `GET /version` response with its image's
 backend `/version` endpoint is public through Caddy. The NLP `/version` check
 is internal to the compose network and is not a public route.
 
-Nothing deploys from `bb_develop`, so merging this change does not deploy.
-Until `develop` contains these workflows there is no automatic deployment.
-
 ### GitHub environment `languee-dev`
 
 Replaces the old `production` environment (this VM is dev; move the three
@@ -82,8 +78,10 @@ secrets across, then delete `production` if unused).
 
 - Secrets: `DEPLOY_HOST` (`languee-dev.aroquentin.com`), `DEPLOY_USER`
   (`deploy`), `DEPLOY_SSH_KEY`.
-- Variables: `VAULT_SECRET_OCID`, `OCI_REGION` (for example `eu-frankfurt-1`; required), optional
-  `DEPLOY_HEALTHCHECK_URL` (e.g. `https://languee-dev.aroquentin.com/`).
+- Variables: `VAULT_SECRET_OCID`, `OCI_REGION` (`eu-frankfurt-1`), and
+  `DEPLOY_HEALTHCHECK_URL` set to the complete public readiness URL (for
+  example, `https://languee-dev.aroquentin.com/health/ready`). The deployment
+  fails if this variable is absent or targets a different path.
 - Deployment branches: **selected branches → `develop`** only.
 
 ### First-run host prerequisites
@@ -125,24 +123,3 @@ size-checked, copied to R2 (`languee-db-backups`), and pings the healthchecks.io
 URL held in Vault. Cron (03:10 UTC) and the rclone remote are configured on the
 VM and need their own off-VM copy. Restore into a clean database with
 `psql -v ON_ERROR_STOP=1 --single-transaction` (see [README](README.md#restore-procedure)).
-
-## Migration checklist (`bb_develop` → `develop`)
-
-Do this after the PR containing these changes is reviewed and merged into
-`bb_develop`. None of it is done by the PR.
-
-1. Open a PR that brings `develop` up to date with `bb_develop` (compare
-   histories first; no force push). Merge it.
-2. Settings → Branches: change the default branch to `develop`. Retarget open PRs.
-3. Create environment `languee-dev` with the secrets/variables above and the
-   `develop`-only deployment-branch policy.
-4. Settings → Actions → General: allow Actions to create pull requests.
-5. Open a trivial PR to `develop`; confirm `PR CI / required` appears and passes.
-6. Ruleset `Protected branches`: add required status check **`PR CI / required`**
-   (select the check named `required`, source GitHub Actions). Also add
-   `PR title` only if you want it listed separately; `required` already covers it.
-7. Remove the `bb_develop` entry from `ci.yml` triggers (and later retire the branch).
-8. Merge a small change to `develop`: expect one Deploy (dev) run, service build
-   identities, Vault sync, migration, HTTPS health check, and internal NLP check.
-9. `staging` and `master` stay protected and receive PR CI only; no deploy
-   workflows exist for them.

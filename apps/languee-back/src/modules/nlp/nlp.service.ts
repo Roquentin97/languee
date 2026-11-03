@@ -10,6 +10,8 @@ import type {
 import { mapSpacyPos } from './mappers/spacy-pos.mapper';
 import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
+export const NLP_READY_TIMEOUT_MS = 2_000;
+
 @Injectable()
 export class NlpService {
   private readonly logger = new Logger(NlpService.name);
@@ -18,6 +20,16 @@ export class NlpService {
     private readonly request: RequestService,
     private readonly configService: ConfigService,
   ) {}
+
+  async checkReady(): Promise<void> {
+    const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
+    const readyUrl = new URL('ready', `${baseUrl}/`).toString();
+
+    await this.request.send(readyUrl, {
+      target: 'nlp',
+      timeoutMs: NLP_READY_TIMEOUT_MS,
+    });
+  }
 
   async analyze(
     text: string,

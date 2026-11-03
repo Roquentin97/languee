@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NlpInputInvalidError, NlpUnavailableError } from './nlp.errors';
 import { NlpService } from './nlp.service';
+import { NLP_READY_TIMEOUT_MS } from './nlp.service';
 import type { NlpExpressionResponse, NlpWordResponse } from './nlp.interfaces';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 import { RequestFailure, RequestService } from '../core/http/request.service';
@@ -182,6 +183,25 @@ describe('NlpService', () => {
     }).compile();
 
     service = module.get<NlpService>(NlpService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('checkReady()', () => {
+    it('checks the NLP readiness endpoint with a bounded timeout', async () => {
+      const send = jest
+        .spyOn(RequestService.prototype, 'send')
+        .mockResolvedValue({} as Response);
+
+      await service.checkReady();
+
+      expect(send).toHaveBeenCalledWith('http://nlp-service:8001/ready', {
+        target: 'nlp',
+        timeoutMs: NLP_READY_TIMEOUT_MS,
+      });
+    });
   });
 
   // -------------------------------------------------------------------------

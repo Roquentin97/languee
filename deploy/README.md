@@ -143,7 +143,9 @@ their repositories use the same tag. Build inputs are `APP_VERSION`, full
 `org.opencontainers.image.revision`, and `org.opencontainers.image.build-id`
 record the corresponding identity. The deployment pulls those artifacts, runs
 Prisma migrations through the backend migrator image, recreates services,
-checks health over HTTPS, and checks NLP from inside the compose network.
+checks backend readiness over local and public HTTPS, and checks NLP from
+inside the compose network. This readiness gate depends on the backend health
+endpoint change being merged first.
 
 - **Rollback:** run Deploy (dev) manually on `develop`, setting
   `rollback_back_tag` and/or `rollback_nlp_tag` to select an immutable artifact
