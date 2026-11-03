@@ -259,6 +259,13 @@ def test_config_only_apply_preserves_deployed_tag(app_dir):
     assert state["back_tag"] == "sha-back1234" and state["nlp_tag"] == "sha-nlp1234" and state["secret_version"] == 2
 
 
+def test_backend_only_update_preserves_the_nlp_tag(app_dir):
+    run(app_dir, "--back-tag", "sha-back", "--nlp-tag", "sha-nlp", fetcher=fake_fetcher())
+    assert run(app_dir, "--back-tag", "sha-newback", fetcher=fake_fetcher()) == 0
+    state = json.loads((app_dir / ".deploy-state.json").read_text())
+    assert (state["back_tag"], state["nlp_tag"]) == ("sha-newback", "sha-nlp")
+
+
 def test_preserve_tag_adopts_tag_from_preexisting_env(app_dir):
     (app_dir / ".env").write_text("COMPOSE_FILE=x\nTAG=sha-legacy1\n")
     run(app_dir, "--preserve-tags", fetcher=fake_fetcher())
@@ -321,7 +328,13 @@ def test_status_reports_applied_version_and_tag(app_dir, capsys):
     capsys.readouterr()
     assert run(app_dir, "--status") == 0
     out = json.loads(capsys.readouterr().out)
-    assert out == {"back_tag": "sha-back1234", "nlp_tag": "sha-nlp1234", "secret_version": 9}
+    assert out == {
+        "back_tag": "sha-back1234",
+        "nlp_tag": "sha-nlp1234",
+        "previous_back_tag": None,
+        "previous_nlp_tag": None,
+        "secret_version": 9,
+    }
 
 
 def test_requested_secret_version_is_forwarded_to_fetcher(app_dir):

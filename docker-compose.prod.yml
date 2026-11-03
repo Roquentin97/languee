@@ -66,7 +66,7 @@ services:
       start_period: 5s
 
   languee-nlp:
-    image: ghcr.io/roquentin97/languee/languee-nlp:${LANGUEE_NLP_TAG:-latest}
+    image: ghcr.io/roquentin97/languee/languee-nlp:${LANGUEE_NLP_TAG:?LANGUEE_NLP_TAG is required}
     restart: unless-stopped
     env_file:
       - ./languee-nlp.env
@@ -82,7 +82,7 @@ services:
       start_period: 30s
 
   languee-back:
-    image: ghcr.io/roquentin97/languee/languee-back:${LANGUEE_BACK_TAG:-latest}
+    image: ghcr.io/roquentin97/languee/languee-back:${LANGUEE_BACK_TAG:?LANGUEE_BACK_TAG is required}
     restart: unless-stopped
     env_file:
       - ./languee-back.env
@@ -107,7 +107,7 @@ services:
       start_period: 20s
 
   migrate:
-    image: ghcr.io/roquentin97/languee/languee-back-migrator:${LANGUEE_BACK_TAG:-latest}
+    image: ghcr.io/roquentin97/languee/languee-back-migrator:${LANGUEE_BACK_TAG:?LANGUEE_BACK_TAG is required}
     profiles:
       - tools
     env_file:

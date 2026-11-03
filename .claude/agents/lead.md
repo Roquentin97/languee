@@ -54,8 +54,8 @@ Build this object from the selected `config.services` entry and pass it to every
   "package_manager": "uv",
   "persistence": null,
   "dev_port": 8000,
-  "app_version_files": ["src/languee_nlp/constants.py"],
-  "app_version_bump": "Do not bump manually in feature PRs; Release Please updates app versions in release PRs.",
+  "app_version_files": [],
+  "app_version_bump": "Deploy CI stamps backend and NLP build identity; do not make version-only PR changes.",
   "commands": {
     "install": "uv sync",
     "format": "uv run ruff format .",
@@ -398,7 +398,7 @@ If any exit code is non-zero:
 - If `done`:
   - Persist to `forge/runs/<spec-slug>/qa-output.json`.
   - Use `.claude/skills/open-pr/SKILL.md` from inside the worktree to prepare and open
-    the PR. The skill handles release-please-compatible PR metadata,
+    the PR. The skill handles conventional PR metadata,
     `make cc <affected-service>`, GitHub MCP publication, PR creation, and the Notion
     PR URL.
   - If the skill cannot proceed because GitHub MCP is unavailable, the branch cannot be
@@ -507,8 +507,8 @@ When the Linter agent was dispatched, record its actual model and token usage in
 - Never modify code directly - that is the Implementer's job.
 - If `make cc <affected-service>` requires code fixes, return to the appropriate
   pipeline stage instead of bypassing the pipeline.
-- Version and changelog changes are owned by Release Please release PRs; they are not a
-  Lead-stage exception for ordinary feature PRs.
+- Build identity is assigned by deploy CI; version-only and changelog-only changes are
+  not a Lead-stage exception for ordinary feature PRs.
 - Never approve your own output - always dispatch QA.
 - Always clean up worktrees - never leave orphans.
 - Always release migration lock - never leave it held after a pipeline ends.

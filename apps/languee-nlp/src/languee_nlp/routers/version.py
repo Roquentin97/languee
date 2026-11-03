@@ -2,7 +2,6 @@ import os
 
 from fastapi import APIRouter
 
-from languee_nlp.constants import VERSION as DEFAULT_VERSION
 from languee_nlp.schemas import VersionResponse
 
 router = APIRouter(tags=["version"])
@@ -15,6 +14,6 @@ router = APIRouter(tags=["version"])
 )
 def version() -> VersionResponse:
     return VersionResponse(
-        version=os.getenv("APP_VERSION", DEFAULT_VERSION),
+        version=os.getenv("APP_VERSION", "0.1.0-dev"),
         commit=os.getenv("GIT_SHA", "unknown"),
     )

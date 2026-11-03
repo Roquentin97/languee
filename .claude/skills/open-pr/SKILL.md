@@ -57,10 +57,8 @@ changelogs merely to identify a build.
 
 - `apps/languee-back/version.txt`
 - `apps/languee-back/CHANGELOG.md`
-- `apps/languee-back/src/modules/health/health.service.ts`
 - `apps/languee-nlp/version.txt`
 - `apps/languee-nlp/CHANGELOG.md`
-- `apps/languee-nlp/src/languee_nlp/constants.py`
 - `apps/languee-droid/version.txt`
 - `apps/languee-droid/CHANGELOG.md`
 - `apps/languee-droid/app/build.gradle.kts` when changing only `versionName`

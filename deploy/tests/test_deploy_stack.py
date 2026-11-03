@@ -1,27 +1,33 @@
-"""deploy-stack.sh failure handling, with stubbed sync script and docker."""
+"""Targeted deployment and recovery behaviour, with command stubs only."""
 
 import os
 import stat
 import subprocess
 from pathlib import Path
 
+
 SCRIPT = Path(__file__).parents[1] / "scripts" / "deploy-stack.sh"
+TAG = "dev-123001-abcdef123456"
 
 SYNC_STUB = """#!/bin/bash
 echo "sync $*" >> "$APP_DIR/calls.log"
-case "$1" in
-  --app-dir) shift 2 ;;
-esac
+case "$1" in --app-dir) shift 2 ;; esac
 case "$1" in
   --status) cat "$APP_DIR/state" ;;
   --restore-previous) echo restored ;;
-  *) echo '{"tag": "new"}' > "$APP_DIR/state" ;;
+  *) echo '{"back_tag": "new", "nlp_tag": "new"}' > "$APP_DIR/state"; echo 'updated: .env' ;;
 esac
 """
 
 DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
-if [ "$2" = "run" ]; then echo "migration boom" >&2; exit 1; fi
+if [ "$1" = image ] && [ "$2" = inspect ]; then
+  case "$4" in
+    *version*) echo 0.1.123001 ;;
+    *revision*) echo abcdef1234560000000000000000000000000000 ;;
+  esac
+fi
+if [ "$2" = run ]; then echo "migration boom" >&2; exit 1; fi
 """
 
 
@@ -38,16 +44,12 @@ def _deploy(tmp_path: Path, state_before: str) -> tuple[subprocess.CompletedProc
     _executable(app / "scripts" / "sync-vault-config.py", SYNC_STUB)
     _executable(bin_dir / "docker", DOCKER_STUB)
     (app / "state").write_text(state_before)
-    env = {
-        **os.environ,
-        "APP_DIR": str(app),
-        "PATH": f"{bin_dir}:{os.environ['PATH']}",
-    }
-    # The deploy script invokes the sync stub as `python3 <script>`.
-    (bin_dir / "python3").write_text('#!/bin/bash\nexec "$@"\n')
-    (bin_dir / "python3").chmod(0o755)
+    (app / ".env").write_text("DOMAIN=example.test\n")
+    env = {**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
+    _executable(bin_dir / "curl", "#!/bin/bash\nexit 0\n")
     result = subprocess.run(
-        ["bash", str(SCRIPT), "--tag", "sha-1234567"],
+        ["bash", str(SCRIPT), "--back-tag", TAG, "--nlp-tag", TAG],
         env=env,
         capture_output=True,
         text=True,
@@ -57,16 +59,35 @@ def _deploy(tmp_path: Path, state_before: str) -> tuple[subprocess.CompletedProc
 
 
 def test_failure_on_initial_apply_reports_without_restoring(tmp_path):
-    result, calls = _deploy(tmp_path, "{}")
+    result, calls = _deploy(tmp_path, '{"back_tag": null, "nlp_tag": null}')
     assert result.returncode == 1
     assert "migration boom" in result.stderr
     assert "no earlier configuration to restore" in result.stderr
     assert "--restore-previous" not in calls
 
 
-def test_failure_after_established_deploy_restores_previous(tmp_path):
-    result, calls = _deploy(tmp_path, '{"tag": "old"}')
+def test_failure_after_established_deploy_restores_only_affected_apps(tmp_path):
+    result, calls = _deploy(tmp_path, '{"back_tag": "old", "nlp_tag": "old"}')
     assert result.returncode == 1
-    assert "restoring previous configuration" in result.stderr
+    assert "restoring the previous image references" in result.stderr
     assert "--restore-previous" in calls
-    assert "up -d --force-recreate --no-deps languee-nlp languee-back" in calls
+    assert "up -d --force-recreate --no-deps" not in calls  # migration failed before app mutation
+
+
+def test_persistent_infrastructure_requires_explicit_maintenance_approval(tmp_path):
+    app = tmp_path / "app"
+    (app / "scripts").mkdir(parents=True)
+    (app / "state").write_text('{"back_tag": "old", "nlp_tag": "old"}')
+    _executable(app / "scripts" / "sync-vault-config.py", SYNC_STUB)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--infra", "postgres"],
+        env={**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "verified backup and compatibility review" in result.stderr

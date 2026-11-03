@@ -290,9 +290,9 @@ def read_state(app_dir: Path) -> dict[str, object]:
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        raise ConfigError(f"{STATE_FILE} is unreadable; pass --tag explicitly") from None
+        raise ConfigError(f"{STATE_FILE} is unreadable; pass explicit service tags") from None
     if not isinstance(state, dict):
-        raise ConfigError(f"{STATE_FILE} is malformed; pass --tag explicitly")
+        raise ConfigError(f"{STATE_FILE} is malformed; pass explicit service tags")
     return state
 
 
@@ -488,6 +488,8 @@ def run(args: argparse.Namespace, fetcher: Fetcher) -> None:
                 {
                     "back_tag": tags[0] if tags else None,
                     "nlp_tag": tags[1] if tags else None,
+                    "previous_back_tag": state.get("previous_back_tag", state.get("previous_tag")),
+                    "previous_nlp_tag": state.get("previous_nlp_tag", state.get("previous_tag")),
                     "secret_version": version if type(version) is int else None,
                 },
                 sort_keys=True,
@@ -508,16 +510,22 @@ def run(args: argparse.Namespace, fetcher: Fetcher) -> None:
         back_tag = nlp_tag = args.tag
     if preserve and (back_tag or nlp_tag):
         raise ConfigError("use --preserve-tags or explicit tags, not both")
-    if bool(back_tag) != bool(nlp_tag):
-        raise ConfigError("pass both --back-tag and --nlp-tag")
-    if not (back_tag and nlp_tag) and not preserve and not args.check:
-        raise ConfigError("pass --back-tag and --nlp-tag or --preserve-tags")
+    if not (back_tag or nlp_tag) and not preserve and not args.check:
+        raise ConfigError("pass an image tag or --preserve-tags")
     secret_ocid = args.secret_ocid or os.environ.get("VAULT_SECRET_OCID")
     if not secret_ocid:
         raise ConfigError("secret OCID missing: pass --secret-ocid or set VAULT_SECRET_OCID")
     region = args.region or os.environ.get("OCI_REGION") or DEFAULT_REGION
 
-    if back_tag and nlp_tag:
+    if back_tag or nlp_tag:
+        # A code deployment may advance one artifact only. Fill the untouched
+        # sibling from state before atomically writing the pair.
+        existing = deployed_tags(app_dir)
+        if not (back_tag and nlp_tag):
+            if existing is None:
+                raise ConfigError("no deployed tags recorded; pass both tags on the first deploy")
+            back_tag = back_tag or existing[0]
+            nlp_tag = nlp_tag or existing[1]
         back_tag, nlp_tag = validate_tag(back_tag), validate_tag(nlp_tag)
     elif preserve:
         existing = deployed_tags(app_dir)

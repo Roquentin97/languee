@@ -112,8 +112,8 @@ Whenever a workflow opens, creates, publishes, or prepares a PR, use
 `.claude/skills/open-pr/SKILL.md`. The skill treats shared/root/tooling-only changes as
 all-service changes unless the human narrows scope, requires `make cc <affected-service>`
 for each affected service before PR creation, and keeps PR metadata compatible with
-Release Please. Do not manually bump app versions or changelogs in feature PRs; Release
-Please owns version and changelog updates through generated release PRs.
+the deploy workflow's immutable development build identity. Do not manually bump
+backend/NLP versions or changelogs merely to identify an ordinary feature PR.
 
 All commits and PR titles must use Conventional Commits:
 
@@ -122,8 +122,7 @@ All commits and PR titles must use Conventional Commits:
 ```
 
 Allowed types: `feat`, `fix`, `deps`, `chore`, `docs`, `refactor`, `test`, `ci`.
-Release Please derives release impact from these messages: `fix` and `deps` trigger patch
-releases, `feat` triggers minor releases, and `!` or a `BREAKING CHANGE` footer triggers
-major releases. Do not hide user-facing fixes or features behind `chore`.
+Commit types describe changes for review and history; they do not select a development
+server version. Do not hide user-facing fixes or features behind `chore`.
 PR bodies must include spec description, target service, affected modules/components,
 release impact, and QA summary.

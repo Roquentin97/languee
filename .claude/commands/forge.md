@@ -27,7 +27,7 @@ Architect -> Implementer -> Linter -> QA -> open-pr skill
    target-specific agent instructions and compact context artifacts in
    `forge/runs/<spec-title-kebab-case>/context/` before dispatching Architect.
 9. When QA passes, Lead must use `.claude/skills/open-pr/SKILL.md` for
-   release-please-compatible PR metadata, `make cc <affected-service>`, GitHub MCP
+   conventional PR metadata, `make cc <affected-service>`, GitHub MCP
    publication, PR creation, and Notion PR URL updates.
 
 ## Subagent prompts

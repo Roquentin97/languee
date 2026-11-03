@@ -41,10 +41,11 @@ jobs:
             if printf '%s\n' "$files" | grep -Eq "$2"; then v=true; else v=false; fi
             echo "$1=$v" >> "$GITHUB_OUTPUT"
           }
-          flag back '^(apps/languee-back/|\.github/workflows/ci\.yml$)'
-          flag nlp '^(apps/languee-nlp/|\.github/workflows/ci\.yml$)'
+          # Root lock/tooling files are shared build inputs; be conservative.
+          flag back '^(apps/languee-back/|package\.json$|yarn\.lock$|\.dockerignore$|\.github/workflows/ci\.yml$)'
+          flag nlp '^(apps/languee-nlp/|package\.json$|yarn\.lock$|\.dockerignore$|\.github/workflows/ci\.yml$)'
           flag droid '^(apps/languee-droid/|\.github/workflows/ci\.yml$)'
-          flag deploy '^(deploy/|docker-compose\.prod\.yml$|\.github/workflows/|release-please-config\.json$|\.release-please-manifest\.json$)'
+          flag deploy '^(deploy/|docker-compose(\.prod)?\.yml$|\.github/workflows/)'
 
   pr-title:
     name: PR title
@@ -218,9 +219,14 @@ jobs:
           LANGUEE_BACK_POSTGRES_PASSWORD: ci-not-a-secret
           LANGUEE_BACK_POSTGRES_DB: ci
           LANGUEE_BACK_REDIS_PASSWORD: ci-not-a-secret
+          LANGUEE_BACK_TAG: dev-1001-0123456789ab
+          LANGUEE_NLP_TAG: dev-1001-0123456789ab
+          BASIC_LOGIN: ci
+          BASIC_PASSWORD: ci-not-a-secret
         run: |
-          touch languee-back.env languee-nlp.env
+          touch languee-back.env languee-nlp.env apps/languee-back/.env apps/languee-nlp/.env
           docker compose -f docker-compose.prod.yml --profile tools config --quiet
+          docker compose config --quiet
 
   required:
     name: required
