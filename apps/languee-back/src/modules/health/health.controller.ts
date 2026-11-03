@@ -1,5 +1,10 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { HealthService } from './health.service';
 
 @ApiTags('health')
@@ -22,6 +27,34 @@ export class HealthController {
   })
   getHello(): { success: boolean } {
     return this.healthService.getHello();
+  }
+
+  @Get('health/live')
+  @ApiOperation({ summary: 'Process liveness check' })
+  @ApiOkResponse({
+    description: 'The API process can respond to requests',
+    schema: { example: { status: 'ok' } },
+  })
+  getLive(): { status: 'ok' } {
+    return this.healthService.getLive();
+  }
+
+  @Get('health/ready')
+  @ApiOperation({ summary: 'Dependency readiness check' })
+  @ApiOkResponse({
+    description: 'PostgreSQL, Redis, and NLP are ready',
+    schema: { example: { status: 'ok' } },
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'A required dependency is unavailable',
+    schema: { example: { status: 'unavailable' } },
+  })
+  async getReady(): Promise<{ status: 'ok' }> {
+    if (await this.healthService.isReady()) {
+      return { status: 'ok' };
+    }
+
+    throw new ServiceUnavailableException({ status: 'unavailable' });
   }
 
   @Get('version')

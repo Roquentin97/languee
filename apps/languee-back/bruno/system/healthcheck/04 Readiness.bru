@@ -1,0 +1,21 @@
+meta {
+  name: Readiness Check
+  type: http
+  seq: 4
+  tags: [
+    health
+    smoke
+  ]
+}
+
+get {
+  url: {{base_url}}/health/ready
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}
