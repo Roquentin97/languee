@@ -75,7 +75,7 @@ jobs:
         env:
           BACKEND_URL: ${{ vars.LANGUEE_BACKEND_BASE_URL }}
           OTEL_ENDPOINT: ${{ vars.OTEL_EXPORTER_ENDPOINT }}
-          TELEMETRY_USERNAME: ${{ secrets.TELEMETRY_USERNAME }}
+          TELEMETRY_USERNAME: ${{ vars.TELEMETRY_USERNAME }}
           TELEMETRY_PASSWORD: ${{ secrets.TELEMETRY_PASSWORD }}
         run: |
           set -euo pipefail
