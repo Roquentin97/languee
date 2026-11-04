@@ -106,20 +106,23 @@ val verifyNoDirectAndroidLogs =
     tasks.register("verifyNoDirectAndroidLogs") {
         group = "verification"
         description = "Rejects direct android.util.Log use outside the telemetry implementation."
-        val ownedSources = file("src/main/java/com/example/langueedroid")
-        inputs.dir(ownedSources)
+        inputs.files(
+            fileTree("src/main/java/com/example/langueedroid") {
+                include("**/*.kt")
+                exclude("**/AppLogger.kt")
+            },
+        )
         doLast {
             val violations =
-                ownedSources
-                    .walkTopDown()
-                    .filter { it.isFile && it.extension == "kt" && it.name != "AppLogger.kt" }
+                inputs.files
+                    .filter { it.isFile && it.extension == "kt" }
                     .filter { file ->
                         val source = file.readText()
                         "android.util.Log" in source || Regex("\\bLog\\.(d|i|w|e|v)\\b").containsMatchIn(source)
                     }.toList()
             check(violations.isEmpty()) {
                 "Direct android.util.Log calls are not allowed in application code: " +
-                    violations.joinToString { it.relativeTo(projectDir).path }
+                    violations.joinToString { it.path }
             }
         }
     }
