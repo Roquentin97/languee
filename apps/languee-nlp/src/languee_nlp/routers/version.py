@@ -14,6 +14,6 @@ router = APIRouter(tags=["version"])
 )
 def version() -> VersionResponse:
     return VersionResponse(
-        version=os.getenv("APP_VERSION", "0.1.0-dev"),
+        version=os.getenv("APP_VERSION", "0.0.0"),
         commit=os.getenv("GIT_SHA", "unknown"),
     )

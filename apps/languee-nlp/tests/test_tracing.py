@@ -157,7 +157,7 @@ def test_configure_tracing_enabled_resource_has_service_name(
     provider = captured[0]
     attrs = provider.resource.attributes
     assert attrs.get("service.name") == "languee-nlp"
-    assert attrs.get("service.version") == "0.1.0-dev"
+    assert attrs.get("service.version") == "0.0.0"
     assert attrs.get("vcs.revision") == "unknown"
     assert attrs.get("build.id") == "unknown"
     assert attrs.get("deployment.environment") == "development"

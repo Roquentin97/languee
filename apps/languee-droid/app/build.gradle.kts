@@ -26,6 +26,20 @@ val rawOtelEndpoint: String = localProperties.getProperty("OTEL_EXPORTER_ENDPOIN
 val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("\"", "\\\"")
 val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
 val gitSha: String = System.getenv("GIT_SHA")?.trim()?.ifEmpty { null } ?: "unknown"
+val androidBuildOrdinal: Int? =
+    System.getenv("ANDROID_BUILD_ORDINAL")?.let { rawOrdinal ->
+        val ordinal = rawOrdinal.trim()
+        require(ordinal.matches(Regex("[0-9]+"))) {
+            "ANDROID_BUILD_ORDINAL must be a positive integer"
+        }
+        val value =
+            ordinal.toLongOrNull()
+                ?: error("ANDROID_BUILD_ORDINAL must be a positive integer")
+        require(value in 1..2_100_000_000L) {
+            "ANDROID_BUILD_ORDINAL must be between 1 and 2100000000"
+        }
+        value.toInt()
+    }
 
 android {
     namespace = "com.languee.droid"
@@ -40,8 +54,8 @@ android {
         applicationId = "com.languee.droid"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.0.0" // x-release-please-version
+        versionCode = androidBuildOrdinal ?: 3
+        versionName = androidBuildOrdinal?.let { "0.0.$it" } ?: "0.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")

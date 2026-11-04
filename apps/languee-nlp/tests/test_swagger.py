@@ -19,7 +19,7 @@ def test_openapi_schema_describes_health_routes():
     assert response.status_code == 200
     data = response.json()
     assert data["info"]["title"] == "Languee NLP API"
-    assert data["info"]["version"] == "0.1.0"
+    assert data["info"]["version"] == "0.0.0"
     assert "/health" in data["paths"]
     assert "/ready" in data["paths"]
     assert "/analyze" in data["paths"]
