@@ -71,7 +71,7 @@ jobs:
           patch=$((GITHUB_RUN_NUMBER * 1000 + GITHUB_RUN_ATTEMPT))
           sha12=${GITHUB_SHA:0:12}
           tag="dev-${patch}-${sha12}"
-          version="0.1.${patch}"
+          version="0.0.${patch}"
           rollback=false
           stale=false
           printf '' > changed-files

@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
@@ -35,7 +37,7 @@ app = FastAPI(
         "Provides runtime health checks and spaCy model readiness information "
         "for the Languee NLP service."
     ),
-    version="0.1.0",
+    version=os.getenv("APP_VERSION", "0.0.0"),
     openapi_tags=OPENAPI_TAGS,
 )
 

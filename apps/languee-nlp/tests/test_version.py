@@ -5,12 +5,13 @@ from languee_nlp.main import app
 client = TestClient(app)
 
 
-def test_version_returns_version_and_commit(monkeypatch):
+def test_version_returns_local_default_and_unknown_commit(monkeypatch):
+    monkeypatch.delenv("APP_VERSION", raising=False)
     monkeypatch.delenv("GIT_SHA", raising=False)
     response = client.get("/version")
     assert response.status_code == 200
     body = response.json()
-    assert isinstance(body["version"], str)
+    assert body["version"] == "0.0.0"
     assert body["commit"] == "unknown"
 
 

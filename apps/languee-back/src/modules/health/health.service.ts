@@ -3,7 +3,7 @@ import { PrismaService } from '../core/prisma/prisma.service';
 import { RedisService } from '../core/redis/redis.service';
 import { NlpService } from '../nlp/nlp.service';
 
-export const APP_VERSION = '0.1.0-dev';
+export const APP_VERSION = '0.0.0';
 export const HEALTH_CHECK_TIMEOUT_MS = 2_000;
 
 @Injectable()

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG APP_VERSION=0.1.0-dev
+ARG APP_VERSION=0.0.0
 ARG GIT_SHA=unknown
 ARG BUILD_ID=unknown
 

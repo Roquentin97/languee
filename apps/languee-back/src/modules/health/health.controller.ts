@@ -63,7 +63,7 @@ export class HealthController {
     description: 'Returns the application version and build commit',
     schema: {
       example: {
-        version: '0.1.123001',
+        version: '0.0.123001',
         commit: '0123456789abcdef0123456789abcdef01234567',
       },
       properties: {

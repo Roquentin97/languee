@@ -76,6 +76,7 @@ describe('HealthService', () => {
     });
 
     it('returns the app version and defaults commit to unknown', () => {
+      expect(APP_VERSION).toBe('0.0.0');
       expect(service.getVersion()).toEqual({
         version: APP_VERSION,
         commit: 'unknown',

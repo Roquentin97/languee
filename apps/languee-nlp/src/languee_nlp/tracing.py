@@ -51,7 +51,7 @@ def configure_tracing(settings: Settings) -> None:
     resource = Resource.create(
         {
             "service.name": settings.service_name,
-            "service.version": os.getenv("APP_VERSION", "0.1.0-dev"),
+            "service.version": os.getenv("APP_VERSION", "0.0.0"),
             "vcs.revision": os.getenv("GIT_SHA", "unknown"),
             "build.id": os.getenv("BUILD_ID", "unknown"),
             "deployment.environment": settings.environment,
