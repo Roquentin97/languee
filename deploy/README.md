@@ -252,6 +252,15 @@ Monitoring startup is non-blocking for application deploys. A deploy reports a
 monitoring warning and continues to check the API if collector services are
 unhealthy; rerun Apply config after correcting the monitoring fault.
 
+For monitoring recovery, inspect `docker compose ps` and `docker compose logs
+loki tempo prometheus alloy grafana`. Grafana and Alloy intentionally start
+without waiting for telemetry destinations, then reconnect when those services
+recover. The pinned Loki image is distroless, so it has no Docker HTTP health
+probe; inspect its startup log and readiness endpoint through an internal
+diagnostic instead. To safely apply corrected monitoring configuration, run
+`docker compose up -d --force-recreate loki tempo prometheus alloy grafana`.
+This recreates containers only and preserves the named data volumes.
+
 Uptime: Better Stack free tier — one HTTPS monitor on `https://<DOMAIN>/`
 (health endpoint) plus certificate expiry alerting. (UptimeRobot's free plan
 prohibits commercial use since Dec 2024.)
