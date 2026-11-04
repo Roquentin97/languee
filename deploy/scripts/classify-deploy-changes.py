@@ -39,7 +39,12 @@ def classify(paths: list[str], *, conservative: bool = False, manual: bool = Fal
             result["config"] = True
             result["production_compose"] = True
             result["relevant"] = True
-        elif path.startswith("deploy/caddy/") or path.startswith("deploy/scripts/") or path.startswith("deploy/env/"):
+        elif (
+            path.startswith("deploy/caddy/")
+            or path.startswith("deploy/scripts/")
+            or path.startswith("deploy/env/")
+            or path.startswith("provision/")
+        ):
             result["config"] = True
             result["relevant"] = True
         elif path == "docker-compose.yml" or path.startswith("deploy/local/"):

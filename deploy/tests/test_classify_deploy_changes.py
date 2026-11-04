@@ -42,6 +42,17 @@ def test_production_config_and_local_observability_are_separate_domains():
     assert local["local_only"] and not local["relevant"]
 
 
+def test_observability_provisioning_is_config_only():
+    result = decisions("provision/alloy/config.alloy", "provision/grafana/provisioning/datasources/loki.yaml")
+    assert result["config"] and result["relevant"]
+    assert not result["back"] and not result["nlp"]
+
+
+def test_observability_provisioning_and_backend_change_builds_only_backend():
+    result = decisions("provision/tempo/tempo.yaml", "apps/languee-back/src/main.ts")
+    assert result["config"] and result["back"] and not result["nlp"]
+
+
 def test_missing_history_is_conservative_for_application_images():
     result = decisions("README.md", conservative=True)
     assert result["back"] and result["nlp"] and result["relevant"]

@@ -34,6 +34,14 @@ SUCCESS_DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
 """
 
+MONITORING_FAILURE_DOCKER_STUB = """#!/bin/bash
+echo "docker $*" >> "$APP_DIR/calls.log"
+if [[ "$*" == *"loki tempo prometheus alloy grafana"* ]]; then
+  echo "monitoring unavailable" >&2
+  exit 1
+fi
+"""
+
 CURL_SUCCESS_STUB = """#!/bin/bash
 echo "curl $*" >> "$APP_DIR/calls.log"
 exit 0
@@ -80,14 +88,14 @@ def _deploy(
 
 
 def _deploy_readiness(
-    tmp_path: Path, curl_stub: str
+    tmp_path: Path, curl_stub: str, docker_stub: str = SUCCESS_DOCKER_STUB
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     app = tmp_path / "app"
     (app / "scripts").mkdir(parents=True)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     _executable(app / "scripts" / "sync-vault-config.py", SYNC_STUB)
-    _executable(bin_dir / "docker", SUCCESS_DOCKER_STUB)
+    _executable(bin_dir / "docker", docker_stub)
     _executable(bin_dir / "curl", curl_stub)
     _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
     (app / "state").write_text('{"back_tag": "old", "nlp_tag": "old"}')
@@ -169,6 +177,14 @@ def test_deploy_fails_when_local_caddy_is_not_ready(tmp_path):
 
     assert result.returncode == 22
     assert "https://example.test/health/ready" in calls
+
+
+def test_monitoring_failure_does_not_block_application_deployment(tmp_path):
+    result, calls = _deploy_readiness(tmp_path, CURL_SUCCESS_STUB, MONITORING_FAILURE_DOCKER_STUB)
+
+    assert result.returncode == 0
+    assert "WARNING: monitoring stack did not become healthy" in result.stderr
+    assert "up -d --wait caddy" in calls
 
 
 def test_production_backend_healthcheck_uses_liveness_endpoint():

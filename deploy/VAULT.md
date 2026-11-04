@@ -68,6 +68,11 @@ and `TELEMETRY_DOMAIN` are lowercase public DNS hostnames. The telemetry hash
 must be a Caddy-compatible bcrypt hash; the plaintext `TELEMETRY_PASSWORD` is
 an Android build-time secret and is intentionally not accepted by this schema.
 
+`GRAFANA_ADMIN_PASSWORD` bootstraps a new Grafana database only. For rotation on
+an existing `grafana_data` volume, update the Vault value, apply configuration,
+then use the stdin-based `grafana cli admin reset-admin-password` command in
+[README.md](README.md#observability). Never remove the volume to rotate credentials.
+
 > **Postgres credentials only apply on first initialization.** Changing
 > `LANGUEE_BACK_POSTGRES_USER/PASSWORD/DB` in Vault later does not change an
 > existing database; change the role password in Postgres first, then the

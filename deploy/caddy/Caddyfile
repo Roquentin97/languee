@@ -1,16 +1,49 @@
 # Caddy obtains and renews certificates for the configured hostnames. Certificate
 # state persists in caddy_data; all upstream services stay on the Compose network.
 {$DOMAIN} {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+			}
+		}
+	}
+	log_append path {http.request.uri.path}
 	encode gzip
 	reverse_proxy languee-back:3000
 }
 
 {$MONITOR_DOMAIN} {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+			}
+		}
+	}
+	log_append path {http.request.uri.path}
 	encode gzip
 	reverse_proxy grafana:3000
 }
 
 {$TELEMETRY_DOMAIN} {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+			}
+		}
+	}
+	log_append path {http.request.uri.path}
 	@otlp path /v1/logs /v1/traces
 	handle @otlp {
 		request_body {
