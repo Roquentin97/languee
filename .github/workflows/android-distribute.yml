@@ -74,13 +74,25 @@ jobs:
         working-directory: apps/languee-droid
         env:
           BACKEND_URL: ${{ vars.LANGUEE_BACKEND_BASE_URL }}
+          OTEL_ENDPOINT: ${{ vars.OTEL_EXPORTER_ENDPOINT }}
+          TELEMETRY_USERNAME: ${{ vars.TELEMETRY_USERNAME }}
+          TELEMETRY_PASSWORD: ${{ secrets.TELEMETRY_PASSWORD }}
         run: |
           set -euo pipefail
           if ! [[ "$BACKEND_URL" =~ ^https://[^/[:space:]]+(/.*)?$ ]]; then
             echo "LANGUEE_BACKEND_BASE_URL must be a nonempty HTTPS URL" >&2
             exit 1
           fi
-          printf 'sdk.dir=%s\nLANGUEE_BACKEND_BASE_URL=%s\n' "$ANDROID_HOME" "$BACKEND_URL" > local.properties
+          if ! [[ "$OTEL_ENDPOINT" =~ ^https://[^/[:space:]]+$ ]]; then
+            echo "OTEL_EXPORTER_ENDPOINT must be a nonempty HTTPS base URL" >&2
+            exit 1
+          fi
+          if [ -z "$TELEMETRY_USERNAME" ] || [ -z "$TELEMETRY_PASSWORD" ]; then
+            echo "TELEMETRY_USERNAME and TELEMETRY_PASSWORD must be configured" >&2
+            exit 1
+          fi
+          umask 077
+          printf 'sdk.dir=%s\nLANGUEE_BACKEND_BASE_URL=%s\nOTEL_EXPORTER_ENDPOINT=%s\nTELEMETRY_USERNAME=%s\nTELEMETRY_PASSWORD=%s\n' "$ANDROID_HOME" "$BACKEND_URL" "$OTEL_ENDPOINT" "$TELEMETRY_USERNAME" "$TELEMETRY_PASSWORD" > local.properties
 
       - name: Derive development build version
         run: |
@@ -168,4 +180,4 @@ jobs:
 
       - name: Remove signing material
         if: always()
-        run: rm -f "$HOME/.android/debug.keystore" "$RUNNER_TEMP/firebase-service-account.json"
+        run: rm -f "$HOME/.android/debug.keystore" "$RUNNER_TEMP/firebase-service-account.json" apps/languee-droid/local.properties

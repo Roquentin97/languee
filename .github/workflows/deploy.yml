@@ -244,6 +244,14 @@ jobs:
           source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py
           target: /opt/languee/
           strip_components: 1
+      - name: Copy observability provisioning
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: provision/
+          target: /opt/languee/
       - name: Apply selected artifacts
         uses: appleboy/ssh-action@v1.2.5
         env:

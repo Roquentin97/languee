@@ -83,6 +83,11 @@ secrets across, then delete `production` if unused).
   example, `https://languee-dev.aroquentin.com/health/ready`). The deployment
   fails if this variable is absent or targets a different path.
 - Deployment branches: **selected branches → `develop`** only.
+- Android distribution also needs `OTEL_EXPORTER_ENDPOINT` as a GitHub
+  environment variable set to `https://<TELEMETRY_DOMAIN>`, and
+  `TELEMETRY_USERNAME` / `TELEMETRY_PASSWORD` as environment secrets. These
+  values are used only for trusted `develop` distribution builds, never PR CI.
+  The server gets only the matching `TELEMETRY_PASSWORD_HASH` in OCI Vault.
 
 ### First-run host prerequisites
 
@@ -96,7 +101,7 @@ secrets across, then delete `production` if unused).
 
 ```text
 /opt/languee/
-  docker-compose.prod.yml, caddy/Caddyfile        # synced
+  docker-compose.prod.yml, caddy/Caddyfile, provision/ # synced
   scripts/{backup-db.sh,deploy-stack.sh,sync-vault-config.py}   # synced
   .env languee-back.env languee-nlp.env           # generated from Vault, 0600
   .deploy-state.json  .config-previous/           # bookkeeping, 0600/0700

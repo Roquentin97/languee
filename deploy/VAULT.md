@@ -51,9 +51,9 @@ tests assert it matches the script's allowlist. Unknown keys are rejected.
 
 | Written to          | Keys |
 | ------------------- | ---- |
-| `.env` (compose + backup script) | `DOMAIN`, `LANGUEE_BACK_POSTGRES_USER`, `LANGUEE_BACK_POSTGRES_PASSWORD`, `LANGUEE_BACK_POSTGRES_DB`, `LANGUEE_BACK_REDIS_PASSWORD`, `BACKUP_RCLONE_REMOTE`, `BACKUP_RETENTION_DAYS`, `BACKUP_HEALTHCHECK_URL` (may be empty while monitoring is deferred; sensitive) |
-| `languee-back.env`  | `PORT`, `NODE_ENV`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `BASIC_AUTH`, `BASIC_PASSWORD`, `LANGUEE_NLP_BASE_URL`, `LANGUEE_NLP_BASIC_AUTH_LOGIN`, `LANGUEE_NLP_BASIC_AUTH_PASSWORD`, `LOG_FORMAT`, `SERVICE_NAME`, `PRINT_DEBUG_LOGS`, `PRINT_PRETTY_JSON_LOGS`, `TRACING_ENABLED`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`; optional `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` |
-| `languee-nlp.env`   | `LANGUEE_NLP_SPACY_MODEL`, `LANGUEE_NLP_LOG_FORMAT`, `LANGUEE_NLP_LOG_LEVEL`, `LANGUEE_NLP_SERVICE_NAME`, `LANGUEE_NLP_ENVIRONMENT`, `LANGUEE_NLP_TRACING_ENABLED`; optional `LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT` |
+| `.env` (compose + backup script) | `DOMAIN`, `MONITOR_DOMAIN`, `TELEMETRY_DOMAIN`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `TELEMETRY_USERNAME`, `TELEMETRY_PASSWORD_HASH`, `LANGUEE_BACK_POSTGRES_USER`, `LANGUEE_BACK_POSTGRES_PASSWORD`, `LANGUEE_BACK_POSTGRES_DB`, `LANGUEE_BACK_REDIS_PASSWORD`, `BACKUP_RCLONE_REMOTE`, `BACKUP_RETENTION_DAYS`, `BACKUP_HEALTHCHECK_URL` (may be empty; sensitive) |
+| `languee-back.env`  | `PORT`, `NODE_ENV`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `BASIC_AUTH`, `BASIC_PASSWORD`, `LANGUEE_NLP_BASE_URL`, `LANGUEE_NLP_BASIC_AUTH_LOGIN`, `LANGUEE_NLP_BASIC_AUTH_PASSWORD`, `LOG_FORMAT`, `SERVICE_NAME`, `PRINT_DEBUG_LOGS`, `PRINT_PRETTY_JSON_LOGS`, `TRACING_ENABLED=true`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318` |
+| `languee-nlp.env`   | `LANGUEE_NLP_SPACY_MODEL`, `LANGUEE_NLP_LOG_FORMAT`, `LANGUEE_NLP_LOG_LEVEL`, `LANGUEE_NLP_SERVICE_NAME`, `LANGUEE_NLP_ENVIRONMENT`, `LANGUEE_NLP_TRACING_ENABLED=true`, `LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318` |
 | derived             | `languee-nlp.env` `BASIC_LOGIN` / `BASIC_PASSWORD` come from `LANGUEE_NLP_BASIC_AUTH_LOGIN` / `LANGUEE_NLP_BASIC_AUTH_PASSWORD` (stored once). The backend's `BASIC_PASSWORD` is Swagger auth and is never used for NLP. |
 | fixed by the deploy | `COMPOSE_FILE=docker-compose.prod.yml`, `LANGUEE_BACK_TAG`, `LANGUEE_NLP_TAG` (deployment-controlled) — not in Vault |
 
@@ -62,8 +62,16 @@ leading/trailing whitespace. `.env` is also sourced by `backup-db.sh`, so its
 values are limited to `A-Za-z0-9_.@%+=:,/~-`. Service env values may not contain
 `$ " ' \` \ #`. Postgres and Redis passwords must be 16+ characters from
 `A-Za-z0-9._~-` (the Postgres password is interpolated into `DATABASE_URL`).
-`PORT`, `REDIS_HOST`, `REDIS_PORT` and `LANGUEE_NLP_BASE_URL` must equal the
-fixed values compose and Caddy assume.
+`PORT`, `REDIS_HOST`, `REDIS_PORT`, `LANGUEE_NLP_BASE_URL`, and both internal
+OTLP endpoints must equal the fixed private Compose values. `MONITOR_DOMAIN`
+and `TELEMETRY_DOMAIN` are lowercase public DNS hostnames. The telemetry hash
+must be a Caddy-compatible bcrypt hash; the plaintext `TELEMETRY_PASSWORD` is
+an Android build-time secret and is intentionally not accepted by this schema.
+
+`GRAFANA_ADMIN_PASSWORD` bootstraps a new Grafana database only. For rotation on
+an existing `grafana_data` volume, update the Vault value, apply configuration,
+then use the stdin-based `grafana cli admin reset-admin-password` command in
+[README.md](README.md#observability). Never remove the volume to rotate credentials.
 
 > **Postgres credentials only apply on first initialization.** Changing
 > `LANGUEE_BACK_POSTGRES_USER/PASSWORD/DB` in Vault later does not change an

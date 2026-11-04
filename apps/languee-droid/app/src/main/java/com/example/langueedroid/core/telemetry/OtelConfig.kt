@@ -1,5 +1,6 @@
 package com.example.langueedroid.core.telemetry
 
+import android.util.Base64
 import com.languee.droid.BuildConfig
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.Attributes
@@ -13,6 +14,7 @@ import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 internal fun signalEndpoint(
@@ -20,9 +22,21 @@ internal fun signalEndpoint(
     signal: String,
 ): String = endpoint.trim().trimEnd('/') + "/v1/$signal"
 
+internal fun basicAuthHeader(
+    username: String,
+    password: String,
+    encode: (ByteArray) -> String = { bytes -> Base64.encodeToString(bytes, Base64.NO_WRAP) },
+): String? {
+    if (username.isBlank() || password.isBlank()) return null
+    val encoded = encode("$username:$password".toByteArray(StandardCharsets.UTF_8))
+    return "Basic $encoded"
+}
+
 fun initOpenTelemetry(
     endpoint: String,
     environment: String,
+    telemetryUsername: String = BuildConfig.TELEMETRY_USERNAME,
+    telemetryPassword: String = BuildConfig.TELEMETRY_PASSWORD,
 ): OpenTelemetry {
     val resource =
         Resource.getDefault().merge(
@@ -42,16 +56,19 @@ fun initOpenTelemetry(
             ),
         )
 
+    val authorization = basicAuthHeader(telemetryUsername, telemetryPassword)
     val exporter =
         OtlpHttpSpanExporter
             .builder()
             .setEndpoint(signalEndpoint(endpoint, "traces"))
+            .apply { authorization?.let { addHeader("Authorization", it) } }
             .build()
 
     val logExporter =
         OtlpHttpLogRecordExporter
             .builder()
             .setEndpoint(signalEndpoint(endpoint, "logs"))
+            .apply { authorization?.let { addHeader("Authorization", it) } }
             .setTimeout(3, TimeUnit.SECONDS)
             .build()
 

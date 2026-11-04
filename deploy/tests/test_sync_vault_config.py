@@ -28,11 +28,18 @@ NLP_PASSWORD = "nlp-test-password-0123"
 SWAGGER_PASSWORD = "swagger-test-password-0123"
 JWT = "jwt-test-secret-0123456789abcdef"
 HEALTH_URL = "https://hc-ping.example.com/00000000-test"
+TELEMETRY_HASH = "$2a$14$" + "a" * 53
 
 
 def valid_config() -> dict[str, str]:
     return {
         "DOMAIN": "languee-dev.example.com",
+        "MONITOR_DOMAIN": "monitor.languee-dev.example.com",
+        "TELEMETRY_DOMAIN": "telemetry.languee-dev.example.com",
+        "GRAFANA_ADMIN_USER": "admin",
+        "GRAFANA_ADMIN_PASSWORD": "grafana-password-012345",
+        "TELEMETRY_USERNAME": "android-ingest",
+        "TELEMETRY_PASSWORD_HASH": TELEMETRY_HASH,
         "LANGUEE_BACK_POSTGRES_USER": "languee",
         "LANGUEE_BACK_POSTGRES_PASSWORD": PG_PASSWORD,
         "LANGUEE_BACK_POSTGRES_DB": "languee",
@@ -55,15 +62,18 @@ def valid_config() -> dict[str, str]:
         "SERVICE_NAME": "languee-back",
         "PRINT_DEBUG_LOGS": "false",
         "PRINT_PRETTY_JSON_LOGS": "false",
-        "TRACING_ENABLED": "false",
+        "TRACING_ENABLED": "true",
         "OTEL_TRACES_SAMPLER": "parentbased_always_on",
         "OTEL_TRACES_SAMPLER_ARG": "1.0",
+        "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://alloy:4318",
         "LANGUEE_NLP_SPACY_MODEL": "en_core_web_md",
         "LANGUEE_NLP_LOG_FORMAT": "json",
         "LANGUEE_NLP_LOG_LEVEL": "info",
         "LANGUEE_NLP_SERVICE_NAME": "languee-nlp",
         "LANGUEE_NLP_ENVIRONMENT": "production",
-        "LANGUEE_NLP_TRACING_ENABLED": "false",
+        "LANGUEE_NLP_TRACING_ENABLED": "true",
+        "LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT": "http://alloy:4318",
     }
 
 
@@ -104,6 +114,8 @@ def test_render_maps_keys_into_three_files():
     assert stack["COMPOSE_FILE"] == "docker-compose.prod.yml"
     assert stack["LANGUEE_BACK_TAG"] == "sha-back1234" and stack["LANGUEE_NLP_TAG"] == "sha-nlp1234"
     assert stack["DOMAIN"] == "languee-dev.example.com"
+    assert stack["MONITOR_DOMAIN"] == "monitor.languee-dev.example.com"
+    assert stack["TELEMETRY_PASSWORD_HASH"] == f"'{TELEMETRY_HASH}'"
     assert stack["BACKUP_HEALTHCHECK_URL"] == HEALTH_URL
     assert "JWT_SECRET" not in stack and "DATABASE_URL" not in back
     assert back["JWT_SECRET"] == JWT
@@ -121,16 +133,12 @@ def test_nlp_credentials_come_from_nlp_keys_not_swagger_password():
     assert nlp["BASIC_PASSWORD"] != back["BASIC_PASSWORD"] == SWAGGER_PASSWORD
 
 
-def test_optional_otlp_keys_are_passed_through_only_when_present():
-    config = valid_config() | {
-        "TRACING_ENABLED": "true",
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com/otlp",
-        "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic dGVzdDp0ZXN0",
-    }
-    svc.validate(config)
-    back = parse_env(svc.render(config, "back-t", "nlp-t", 1)["languee-back.env"])
-    assert back["OTEL_EXPORTER_OTLP_HEADERS"] == "Authorization=Basic dGVzdDp0ZXN0"
-    assert "OTEL_EXPORTER_OTLP_PROTOCOL" not in back
+def test_private_alloy_endpoints_are_rendered_for_both_services():
+    files = svc.render(valid_config(), "back-t", "nlp-t", 1)
+    back = parse_env(files["languee-back.env"])
+    nlp = parse_env(files["languee-nlp.env"])
+    assert back["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://alloy:4318"
+    assert nlp["LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://alloy:4318"
 
 
 def test_example_json_covers_exactly_the_allowlist():
@@ -207,11 +215,11 @@ def test_empty_required_value_is_rejected_but_empty_healthcheck_is_allowed():
         svc.validate(valid_config() | {"JWT_SECRET": ""})
 
 
-def test_tracing_enabled_requires_endpoint():
+def test_production_telemetry_must_use_private_alloy():
+    with pytest.raises(svc.ConfigError, match="TRACING_ENABLED"):
+        svc.validate(valid_config() | {"TRACING_ENABLED": "false"})
     with pytest.raises(svc.ConfigError, match="OTEL_EXPORTER_OTLP_ENDPOINT"):
-        svc.validate(valid_config() | {"TRACING_ENABLED": "true"})
-    with pytest.raises(svc.ConfigError, match="LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT"):
-        svc.validate(valid_config() | {"LANGUEE_NLP_TRACING_ENABLED": "true"})
+        svc.validate(valid_config() | {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://example.com"})
 
 
 def test_parse_rejects_bad_json_non_object_nested_and_duplicate_keys():

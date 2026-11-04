@@ -1,5 +1,6 @@
 package com.example.langueedroid.telemetry
 
+import com.example.langueedroid.core.telemetry.basicAuthHeader
 import com.example.langueedroid.core.telemetry.initOpenTelemetry
 import com.example.langueedroid.core.telemetry.redactTelemetryValue
 import com.example.langueedroid.core.telemetry.signalEndpoint
@@ -10,6 +11,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OtelConfigTest {
+    @Test
+    fun `telemetry credentials produce a Basic Auth header only when both are configured`() {
+        assertTrue(
+            basicAuthHeader("ingest", "secret") { "aW5nZXN0OnNlY3JldA==" } ==
+                "Basic aW5nZXN0OnNlY3JldA==",
+        )
+        assertTrue(basicAuthHeader("ingest", "") == null)
+        assertTrue(basicAuthHeader("", "secret") == null)
+    }
+
     @Test
     fun `signal endpoints append exactly one OTLP path`() {
         assertTrue(signalEndpoint("http://10.0.2.2:4318", "logs").endsWith("/v1/logs"))

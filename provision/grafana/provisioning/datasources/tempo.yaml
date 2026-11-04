@@ -19,4 +19,4 @@ datasources:
         spanStartTimeShift: '-1h'
         spanEndTimeShift: '1h'
         customQuery: true
-        query: '{service="$${__span.tags.service.name}"} |~ "\\\"trace_id\\\":\\\"$${__trace.traceId}\\\""'
+        query: '{service=~"$${__span.tags.service.name}"} |~ `(?:"trace_id"\s*:\s*"$${__trace.traceId}|trace_id[=:]\s*"?$${__trace.traceId})`'

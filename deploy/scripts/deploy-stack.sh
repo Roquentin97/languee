@@ -15,6 +15,7 @@ preserve_tags=false
 allow_persistent_infra=false
 config_changed=false
 infra_services=()
+monitoring_services=(loki tempo prometheus alloy grafana)
 back_version=
 back_revision=
 nlp_version=
@@ -122,6 +123,17 @@ nlp_container_before=$(docker compose ps -q languee-nlp 2>/dev/null || true)
 
 # No blanket compose pull: normal app deploys cannot advance infrastructure.
 docker compose up -d --wait postgres redis
+
+# Monitoring is deliberately non-blocking: API availability, migrations, and
+# rollback must not depend on an optional telemetry service being healthy.
+# Compose preserves the named monitoring volumes when it retries on a later deploy.
+if [ "$config_changed" = true ]; then
+  if ! docker compose up -d --force-recreate --wait "${monitoring_services[@]}"; then
+    echo "WARNING: monitoring stack did not become healthy; continuing application deployment" >&2
+  fi
+elif ! docker compose up -d --wait "${monitoring_services[@]}"; then
+  echo "WARNING: monitoring stack did not become healthy; continuing application deployment" >&2
+fi
 for service in "${infra_services[@]}"; do
   before_image=$(docker compose images -q "$service" 2>/dev/null || true)
   docker compose pull "$service"

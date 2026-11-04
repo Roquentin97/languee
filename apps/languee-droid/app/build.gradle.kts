@@ -24,6 +24,10 @@ val escapedBackendBaseUrl =
         .replace("\"", "\\\"")
 val rawOtelEndpoint: String = localProperties.getProperty("OTEL_EXPORTER_ENDPOINT", "http://10.0.2.2:4318")
 val escapedOtelEndpoint = rawOtelEndpoint.trim().replace("\\", "\\\\").replace("\"", "\\\"")
+val rawTelemetryUsername: String = localProperties.getProperty("TELEMETRY_USERNAME", "")
+val escapedTelemetryUsername = rawTelemetryUsername.trim().replace("\\", "\\\\").replace("\"", "\\\"")
+val rawTelemetryPassword: String = localProperties.getProperty("TELEMETRY_PASSWORD", "")
+val escapedTelemetryPassword = rawTelemetryPassword.trim().replace("\\", "\\\\").replace("\"", "\\\"")
 val tracingEnabled: String = localProperties.getProperty("TRACING_ENABLED", "true")
 val gitSha: String = System.getenv("GIT_SHA")?.trim()?.ifEmpty { null } ?: "unknown"
 val androidBuildOrdinal: Int? =
@@ -60,6 +64,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$escapedBackendBaseUrl\"")
         buildConfigField("String", "OTEL_EXPORTER_ENDPOINT", "\"$escapedOtelEndpoint\"")
+        buildConfigField("String", "TELEMETRY_USERNAME", "\"$escapedTelemetryUsername\"")
+        buildConfigField("String", "TELEMETRY_PASSWORD", "\"$escapedTelemetryPassword\"")
         buildConfigField("boolean", "TRACING_ENABLED", tracingEnabled)
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }

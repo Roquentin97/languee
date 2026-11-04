@@ -1,8 +1,59 @@
-# Reverse proxy for the Languee API. DOMAIN is injected by docker-compose.prod.yml.
-# Caddy obtains and renews Let's Encrypt certificates automatically; certificate
-# state persists in the caddy_data volume. Only languee-back is exposed — the NLP
-# service stays internal to the compose network.
+# Caddy obtains and renews certificates for the configured hostnames. Certificate
+# state persists in caddy_data; all upstream services stay on the Compose network.
 {$DOMAIN} {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+			}
+		}
+	}
+	log_append path {http.request.uri.path}
 	encode gzip
 	reverse_proxy languee-back:3000
+}
+
+{$MONITOR_DOMAIN} {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+			}
+		}
+	}
+	log_append path {http.request.uri.path}
+	encode gzip
+	reverse_proxy grafana:3000
+}
+
+{$TELEMETRY_DOMAIN} {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+			}
+		}
+	}
+	log_append path {http.request.uri.path}
+	@otlp path /v1/logs /v1/traces
+	handle @otlp {
+		request_body {
+			max_size 1MB
+		}
+		basic_auth {
+			{$TELEMETRY_USERNAME} {$TELEMETRY_PASSWORD_HASH}
+		}
+		reverse_proxy alloy:4318
+	}
+
+	respond "not found" 404
 }
