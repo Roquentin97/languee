@@ -7,6 +7,7 @@ import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.dto.AuthUserDto
 import com.example.langueedroid.core.network.dto.LoginRegisterResponse
 import com.example.langueedroid.core.network.dto.RefreshResponse
+import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
@@ -24,13 +25,15 @@ import retrofit2.Response
 class AuthRepositoryTest {
     private lateinit var authApi: AuthApi
     private lateinit var sessionStore: AuthSessionStore
+    private lateinit var logger: Logger
     private lateinit var repository: AuthRepository
 
     @Before
     fun setUp() {
         authApi = mock()
         sessionStore = mock()
-        repository = AuthRepository(authApi, sessionStore)
+        logger = mock()
+        repository = AuthRepository(authApi, sessionStore, logger)
     }
 
     // -----------------------------------------------------------------------
@@ -71,6 +74,7 @@ class AuthRepositoryTest {
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull()?.message?.contains("401") == true)
             verify(sessionStore, never()).save(any())
+            verify(logger).warn("auth.login_failed", mapOf("http.status_code" to "401"))
         }
 
     // -----------------------------------------------------------------------
@@ -86,6 +90,11 @@ class AuthRepositoryTest {
 
             assertTrue(result.isFailure)
             verify(sessionStore, never()).save(any())
+            verify(logger).error(
+                org.mockito.kotlin.eq("auth.login_failed"),
+                org.mockito.kotlin.any(),
+                org.mockito.kotlin.any(),
+            )
         }
 
     // -----------------------------------------------------------------------

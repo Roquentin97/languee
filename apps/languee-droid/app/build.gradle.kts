@@ -102,6 +102,37 @@ ktlint {
     }
 }
 
+val verifyNoDirectAndroidLogs =
+    tasks.register("verifyNoDirectAndroidLogs") {
+        group = "verification"
+        description = "Rejects direct android.util.Log use outside the telemetry implementation."
+        inputs.files(
+            fileTree("src/main/java/com/example/langueedroid") {
+                include("**/*.kt")
+                exclude("**/AppLogger.kt")
+            },
+        )
+        doLast {
+            val violations =
+                inputs.files
+                    .filter { it.isFile && it.extension == "kt" }
+                    .filter { file ->
+                        val source = file.readText()
+                        "android.util.Log" in source || Regex("\\bLog\\.(d|i|w|e|v)\\b").containsMatchIn(source)
+                    }.toList()
+            check(violations.isEmpty()) {
+                "Direct android.util.Log calls are not allowed in application code: " +
+                    violations.joinToString { it.path }
+            }
+        }
+    }
+
+tasks.configureEach {
+    if (name == "lintDebug") {
+        dependsOn(verifyNoDirectAndroidLogs)
+    }
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

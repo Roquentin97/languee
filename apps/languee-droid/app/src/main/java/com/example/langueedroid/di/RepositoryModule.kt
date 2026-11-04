@@ -13,6 +13,7 @@ import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
+import com.example.langueedroid.core.telemetry.Logger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,7 +28,8 @@ object RepositoryModule {
     fun provideAuthRepository(
         authApi: AuthApi,
         sessionStore: AuthSessionStore,
-    ): AuthRepository = AuthRepository(authApi = authApi, sessionStore = sessionStore)
+        logger: Logger,
+    ): AuthRepository = AuthRepository(authApi = authApi, sessionStore = sessionStore, logger = logger)
 
     @Provides
     @Singleton
@@ -35,19 +37,29 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideVocabularyRepository(vocabularyApi: VocabularyApi): VocabularyRepository =
-        VocabularyRepository(vocabularyApi = vocabularyApi)
+    fun provideVocabularyRepository(
+        vocabularyApi: VocabularyApi,
+        logger: Logger,
+    ): VocabularyRepository = VocabularyRepository(vocabularyApi = vocabularyApi, logger = logger)
 
     @Provides
     @Singleton
-    fun provideCardRepository(cardsApi: CardsApi): CardRepository = CardRepository(cardsApi = cardsApi)
+    fun provideCardRepository(
+        cardsApi: CardsApi,
+        logger: Logger,
+    ): CardRepository = CardRepository(cardsApi = cardsApi, logger = logger)
 
     @Provides
     @Singleton
-    fun provideAnkiDroidExportRepository(ankiDroidExportApi: AnkiDroidExportApi): AnkiDroidExportRepository =
-        AnkiDroidExportRepository(ankiDroidExportApi = ankiDroidExportApi)
+    fun provideAnkiDroidExportRepository(
+        ankiDroidExportApi: AnkiDroidExportApi,
+        logger: Logger,
+    ): AnkiDroidExportRepository = AnkiDroidExportRepository(ankiDroidExportApi = ankiDroidExportApi, logger = logger)
 
     @Provides
     @Singleton
-    fun provideReviewRepository(reviewsApi: ReviewsApi): ReviewRepository = ReviewRepository(reviewsApi = reviewsApi)
+    fun provideReviewRepository(
+        reviewsApi: ReviewsApi,
+        logger: Logger,
+    ): ReviewRepository = ReviewRepository(reviewsApi = reviewsApi, logger = logger)
 }

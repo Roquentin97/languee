@@ -7,6 +7,7 @@ import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.dto.AnkiDroidExportResponseDto
 import com.example.langueedroid.core.network.dto.CardSummaryDto
+import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
@@ -27,7 +28,7 @@ class AnkiDroidExportRepositoryTest {
     @Before
     fun setUp() {
         api = mock()
-        repository = AnkiDroidExportRepository(api)
+        repository = AnkiDroidExportRepository(api, mock<Logger>())
     }
 
     // -------------------------------------------------------------------------

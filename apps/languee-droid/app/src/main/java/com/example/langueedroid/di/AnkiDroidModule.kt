@@ -3,6 +3,7 @@ package com.example.langueedroid.di
 import android.content.Context
 import com.example.langueedroid.ankidroid.AnkiDroidApi
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
+import com.example.langueedroid.core.telemetry.Logger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,5 +27,6 @@ object AnkiDroidModule {
     fun provideAnkiDroidExportService(
         @ApplicationContext context: Context,
         ankiDroidApi: AnkiDroidApi,
-    ): AnkiDroidExportService = AnkiDroidExportService(context, ankiDroidApi)
+        logger: Logger,
+    ): AnkiDroidExportService = AnkiDroidExportService(context, ankiDroidApi, logger)
 }

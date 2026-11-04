@@ -1,6 +1,5 @@
 package com.example.langueedroid.core.data
 
-import android.util.Log
 import com.example.langueedroid.core.domain.AnkiDroidExport
 import com.example.langueedroid.core.domain.AnkiExportStatus
 import com.example.langueedroid.core.domain.StaleReferenceException
@@ -8,11 +7,11 @@ import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.dto.AnkiDroidExportResponseDto
 import com.example.langueedroid.core.network.dto.RecordAttemptRequest
-
-private const val TAG = "AnkiDroidExportRepository"
+import com.example.langueedroid.core.telemetry.Logger
 
 class AnkiDroidExportRepository(
     private val ankiDroidExportApi: AnkiDroidExportApi,
+    private val logger: Logger,
 ) {
     private fun mapStatus(dto: AnkiDroidExportResponseDto): AnkiExportStatus =
         when (dto.status) {
@@ -46,9 +45,9 @@ class AnkiDroidExportRepository(
                             ?: throw Exception("Empty response body from createOrGetExport")
                     val export = dtoToDomain(body)
                     val created = export.ankiNoteId == null
-                    Log.i(
-                        TAG,
-                        "[event=ankidroid.export_record_resolved method=createOrGetExportRecord] export record resolved | exportId=${export.id} status=${export.status} created=$created",
+                    logger.info(
+                        "ankidroid.export_record_resolved",
+                        mapOf("status" to export.status::class.simpleName.orEmpty(), "created" to created.toString()),
                     )
                     export
                 }
@@ -84,10 +83,7 @@ class AnkiDroidExportRepository(
                 )
             when {
                 response.isSuccessful -> {
-                    Log.i(
-                        TAG,
-                        "[event=ankidroid.export_attempt_completed method=recordAttemptCompleted] export attempt recorded as completed | exportId=$exportId ankiNoteId=$ankiNoteId",
-                    )
+                    logger.info("ankidroid.export_attempt_completed")
                     Unit
                 }
                 response.code() == 401 -> throw UnauthorizedException()
@@ -113,10 +109,7 @@ class AnkiDroidExportRepository(
                 )
             when {
                 response.isSuccessful -> {
-                    Log.i(
-                        TAG,
-                        "[event=ankidroid.export_attempt_failed method=recordAttemptFailed] export attempt recorded as failed | exportId=$exportId failureReason=$failureReason",
-                    )
+                    logger.info("ankidroid.export_attempt_failed")
                     Unit
                 }
                 response.code() == 401 -> throw UnauthorizedException()
@@ -144,9 +137,13 @@ class AnkiDroidExportRepository(
                 }
 
             val result = (pendingIds + failedIds).distinct()
-            Log.d(
-                TAG,
-                "[event=ankidroid.pending_exports method=getCardsWithPendingExport] pending export cards | pendingCount=${pendingIds.size} failedCount=${failedIds.size} totalMerged=${result.size}",
+            logger.debug(
+                "ankidroid.pending_exports",
+                mapOf(
+                    "pending_count" to pendingIds.size.toString(),
+                    "failed_count" to failedIds.size.toString(),
+                    "total_count" to result.size.toString(),
+                ),
             )
             result
         }

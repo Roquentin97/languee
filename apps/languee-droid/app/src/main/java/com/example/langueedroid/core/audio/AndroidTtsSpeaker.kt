@@ -2,10 +2,8 @@ package com.example.langueedroid.core.audio
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
-import android.util.Log
+import com.example.langueedroid.core.telemetry.Logger
 import java.util.Locale
-
-private const val TAG = "AndroidTtsSpeaker"
 
 /**
  * Wraps Android's built-in [TextToSpeech] engine. Initialization is asynchronous; a
@@ -19,6 +17,7 @@ private const val TAG = "AndroidTtsSpeaker"
  */
 class AndroidTtsSpeaker(
     context: Context,
+    private val logger: Logger,
 ) : Speaker {
     private val localeByLanguageCode =
         mapOf(
@@ -39,7 +38,7 @@ class AndroidTtsSpeaker(
                     pendingUtterance?.let { (text, languageCode) -> speakNow(text, languageCode) }
                     pendingUtterance = null
                 } else {
-                    Log.w(TAG, "[event=tts.init_failed method=init] TextToSpeech failed to initialize | status=$status")
+                    logger.warn("tts.init_failed", mapOf("status" to status.toString()))
                 }
             }
     }
@@ -63,10 +62,7 @@ class AndroidTtsSpeaker(
         val locale = localeByLanguageCode[languageCode] ?: localeByLanguageCode.getValue("en")
         val result = tts.setLanguage(locale)
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            Log.w(
-                TAG,
-                "[event=tts.locale_unavailable method=speak] locale unavailable, skipping pronunciation | languageCode=$languageCode",
-            )
+            logger.warn("tts.locale_unavailable", mapOf("language_code" to languageCode))
             return
         }
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
