@@ -14,3 +14,9 @@ datasources:
     jsonData:
       nodeGraph:
         enabled: true
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        customQuery: true
+        query: '{service="$${__span.tags.service.name}"} |~ "\\\"trace_id\\\":\\\"$${__trace.traceId}\\\""'

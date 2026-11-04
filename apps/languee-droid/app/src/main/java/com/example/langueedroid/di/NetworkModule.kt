@@ -10,6 +10,7 @@ import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
+import com.example.langueedroid.core.telemetry.AppLogger
 import com.languee.droid.BuildConfig
 import dagger.Lazy
 import dagger.Module
@@ -46,12 +47,16 @@ object NetworkModule {
     fun provideOkHttpClient(
         sessionStore: AuthSessionStore,
         authAuthenticator: AuthAuthenticator,
+        logger: AppLogger,
     ): OkHttpClient {
         val requestIdInterceptor =
             Interceptor { chain ->
+                val request = chain.request()
+                if (request.header("X-Request-ID") != null) {
+                    return@Interceptor chain.proceed(request)
+                }
                 chain.proceed(
-                    chain
-                        .request()
+                    request
                         .newBuilder()
                         .header("X-Request-ID", UUID.randomUUID().toString())
                         .build(),
@@ -76,7 +81,36 @@ object NetworkModule {
             .Builder()
             .addInterceptor(requestIdInterceptor)
             .addInterceptor(authInterceptor)
-            .apply {
+            .addNetworkInterceptor { chain ->
+                val request = chain.request()
+                val started = System.nanoTime()
+                try {
+                    val response = chain.proceed(request)
+                    logger.info(
+                        "http.request.completed",
+                        mapOf(
+                            "http.method" to request.method,
+                            "url.path" to request.url.encodedPath,
+                            "http.status_code" to response.code.toString(),
+                            "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
+                            "requestId" to request.header("X-Request-ID").orEmpty(),
+                        ) + traceAttributes(response.request),
+                    )
+                    response
+                } catch (error: java.io.IOException) {
+                    logger.error(
+                        "http.request.failed",
+                        mapOf(
+                            "http.method" to request.method,
+                            "url.path" to request.url.encodedPath,
+                            "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
+                            "requestId" to request.header("X-Request-ID").orEmpty(),
+                        ) + traceAttributes(request),
+                        error,
+                    )
+                    throw error
+                }
+            }.apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(
                         HttpLoggingInterceptor().apply {
@@ -136,4 +170,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideReviewsApi(retrofit: Retrofit): ReviewsApi = retrofit.create(ReviewsApi::class.java)
+
+    private fun traceAttributes(request: okhttp3.Request): Map<String, String> {
+        val parts = request.header("traceparent")?.split('-') ?: return emptyMap()
+        if (parts.size != 4 || parts[1].length != 32 || parts[2].length != 16) return emptyMap()
+        return mapOf("trace_id" to parts[1], "span_id" to parts[2])
+    }
 }
