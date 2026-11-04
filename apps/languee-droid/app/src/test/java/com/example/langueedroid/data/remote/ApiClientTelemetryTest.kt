@@ -15,6 +15,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -75,6 +76,21 @@ class ApiClientTelemetryTest {
         callFactory.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
 
         assertTrue("at least one span must be exported", exporter.finishedSpanItems.isNotEmpty())
+    }
+
+    @Test
+    fun `OTel interceptor exports a failed client span when delivery fails`() {
+        val callFactory = OkHttpTelemetry.builder(otel).build().createCallFactory(OkHttpClient())
+        val unavailableUrl = server.url("/unavailable")
+        server.shutdown()
+
+        val result =
+            runCatching {
+                callFactory.newCall(Request.Builder().url(unavailableUrl).build()).execute()
+            }
+
+        assertTrue(result.isFailure)
+        assertTrue("a failed attempt must still produce a span", exporter.finishedSpanItems.isNotEmpty())
     }
 
     @Test
@@ -150,6 +166,24 @@ class ApiClientTelemetryTest {
         assertNotEquals("each request must have a distinct X-Request-ID", id1, id2)
     }
 
+    @Test
+    fun `request-id interceptor preserves an existing id for retries`() {
+        server.enqueue(MockResponse().setResponseCode(200))
+        val client = OkHttpClient.Builder().addInterceptor(buildRequestIdInterceptor()).build()
+
+        client
+            .newCall(
+                Request
+                    .Builder()
+                    .url(server.url("/test"))
+                    .header("X-Request-ID", "retry-request-id")
+                    .build(),
+            ).execute()
+            .close()
+
+        assertEquals("retry-request-id", server.takeRequest().getHeader("X-Request-ID"))
+    }
+
     // --- Logging interceptor does not leak auth tokens ---
 
     @Test
@@ -191,6 +225,9 @@ class ApiClientTelemetryTest {
 
     private fun buildRequestIdInterceptor(): Interceptor =
         Interceptor { chain ->
+            if (chain.request().header("X-Request-ID") != null) {
+                return@Interceptor chain.proceed(chain.request())
+            }
             chain.proceed(
                 chain
                     .request()

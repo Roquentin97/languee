@@ -10,7 +10,7 @@
 COMPOSE = docker compose
 APP_DIR = apps/languee-back
 REDIS_SERVICE = $(word 2,$(MAKECMDGOALS))
-OBSERVABILITY_SERVICES = loki alloy grafana
+OBSERVABILITY_SERVICES = loki tempo prometheus alloy grafana
 
 # Optional flags for make logs
 CONTAINER ?=

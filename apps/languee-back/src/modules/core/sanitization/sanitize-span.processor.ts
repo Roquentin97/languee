@@ -3,7 +3,7 @@ import type {
   ReadableSpan,
   Span,
   SpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
+} from '@opentelemetry/sdk-trace';
 import { isSensitiveKey, REDACTED_VALUE } from './redaction';
 
 export class SanitizingSpanProcessor implements SpanProcessor {

@@ -78,8 +78,8 @@ loki.write "loki_endpoint" {
 }
 
 // ── OTel pipeline ─────────────────────────────────────────────────────────────
-// Receives OTLP traces and metrics from services, forwards traces to Tempo and
-// metrics to Prometheus via remote write.
+// Receives OTLP signals from services. Container stdout remains on its dedicated
+// Loki pipeline above; only mobile OTLP logs flow through this exporter.
 
 otelcol.receiver.otlp "default" {
   grpc {
@@ -91,6 +91,7 @@ otelcol.receiver.otlp "default" {
   output {
     traces  = [otelcol.processor.batch.default.input]
     metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
   }
 }
 
@@ -98,7 +99,12 @@ otelcol.processor.batch "default" {
   output {
     traces  = [otelcol.exporter.otlp.tempo.input]
     metrics = [otelcol.exporter.prometheus.default.input]
+    logs    = [otelcol.exporter.loki.default.input]
   }
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.loki_endpoint.receiver]
 }
 
 otelcol.exporter.otlp "tempo" {

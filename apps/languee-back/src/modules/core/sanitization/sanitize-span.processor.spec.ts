@@ -1,5 +1,5 @@
 import type { Context } from '@opentelemetry/api';
-import type { ReadableSpan, Span } from '@opentelemetry/sdk-trace-base';
+import type { ReadableSpan, Span } from '@opentelemetry/sdk-trace';
 import { REDACTED_VALUE } from './redaction';
 import { SanitizingSpanProcessor } from './sanitize-span.processor';
 

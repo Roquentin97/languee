@@ -1,8 +1,8 @@
 package com.example.langueedroid.di
 
 import android.content.Context
-import com.example.langueedroid.core.telemetry.initOpenTelemetry
-import com.languee.droid.BuildConfig
+import com.example.langueedroid.LangueeDroidApp
+import com.example.langueedroid.core.telemetry.AppLogger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,13 +18,9 @@ object TelemetryModule {
     @Singleton
     fun provideOpenTelemetry(
         @ApplicationContext context: Context,
-    ): OpenTelemetry {
-        if (!BuildConfig.TRACING_ENABLED) return OpenTelemetry.noop()
-        return runCatching {
-            initOpenTelemetry(
-                endpoint = BuildConfig.OTEL_EXPORTER_ENDPOINT,
-                environment = if (BuildConfig.DEBUG) "development" else "production",
-            )
-        }.getOrElse { OpenTelemetry.noop() }
-    }
+    ): OpenTelemetry = (context.applicationContext as LangueeDroidApp).openTelemetry
+
+    @Provides
+    @Singleton
+    fun provideAppLogger(openTelemetry: OpenTelemetry): AppLogger = AppLogger(openTelemetry)
 }

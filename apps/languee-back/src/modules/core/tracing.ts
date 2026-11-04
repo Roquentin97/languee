@@ -1,7 +1,7 @@
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 import { SanitizingSpanProcessor } from './sanitization/sanitize-span.processor';
@@ -26,7 +26,7 @@ if (tracingEnabled) {
       'deployment.environment': process.env['NODE_ENV'] ?? 'development',
     }),
     spanProcessors: [
-      new SanitizingSpanProcessor(new BatchSpanProcessor(exporter)),
+      new SanitizingSpanProcessor(new BatchSpanProcessor({ exporter })),
     ],
     instrumentations: [
       getNodeAutoInstrumentations({
