@@ -1,8 +1,11 @@
 """Targeted deployment and recovery behaviour, with command stubs only."""
 
+import io
 import os
+import shutil
 import stat
 import subprocess
+import tarfile
 from pathlib import Path
 
 
@@ -192,3 +195,34 @@ def test_production_backend_healthcheck_uses_liveness_endpoint():
 
     assert "http://localhost:3000/health/live" in compose
     assert "http://localhost:3000/health/ready" not in compose
+
+
+def test_monitoring_services_have_no_health_gated_dependencies():
+    compose = (Path(__file__).parents[2] / "docker-compose.prod.yml").read_text()
+    alloy = compose.split("  alloy:\n", 1)[1].split("  grafana:\n", 1)[0]
+    grafana = compose.split("  grafana:\n", 1)[1].split("\nvolumes:", 1)[0]
+
+    assert "depends_on:" not in alloy
+    assert "depends_on:" not in grafana
+    assert '["CMD", "/tempo", "--health"]' in compose
+    assert '["CMD", "/bin/wget", "-qO-", "http://localhost:9090/-/healthy"]' in compose
+    assert '["CMD", "/usr/bin/wget", "-qO-", "http://localhost:3000/api/health"]' in compose
+
+
+def test_pinned_monitoring_images_contain_healthcheck_executables():
+    if shutil.which("docker") is None:
+        return
+
+    images = {
+        "grafana/tempo:2.7.1": "/tempo",
+        "prom/prometheus:v3.4.0": "/bin/wget",
+        "grafana/grafana:13.0.1-security-01": "/usr/bin/wget",
+    }
+    for image, executable in images.items():
+        container = subprocess.check_output(["docker", "create", image], text=True).strip()
+        try:
+            exported = subprocess.check_output(["docker", "export", container])
+            with tarfile.open(fileobj=io.BytesIO(exported)) as archive:
+                assert executable.lstrip("/") in archive.getnames(), image
+        finally:
+            subprocess.run(["docker", "rm", "-f", container], check=False, capture_output=True)

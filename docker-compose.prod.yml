@@ -147,12 +147,8 @@ services:
       - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     mem_limit: 512m
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+    # The pinned Loki image is distroless: it has neither a shell nor an HTTP
+    # client. Do not claim readiness from a config-only subprocess probe.
 
   tempo:
     image: grafana/tempo:2.7.1@sha256:4443be217c396b065ee34845534199c36fdba4dc619cb96550e228d73fba6e69
@@ -163,7 +159,7 @@ services:
       - tempo_data:/var/tempo
     mem_limit: 512m
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      test: ["CMD", "/tempo", "--health"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -182,7 +178,7 @@ services:
       - prometheus_data:/prometheus
     mem_limit: 384m
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      test: ["CMD", "/bin/wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -201,13 +197,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy_data:/var/lib/alloy/data
     mem_limit: 256m
-    depends_on:
-      loki:
-        condition: service_healthy
-      tempo:
-        condition: service_healthy
-      prometheus:
-        condition: service_healthy
 
   grafana:
     image: grafana/grafana:13.0.1-security-01@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
@@ -222,15 +211,8 @@ services:
       - ./provision/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - grafana_data:/var/lib/grafana
     mem_limit: 256m
-    depends_on:
-      loki:
-        condition: service_healthy
-      tempo:
-        condition: service_healthy
-      prometheus:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      test: ["CMD", "/usr/bin/wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 15s
       timeout: 5s
       retries: 5
