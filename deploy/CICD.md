@@ -39,7 +39,7 @@ pushes). The workflow builds and deploys `github.sha`, the merged commit.
    `linux/arm64` on a native ARM64 runner. Backend and NLP publish independent
    immutable tags `dev-<PATCH>-<12-character-commit-sha>`. Both service
    repositories use the same tag when both are built. The runtime version is
-   `0.1.<PATCH>`, where `PATCH = github.run_number * 1000 + github.run_attempt`.
+   `0.0.<PATCH>`, where `PATCH = github.run_number * 1000 + github.run_attempt`.
    Build arguments/environment provide `APP_VERSION`, full `GIT_SHA`, and
    `BUILD_ID`. OCI labels `org.opencontainers.image.version`,
    `org.opencontainers.image.revision`, and `org.opencontainers.image.build-id`
@@ -110,7 +110,7 @@ old copies land in `.config-previous/`). Populate the secret and run
 ## Build identity and releases
 
 Backend and NLP runtime versions are deployment build identities, not a
-release-PR sequence: `0.1.<github.run_number * 1000 + github.run_attempt>`.
+release-PR sequence: `0.0.<github.run_number * 1000 + github.run_attempt>`.
 Each service has its own immutable `dev-<patch>-<12-character-commit-sha>` tag;
 the full commit SHA is carried in runtime responses and OCI image labels. Android
 release numbering remains independent. Conventional Commits remain required for
