@@ -76,7 +76,7 @@ verify_artifact() {
   fi
   if [[ "$tag" =~ ^dev-([0-9]+)-[0-9a-f]{12}$ ]]; then
     patch=${BASH_REMATCH[1]}
-    if [ "$version" != "0.1.$patch" ] || [ "${revision:0:12}" != "${tag##*-}" ]; then
+    if { [ "$version" != "0.0.$patch" ] && [ "$version" != "0.1.$patch" ]; } || [ "${revision:0:12}" != "${tag##*-}" ]; then
       echo "$image OCI labels do not match its build tag" >&2
       exit 1
     fi

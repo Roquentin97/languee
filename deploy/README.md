@@ -136,7 +136,7 @@ branch), add the secrets below and the required variables `VAULT_SECRET_OCID` an
 Merging a PR into `develop` runs **Deploy (dev)** automatically
 ([CICD.md](CICD.md#deployment-deployyml-deploy-dev)). Each run computes
 `PATCH = github.run_number * 1000 + github.run_attempt`; backend and NLP report
-runtime version `0.1.<PATCH>`. Each service publishes an immutable
+runtime version `0.0.<PATCH>`. Each service publishes an immutable
 `dev-<PATCH>-<12-character-commit-sha>` image tag. When both services are built,
 their repositories use the same tag. Build inputs are `APP_VERSION`, full
 `GIT_SHA`, and `BUILD_ID`; OCI labels `org.opencontainers.image.version`,
@@ -152,6 +152,7 @@ endpoint change being merged first.
   for that service. This deploys selected existing artifacts; it does not
   rebuild them. Migrations are forward-only. Check application compatibility
   before rolling code back across a schema change.
+  Historical `0.1.<PATCH>` images remain valid rollback targets.
 - **Config-only change:** edit the Vault secret and run **Apply config (dev)**;
   deployed image artifacts and tags are preserved and no migrations run.
 - **Verify deployed identity:** check the backend's public `/version` response,

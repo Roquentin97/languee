@@ -23,7 +23,7 @@ DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
 if [ "$1" = image ] && [ "$2" = inspect ]; then
   case "$4" in
-    *version*) echo 0.1.123001 ;;
+    *version*) echo "${ARTIFACT_VERSION:-0.0.123001}" ;;
     *revision*) echo abcdef1234560000000000000000000000000000 ;;
   esac
 fi
@@ -50,7 +50,9 @@ def _executable(path: Path, body: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
-def _deploy(tmp_path: Path, state_before: str) -> tuple[subprocess.CompletedProcess[str], str]:
+def _deploy(
+    tmp_path: Path, state_before: str, artifact_version: str = "0.0.123001"
+) -> tuple[subprocess.CompletedProcess[str], str]:
     app = tmp_path / "app"
     (app / "scripts").mkdir(parents=True)
     bin_dir = tmp_path / "bin"
@@ -59,7 +61,12 @@ def _deploy(tmp_path: Path, state_before: str) -> tuple[subprocess.CompletedProc
     _executable(bin_dir / "docker", DOCKER_STUB)
     (app / "state").write_text(state_before)
     (app / ".env").write_text("DOMAIN=example.test\n")
-    env = {**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    env = {
+        **os.environ,
+        "APP_DIR": str(app),
+        "ARTIFACT_VERSION": artifact_version,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+    }
     _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
     _executable(bin_dir / "curl", "#!/bin/bash\nexit 0\n")
     result = subprocess.run(
@@ -109,6 +116,24 @@ def test_failure_after_established_deploy_restores_only_affected_apps(tmp_path):
     assert "restoring the previous image references" in result.stderr
     assert "--restore-previous" in calls
     assert "up -d --force-recreate --no-deps" not in calls  # migration failed before app mutation
+
+
+def test_legacy_artifact_version_is_accepted_for_rollback(tmp_path):
+    result, _ = _deploy(
+        tmp_path, '{"back_tag": "old", "nlp_tag": "old"}', "0.1.123001"
+    )
+
+    assert result.returncode == 1
+    assert "OCI labels do not match" not in result.stderr
+
+
+def test_artifact_version_must_match_its_build_ordinal(tmp_path):
+    result, _ = _deploy(
+        tmp_path, '{"back_tag": "old", "nlp_tag": "old"}', "0.0.123002"
+    )
+
+    assert result.returncode == 1
+    assert "OCI labels do not match its build tag" in result.stderr
 
 
 def test_persistent_infrastructure_requires_explicit_maintenance_approval(tmp_path):
