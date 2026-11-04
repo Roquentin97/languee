@@ -1,6 +1,5 @@
 package com.example.langueedroid.core.data
 
-import android.util.Log
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.data.mapper.toLookupResult
 import com.example.langueedroid.core.domain.CreatedUserDefinition
@@ -12,11 +11,11 @@ import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.VocabularyApi
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
-
-private const val TAG = "VocabularyRepository"
+import com.example.langueedroid.core.telemetry.Logger
 
 class VocabularyRepository(
     private val vocabularyApi: VocabularyApi,
+    private val logger: Logger,
 ) {
     suspend fun lookup(
         word: String,
@@ -27,7 +26,7 @@ class VocabularyRepository(
             // Fail fast on obviously-too-long input so the user gets a specific message without a
             // round trip. NLP still owns the real limit — see [ExpressionLimits].
             if (ExpressionLimits.exceedsMaxWords(word)) {
-                Log.i(TAG, "[event=vocabulary.expression_too_long method=lookup] input exceeds ${ExpressionLimits.MAX_WORDS} words")
+                logger.info("vocabulary.expression_too_long", mapOf("max_words" to ExpressionLimits.MAX_WORDS.toString()))
                 throw ExpressionTooLongException()
             }
             val response = vocabularyApi.lookup(word = word, language = language, context = context)
@@ -37,19 +36,15 @@ class VocabularyRepository(
                         response.body()?.toLookupResult()
                             ?: throw Exception("Empty response body from vocabulary lookup")
                     val definitionCount = body.definitions.size
-                    Log.i(
-                        TAG,
-                        "[event=vocabulary.lookup_succeeded method=lookup] lookup succeeded | lemma=${body.lemma} definitionCount=$definitionCount",
-                    )
+                    logger.info("vocabulary.lookup_succeeded", mapOf("definition_count" to definitionCount.toString()))
                     body
                 }
                 response.code() == 401 -> {
-                    Log.w(TAG, "[event=vocabulary.unauthorized method=lookup] unauthorized")
+                    logger.warn("vocabulary.unauthorized")
                     throw UnauthorizedException()
                 }
                 response.code() == 400 -> {
-                    val errorBody = response.errorBody()?.string().orEmpty()
-                    Log.w(TAG, "[event=vocabulary.input_invalid method=lookup] lookup input rejected | body=$errorBody")
+                    logger.warn("vocabulary.input_invalid")
                     throw LookupInputInvalidException()
                 }
                 else -> throw Exception("Vocabulary lookup failed: HTTP ${response.code()}")
@@ -82,10 +77,7 @@ class VocabularyRepository(
                     val body =
                         response.body()?.toDomain()
                             ?: throw Exception("Empty response body from createUserDefinition")
-                    Log.i(
-                        TAG,
-                        "[event=vocabulary.definition_created method=createUserDefinition] definition created | id=${body.id} kind=${body.kind}",
-                    )
+                    logger.info("vocabulary.definition_created", mapOf("definition_kind" to body.kind.name))
                     body
                 }
                 response.code() == 401 -> throw UnauthorizedException()

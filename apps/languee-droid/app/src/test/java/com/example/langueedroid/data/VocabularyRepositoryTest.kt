@@ -12,6 +12,7 @@ import com.example.langueedroid.core.network.dto.DeckRefDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
@@ -34,7 +35,7 @@ class VocabularyRepositoryTest {
     @Before
     fun setUp() {
         vocabularyApi = mock()
-        repository = VocabularyRepository(vocabularyApi)
+        repository = VocabularyRepository(vocabularyApi, mock<Logger>())
     }
 
     // -------------------------------------------------------------------------

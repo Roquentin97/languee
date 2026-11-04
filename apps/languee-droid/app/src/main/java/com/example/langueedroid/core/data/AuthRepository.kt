@@ -1,6 +1,5 @@
 package com.example.langueedroid.core.data
 
-import android.util.Log
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.network.AuthApi
@@ -8,18 +7,22 @@ import com.example.langueedroid.core.network.dto.LoginRequest
 import com.example.langueedroid.core.network.dto.LogoutRequest
 import com.example.langueedroid.core.network.dto.RefreshRequest
 import com.example.langueedroid.core.network.dto.RegisterRequest
+import com.example.langueedroid.core.telemetry.Logger
 
-private const val TAG = "AuthRepository"
+private class AuthHttpFailure(
+    message: String,
+) : RuntimeException(message)
 
 class AuthRepository(
     private val authApi: AuthApi,
     private val sessionStore: AuthSessionStore,
+    private val logger: Logger,
 ) {
     suspend fun login(
         email: String,
         password: String,
     ): Result<AuthSession> =
-        runCatching {
+        try {
             val response = authApi.login(LoginRequest(email, password))
             val body = response.body()
             if (response.isSuccessful && body != null) {
@@ -32,19 +35,22 @@ class AuthRepository(
                         userEmail = body.user.email,
                     )
                 sessionStore.save(session)
-                Log.i(TAG, "[event=auth.login_succeeded method=login] login succeeded | userId=${body.user.id}")
-                session
+                logger.info("auth.login_succeeded")
+                Result.success(session)
             } else {
-                Log.w(TAG, "[event=auth.login_failed method=login] login failed | code=${response.code()}")
-                throw RuntimeException("Login failed: HTTP ${response.code()}")
+                logger.warn("auth.login_failed", mapOf("http.status_code" to response.code().toString()))
+                Result.failure(RuntimeException("Login failed: HTTP ${response.code()}"))
             }
+        } catch (error: Throwable) {
+            logger.error("auth.login_failed", error = error)
+            Result.failure(error)
         }
 
     suspend fun register(
         email: String,
         password: String,
     ): Result<AuthSession> =
-        runCatching {
+        try {
             val response = authApi.register(RegisterRequest(email, password))
             val body = response.body()
             if (response.isSuccessful && body != null) {
@@ -57,15 +63,19 @@ class AuthRepository(
                         userEmail = body.user.email,
                     )
                 sessionStore.save(session)
-                Log.i(TAG, "[event=auth.registration_succeeded method=register] registration succeeded | userId=${body.user.id}")
-                session
+                logger.info("auth.registration_succeeded")
+                Result.success(session)
             } else {
-                throw RuntimeException("Registration failed: HTTP ${response.code()}")
+                logger.warn("auth.registration_failed", mapOf("http.status_code" to response.code().toString()))
+                Result.failure(RuntimeException("Registration failed: HTTP ${response.code()}"))
             }
+        } catch (error: Throwable) {
+            logger.error("auth.registration_failed", error = error)
+            Result.failure(error)
         }
 
     suspend fun refreshSession(): Result<AuthSession> =
-        runCatching {
+        try {
             val stored =
                 sessionStore.read()
                     ?: throw RuntimeException("No stored session to refresh")
@@ -84,26 +94,32 @@ class AuthRepository(
                     refreshToken = body.refreshToken,
                     sessionId = body.sessionId,
                 )
-                Log.i(TAG, "[event=auth.session_refreshed method=refreshSession] session refreshed | sessionId=${body.sessionId}")
-                AuthSession(
-                    accessToken = body.accessToken,
-                    refreshToken = body.refreshToken,
-                    sessionId = body.sessionId,
-                    userId = stored.userId,
-                    userEmail = stored.userEmail,
+                logger.info("auth.session_refreshed")
+                Result.success(
+                    AuthSession(
+                        accessToken = body.accessToken,
+                        refreshToken = body.refreshToken,
+                        sessionId = body.sessionId,
+                        userId = stored.userId,
+                        userEmail = stored.userEmail,
+                    ),
                 )
             } else {
-                Log.w(TAG, "[event=auth.session_refresh_failed method=refreshSession] session refresh failed | code=${response.code()}")
+                logger.warn("auth.session_refresh_failed", mapOf("http.status_code" to response.code().toString()))
                 sessionStore.clear()
-                throw RuntimeException("Token refresh failed: HTTP ${response.code()}")
+                throw AuthHttpFailure("Token refresh failed: HTTP ${response.code()}")
             }
-        }.onFailure { error ->
+        } catch (error: Throwable) {
+            if (error !is AuthHttpFailure) {
+                logger.error("auth.session_refresh_failed", error = error)
+            }
             // Clear the session on all failures except when there was no stored session to begin with.
             if (error.message?.startsWith("No stored session") == true) {
                 // Nothing to clear.
             } else {
                 sessionStore.clear()
             }
+            Result.failure(error)
         }
 
     suspend fun logout(): Result<Unit> =
@@ -111,17 +127,21 @@ class AuthRepository(
             val stored = sessionStore.read()
             if (stored != null) {
                 runCatching {
-                    authApi.logout(
-                        bearer = "Bearer ${stored.accessToken}",
-                        body =
-                            LogoutRequest(
-                                refreshToken = stored.refreshToken,
-                                sessionId = stored.sessionId,
-                            ),
-                    )
-                }
+                    val response =
+                        authApi.logout(
+                            bearer = "Bearer ${stored.accessToken}",
+                            body =
+                                LogoutRequest(
+                                    refreshToken = stored.refreshToken,
+                                    sessionId = stored.sessionId,
+                                ),
+                        )
+                    if (!response.isSuccessful) {
+                        logger.warn("auth.logout_failed", mapOf("http.status_code" to response.code().toString()))
+                    }
+                }.onFailure { error -> logger.warn("auth.logout_failed", error = error) }
             }
             sessionStore.clear()
-            Log.i(TAG, "[event=auth.session_cleared method=logout] session cleared")
+            logger.info("auth.session_cleared")
         }
 }

@@ -3,6 +3,7 @@ package com.example.langueedroid.di
 import android.content.Context
 import com.example.langueedroid.core.audio.AndroidTtsSpeaker
 import com.example.langueedroid.core.audio.Speaker
+import com.example.langueedroid.core.telemetry.Logger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,5 +18,6 @@ object AudioModule {
     @Singleton
     fun provideSpeaker(
         @ApplicationContext context: Context,
-    ): Speaker = AndroidTtsSpeaker(context)
+        logger: Logger,
+    ): Speaker = AndroidTtsSpeaker(context, logger)
 }

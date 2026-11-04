@@ -3,6 +3,7 @@ package com.example.langueedroid.di
 import android.content.Context
 import com.example.langueedroid.LangueeDroidApp
 import com.example.langueedroid.core.telemetry.AppLogger
+import com.example.langueedroid.core.telemetry.Logger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,5 +23,5 @@ object TelemetryModule {
 
     @Provides
     @Singleton
-    fun provideAppLogger(openTelemetry: OpenTelemetry): AppLogger = AppLogger(openTelemetry)
+    fun provideLogger(openTelemetry: OpenTelemetry): Logger = AppLogger(openTelemetry)
 }

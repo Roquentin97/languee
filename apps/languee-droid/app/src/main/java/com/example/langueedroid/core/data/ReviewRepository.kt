@@ -1,6 +1,5 @@
 package com.example.langueedroid.core.data
 
-import android.util.Log
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.GradeAnswerResult
@@ -16,12 +15,13 @@ import com.example.langueedroid.core.network.dto.CheckAnswerRequest
 import com.example.langueedroid.core.network.dto.CheckFormsRequest
 import com.example.langueedroid.core.network.dto.CheckFormsResponseDto
 import com.example.langueedroid.core.network.dto.GradeRequest
+import com.example.langueedroid.core.telemetry.Logger
 
-private const val TAG = "ReviewRepository"
 private const val DEFAULT_QUEUE_LIMIT = 20
 
 class ReviewRepository(
     private val reviewsApi: ReviewsApi,
+    private val logger: Logger,
 ) {
     suspend fun summary(): Result<ReviewSummary> =
         runCatching {
@@ -31,9 +31,12 @@ class ReviewRepository(
                     val body =
                         response.body()?.toDomain()
                             ?: throw Exception("Empty response body from review summary")
-                    Log.i(
-                        TAG,
-                        "[event=review.summary_loaded method=summary] summary loaded | dueCount=${body.dueCount} newCount=${body.newCount}",
+                    logger.info(
+                        "review.summary_loaded",
+                        mapOf(
+                            "due_count" to body.dueCount.toString(),
+                            "new_count" to body.newCount.toString(),
+                        ),
                     )
                     body
                 }
@@ -51,7 +54,7 @@ class ReviewRepository(
             when {
                 response.isSuccessful -> {
                     val items = response.body()?.items?.map { it.toDomain() } ?: emptyList()
-                    Log.i(TAG, "[event=review.queue_loaded method=queue] queue loaded | count=${items.size}")
+                    logger.info("review.queue_loaded", mapOf("count" to items.size.toString()))
                     items
                 }
                 response.code() == 401 -> throw UnauthorizedException()
@@ -74,7 +77,7 @@ class ReviewRepository(
                     val body =
                         response.body()?.toDomain()
                             ?: throw Exception("Empty response body from review answer check")
-                    Log.i(TAG, "[event=review.answer_checked method=checkAnswer] answer checked | cardId=$cardId result=${body.result}")
+                    logger.info("review.answer_checked", mapOf("result" to body.result.toString()))
                     body
                 }
                 response.code() == 401 -> throw UnauthorizedException()
@@ -140,9 +143,9 @@ class ReviewRepository(
                     val body =
                         response.body()?.toDomain()
                             ?: throw Exception("Empty response body from review grade")
-                    Log.i(
-                        TAG,
-                        "[event=review.card_graded method=grade] card graded | cardId=$cardId rating=$rating state=${body.state} intervalDays=${body.intervalDays}",
+                    logger.info(
+                        "review.card_graded",
+                        mapOf("rating" to rating.name, "state" to body.state, "interval_days" to body.intervalDays.toString()),
                     )
                     body
                 }

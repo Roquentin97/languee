@@ -13,6 +13,7 @@ import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
 import com.example.langueedroid.core.network.dto.ReviewQueueResponseDto
 import com.example.langueedroid.core.network.dto.ReviewSummaryDto
+import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
@@ -33,7 +34,7 @@ class ReviewRepositoryTest {
     @Before
     fun setUp() {
         reviewsApi = mock()
-        repository = ReviewRepository(reviewsApi)
+        repository = ReviewRepository(reviewsApi, mock<Logger>())
     }
 
     // -------------------------------------------------------------------------

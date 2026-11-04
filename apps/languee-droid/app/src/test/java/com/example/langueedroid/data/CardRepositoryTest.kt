@@ -10,6 +10,7 @@ import com.example.langueedroid.core.network.dto.CardDefinitionDto
 import com.example.langueedroid.core.network.dto.CardResponseDto
 import com.example.langueedroid.core.network.dto.CardWordDto
 import com.example.langueedroid.core.network.dto.CreateCardsResponseDto
+import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertTrue
@@ -27,7 +28,7 @@ class CardRepositoryTest {
     @Before
     fun setUp() {
         cardsApi = mock()
-        repository = CardRepository(cardsApi)
+        repository = CardRepository(cardsApi, mock<Logger>())
     }
 
     // -------------------------------------------------------------------------

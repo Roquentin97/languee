@@ -10,7 +10,7 @@ import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.VocabularyApi
-import com.example.langueedroid.core.telemetry.AppLogger
+import com.example.langueedroid.core.telemetry.Logger
 import com.languee.droid.BuildConfig
 import dagger.Lazy
 import dagger.Module
@@ -47,7 +47,7 @@ object NetworkModule {
     fun provideOkHttpClient(
         sessionStore: AuthSessionStore,
         authAuthenticator: AuthAuthenticator,
-        logger: AppLogger,
+        logger: Logger,
     ): OkHttpClient {
         val requestIdInterceptor =
             Interceptor { chain ->
@@ -86,16 +86,18 @@ object NetworkModule {
                 val started = System.nanoTime()
                 try {
                     val response = chain.proceed(request)
-                    logger.info(
-                        "http.request.completed",
-                        mapOf(
-                            "http.method" to request.method,
-                            "url.path" to request.url.encodedPath,
-                            "http.status_code" to response.code.toString(),
-                            "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
-                            "requestId" to request.header("X-Request-ID").orEmpty(),
-                        ) + traceAttributes(response.request),
-                    )
+                    if (response.code >= 400) {
+                        logger.warn(
+                            "http.request.failed",
+                            mapOf(
+                                "http.method" to request.method,
+                                "url.path" to request.url.encodedPath,
+                                "http.status_code" to response.code.toString(),
+                                "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
+                                "requestId" to request.header("X-Request-ID").orEmpty(),
+                            ) + traceAttributes(response.request),
+                        )
+                    }
                     response
                 } catch (error: java.io.IOException) {
                     logger.error(
