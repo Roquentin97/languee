@@ -102,6 +102,15 @@ SQL_IDENT = _re(r"[a-z_][a-z0-9_]{0,62}", "lowercase letters, digits, '_' (max 6
 # backup-db.sh, so its values are restricted to a shell-inert character set.
 STACK_SCHEMA: dict[str, Rule] = {
     "DOMAIN": HOSTNAME,
+    "MONITOR_DOMAIN": HOSTNAME,
+    "TELEMETRY_DOMAIN": HOSTNAME,
+    "GRAFANA_ADMIN_USER": TOKEN,
+    "GRAFANA_ADMIN_PASSWORD": _secret(16),
+    "TELEMETRY_USERNAME": TOKEN,
+    "TELEMETRY_PASSWORD_HASH": _re(
+        r"\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}",
+        "a Caddy bcrypt hash (generate with 'caddy hash-password')",
+    ),
     "LANGUEE_BACK_POSTGRES_USER": SQL_IDENT,
     "LANGUEE_BACK_POSTGRES_PASSWORD": _secret(16),  # interpolated into DATABASE_URL
     "LANGUEE_BACK_POSTGRES_DB": SQL_IDENT,
@@ -131,12 +140,11 @@ BACK_SCHEMA: dict[str, Rule] = {
     "SERVICE_NAME": TOKEN,
     "PRINT_DEBUG_LOGS": BOOL,
     "PRINT_PRETTY_JSON_LOGS": BOOL,
-    "TRACING_ENABLED": BOOL,
+    "TRACING_ENABLED": _equals("true", "production telemetry is always sent to private Alloy"),
     "OTEL_TRACES_SAMPLER": TOKEN,
     "OTEL_TRACES_SAMPLER_ARG": _re(r"[0-9]+(\.[0-9]+)?", "a number such as 1.0"),
-    "OTEL_EXPORTER_OTLP_PROTOCOL": _re(r"[a-z/]+", "e.g. http/protobuf", required=False),
-    "OTEL_EXPORTER_OTLP_ENDPOINT": _re(r"https?://\S+", "an http(s) URL", required=False),
-    "OTEL_EXPORTER_OTLP_HEADERS": _re(r"[ -~]+", "printable ASCII", required=False),
+    "OTEL_EXPORTER_OTLP_PROTOCOL": _equals("http/protobuf", "the Alloy OTLP/HTTP receiver"),
+    "OTEL_EXPORTER_OTLP_ENDPOINT": _equals("http://alloy:4318", "the private Alloy receiver"),
 }
 
 NLP_SCHEMA: dict[str, Rule] = {
@@ -145,9 +153,9 @@ NLP_SCHEMA: dict[str, Rule] = {
     "LANGUEE_NLP_LOG_LEVEL": TOKEN,
     "LANGUEE_NLP_SERVICE_NAME": TOKEN,
     "LANGUEE_NLP_ENVIRONMENT": TOKEN,
-    "LANGUEE_NLP_TRACING_ENABLED": BOOL,
-    "LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT": _re(
-        r"https?://\S+", "an http(s) URL", required=False
+    "LANGUEE_NLP_TRACING_ENABLED": _equals("true", "production telemetry is always sent to private Alloy"),
+    "LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT": _equals(
+        "http://alloy:4318", "the private Alloy receiver"
     ),
 }
 
@@ -217,7 +225,7 @@ def validate(config: Mapping[str, str]) -> None:
                 if rule.required:
                     errors.append(f"{key}: missing")
                 continue
-            problem = _value_problem(config[key], rule, kind)
+            problem = _value_problem(config[key], rule, kind, key)
             if problem:
                 errors.append(f"{key}: {problem}")
 
@@ -227,7 +235,7 @@ def validate(config: Mapping[str, str]) -> None:
         raise ConfigError("invalid secret content:\n  " + "\n  ".join(errors))
 
 
-def _value_problem(value: str, rule: Rule, kind: str) -> str | None:
+def _value_problem(value: str, rule: Rule, kind: str, key: str) -> str | None:
     if value == "":
         return None if rule.allow_empty else "empty"
     if any(not 0x20 <= ord(c) <= 0x7E for c in value):
@@ -235,7 +243,7 @@ def _value_problem(value: str, rule: Rule, kind: str) -> str | None:
     if value != value.strip():
         return "has leading or trailing whitespace"
     if kind == "stack":
-        if not STACK_ENV_SAFE.fullmatch(value):
+        if key != "TELEMETRY_PASSWORD_HASH" and not STACK_ENV_SAFE.fullmatch(value):
             return "contains characters unsafe for the shell-sourced .env"
     elif SERVICE_ENV_FORBIDDEN & set(value):
         return "contains one of $ \" ' ` \\ # which env_file parsing would alter"
@@ -246,14 +254,6 @@ def _value_problem(value: str, rule: Rule, kind: str) -> str | None:
 
 def _relationship_problems(config: Mapping[str, str]) -> list[str]:
     problems = []
-    if config["TRACING_ENABLED"] == "true" and not config.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
-        problems.append("OTEL_EXPORTER_OTLP_ENDPOINT: required when TRACING_ENABLED=true")
-    if config["LANGUEE_NLP_TRACING_ENABLED"] == "true" and not config.get(
-        "LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT"
-    ):
-        problems.append(
-            "LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT: required when LANGUEE_NLP_TRACING_ENABLED=true"
-        )
     if ":" in config["LANGUEE_NLP_BASIC_AUTH_LOGIN"]:
         problems.append("LANGUEE_NLP_BASIC_AUTH_LOGIN: must not contain ':' (HTTP basic auth)")
     return problems
@@ -267,7 +267,12 @@ def render(config: Mapping[str, str], back_tag: str, nlp_tag: str, secret_versio
     )
 
     def lines(pairs: list[tuple[str, str]]) -> str:
-        return header + "".join(f"{k}={v}\n" for k, v in pairs)
+        def rendered_value(key: str, value: str) -> str:
+            # Caddy bcrypt hashes contain dollar signs. Quotes preserve them for
+            # both Docker Compose and backup-db.sh, which reads this file too.
+            return f"'{value}'" if key == "TELEMETRY_PASSWORD_HASH" else value
+
+        return header + "".join(f"{k}={rendered_value(k, v)}\n" for k, v in pairs)
 
     stack = [("COMPOSE_FILE", COMPOSE_FILE), ("LANGUEE_BACK_TAG", back_tag), ("LANGUEE_NLP_TAG", nlp_tag)]
     stack += [(k, config[k]) for k in STACK_SCHEMA if k in config]

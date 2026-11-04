@@ -213,6 +213,12 @@ jobs:
       - name: Compose file renders
         env:
           DOMAIN: ci.example.com
+          MONITOR_DOMAIN: monitor.ci.example.com
+          TELEMETRY_DOMAIN: telemetry.ci.example.com
+          GRAFANA_ADMIN_USER: admin
+          GRAFANA_ADMIN_PASSWORD: ci-grafana-password
+          TELEMETRY_USERNAME: android-ingest
+          TELEMETRY_PASSWORD_HASH: $2a$14$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           LANGUEE_BACK_POSTGRES_USER: ci
           LANGUEE_BACK_POSTGRES_PASSWORD: ci-not-a-secret
           LANGUEE_BACK_POSTGRES_DB: ci
@@ -225,6 +231,10 @@ jobs:
           touch languee-back.env languee-nlp.env apps/languee-back/.env apps/languee-nlp/.env
           docker compose -f docker-compose.prod.yml --profile tools config --quiet
           docker compose config --quiet
+          docker run --rm \
+            -e DOMAIN -e MONITOR_DOMAIN -e TELEMETRY_DOMAIN -e TELEMETRY_USERNAME -e TELEMETRY_PASSWORD_HASH \
+            -v "$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
   required:
     name: required

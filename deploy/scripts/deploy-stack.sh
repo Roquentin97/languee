@@ -15,6 +15,7 @@ preserve_tags=false
 allow_persistent_infra=false
 config_changed=false
 infra_services=()
+monitoring_services=(loki tempo prometheus alloy grafana)
 back_version=
 back_revision=
 nlp_version=
@@ -122,6 +123,14 @@ nlp_container_before=$(docker compose ps -q languee-nlp 2>/dev/null || true)
 
 # No blanket compose pull: normal app deploys cannot advance infrastructure.
 docker compose up -d --wait postgres redis
+
+# Start the self-hosted telemetry services separately from application services.
+# Their named volumes survive both ordinary deploys and config recreations.
+if [ "$config_changed" = true ]; then
+  docker compose up -d --force-recreate --wait "${monitoring_services[@]}"
+else
+  docker compose up -d --wait "${monitoring_services[@]}"
+fi
 for service in "${infra_services[@]}"; do
   before_image=$(docker compose images -q "$service" 2>/dev/null || true)
   docker compose pull "$service"

@@ -9,9 +9,8 @@
 # languee-nlp) so one vocabulary covers compose, images, Forge targets, commit
 # scopes, and the SERVICE_NAME each app reports in logs and traces.
 #
-# Observability is intentionally absent: apps ship OTLP directly to Grafana
-# Cloud when enabled in languee-back.env / languee-nlp.env. Postgres, Redis, and
-# the NLP service publish no host ports — only Caddy is reachable from outside.
+# Caddy is the only service with published ports. Observability data remains on
+# the Compose network except the protected OTLP/HTTP ingress on TELEMETRY_DOMAIN.
 
 name: languee
 
@@ -24,6 +23,10 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN is required}
+      MONITOR_DOMAIN: ${MONITOR_DOMAIN:?MONITOR_DOMAIN is required}
+      TELEMETRY_DOMAIN: ${TELEMETRY_DOMAIN:?TELEMETRY_DOMAIN is required}
+      TELEMETRY_USERNAME: ${TELEMETRY_USERNAME:?TELEMETRY_USERNAME is required}
+      TELEMETRY_PASSWORD_HASH: ${TELEMETRY_PASSWORD_HASH:?TELEMETRY_PASSWORD_HASH is required}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -31,6 +34,11 @@ services:
     depends_on:
       languee-back:
         condition: service_healthy
+    labels:
+      logging: alloy
+      service: caddy
+      app: proxy
+      environment: production
 
   postgres:
     image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
@@ -70,6 +78,11 @@ services:
     restart: unless-stopped
     env_file:
       - ./languee-nlp.env
+    labels:
+      logging: alloy
+      service: languee-nlp
+      app: backend
+      environment: production
     healthcheck:
       test:
         [
@@ -92,6 +105,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${LANGUEE_BACK_POSTGRES_USER}:${LANGUEE_BACK_POSTGRES_PASSWORD}@postgres:5432/${LANGUEE_BACK_POSTGRES_DB}
       REDIS_PASSWORD: ${LANGUEE_BACK_REDIS_PASSWORD}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,6 +121,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    labels:
+      logging: alloy
+      service: languee-back
+      app: backend
+      environment: production
 
   migrate:
     image: ghcr.io/roquentin97/languee/languee-back-migrator:${LANGUEE_BACK_TAG:?LANGUEE_BACK_TAG is required}
@@ -120,8 +139,110 @@ services:
       postgres:
         condition: service_healthy
 
+  loki:
+    image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    volumes:
+      - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  tempo:
+    image: grafana/tempo:2.7.1@sha256:4443be217c396b065ee34845534199c36fdba4dc619cb96550e228d73fba6e69
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    restart: unless-stopped
+    volumes:
+      - ./provision/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  prometheus:
+    image: prom/prometheus:v3.4.0@sha256:78ed1f9050eb9eaf766af6e580230b1c4965728650e332cd1ee918c0c4699775
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+      - --storage.tsdb.retention.time=30d
+    restart: unless-stopped
+    volumes:
+      - ./provision/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  alloy:
+    image: grafana/alloy:v1.16.0@sha256:6e00cf7c5a692ff5f24844529416ed017d76fce922f8199004e73d5eca46b6b8
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    restart: unless-stopped
+    volumes:
+      - ./provision/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    mem_limit: 256m
+    depends_on:
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:13.0.1-security-01@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./provision/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./provision/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    mem_limit: 256m
+    depends_on:
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 volumes:
   postgres_data:
   redis_data:
   caddy_data:
   caddy_config:
+  loki_data:
+  tempo_data:
+  alloy_data:
+  grafana_data:
+  prometheus_data:
