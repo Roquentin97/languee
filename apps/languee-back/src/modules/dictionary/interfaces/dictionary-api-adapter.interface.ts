@@ -1,21 +1,21 @@
+import type { RelationType } from '../../morphology/morphology-provider';
 import { PartOfSpeech } from '../../vocabulary/enums/part-of-speech.enum';
-import type { InflectionForms } from '../types/inflection-forms.types';
 
 export interface RawDefinitionEntry {
   partOfSpeech: PartOfSpeech;
   definition: string;
   example?: string;
-  hasIrregularForms?: boolean;
-  inflectionForms?: InflectionForms | null;
 }
 
 /**
  * Pluggable adapter for any external dictionary API.
- * Implementations must normalize responses into RawDefinitionEntry[].
+ * Structured providers expose per-sense references through fetchEntry.
+ * Semantic-only providers may implement fetch alone.
  * Throws ProviderUnavailableError when the provider cannot be reached or returns an error.
  */
 export interface IDictionaryApiAdapter {
   readonly providerName: string;
+  fetchEntry?(lemma: string, language: string): Promise<DictionaryEntry>;
   fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]>;
 
   /**
@@ -26,3 +26,22 @@ export interface IDictionaryApiAdapter {
    */
   fetchIpa?(lemma: string, language: string): Promise<string | null>;
 }
+
+export type DictionaryEntry = {
+  definitions: RawDefinitionEntry[];
+  references: DictionaryReference[];
+};
+
+export type DictionaryReference = {
+  category:
+    | 'morphological_reference'
+    | 'alternative_spelling'
+    | 'other_reference'
+    | 'unresolved';
+  source: string;
+  sourcePos: PartOfSpeech | null;
+  targets: string[];
+  targetPos: PartOfSpeech | null;
+  relationTypes: RelationType[];
+  text: string;
+};

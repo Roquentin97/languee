@@ -1,0 +1,17 @@
+meta {
+  name: Lemma Candidates
+  type: http
+  seq: 1
+}
+get {
+  url: {{base_url}}/morphology/lemmas?text=better&language=en
+  body: none
+  auth: inherit
+}
+tests {
+  test("returns POS-independent candidates", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an("array");
+    expect(res.body).to.deep.include({ lemma: "well", partOfSpeech: "adverb" });
+  });
+}

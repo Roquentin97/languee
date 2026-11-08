@@ -14,10 +14,11 @@ import {
 import {
   IDictionaryApiAdapter,
   RawDefinitionEntry,
+  DictionaryEntry,
 } from '../interfaces/dictionary-api-adapter.interface';
 import {
   extractEnglishIpaFromWikitext,
-  parseWiktionaryResponse,
+  parseWiktionaryEntry,
 } from '../parsers/wiktionary.parser';
 
 @Injectable()
@@ -30,6 +31,10 @@ export class WiktionaryApiAdapter implements IDictionaryApiAdapter {
   ) {}
 
   async fetch(lemma: string, language: string): Promise<RawDefinitionEntry[]> {
+    return (await this.fetchEntry(lemma, language)).definitions;
+  }
+
+  async fetchEntry(lemma: string, language: string): Promise<DictionaryEntry> {
     // Wikimedia's User-Agent policy expects a descriptive agent with a contact
     // route; they throttle generic ones. It is configured, not hardcoded.
     const userAgent = this.configService.getOrThrow<string>(
@@ -53,12 +58,16 @@ export class WiktionaryApiAdapter implements IDictionaryApiAdapter {
           lemma,
           language,
         });
-        return [];
+        return { definitions: [], references: [] };
       }
       throw new ProviderUnavailableError(this.providerName, err);
     }
 
-    return parseWiktionaryResponse(body, language);
+    try {
+      return parseWiktionaryEntry(body, language, lemma);
+    } catch (err: unknown) {
+      throw new ProviderUnavailableError(this.providerName, err);
+    }
   }
 
   async fetchIpa(lemma: string, language: string): Promise<string | null> {

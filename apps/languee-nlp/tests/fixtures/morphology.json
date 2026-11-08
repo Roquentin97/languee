@@ -1,0 +1,472 @@
+{
+  "lemminflect_candidate_cases": [
+    {
+      "id": "L01",
+      "surface": "poised",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "poised"
+        ],
+        "verb": [
+          "poise"
+        ]
+      }
+    },
+    {
+      "id": "L02",
+      "surface": "better",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "good",
+          "well"
+        ],
+        "adverb": [
+          "well"
+        ],
+        "noun": [
+          "better"
+        ],
+        "verb": [
+          "better"
+        ]
+      }
+    },
+    {
+      "id": "L03",
+      "surface": "best",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "good",
+          "well"
+        ],
+        "adverb": [
+          "well"
+        ],
+        "noun": [
+          "best"
+        ],
+        "verb": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "L04",
+      "surface": "axes",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "axe",
+          "axis",
+          "ax"
+        ],
+        "verb": [
+          "ax",
+          "axe"
+        ]
+      }
+    },
+    {
+      "id": "L05",
+      "surface": "saw",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "saw"
+        ],
+        "verb": [
+          "see",
+          "saw"
+        ]
+      }
+    },
+    {
+      "id": "L06",
+      "surface": "found",
+      "observed_lemminflect_candidates_by_pos": {
+        "verb": [
+          "find",
+          "found"
+        ]
+      }
+    },
+    {
+      "id": "L07",
+      "surface": "left",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "left"
+        ],
+        "adverb": [
+          "left"
+        ],
+        "noun": [
+          "left"
+        ],
+        "verb": [
+          "leave"
+        ]
+      }
+    },
+    {
+      "id": "L08",
+      "surface": "meeting",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "meeting"
+        ],
+        "verb": [
+          "meet"
+        ]
+      }
+    },
+    {
+      "id": "L09",
+      "surface": "running",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "running"
+        ],
+        "verb": [
+          "run"
+        ]
+      }
+    },
+    {
+      "id": "L10",
+      "surface": "went",
+      "observed_lemminflect_candidates_by_pos": {
+        "verb": [
+          "go"
+        ]
+      }
+    },
+    {
+      "id": "L11",
+      "surface": "children",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "child"
+        ]
+      }
+    },
+    {
+      "id": "L12",
+      "surface": "mice",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "mouse"
+        ]
+      }
+    },
+    {
+      "id": "L13",
+      "surface": "was",
+      "observed_lemminflect_candidates_by_pos": {
+        "auxiliary": [
+          "be"
+        ],
+        "verb": [
+          "be"
+        ]
+      }
+    },
+    {
+      "id": "L14",
+      "surface": "were",
+      "observed_lemminflect_candidates_by_pos": {
+        "auxiliary": [
+          "be"
+        ],
+        "verb": [
+          "be"
+        ]
+      }
+    },
+    {
+      "id": "L15",
+      "surface": "interested",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "interested"
+        ],
+        "verb": [
+          "interest"
+        ]
+      }
+    },
+    {
+      "id": "L16",
+      "surface": "exhausted",
+      "observed_lemminflect_candidates_by_pos": {
+        "verb": [
+          "exhaust"
+        ]
+      }
+    }
+  ],
+  "lemminflect_paradigm_cases": [
+    {
+      "id": "P01",
+      "lemma": "be",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "be"
+        ],
+        "VBD": [
+          "was",
+          "were"
+        ],
+        "VBG": [
+          "being"
+        ],
+        "VBN": [
+          "been"
+        ],
+        "VBP": [
+          "am",
+          "are"
+        ],
+        "VBZ": [
+          "is"
+        ]
+      }
+    },
+    {
+      "id": "P02",
+      "lemma": "go",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "go"
+        ],
+        "VBP": [
+          "go"
+        ],
+        "VBD": [
+          "went"
+        ],
+        "VBN": [
+          "gone"
+        ],
+        "VBG": [
+          "going"
+        ],
+        "VBZ": [
+          "goes"
+        ]
+      }
+    },
+    {
+      "id": "P03",
+      "lemma": "walk",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "walk"
+        ],
+        "VBP": [
+          "walk"
+        ],
+        "VBD": [
+          "walked"
+        ],
+        "VBG": [
+          "walking"
+        ],
+        "VBZ": [
+          "walks"
+        ]
+      }
+    },
+    {
+      "id": "P04",
+      "lemma": "write",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "write"
+        ],
+        "VBP": [
+          "write"
+        ],
+        "VBD": [
+          "wrote"
+        ],
+        "VBN": [
+          "written"
+        ],
+        "VBG": [
+          "writing"
+        ],
+        "VBZ": [
+          "writes"
+        ]
+      }
+    },
+    {
+      "id": "P05",
+      "lemma": "learn",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "learn"
+        ],
+        "VBP": [
+          "learn"
+        ],
+        "VBD": [
+          "learned",
+          "learnt"
+        ],
+        "VBN": [
+          "learned"
+        ],
+        "VBG": [
+          "learning"
+        ],
+        "VBZ": [
+          "learns"
+        ]
+      }
+    },
+    {
+      "id": "P06",
+      "lemma": "child",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "child"
+        ],
+        "NNS": [
+          "children"
+        ]
+      }
+    },
+    {
+      "id": "P07",
+      "lemma": "mouse",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "mouse"
+        ],
+        "NNS": [
+          "mice"
+        ]
+      }
+    },
+    {
+      "id": "P08",
+      "lemma": "axis",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "axis"
+        ],
+        "NNS": [
+          "axes",
+          "axises"
+        ]
+      }
+    },
+    {
+      "id": "P09",
+      "lemma": "good",
+      "part_of_speech": "adjective",
+      "observed_lemminflect_tags": {
+        "JJ": [
+          "good"
+        ],
+        "JJR": [
+          "better"
+        ],
+        "JJS": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "P10",
+      "lemma": "well",
+      "part_of_speech": "adverb",
+      "observed_lemminflect_tags": {
+        "RB": [
+          "well"
+        ],
+        "RBR": [
+          "better"
+        ],
+        "RBS": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "P11",
+      "lemma": "well",
+      "part_of_speech": "adjective",
+      "observed_lemminflect_tags": {
+        "JJ": [
+          "well"
+        ],
+        "JJR": [
+          "better"
+        ],
+        "JJS": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "P12",
+      "lemma": "happy",
+      "part_of_speech": "adjective",
+      "observed_lemminflect_tags": {
+        "JJ": [
+          "happy"
+        ],
+        "JJR": [
+          "happier"
+        ],
+        "JJS": [
+          "happiest"
+        ]
+      }
+    },
+    {
+      "id": "P13",
+      "lemma": "better",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "better"
+        ],
+        "NNS": [
+          "betters"
+        ]
+      }
+    },
+    {
+      "id": "P14",
+      "lemma": "better",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "better"
+        ],
+        "VBP": [
+          "better"
+        ],
+        "VBD": [
+          "bettered"
+        ],
+        "VBG": [
+          "bettering"
+        ],
+        "VBZ": [
+          "betters"
+        ]
+      }
+    }
+  ]
+}

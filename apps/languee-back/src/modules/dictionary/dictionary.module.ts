@@ -1,3 +1,6 @@
+import { HeadwordDiscoveryService } from './headword-discovery.service';
+import { MORPHOLOGY_PROVIDER } from '../morphology/morphology-provider';
+import { NlpMorphologyAdapter } from '../morphology/nlp-morphology.adapter';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WordsModule } from '../words/words.module';
@@ -38,9 +41,12 @@ import { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.inter
         WiktionaryApiAdapter,
       ],
     },
+    NlpMorphologyAdapter,
+    { provide: MORPHOLOGY_PROVIDER, useExisting: NlpMorphologyAdapter },
+    HeadwordDiscoveryService,
     DictionaryService,
   ],
   controllers: [DictionaryController],
-  exports: [DictionaryService],
+  exports: [DictionaryService, HeadwordDiscoveryService],
 })
 export class DictionaryModule {}

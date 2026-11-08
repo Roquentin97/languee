@@ -28,11 +28,12 @@ export type ExpressionInflections = {
   contextForm: string;
 };
 
-export type InflectionForms =
+export type InflectionForms = (
   | AdjectiveInflections
   | VerbInflections
   | NounInflections
-  | ExpressionInflections;
+  | ExpressionInflections
+) & { variants?: Record<string, string[]> };
 
 export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
   nullable: true,
@@ -41,6 +42,12 @@ export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
       type: 'object',
       required: ['type', 'positive'],
       properties: {
+        variants: {
+          type: 'object',
+          additionalProperties: { type: 'array', items: { type: 'string' } },
+          description:
+            'Additional accepted spellings by form key in a card snapshot.',
+        },
         type: { type: 'string', enum: ['adjective'] },
         positive: { type: 'string', example: 'good' },
         comparative: { type: 'string', example: 'better' },
@@ -51,6 +58,12 @@ export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
       type: 'object',
       required: ['type', 'base'],
       properties: {
+        variants: {
+          type: 'object',
+          additionalProperties: { type: 'array', items: { type: 'string' } },
+          description:
+            'Additional accepted spellings by form key in a card snapshot.',
+        },
         type: { type: 'string', enum: ['verb'] },
         base: { type: 'string', example: 'see' },
         past: { type: 'string', example: 'saw' },
@@ -64,6 +77,12 @@ export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
       type: 'object',
       required: ['type'],
       properties: {
+        variants: {
+          type: 'object',
+          additionalProperties: { type: 'array', items: { type: 'string' } },
+          description:
+            'Additional accepted spellings by form key in a card snapshot.',
+        },
         type: { type: 'string', enum: ['noun'] },
         singular: { type: 'string', example: 'owl' },
         plural: { type: 'string', example: 'owls' },
@@ -73,6 +92,12 @@ export const INFLECTION_FORMS_SWAGGER: ApiPropertyOptions = {
       type: 'object',
       required: ['type', 'contextForm'],
       properties: {
+        variants: {
+          type: 'object',
+          additionalProperties: { type: 'array', items: { type: 'string' } },
+          description:
+            'Additional accepted spellings by form key in a card snapshot.',
+        },
         type: { type: 'string', enum: ['expression'] },
         contextForm: { type: 'string', example: 'ran into' },
       },

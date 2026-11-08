@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { DefinitionService } from './definitions.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
-import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 function makeDefinitionRow(
   overrides: Partial<{
@@ -13,8 +12,6 @@ function makeDefinitionRow(
     definition: string;
     example: string | null;
     provider: string;
-    hasIrregularForms: boolean;
-    inflectionForms: InflectionForms | null;
   }> = {},
 ) {
   return {
@@ -25,11 +22,6 @@ function makeDefinitionRow(
     example: overrides.example ?? null,
     provider: overrides.provider ?? 'dictionaryapi',
     gapFillMetadata: null,
-    hasIrregularForms: overrides.hasIrregularForms ?? false,
-    inflectionForms:
-      overrides.inflectionForms !== undefined
-        ? overrides.inflectionForms
-        : null,
     createdAt: new Date(),
   };
 }
@@ -255,41 +247,7 @@ describe('DefinitionService', () => {
       expect(prismaMock.definition.create).not.toHaveBeenCalled();
     });
 
-    it('passes inflection metadata when provided', async () => {
-      const inflectionForms: InflectionForms = {
-        type: 'verb',
-        base: 'run',
-        past: 'ran',
-      };
-      prismaMock.definition.findUnique.mockResolvedValue(null);
-      prismaMock.definition.create.mockResolvedValue(
-        makeDefinitionRow({ hasIrregularForms: true, inflectionForms }),
-      );
-
-      await service.createMany(
-        'word-id-1',
-        [
-          {
-            partOfSpeech: PartOfSpeech.VERB,
-            definition: 'move at a fast pace',
-            hasIrregularForms: true,
-            inflectionForms,
-          },
-        ],
-        'dictionaryapi',
-      );
-
-      expect(prismaMock.definition.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            hasIrregularForms: true,
-            inflectionForms,
-          }) as unknown,
-        }),
-      );
-    });
-
-    it('uses Prisma.JsonNull when inflectionForms is undefined', async () => {
+    it('does not write removed definition morphology', async () => {
       prismaMock.definition.findUnique.mockResolvedValue(null);
       prismaMock.definition.create.mockResolvedValue(makeDefinitionRow());
 
@@ -306,7 +264,7 @@ describe('DefinitionService', () => {
 
       expect(prismaMock.definition.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
+          data: expect.not.objectContaining({
             inflectionForms: expect.anything() as unknown,
           }) as unknown,
         }),

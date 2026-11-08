@@ -38,7 +38,7 @@ def _build_forms(token: spacy.tokens.Token) -> FormsResult:
     pos = token.pos_
     lemma = token.lemma_
 
-    if pos == "VERB":
+    if pos in ("VERB", "AUX"):
         return FormsResult(
             verb_base=_first(getInflection(lemma, tag="VB")),
             verb_past=_first(getInflection(lemma, tag="VBD")),
@@ -77,8 +77,12 @@ def _build_forms(token: spacy.tokens.Token) -> FormsResult:
             noun_singular=None,
             noun_plural=None,
             adj_positive=lemma,
-            adj_comparative=_first(getInflection(lemma, tag="JJR")),
-            adj_superlative=_first(getInflection(lemma, tag="JJS")),
+            adj_comparative=_first(
+                getInflection(lemma, tag="RBR" if pos == "ADV" else "JJR")
+            ),
+            adj_superlative=_first(
+                getInflection(lemma, tag="RBS" if pos == "ADV" else "JJS")
+            ),
         )
     logger.debug(
         "no forms for pos",
@@ -115,7 +119,7 @@ def _is_irregular(token: spacy.tokens.Token) -> bool:
     text = token.text
     lemma = token.lemma_
 
-    if pos == "VERB":
+    if pos in ("VERB", "AUX"):
         tense = morph.get("Tense")
         verb_form = morph.get("VerbForm")
         if tense == "Past" or verb_form == "Part":

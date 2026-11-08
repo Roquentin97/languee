@@ -1,3 +1,6 @@
+import { HeadwordDiscoveryService } from './headword-discovery.service';
+import { PrismaService } from '../core/prisma/prisma.service';
+import { MORPHOLOGY_PROVIDER } from '../morphology/morphology-provider';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DictionaryApiAdapter } from './adapters/dictionary-api.adapter';
@@ -174,6 +177,25 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
     testModule = await Test.createTestingModule({
       providers: [
         DictionaryService,
+        HeadwordDiscoveryService,
+        {
+          provide: MORPHOLOGY_PROVIDER,
+          useValue: {
+            findLemmaCandidates: () => Promise.resolve([]),
+            getInflections: () => Promise.resolve([]),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            lookupState: {
+              findUnique: () => Promise.resolve(null),
+              upsert: () => Promise.resolve({}),
+            },
+            word: { findMany: () => Promise.resolve([]) },
+            wordForm: { findMany: () => Promise.resolve([]) },
+          },
+        },
         { provide: WordsService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
         { provide: DICTIONARY_API_ADAPTER, useValue: adapterMock },

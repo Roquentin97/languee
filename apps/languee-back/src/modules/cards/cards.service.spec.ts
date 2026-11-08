@@ -38,8 +38,6 @@ const mockDefinition: DefinitionWithWord = {
   example: 'She runs every morning.',
   provider: 'free-dictionary',
   gapFillMetadata: null,
-  hasIrregularForms: false,
-  inflectionForms: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   word: mockWord,
 };
@@ -47,13 +45,6 @@ const mockDefinition: DefinitionWithWord = {
 const mockDefinitionInflecting: DefinitionWithWord = {
   ...mockDefinition,
   id: 'def-id-2',
-  hasIrregularForms: true,
-  inflectionForms: {
-    type: 'verb',
-    base: 'run',
-    past: 'ran',
-    present3sg: 'runs',
-  },
 };
 
 function baseCard(overrides: Partial<Card>): Card {
@@ -96,7 +87,12 @@ const mockInflectionCard = baseCard({
   type: 'inflection',
   wordId: 'word-id-1',
   partOfSpeech: 'verb',
-  inflectionForms: mockDefinitionInflecting.inflectionForms,
+  inflectionForms: {
+    type: 'verb',
+    base: 'run',
+    past: 'ran',
+    present3sg: 'runs',
+  },
 });
 
 function withRelations(card: Card, deckId?: string) {
@@ -123,6 +119,7 @@ const mockTx = {
 };
 
 const mockPrismaService = {
+  wordForm: { findMany: jest.fn().mockResolvedValue([]) },
   card: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -149,6 +146,7 @@ describe('CardsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrismaService.wordForm.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -201,6 +199,9 @@ describe('CardsService', () => {
     });
 
     it('happy path — an inflecting word additionally yields a shared inflection card', async () => {
+      mockPrismaService.wordForm.findMany.mockResolvedValue([
+        { form: 'ran', relationType: 'past', partOfSpeech: 'verb' },
+      ]);
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(
         mockDefinitionInflecting,
@@ -234,7 +235,6 @@ describe('CardsService', () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue({
         ...mockDefinitionInflecting,
-        hasIrregularForms: false,
       });
       mockTx.card.findUnique
         .mockResolvedValueOnce(null)
@@ -281,6 +281,9 @@ describe('CardsService', () => {
     });
 
     it('reuses an eligible lemma+POS inflection card when saving another sense to another deck', async () => {
+      mockPrismaService.wordForm.findMany.mockResolvedValue([
+        { form: 'ran', relationType: 'past', partOfSpeech: 'verb' },
+      ]);
       mockDecksService.findOneOrThrow.mockResolvedValue({
         ...mockDeck,
         id: 'deck-id-2',
@@ -391,6 +394,9 @@ describe('CardsService', () => {
     });
 
     it('edge case — concurrent creation (P2002) on the inflection card re-fetches instead of failing', async () => {
+      mockPrismaService.wordForm.findMany.mockResolvedValue([
+        { form: 'ran', relationType: 'past', partOfSpeech: 'verb' },
+      ]);
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(
         mockDefinitionInflecting,

@@ -1,3 +1,4 @@
+import { projectParadigm, snapshotParadigm } from '../morphology/paradigm';
 import { Injectable, Logger } from '@nestjs/common';
 import { CardType, Prisma } from '@prisma/client';
 import type {
@@ -23,6 +24,7 @@ export type CardWithRelations = Card & {
   definition: (Definition & { word: Word }) | null;
   word: Word | null;
   decks: DeckRef[];
+  lexicalInflectionForms?: InflectionForms | null;
 };
 
 export type CardWithAnkiDroidExport = CardWithRelations & {
@@ -45,7 +47,7 @@ export type CardSchedulingUpdate = {
 };
 
 const RELATIONS_INCLUDE = {
-  definition: { include: { word: true } },
+  definition: { include: { word: { include: { forms: true } } } },
   word: true,
   decks: { include: { deck: { select: { id: true, name: true } } } },
 } satisfies Prisma.CardInclude;
@@ -71,14 +73,34 @@ function toDeckRefs(decks: RawCard['decks']): DeckRef[] {
 
 function toCardWithRelations(card: RawCard): CardWithRelations {
   const { decks, ...rest } = card;
-  return { ...rest, decks: toDeckRefs(decks) };
+  return {
+    ...rest,
+    decks: toDeckRefs(decks),
+    lexicalInflectionForms: card.definition
+      ? projectParadigm(
+          card.definition.word.lemma,
+          card.definition.partOfSpeech,
+          card.definition.word.forms,
+        ).inflectionForms
+      : null,
+  };
 }
 
 function toCardWithAnkiDroidExport(
   card: RawCardWithExport,
 ): CardWithAnkiDroidExport {
   const { decks, ...rest } = card;
-  return { ...rest, decks: toDeckRefs(decks) };
+  return {
+    ...rest,
+    decks: toDeckRefs(decks),
+    lexicalInflectionForms: card.definition
+      ? projectParadigm(
+          card.definition.word.lemma,
+          card.definition.partOfSpeech,
+          card.definition.word.forms,
+        ).inflectionForms
+      : null,
+  };
 }
 
 @Injectable()
@@ -110,13 +132,33 @@ export class CardsService {
       throw new DefinitionNotFoundError();
     }
 
+    const forms = await this.prisma.wordForm.findMany({
+      where: {
+        wordId: definition.wordId,
+        partOfSpeech: definition.partOfSpeech,
+      },
+    });
+    const paradigm = projectParadigm(
+      definition.word.lemma,
+      definition.partOfSpeech,
+      forms,
+    );
+    const lexicalSnapshot = snapshotParadigm(
+      definition.word.lemma,
+      definition.partOfSpeech,
+      forms,
+    );
+    const snapshot =
+      definition.word.kind === 'word'
+        ? lexicalSnapshot
+        : (inflectionForms ?? null);
     const cardIds = await this.prisma.$transaction(async (tx) => {
       const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.cloze,
         definitionId,
         context: context ?? null,
-        inflectionForms: inflectionForms ?? null,
+        inflectionForms: snapshot,
       });
 
       const alreadyInDeck = await tx.cardDeck.findUnique({
@@ -137,14 +179,14 @@ export class CardsService {
       const ids = [clozeCard.id, definitionCard.id];
 
       if (
-        definition.hasIrregularForms &&
-        wordInflects(definition.inflectionForms as InflectionForms | null)
+        paradigm.hasIrregularForms &&
+        wordInflects(paradigm.inflectionForms)
       ) {
         const inflectionCard = await this.findOrCreateInflectionCard(tx, {
           userId,
           wordId: definition.wordId,
           partOfSpeech: definition.partOfSpeech,
-          inflectionForms: definition.inflectionForms as InflectionForms | null,
+          inflectionForms: lexicalSnapshot,
         });
         ids.push(inflectionCard.id);
       }

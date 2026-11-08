@@ -37,8 +37,6 @@ const mockDefinition: Definition = {
   example: 'I ran into an old friend yesterday.',
   provider: 'free-dictionary',
   gapFillMetadata: null,
-  hasIrregularForms: false,
-  inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
@@ -51,7 +49,7 @@ function baseCard(overrides: Partial<Card>): Card {
     wordId: null,
     partOfSpeech: null,
     context: null,
-    inflectionForms: null,
+    inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
     state: 'review',
     dueAt: new Date('2026-07-01T00:00:00.000Z'),
     stability: 10,
@@ -385,9 +383,9 @@ describe('ReviewsService', () => {
         result: 'correct',
         matchedForm: 'run into',
         revealed: {
+          inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
           lemma: 'run into',
           ipa: null,
-          inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
         },
       });
     });
