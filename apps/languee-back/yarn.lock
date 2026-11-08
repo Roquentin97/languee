@@ -1268,6 +1268,11 @@
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.8.0.tgz#cee43d801fcef9644b11b8194857695acd5f815a"
   integrity sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==
 
+"@open-spaced-repetition/srs-kit@1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@open-spaced-repetition/srs-kit/-/srs-kit-1.0.0.tgz#d8f91b7d5b7c183f8927f5cf9125bcbb21d4d470"
+  integrity sha512-f++JAMpRw7Yh1U4JcHzTtVknJ1bYKz/4yejsus6TRl+ueGJpvexNBrOoqaeUWCgH/e1j046oiqjzy4Nf4RW/vw==
+
 "@opentelemetry/api-logs@0.207.0":
   version "0.207.0"
   resolved "https://registry.yarnpkg.com/@opentelemetry/api-logs/-/api-logs-0.207.0.tgz#ae991c51eedda55af037a3e6fc1ebdb12b289f49"
@@ -7324,10 +7329,12 @@ ts-api-utils@^2.5.0:
   resolved "https://registry.yarnpkg.com/ts-api-utils/-/ts-api-utils-2.5.0.tgz#4acd4a155e22734990a5ed1fe9e97f113bcb37c1"
   integrity sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==
 
-ts-fsrs@^5.4.2:
-  version "5.4.2"
-  resolved "https://registry.yarnpkg.com/ts-fsrs/-/ts-fsrs-5.4.2.tgz#7bd23da3d8a35368b813f4064eabe829a46f9901"
-  integrity sha512-z4qop4pzTcyTzuJ566d9EaX/4bZZzhYfeaPImfVr+xcYT65c5oBgFDijUhCE/D+C78eaolHIhKRZ04/RwF+v2g==
+ts-fsrs@^6.0.0:
+  version "6.0.0"
+  resolved "https://registry.yarnpkg.com/ts-fsrs/-/ts-fsrs-6.0.0.tgz#900b2ff1b375cbebab098001b3c54dcaf9be4f5b"
+  integrity sha512-kX03GIEhXgBtUrgZuv7k7Aax8oYF3GCO0lASqJFw/8cvvI7qjE83J8IzFhHugux7//W0yquG7zidk3e9NRgEwg==
+  dependencies:
+    "@open-spaced-repetition/srs-kit" "1.0.0"
 
 ts-jest@^29.4.15:
   version "29.4.15"
