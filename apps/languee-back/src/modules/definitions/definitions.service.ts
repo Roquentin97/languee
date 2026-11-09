@@ -24,6 +24,14 @@ export class DefinitionService {
     return this.prisma.definition.findMany({ where: { wordId } });
   }
 
+  findByWordIds(wordIds: string[]): Promise<DbDefinition[]> {
+    if (!wordIds.length) return Promise.resolve([]);
+    return this.prisma.definition.findMany({
+      where: { wordId: { in: wordIds } },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   findByIdWithWord(id: string): Promise<DefinitionWithWord | null> {
     return this.prisma.definition.findUnique({
       where: { id },

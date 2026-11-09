@@ -271,4 +271,23 @@ describe('DefinitionService', () => {
       );
     });
   });
+  describe('findByWordIds', () => {
+    it('loads complete semantic inventories for all candidate words in stable order', async () => {
+      const rows = [
+        makeDefinitionRow({ wordId: 'first', partOfSpeech: 'noun' }),
+        makeDefinitionRow({ wordId: 'first', partOfSpeech: 'verb' }),
+        makeDefinitionRow({ wordId: 'second' }),
+      ];
+      prismaMock.definition.findMany.mockResolvedValue(rows);
+      expect(await service.findByWordIds(['first', 'second'])).toEqual(rows);
+      expect(prismaMock.definition.findMany).toHaveBeenCalledWith({
+        where: { wordId: { in: ['first', 'second'] } },
+        orderBy: { id: 'asc' },
+      });
+    });
+    it('does not query storage when there are no candidate words', async () => {
+      expect(await service.findByWordIds([])).toEqual([]);
+      expect(prismaMock.definition.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

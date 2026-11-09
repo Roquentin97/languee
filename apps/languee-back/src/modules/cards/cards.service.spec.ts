@@ -1,3 +1,5 @@
+import { MorphologyService } from '../morphology/morphology.service';
+import type { ParadigmsByWord } from '../morphology/morphology.types';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
@@ -119,7 +121,6 @@ const mockTx = {
 };
 
 const mockPrismaService = {
-  wordForm: { findMany: jest.fn().mockResolvedValue([]) },
   card: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -132,6 +133,23 @@ const mockPrismaService = {
       : Promise.all(arg as unknown[]),
   ),
 };
+
+const irregularParadigms: ParadigmsByWord = new Map([
+  [
+    'word-id-1',
+    new Map([
+      [
+        'verb',
+        {
+          inflectionForms: { type: 'verb', base: 'run', past: 'ran' },
+          snapshot: { type: 'verb', base: 'run', past: 'ran' },
+          hasIrregularForms: true,
+        },
+      ],
+    ]),
+  ],
+]);
+const mockMorphology = { describeEntries: jest.fn() };
 
 const mockDecksService = {
   findOneOrThrow: jest.fn(),
@@ -146,7 +164,7 @@ describe('CardsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockPrismaService.wordForm.findMany.mockResolvedValue([]);
+    mockMorphology.describeEntries.mockResolvedValue(new Map());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -154,6 +172,7 @@ describe('CardsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: DecksService, useValue: mockDecksService },
         { provide: DefinitionService, useValue: mockDefinitionService },
+        { provide: MorphologyService, useValue: mockMorphology },
       ],
     }).compile();
 
@@ -199,9 +218,7 @@ describe('CardsService', () => {
     });
 
     it('happy path — an inflecting word additionally yields a shared inflection card', async () => {
-      mockPrismaService.wordForm.findMany.mockResolvedValue([
-        { form: 'ran', relationType: 'past', partOfSpeech: 'verb' },
-      ]);
+      mockMorphology.describeEntries.mockResolvedValue(irregularParadigms);
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(
         mockDefinitionInflecting,
@@ -281,9 +298,7 @@ describe('CardsService', () => {
     });
 
     it('reuses an eligible lemma+POS inflection card when saving another sense to another deck', async () => {
-      mockPrismaService.wordForm.findMany.mockResolvedValue([
-        { form: 'ran', relationType: 'past', partOfSpeech: 'verb' },
-      ]);
+      mockMorphology.describeEntries.mockResolvedValue(irregularParadigms);
       mockDecksService.findOneOrThrow.mockResolvedValue({
         ...mockDeck,
         id: 'deck-id-2',
@@ -394,9 +409,7 @@ describe('CardsService', () => {
     });
 
     it('edge case — concurrent creation (P2002) on the inflection card re-fetches instead of failing', async () => {
-      mockPrismaService.wordForm.findMany.mockResolvedValue([
-        { form: 'ran', relationType: 'past', partOfSpeech: 'verb' },
-      ]);
+      mockMorphology.describeEntries.mockResolvedValue(irregularParadigms);
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
       mockDefinitionService.findByIdWithWord.mockResolvedValue(
         mockDefinitionInflecting,
@@ -481,6 +494,30 @@ describe('CardsService', () => {
     });
   });
 
+  it('enriches a card list through one morphology service call and preserves saved snapshots', async () => {
+    const snapshot = { type: 'verb', base: 'run', past: 'old-answer' };
+    mockPrismaService.card.findMany.mockResolvedValue([
+      withRelations(
+        { ...mockClozeCard, inflectionForms: snapshot },
+        'deck-id-1',
+      ),
+      withRelations(mockDefinitionCard, 'deck-id-1'),
+    ]);
+    mockMorphology.describeEntries.mockResolvedValue(irregularParadigms);
+    const cards = await service.findManyByUserId('user-id-1');
+    expect(mockMorphology.describeEntries).toHaveBeenCalledTimes(1);
+    expect(mockMorphology.describeEntries).toHaveBeenCalledWith([
+      { wordId: 'word-id-1', lemma: 'run', partOfSpeech: 'verb' },
+      { wordId: 'word-id-1', lemma: 'run', partOfSpeech: 'verb' },
+    ]);
+    expect(cards[0].inflectionForms).toEqual(snapshot);
+    expect(cards[0].lexicalInflectionForms).toEqual({
+      type: 'verb',
+      base: 'run',
+      past: 'ran',
+    });
+    expect(mockPrismaService.card.update).not.toHaveBeenCalled();
+  });
   describe('findManyByUserId()', () => {
     it('happy path — returns all cards for user with no filters', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([

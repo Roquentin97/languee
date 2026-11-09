@@ -6,6 +6,13 @@ candidate caches its complete supported independent POS inventory. The public
 lookup selects one headword, preferring the contextual lemma when it is among
 the resolved interpretations; it does not flatten other headwords into that lemma.
 
+`MorphologyModule` registers the replaceable `MorphologyProvider` and exports
+`MorphologyService`, which owns WordForm indexing, reverse lookup, and batched
+paradigm projections. Dictionary discovery accesses lexical records through
+`WordsService` and `DefinitionService`; its own persistence is limited to
+LookupState. Cards obtain current morphology and new snapshots through
+`MorphologyService`, keeping paradigm helpers internal to the morphology domain.
+
 `MorphologyProvider` supplies POS-independent candidates and typed paradigms.
 `NlpMorphologyAdapter` uses authenticated `/morphology/lemmas` and
 `/morphology/inflections` requests with the shared HTTP client's five-second

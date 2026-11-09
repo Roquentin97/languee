@@ -9,7 +9,7 @@ import {
   normalizeSpelling,
 } from '../morphology/morphology-provider';
 import type { MorphologyProvider } from '../morphology/morphology-provider';
-import { projectParadigm } from '../morphology/paradigm';
+import { MorphologyService } from '../morphology/morphology.service';
 import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import type { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 import type { DefinitionResult } from './types/lookup-word.types';
@@ -33,7 +33,8 @@ export class HeadwordDiscoveryService {
     @Inject(DICTIONARY_API_ADAPTER)
     private readonly dictionary: IDictionaryApiAdapter,
     @Inject(MORPHOLOGY_PROVIDER)
-    private readonly morphology: MorphologyProvider,
+    private readonly morphologyProvider: MorphologyProvider,
+    private readonly morphology: MorphologyService,
   ) {}
 
   async discover(
@@ -75,21 +76,14 @@ export class HeadwordDiscoveryService {
         for (const pos of new Set(
           entry.definitions.map((d) => d.partOfSpeech),
         )) {
-          const forms =
-            kind === LexicalKind.word
-              ? await this.morphology.getInflections(lemma, pos, language)
-              : [];
-          await this.prisma.wordForm.createMany({
-            data: forms
-              .filter((f) => f.form.trim() && !/\s/.test(f.form.trim()))
-              .map((f) => ({
-                wordId: word.id,
-                form: normalizeSpelling(f.form),
-                partOfSpeech: pos,
-                relationType: f.formType,
-              })),
-            skipDuplicates: true,
-          });
+          if (kind === LexicalKind.word) {
+            await this.morphology.indexParadigm({
+              wordId: word.id,
+              lemma,
+              partOfSpeech: pos,
+              language,
+            });
+          }
         }
         if (!word.ipa && this.dictionary.fetchIpa) {
           try {
@@ -117,29 +111,26 @@ export class HeadwordDiscoveryService {
             },
           });
           if (!targetState?.dictionaryFetchedAt) continue;
-          const word = await this.prisma.word.findUnique({
-            where: {
-              lemma_language: { lemma: normalizeSpelling(target), language },
-            },
-            include: { definitions: true },
-          });
+          const word = await this.words.findByLemma(
+            normalizeSpelling(target),
+            language,
+          );
+          if (!word) continue;
+          const definitions = await this.definitions.findByWordId(word.id);
           if (
-            !word?.definitions.some(
+            !definitions.some(
               (d) =>
                 d.partOfSpeech === String(reference.targetPos) &&
                 d.provider === this.dictionary.providerName,
             )
           )
             continue;
-          await this.prisma.wordForm.createMany({
-            data: reference.relationTypes.map((relationType) => ({
-              wordId: word.id,
-              form: lemma,
-              partOfSpeech: reference.targetPos as PartOfSpeech,
-              relationType,
-            })),
-            skipDuplicates: true,
-          });
+          await this.morphology.recordValidatedRelationships(
+            word.id,
+            lemma,
+            reference.targetPos,
+            reference.relationTypes,
+          );
         }
       }
       await this.prisma.lookupState.upsert({
@@ -150,17 +141,19 @@ export class HeadwordDiscoveryService {
     };
     await process(term);
     if (kind === LexicalKind.word) {
-      const candidates = await this.morphology.findLemmaCandidates(
+      const candidates = await this.morphologyProvider.findLemmaCandidates(
         term,
         language,
       );
-      const reverse = await this.prisma.wordForm.findMany({
-        where: { form: term, word: { language } },
-        include: { word: true },
-      });
+      const reverse = await this.morphology.findOrigins(term, language);
+      const knownWords = await this.words.findLookupCandidates(
+        term,
+        language,
+        reverse.map((r) => r.wordId),
+      );
       const lemmas = new Set([
         ...candidates.map((c) => c.lemma),
-        ...reverse.map((r) => r.word.lemma),
+        ...knownWords.map((w) => w.lemma),
         ...(contextualLemma ? [contextualLemma] : []),
       ]);
       for (const lemma of lemmas) await process(lemma);
@@ -180,32 +173,54 @@ export class HeadwordDiscoveryService {
     term: string,
     language: string,
   ): Promise<ResolvedHeadword[]> {
-    const words = await this.prisma.word.findMany({
-      where: {
-        language,
-        OR: [{ lemma: term }, { forms: { some: { form: term } } }],
-      },
-      include: { definitions: { orderBy: { id: 'asc' } }, forms: true },
-      orderBy: { lemma: 'asc' },
-    });
+    const origins = await this.morphology.findOrigins(term, language);
+    const words = await this.words.findLookupCandidates(
+      term,
+      language,
+      origins.map((o) => o.wordId),
+    );
+    const definitions = await this.definitions.findByWordIds(
+      words.map((w) => w.id),
+    );
+    const byWord = new Map<string, typeof definitions>();
+    for (const definition of definitions) {
+      const rows = byWord.get(definition.wordId) ?? [];
+      rows.push(definition);
+      byWord.set(definition.wordId, rows);
+    }
+    const paradigms = await this.morphology.describeEntries(
+      words.flatMap((word) =>
+        (byWord.get(word.id) ?? []).map((d) => ({
+          wordId: word.id,
+          lemma: word.lemma,
+          partOfSpeech: d.partOfSpeech,
+        })),
+      ),
+    );
     return words
       .map((word) => {
         const allowed = new Set(
-          word.forms.filter((f) => f.form === term).map((f) => f.partOfSpeech),
+          origins
+            .filter((o) => o.wordId === word.id)
+            .map((o) => o.partOfSpeech),
         );
         return {
           wordId: word.id,
           lemma: word.lemma,
-          definitions: word.definitions
+          definitions: (byWord.get(word.id) ?? [])
             .filter((d) => word.lemma === term || allowed.has(d.partOfSpeech))
-            .map((d) => ({
-              id: d.id,
-              partOfSpeech: d.partOfSpeech as PartOfSpeech,
-              definition: d.definition,
-              example: d.example,
-              provider: d.provider,
-              ...projectParadigm(word.lemma, d.partOfSpeech, word.forms),
-            })),
+            .map((d) => {
+              const paradigm = paradigms.get(word.id)?.get(d.partOfSpeech);
+              return {
+                id: d.id,
+                partOfSpeech: d.partOfSpeech as PartOfSpeech,
+                definition: d.definition,
+                example: d.example,
+                provider: d.provider,
+                inflectionForms: paradigm?.inflectionForms ?? null,
+                hasIrregularForms: paradigm?.hasIrregularForms ?? false,
+              };
+            }),
         };
       })
       .filter((w) => w.definitions.length > 0);

@@ -28,6 +28,17 @@ export class WordsService {
     });
   }
 
+  findLookupCandidates(
+    term: string,
+    language: string,
+    originWordIds: string[],
+  ): Promise<Word[]> {
+    return this.prisma.word.findMany({
+      where: { language, OR: [{ lemma: term }, { id: { in: originWordIds } }] },
+      orderBy: { lemma: 'asc' },
+    });
+  }
+
   /**
    * Backfills the phonetic transcription once, first provider wins. A word
    * that already carries an ipa is never overwritten.

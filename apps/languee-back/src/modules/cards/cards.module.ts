@@ -1,3 +1,4 @@
+import { MorphologyModule } from '../morphology/morphology.module';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../core/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
@@ -7,7 +8,13 @@ import { CardsService } from './cards.service';
 import { CardsController } from './cards.controller';
 
 @Module({
-  imports: [PrismaModule, AuthModule, DecksModule, DefinitionsModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    DecksModule,
+    DefinitionsModule,
+    MorphologyModule,
+  ],
   providers: [CardsService],
   controllers: [CardsController],
   exports: [CardsService],

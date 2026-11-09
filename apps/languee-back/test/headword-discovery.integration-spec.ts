@@ -1,3 +1,4 @@
+import { MorphologyService } from '../src/modules/morphology/morphology.service';
 import { readFile } from 'node:fs/promises';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -120,6 +121,7 @@ const dictionary = {
     };
   }),
 };
+const morphologyService = new MorphologyService(prisma, morphology);
 const words = new WordsService(prisma, null!, null!, null!);
 const service = new HeadwordDiscoveryService(
   prisma,
@@ -127,6 +129,7 @@ const service = new HeadwordDiscoveryService(
   new DefinitionService(prisma),
   dictionary,
   morphology,
+  morphologyService,
 );
 const state = (term: string) =>
   prisma.lookupState.findUnique({
@@ -545,6 +548,7 @@ it.each([
       prisma,
       new DecksService(prisma),
       new DefinitionService(prisma),
+      morphologyService,
     );
     const created = await cards.create(
       userId,
