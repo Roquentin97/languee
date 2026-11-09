@@ -118,9 +118,9 @@ export class ReviewsService {
 
     if (outcome.result === 'correct') {
       const word = card.definition.word;
-      const inflectionForms =
-        (card.inflectionForms as Record<string, string> | null) ??
-        (card.definition.inflectionForms as Record<string, string> | null);
+      const inflectionForms = (card.inflectionForms ??
+        card.lexicalInflectionForms ??
+        null) as Record<string, string> | null;
       return {
         result: 'correct',
         matchedForm: outcome.matchedForm,
@@ -146,7 +146,9 @@ export class ReviewsService {
       );
     }
 
-    const inflectionForms = card.inflectionForms as InflectionForms | null;
+    const inflectionForms = (card.inflectionForms ??
+      card.lexicalInflectionForms ??
+      null) as InflectionForms | null;
     if (!inflectionForms) {
       throw new UnsupportedCardTypeError(
         `Inflection card ${cardId} has no stored paradigm to check against`,
@@ -263,9 +265,9 @@ export class ReviewsService {
 
   private targetFormsForCard(card: CardWithRelations): string[] {
     if (!card.definition) return [];
-    const inflectionForms =
-      (card.inflectionForms as InflectionForms | null) ??
-      (card.definition.inflectionForms as InflectionForms | null);
+    const inflectionForms = (card.inflectionForms ??
+      card.lexicalInflectionForms ??
+      null) as InflectionForms | null;
     return collectTargetForms(card.definition.word.lemma, inflectionForms);
   }
 
@@ -322,7 +324,9 @@ export class ReviewsService {
     if (!card.word) {
       throw new Error(`inflection card ${card.id} is missing its word`);
     }
-    const inflectionForms = card.inflectionForms as InflectionForms | null;
+    const inflectionForms = (card.inflectionForms ??
+      card.lexicalInflectionForms ??
+      null) as InflectionForms | null;
 
     return {
       lemma: card.word.lemma,

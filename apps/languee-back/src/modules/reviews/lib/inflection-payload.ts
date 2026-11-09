@@ -45,7 +45,9 @@ export function checkTypedForms(
     results[key] = {
       typed,
       expected,
-      correct: normalizeAnswer(typed) === normalizeAnswer(expected),
+      correct: [expected, ...(inflectionForms.variants?.[key] ?? [])].some(
+        (value) => normalizeAnswer(typed) === normalizeAnswer(value),
+      ),
     };
   }
 

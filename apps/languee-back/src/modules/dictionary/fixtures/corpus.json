@@ -1,0 +1,2293 @@
+{
+  "corpus_version": "1A-v3-2026-11-08",
+  "usage": "Expected test outcomes, not automatically valid live Wiktionary snapshots. See evidence policies in the companion Markdown spec.",
+  "case_counts": {
+    "dictionary": 14,
+    "lemma_candidates": 16,
+    "paradigms": 14,
+    "parser": 18,
+    "cache_scenarios": 25,
+    "schema_card": 12,
+    "contexts": 22,
+    "controlled_morphology_reference": 30
+  },
+  "dictionary_cases": [
+    {
+      "id": "D01",
+      "surface": "better",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "adjective": 3,
+        "noun": 1,
+        "verb": 4
+      },
+      "observed_independent_record_counts_by_pos": {
+        "adjective": 3,
+        "noun": 1,
+        "verb": 5
+      },
+      "example_semantic_definitions_by_pos": {
+        "adjective": "Healed or recovered from an injury or illness.",
+        "noun": "An entity deemed superior to another.",
+        "verb": "To improve."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "adjective",
+          "target": "good",
+          "target_pos": "adjective",
+          "types": [
+            "comparative"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 0
+        },
+        {
+          "source_pos": "adjective",
+          "target": "well",
+          "target_pos": "adjective",
+          "types": [
+            "comparative"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 0
+        },
+        {
+          "source_pos": "adverb",
+          "target": "well",
+          "target_pos": "adverb",
+          "types": [
+            "comparative"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 1,
+          "source_definition_index": 0
+        }
+      ],
+      "other_references": [
+        {
+          "target": "bettor",
+          "classification": "alternative_spelling",
+          "source_pos": "noun",
+          "source_section_index": 5,
+          "source_definition_index": 0
+        },
+        {
+          "target": "had better",
+          "classification": "other_unmarked_reference",
+          "source_pos": "verb",
+          "source_section_index": 3,
+          "source_definition_index": 0
+        }
+      ],
+      "notes": "The unmarked “Had better” reference at source Verb section 3:0 must not be persisted as a semantic sense; its false-positive was measured in the diagnostic.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          1,
+          2,
+          3
+        ],
+        "2": [
+          0
+        ],
+        "4": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "D02",
+      "surface": "well",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "adjective": 5,
+        "adverb": 5,
+        "interjection": 7,
+        "noun": 16,
+        "verb": 2
+      },
+      "observed_independent_record_counts_by_pos": {
+        "adjective": 5,
+        "adverb": 5,
+        "interjection": 7,
+        "noun": 16,
+        "verb": 2
+      },
+      "example_semantic_definitions_by_pos": {
+        "adverb": "In a good way; accurately or satisfactorily.",
+        "adjective": "In good health.",
+        "noun": "A hole sunk into the ground as a source of water.",
+        "verb": "To issue forth, as water from the earth.",
+        "interjection": "Used as a discourse marker."
+      },
+      "morphological_references": [],
+      "other_references": [],
+      "notes": "A well/NOUN meaning such as a water source must be cached when well is fetched, but must never be a morphological interpretation of better/ADV.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "1": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "2": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "3": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "4": [
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "id": "D03",
+      "surface": "good",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "adjective": 35,
+        "adverb": 1,
+        "interjection": 1,
+        "noun": 5,
+        "verb": 8
+      },
+      "observed_independent_record_counts_by_pos": {
+        "adjective": 35,
+        "adverb": 1,
+        "interjection": 1,
+        "noun": 5,
+        "verb": 8
+      },
+      "example_semantic_definitions_by_pos": {
+        "adjective": "Competent or talented.",
+        "adverb": "Well; satisfactorily or thoroughly.",
+        "noun": "The forces or behaviours that are the enemy of evil.",
+        "verb": "To make good; improve.",
+        "interjection": "An exclamation of satisfaction or commendation."
+      },
+      "morphological_references": [],
+      "other_references": [],
+      "notes": "The captured page includes rare senses and repeated POS sections; store all supported independently classified entries, not only good/ADJ.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33
+        ],
+        "1": [
+          0
+        ],
+        "2": [
+          0
+        ],
+        "3": [
+          0,
+          1,
+          2,
+          4,
+          6
+        ],
+        "4": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "5": [
+          0
+        ],
+        "6": [
+          0
+        ]
+      }
+    },
+    {
+      "id": "D04",
+      "surface": "poised",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "adjective": 3
+      },
+      "observed_independent_record_counts_by_pos": {
+        "adjective": 3
+      },
+      "example_semantic_definitions_by_pos": {
+        "adjective": "Ready, prepared."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "verb",
+          "target": "poise",
+          "target_pos": "verb",
+          "types": [
+            "past",
+            "past_participle"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 1,
+          "source_definition_index": 0
+        }
+      ],
+      "other_references": [],
+      "notes": "The isolated adjective is independent; the verb section is past/past-participle of poise, not an independent poised/VERB definition.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "id": "D05",
+      "surface": "poise",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "noun": 9,
+        "verb": 8
+      },
+      "observed_independent_record_counts_by_pos": {
+        "noun": 9,
+        "verb": 8
+      },
+      "example_semantic_definitions_by_pos": {
+        "noun": "A state of balance, equilibrium or stability.",
+        "verb": "To hang in equilibrium; to be balanced or suspended."
+      },
+      "morphological_references": [],
+      "other_references": [],
+      "notes": "Both noun and verb POS must be cached even when reached via poised/VERB.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "1": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "2": [
+          0
+        ]
+      }
+    },
+    {
+      "id": "D06",
+      "surface": "axes",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {},
+      "observed_independent_record_counts_by_pos": {},
+      "example_semantic_definitions_by_pos": {},
+      "morphological_references": [
+        {
+          "source_pos": "noun",
+          "target": "ax",
+          "target_pos": "noun",
+          "types": [
+            "plural"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 1
+        },
+        {
+          "source_pos": "noun",
+          "target": "axe",
+          "target_pos": "noun",
+          "types": [
+            "plural"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 1
+        },
+        {
+          "source_pos": "verb",
+          "target": "ax",
+          "target_pos": "verb",
+          "types": [
+            "present_3sg"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 1,
+          "source_definition_index": 0
+        },
+        {
+          "source_pos": "verb",
+          "target": "axe",
+          "target_pos": "verb",
+          "types": [
+            "present_3sg"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 1,
+          "source_definition_index": 0
+        },
+        {
+          "source_pos": "noun",
+          "target": "axis",
+          "target_pos": "noun",
+          "types": [
+            "plural"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 2,
+          "source_definition_index": 1
+        }
+      ],
+      "other_references": [],
+      "notes": "Captured surface page has zero independent meanings; plural/3sg references alone do not create Word(axes).",
+      "gold_independent_indices_by_section": {}
+    },
+    {
+      "id": "D07",
+      "surface": "axis",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "noun": 9
+      },
+      "observed_independent_record_counts_by_pos": {
+        "noun": 9
+      },
+      "example_semantic_definitions_by_pos": {
+        "noun": "An imaginary line around which an object spins."
+      },
+      "morphological_references": [],
+      "other_references": [],
+      "notes": "Fetched axis page has noun senses; its unrelated noun senses are not necessarily applicable to every axes use.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0,
+          1,
+          3,
+          4,
+          5,
+          7,
+          8,
+          9
+        ],
+        "1": [
+          0
+        ]
+      }
+    },
+    {
+      "id": "D08",
+      "surface": "axe",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "noun": 7,
+        "symbol": 1,
+        "verb": 3
+      },
+      "observed_independent_record_counts_by_pos": {
+        "noun": 7,
+        "symbol": 1,
+        "verb": 3
+      },
+      "example_semantic_definitions_by_pos": {
+        "noun": "A tool for felling trees or chopping wood.",
+        "verb": "To fell or chop with an axe."
+      },
+      "morphological_references": [],
+      "other_references": [
+        {
+          "target": "ask",
+          "classification": "other_alternative_form",
+          "source_pos": "verb",
+          "source_section_index": 5,
+          "source_definition_index": 0
+        }
+      ],
+      "notes": "The explicit “alternative form of ask” is NOT an alternative_spelling mapping; Symbol is not a supported Languee POS.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0
+        ],
+        "1": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "2": [
+          0,
+          1
+        ],
+        "3": [
+          0
+        ],
+        "4": [
+          0
+        ]
+      }
+    },
+    {
+      "id": "D09",
+      "surface": "children",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {},
+      "observed_independent_record_counts_by_pos": {},
+      "example_semantic_definitions_by_pos": {},
+      "morphological_references": [
+        {
+          "source_pos": "noun",
+          "target": "child",
+          "target_pos": "noun",
+          "types": [
+            "plural"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 0
+        },
+        {
+          "source_pos": "noun",
+          "target": "childer",
+          "target_pos": "noun",
+          "types": [
+            "plural"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 1
+        }
+      ],
+      "other_references": [],
+      "notes": "The childer relationship is observed, but childer/NOUN must be independently validated before a trusted WordForm is persisted.",
+      "conditional_target_validation": [
+        "childer/noun"
+      ],
+      "gold_independent_indices_by_section": {}
+    },
+    {
+      "id": "D10",
+      "surface": "saw",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "noun": 11,
+        "symbol": 1,
+        "verb": 4
+      },
+      "observed_independent_record_counts_by_pos": {
+        "noun": 11,
+        "symbol": 1,
+        "verb": 4
+      },
+      "example_semantic_definitions_by_pos": {
+        "noun": "A tool used for cutting wood or metal.",
+        "verb": "To cut something with a saw."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "verb",
+          "target": "see",
+          "target_pos": "verb",
+          "types": [
+            "past"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 4,
+          "source_definition_index": 0
+        },
+        {
+          "source_pos": "verb",
+          "target": "see",
+          "target_pos": "verb",
+          "types": [
+            "past_participle"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 4,
+          "source_definition_index": 1
+        }
+      ],
+      "other_references": [],
+      "notes": "Past and past-participle of see are separate grammatical relationships; independent saw/NOUN and saw/VERB remain.",
+      "gold_independent_indices_by_section": {
+        "0": [
+          0
+        ],
+        "1": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "2": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "3": [
+          0,
+          2,
+          3,
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "id": "D11",
+      "surface": "found",
+      "evidence": "captured-manual-gold",
+      "gold_independent_record_counts_by_pos": {
+        "noun": 3,
+        "verb": 5
+      },
+      "observed_independent_record_counts_by_pos": {
+        "noun": 3,
+        "verb": 5
+      },
+      "example_semantic_definitions_by_pos": {
+        "noun": "Food and lodging; board.",
+        "verb": "To start an institution or organization."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "verb",
+          "target": "find",
+          "target_pos": "verb",
+          "types": [
+            "past",
+            "past_participle"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 0
+        }
+      ],
+      "other_references": [],
+      "notes": "Both independent found/VERB and inflected find/VERB exist; noun found is independently recorded too.",
+      "gold_independent_indices_by_section": {
+        "1": [
+          0
+        ],
+        "2": [
+          1,
+          2,
+          4
+        ],
+        "3": [
+          0,
+          1
+        ],
+        "4": [
+          0
+        ],
+        "5": [
+          0
+        ]
+      }
+    },
+    {
+      "id": "D12",
+      "surface": "running",
+      "evidence": "captured-holdout-observed",
+      "gold_independent_record_counts_by_pos": {},
+      "observed_independent_record_counts_by_pos": {
+        "adjective": 10,
+        "adverb": 1,
+        "noun": 6,
+        "preposition": 1
+      },
+      "example_semantic_definitions_by_pos": {
+        "adjective": "Moving or advancing at a run.",
+        "noun": "The activity of running as a sport.",
+        "adverb": "Consecutively; in a row.",
+        "preposition": "Approaching; about; roughly."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "verb",
+          "target": "run",
+          "target_pos": "verb",
+          "types": [
+            "present_participle",
+            "gerund"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 0,
+          "source_definition_index": 0
+        }
+      ],
+      "other_references": [],
+      "notes": "Holdout independent meanings were observed, not exhaustively manually gold-labeled. Distinguish lexical adjective/noun/adverb/preposition meanings from the run/VERB form reference.",
+      "gold_independent_indices_by_section": {}
+    },
+    {
+      "id": "D13",
+      "surface": "meeting",
+      "evidence": "captured-holdout-observed",
+      "gold_independent_record_counts_by_pos": {},
+      "observed_independent_record_counts_by_pos": {
+        "noun": 7
+      },
+      "example_semantic_definitions_by_pos": {
+        "noun": "A gathering of persons for a purpose."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "verb",
+          "target": "meet",
+          "target_pos": "verb",
+          "types": [
+            "present_participle",
+            "gerund"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 1,
+          "source_definition_index": 0
+        }
+      ],
+      "other_references": [],
+      "notes": "Holdout noun meanings observed, distinct from meet/VERB gerund/present-participle reference.",
+      "gold_independent_indices_by_section": {}
+    },
+    {
+      "id": "D14",
+      "surface": "exhausted",
+      "evidence": "captured-holdout-observed",
+      "gold_independent_record_counts_by_pos": {},
+      "observed_independent_record_counts_by_pos": {
+        "adjective": 3
+      },
+      "example_semantic_definitions_by_pos": {
+        "adjective": "Very tired; zonked (out)."
+      },
+      "morphological_references": [
+        {
+          "source_pos": "verb",
+          "target": "exhaust",
+          "target_pos": "verb",
+          "types": [
+            "past",
+            "past_participle"
+          ],
+          "target_pos_requires_validation": true,
+          "source_section_index": 1,
+          "source_definition_index": 0
+        }
+      ],
+      "other_references": [],
+      "notes": "Holdout adjective meanings observed; LemmInflect missed exhausted/ADJ but literal Wiktionary lookup finds it.",
+      "gold_independent_indices_by_section": {}
+    }
+  ],
+  "lemminflect_candidate_cases": [
+    {
+      "id": "L01",
+      "surface": "poised",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "poised"
+        ],
+        "verb": [
+          "poise"
+        ]
+      }
+    },
+    {
+      "id": "L02",
+      "surface": "better",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "good",
+          "well"
+        ],
+        "adverb": [
+          "well"
+        ],
+        "noun": [
+          "better"
+        ],
+        "verb": [
+          "better"
+        ]
+      }
+    },
+    {
+      "id": "L03",
+      "surface": "best",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "good",
+          "well"
+        ],
+        "adverb": [
+          "well"
+        ],
+        "noun": [
+          "best"
+        ],
+        "verb": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "L04",
+      "surface": "axes",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "axe",
+          "axis",
+          "ax"
+        ],
+        "verb": [
+          "ax",
+          "axe"
+        ]
+      }
+    },
+    {
+      "id": "L05",
+      "surface": "saw",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "saw"
+        ],
+        "verb": [
+          "see",
+          "saw"
+        ]
+      }
+    },
+    {
+      "id": "L06",
+      "surface": "found",
+      "observed_lemminflect_candidates_by_pos": {
+        "verb": [
+          "find",
+          "found"
+        ]
+      }
+    },
+    {
+      "id": "L07",
+      "surface": "left",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "left"
+        ],
+        "adverb": [
+          "left"
+        ],
+        "noun": [
+          "left"
+        ],
+        "verb": [
+          "leave"
+        ]
+      }
+    },
+    {
+      "id": "L08",
+      "surface": "meeting",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "meeting"
+        ],
+        "verb": [
+          "meet"
+        ]
+      }
+    },
+    {
+      "id": "L09",
+      "surface": "running",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "running"
+        ],
+        "verb": [
+          "run"
+        ]
+      }
+    },
+    {
+      "id": "L10",
+      "surface": "went",
+      "observed_lemminflect_candidates_by_pos": {
+        "verb": [
+          "go"
+        ]
+      }
+    },
+    {
+      "id": "L11",
+      "surface": "children",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "child"
+        ]
+      }
+    },
+    {
+      "id": "L12",
+      "surface": "mice",
+      "observed_lemminflect_candidates_by_pos": {
+        "noun": [
+          "mouse"
+        ]
+      }
+    },
+    {
+      "id": "L13",
+      "surface": "was",
+      "observed_lemminflect_candidates_by_pos": {
+        "auxiliary": [
+          "be"
+        ],
+        "verb": [
+          "be"
+        ]
+      }
+    },
+    {
+      "id": "L14",
+      "surface": "were",
+      "observed_lemminflect_candidates_by_pos": {
+        "auxiliary": [
+          "be"
+        ],
+        "verb": [
+          "be"
+        ]
+      }
+    },
+    {
+      "id": "L15",
+      "surface": "interested",
+      "observed_lemminflect_candidates_by_pos": {
+        "adjective": [
+          "interested"
+        ],
+        "verb": [
+          "interest"
+        ]
+      }
+    },
+    {
+      "id": "L16",
+      "surface": "exhausted",
+      "observed_lemminflect_candidates_by_pos": {
+        "verb": [
+          "exhaust"
+        ]
+      }
+    }
+  ],
+  "lemminflect_paradigm_cases": [
+    {
+      "id": "P01",
+      "lemma": "be",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "be"
+        ],
+        "VBD": [
+          "was",
+          "were"
+        ],
+        "VBG": [
+          "being"
+        ],
+        "VBN": [
+          "been"
+        ],
+        "VBP": [
+          "am",
+          "are"
+        ],
+        "VBZ": [
+          "is"
+        ]
+      }
+    },
+    {
+      "id": "P02",
+      "lemma": "go",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "go"
+        ],
+        "VBP": [
+          "go"
+        ],
+        "VBD": [
+          "went"
+        ],
+        "VBN": [
+          "gone"
+        ],
+        "VBG": [
+          "going"
+        ],
+        "VBZ": [
+          "goes"
+        ]
+      }
+    },
+    {
+      "id": "P03",
+      "lemma": "walk",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "walk"
+        ],
+        "VBP": [
+          "walk"
+        ],
+        "VBD": [
+          "walked"
+        ],
+        "VBG": [
+          "walking"
+        ],
+        "VBZ": [
+          "walks"
+        ]
+      }
+    },
+    {
+      "id": "P04",
+      "lemma": "write",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "write"
+        ],
+        "VBP": [
+          "write"
+        ],
+        "VBD": [
+          "wrote"
+        ],
+        "VBN": [
+          "written"
+        ],
+        "VBG": [
+          "writing"
+        ],
+        "VBZ": [
+          "writes"
+        ]
+      }
+    },
+    {
+      "id": "P05",
+      "lemma": "learn",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "learn"
+        ],
+        "VBP": [
+          "learn"
+        ],
+        "VBD": [
+          "learned",
+          "learnt"
+        ],
+        "VBN": [
+          "learned"
+        ],
+        "VBG": [
+          "learning"
+        ],
+        "VBZ": [
+          "learns"
+        ]
+      }
+    },
+    {
+      "id": "P06",
+      "lemma": "child",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "child"
+        ],
+        "NNS": [
+          "children"
+        ]
+      }
+    },
+    {
+      "id": "P07",
+      "lemma": "mouse",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "mouse"
+        ],
+        "NNS": [
+          "mice"
+        ]
+      }
+    },
+    {
+      "id": "P08",
+      "lemma": "axis",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "axis"
+        ],
+        "NNS": [
+          "axes",
+          "axises"
+        ]
+      }
+    },
+    {
+      "id": "P09",
+      "lemma": "good",
+      "part_of_speech": "adjective",
+      "observed_lemminflect_tags": {
+        "JJ": [
+          "good"
+        ],
+        "JJR": [
+          "better"
+        ],
+        "JJS": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "P10",
+      "lemma": "well",
+      "part_of_speech": "adverb",
+      "observed_lemminflect_tags": {
+        "RB": [
+          "well"
+        ],
+        "RBR": [
+          "better"
+        ],
+        "RBS": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "P11",
+      "lemma": "well",
+      "part_of_speech": "adjective",
+      "observed_lemminflect_tags": {
+        "JJ": [
+          "well"
+        ],
+        "JJR": [
+          "better"
+        ],
+        "JJS": [
+          "best"
+        ]
+      }
+    },
+    {
+      "id": "P12",
+      "lemma": "happy",
+      "part_of_speech": "adjective",
+      "observed_lemminflect_tags": {
+        "JJ": [
+          "happy"
+        ],
+        "JJR": [
+          "happier"
+        ],
+        "JJS": [
+          "happiest"
+        ]
+      }
+    },
+    {
+      "id": "P13",
+      "lemma": "better",
+      "part_of_speech": "noun",
+      "observed_lemminflect_tags": {
+        "NN": [
+          "better"
+        ],
+        "NNS": [
+          "betters"
+        ]
+      }
+    },
+    {
+      "id": "P14",
+      "lemma": "better",
+      "part_of_speech": "verb",
+      "observed_lemminflect_tags": {
+        "VB": [
+          "better"
+        ],
+        "VBP": [
+          "better"
+        ],
+        "VBD": [
+          "bettered"
+        ],
+        "VBG": [
+          "bettering"
+        ],
+        "VBZ": [
+          "betters"
+        ]
+      }
+    }
+  ],
+  "parser_negative_and_edge_cases": [
+    {
+      "id": "R01",
+      "fixture": "ordinary dictionary link",
+      "input_shape": "Independent semantic definition with unrelated hyperlink",
+      "expected_classification": "semantic_definition",
+      "expected_assertion": "No WordForm reference from arbitrary anchor."
+    },
+    {
+      "id": "R02",
+      "fixture": "explicit alternative spelling",
+      "input_shape": "“Alternative spelling of bettor” with marked target",
+      "expected_classification": "alternative_spelling",
+      "expected_assertion": "Candidate bettor/NOUN, subject to target validation, no morphological inflection."
+    },
+    {
+      "id": "R03",
+      "fixture": "explicit alternative form",
+      "input_shape": "“Alternative form of ask” with marked target",
+      "expected_classification": "other_reference",
+      "expected_assertion": "Do not conflate with alternative_spelling."
+    },
+    {
+      "id": "R04",
+      "fixture": "multiple targets",
+      "input_shape": "“plural of ax and axe” within marked form-of span",
+      "expected_classification": "morphological_reference",
+      "expected_assertion": "Two noun target relationships."
+    },
+    {
+      "id": "R05",
+      "fixture": "conjoined types",
+      "input_shape": "“simple past and past participle of poise”",
+      "expected_classification": "morphological_reference",
+      "expected_assertion": "One poise/VERB target with two relation types."
+    },
+    {
+      "id": "R06",
+      "fixture": "mixed senses",
+      "input_shape": "One semantic sense plus one form-of record within same POS section",
+      "expected_classification": "mixed",
+      "expected_assertion": "Persist only semantic record as Definition; keep form reference separately."
+    },
+    {
+      "id": "R07",
+      "fixture": "missing target",
+      "input_shape": "Form-of marker missing target anchor",
+      "expected_classification": "unresolved",
+      "expected_assertion": "No WordForm; do not look outside marker for unrelated anchor."
+    },
+    {
+      "id": "R08",
+      "fixture": "unknown relationship",
+      "input_shape": "Marked “derived from cat”",
+      "expected_classification": "unresolved",
+      "expected_assertion": "Neither morphological inflection nor semantic definition."
+    },
+    {
+      "id": "R09",
+      "fixture": "ambiguous target POS",
+      "input_shape": "Source ADJ, reference “past participle of run”",
+      "expected_classification": "unresolved_pos",
+      "expected_assertion": "Never assert run/ADJ; validation required."
+    },
+    {
+      "id": "R10",
+      "fixture": "explicit cross-POS",
+      "input_shape": "Source NOUN “plural of the verb run”",
+      "expected_classification": "unresolved_pos",
+      "expected_assertion": "Do not infer target POS from source POS."
+    },
+    {
+      "id": "R11",
+      "fixture": "HTML entity/URL",
+      "input_shape": "Target encoded as rock & roll",
+      "expected_classification": "morphological_reference",
+      "expected_assertion": "Decode target safely; retain correct Unicode/URL characters."
+    },
+    {
+      "id": "R12",
+      "fixture": "conflicting anchor",
+      "input_shape": "href/title/text disagree about target",
+      "expected_classification": "unresolved",
+      "expected_assertion": "No trusted target mapping."
+    },
+    {
+      "id": "R13",
+      "fixture": "repeated POS sections",
+      "input_shape": "Two noun sections, one semantic and one form-of",
+      "expected_classification": "mixed",
+      "expected_assertion": "Keep indices/senses isolated, no accidental dedup/discard."
+    },
+    {
+      "id": "R14",
+      "fixture": "unmarked clear form",
+      "input_shape": "Unmarked text “plural of cat”",
+      "expected_classification": "unresolved",
+      "expected_assertion": "Fail closed rather than silently storing a semantic definition."
+    },
+    {
+      "id": "R15",
+      "fixture": "unmarked cross-reference",
+      "input_shape": "Unmarked text “Had better.” linked to had better",
+      "expected_classification": "other_reference",
+      "expected_assertion": "Do not create spurious better/VERB meaning."
+    },
+    {
+      "id": "R16",
+      "fixture": "no English language",
+      "input_shape": "Response has only non-English sections",
+      "expected_classification": "empty_supported_result",
+      "expected_assertion": "No English definitions or relations; valid fetched result."
+    },
+    {
+      "id": "R17",
+      "fixture": "empty or 404",
+      "input_shape": "Dictionary spelling absent with legitimate HTTP 404",
+      "expected_classification": "dictionary_miss",
+      "expected_assertion": "No Word; dictionaryFetchedAt can be set."
+    },
+    {
+      "id": "R18",
+      "fixture": "malformed marked HTML",
+      "input_shape": "Broken/unexpected marked relationship",
+      "expected_classification": "unresolved_or_error",
+      "expected_assertion": "No false verified WordForm; honest completion/error state."
+    }
+  ],
+  "lookup_cache_scenarios": [
+    {
+      "id": "C01",
+      "sequence_or_case": "well → better → better",
+      "expected": "First well caches ADVERB and ADJECTIVE plus NOUN/VERB/INTERJECTION; indexes better→well/ADV (+ well/ADJ). Before better first lookup, better.discoveryCompletedAt=null. First better finds good/ADJ and independent better/ADJ,NOUN,VERB. Second better uses stored discovery."
+    },
+    {
+      "id": "C02",
+      "sequence_or_case": "good → better",
+      "expected": "good/ADJ populates better→good/ADJ; better discovery remains incomplete until better itself is searched; discovering better adds well and independent better meanings."
+    },
+    {
+      "id": "C03",
+      "sequence_or_case": "better → well",
+      "expected": "better search fetches full well dictionary entry; direct later well search sees independent well/NOUN and well/VERB as cached facts, but well.discoveryCompletedAt is not inferred solely from fetch."
+    },
+    {
+      "id": "C04",
+      "sequence_or_case": "poised → poise",
+      "expected": "poised/ADJ meanings plus poised→poise/VERB past+participle; fetch poise saves BOTH poise/NOUN and poise/VERB definitions. poise/NOUN is not a form interpretation of poised."
+    },
+    {
+      "id": "C05",
+      "sequence_or_case": "poise → poised",
+      "expected": "Caching poise/VERB builds poised form mapping without proving poised standalone adjective; first poised lookup still fetches its literal dictionary page."
+    },
+    {
+      "id": "C06",
+      "sequence_or_case": "axes → axis/axe/ax",
+      "expected": "All validated NOUN and VERB targets survive; axis/NOUN and axe/NOUN/VERB are cached by their full entries; no Word(axes) solely from inflection references."
+    },
+    {
+      "id": "C07",
+      "sequence_or_case": "children → child",
+      "expected": "children morphological references do not create Word(children) or Definition(children); child/NOUN becomes validated; childer/NOUN remains only a candidate until independently validated."
+    },
+    {
+      "id": "C08",
+      "sequence_or_case": "child → children",
+      "expected": "Child-first generates children→child/NOUN mapping but does not make children.discoveryCompletedAt non-null; children lookup inspects additional childer reference."
+    },
+    {
+      "id": "C09",
+      "sequence_or_case": "saw in two contexts",
+      "expected": "Independent saw/NOUN and saw/VERB plus see/VERB past and past-participle retained after first lookup; POS context must not alter permanently cached set."
+    },
+    {
+      "id": "C10",
+      "sequence_or_case": "found in two contexts",
+      "expected": "Independent found/NOUN and found/VERB plus find/VERB inflection retained; no spurious found=only find."
+    },
+    {
+      "id": "C11",
+      "sequence_or_case": "running & meeting",
+      "expected": "Run/VERB and meet/VERB participial references retained alongside independent running/ADJ,NOUN (and observed ADV/PREPOSITION) and meeting/NOUN. No form-of text stored as Definition."
+    },
+    {
+      "id": "C12",
+      "sequence_or_case": "partial cached mapping",
+      "expected": "If better→well/ADV preexists but better.discoveryCompletedAt is null, run first-time discovery instead of returning only well."
+    },
+    {
+      "id": "C13",
+      "sequence_or_case": "existing Word with no LookupState",
+      "expected": "Preexisting Word + Definition does not imply successful exact dictionary fetch or completed surface discovery; finish safely and deduplicate."
+    },
+    {
+      "id": "C14",
+      "sequence_or_case": "dictionary fetched, discovery incomplete",
+      "expected": "A candidate fetched as a dependency has its own dictionaryFetchedAt, but discoveryCompletedAt remains null until that spelling is selected and fully processed."
+    },
+    {
+      "id": "C15",
+      "sequence_or_case": "legitimate 404",
+      "expected": "Fake term qzvxnotaword receives 404; mark fetched for exact surface, no Word/Definition, no re-fetch on repeat completed lookup."
+    },
+    {
+      "id": "C16",
+      "sequence_or_case": "provider outage",
+      "expected": "HTTP 503/timeouts do not set dictionaryFetchedAt or discoveryCompletedAt for incomplete work; retry can finish."
+    },
+    {
+      "id": "C17",
+      "sequence_or_case": "candidate failure after surface success",
+      "expected": "Surface processed and fetched timestamp set; dependency failure keeps original discovery incomplete; retry reuses safe cached work."
+    },
+    {
+      "id": "C18",
+      "sequence_or_case": "parser ambiguity",
+      "expected": "Unresolved marked reference never becomes a trusted WordForm or semantic definition; completion tracks successful conservative processing, not universal certainty."
+    },
+    {
+      "id": "C19",
+      "sequence_or_case": "two concurrent identical lookups",
+      "expected": "No duplicate Word, Definition, WordForm, LookupState; final completion truthful; repeated provider request during race allowed."
+    },
+    {
+      "id": "C20",
+      "sequence_or_case": "case/Unicode normalization",
+      "expected": "BETTER / Better / better normalize to same English term and relationship rows, while card context preserves original characters."
+    },
+    {
+      "id": "C21",
+      "sequence_or_case": "POS conflict with spaCy",
+      "expected": "spaCy selected noun or verb does not suppress independent POS or morphological candidates; presentation ranking may differ, stored set identical."
+    },
+    {
+      "id": "C22",
+      "sequence_or_case": "one form multiple types",
+      "expected": "saw→see/VERB has both past and past_participle; walked→walk/VERB from morphology has past and possibly participle ONLY with actual evidence; no uniqueness collapse."
+    },
+    {
+      "id": "C23",
+      "sequence_or_case": "one form multiple lemmas",
+      "expected": "axes maps to axe, ax, axis NOUN and ax/axe VERB; better maps to good/ADJ and well/ADJ/ADV, with independent better lexical meanings."
+    },
+    {
+      "id": "C24",
+      "sequence_or_case": "alternative spelling POS scoped",
+      "expected": "better→bettor/NOUN alias is candidate link; do not duplicate bettor senses under better or convert alias to inflection card."
+    },
+    {
+      "id": "C25",
+      "sequence_or_case": "unsupported POS",
+      "expected": "Symbol in captured axe and saw responses does not create a Languee POS mapping or corrupt other supported senses."
+    }
+  ],
+  "schema_and_card_scenarios": [
+    {
+      "id": "S01",
+      "case": "definition columns removed",
+      "expected": "Prisma Definition no longer has inflectionForms or hasIrregularForms, and obsolete compound index is gone."
+    },
+    {
+      "id": "S02",
+      "case": "WordForm structure",
+      "expected": "Unique (wordId,form,POS,relationType); multiple forms/targets and distinct grammatical types permitted."
+    },
+    {
+      "id": "S03",
+      "case": "LookupState structure",
+      "expected": "Unique (term,language); independent dictionaryFetchedAt and discoveryCompletedAt; negative lookup permitted."
+    },
+    {
+      "id": "S04",
+      "case": "no morphology contamination",
+      "expected": "Every Definition for good or well may be different POS; only correct Word+POS gets its morphology at service boundary."
+    },
+    {
+      "id": "S05",
+      "case": "existing identities",
+      "expected": "Migration preserves existing Word IDs, Definition IDs, foreign keys from Card, deck membership, review logs, export state."
+    },
+    {
+      "id": "S06",
+      "case": "no historical snapshot mutation",
+      "expected": "Card.inflectionForms is retained and existing snapshots remain byte-for-byte stable unless user actions already require a change."
+    },
+    {
+      "id": "S07",
+      "case": "new lexical snapshot",
+      "expected": "New card for go/VERB uses go forms, not selected surface forms and not WordForm alternative_spelling rows."
+    },
+    {
+      "id": "S08",
+      "case": "no noun→adv leakage",
+      "expected": "A card for well/NOUN never tests better/best, which belong to well/ADV/ADJ."
+    },
+    {
+      "id": "S09",
+      "case": "irregular vs regular cards",
+      "expected": "go/VERB, child/NOUN, good/ADJ, well/ADV irregular; walk/VERB regular; poise/VERB regular; no false irregular inflection card for regular or noun well."
+    },
+    {
+      "id": "S10",
+      "case": "typed/queue/masking/export",
+      "expected": "Card creation, review queue, typed answer checks, masking, and Anki export all continue using snapshots/derived paradigms."
+    },
+    {
+      "id": "S11",
+      "case": "public API compatibility",
+      "expected": "No breaking changes to existing public vocabulary lookup DTO; internal discovery retains all headword+POS identities."
+    },
+    {
+      "id": "S12",
+      "case": "old partial cache",
+      "expected": "Old Word with no LookupState is rediscovered safely without losing definitions or creating duplicates."
+    }
+  ],
+  "context_semantics_cases": [
+    {
+      "id": "X01",
+      "surface": "poised",
+      "context": "She looked poised before the interview.",
+      "linguistically_expected_reading": "poised/adjective",
+      "discovery_assertion": "Do not suppress poise/VERB from corpus."
+    },
+    {
+      "id": "X02",
+      "surface": "poised",
+      "context": "She poised the sculpture on its stand.",
+      "linguistically_expected_reading": "poise/verb (past)",
+      "discovery_assertion": "Independent poised/adjective still cached."
+    },
+    {
+      "id": "X03",
+      "surface": "better",
+      "context": "This solution is better.",
+      "linguistically_expected_reading": "good/adjective comparative",
+      "discovery_assertion": "Well/ADJ remains a valid dictionary-supported morphological candidate globally, but is not the intended reading of this sentence."
+    },
+    {
+      "id": "X04",
+      "surface": "better",
+      "context": "She performed better today.",
+      "linguistically_expected_reading": "well/adverb comparative",
+      "discovery_assertion": "Do not add unrelated well/noun."
+    },
+    {
+      "id": "X05",
+      "surface": "better",
+      "context": "We must better the process.",
+      "linguistically_expected_reading": "better/verb independent",
+      "discovery_assertion": "Not automatically good/adjective."
+    },
+    {
+      "id": "X06",
+      "surface": "better",
+      "context": "He should listen to his betters.",
+      "linguistically_expected_reading": "better/noun independently lexicalized",
+      "discovery_assertion": "Do not conflate with bettor alternative spelling."
+    },
+    {
+      "id": "X07",
+      "surface": "saw",
+      "context": "I saw a bird.",
+      "linguistically_expected_reading": "see/verb past",
+      "discovery_assertion": "Do not remove saw/noun."
+    },
+    {
+      "id": "X08",
+      "surface": "saw",
+      "context": "The carpenter picked up a saw.",
+      "linguistically_expected_reading": "saw/noun independent",
+      "discovery_assertion": "Do not remove see/verb."
+    },
+    {
+      "id": "X09",
+      "surface": "found",
+      "context": "They found the keys.",
+      "linguistically_expected_reading": "find/verb past",
+      "discovery_assertion": "Do not remove found/verb independent."
+    },
+    {
+      "id": "X10",
+      "surface": "found",
+      "context": "They plan to found a nonprofit.",
+      "linguistically_expected_reading": "found/verb independent",
+      "discovery_assertion": "Do not interpret as find/verb."
+    },
+    {
+      "id": "X11",
+      "surface": "axes",
+      "context": "The coordinate axes intersect at zero.",
+      "linguistically_expected_reading": "axis/noun plural",
+      "discovery_assertion": "Axe and ax candidates stay discoverable."
+    },
+    {
+      "id": "X12",
+      "surface": "axes",
+      "context": "The workers sharpened their axes.",
+      "linguistically_expected_reading": "axe or ax/noun plural",
+      "discovery_assertion": "Do not force axis from the same NOUN POS."
+    },
+    {
+      "id": "X13",
+      "surface": "running",
+      "context": "The child is running.",
+      "linguistically_expected_reading": "run/verb present participle",
+      "discovery_assertion": "Independent adjective and noun cached."
+    },
+    {
+      "id": "X14",
+      "surface": "running",
+      "context": "Running water is cold.",
+      "linguistically_expected_reading": "running/adjective independent",
+      "discovery_assertion": "Run/verb reference remains."
+    },
+    {
+      "id": "X15",
+      "surface": "running",
+      "context": "Running is a popular sport.",
+      "linguistically_expected_reading": "running/noun independent",
+      "discovery_assertion": "Do not classify all -ing as verb."
+    },
+    {
+      "id": "X16",
+      "surface": "meeting",
+      "context": "They are meeting outside.",
+      "linguistically_expected_reading": "meet/verb present participle",
+      "discovery_assertion": "Meeting/noun stays cached."
+    },
+    {
+      "id": "X17",
+      "surface": "meeting",
+      "context": "The meeting is tomorrow.",
+      "linguistically_expected_reading": "meeting/noun independent",
+      "discovery_assertion": "Meet/verb remains."
+    },
+    {
+      "id": "X18",
+      "surface": "well",
+      "context": "She speaks well.",
+      "linguistically_expected_reading": "well/adverb independent",
+      "discovery_assertion": "Do not add unrelated well/noun to surface interpretation."
+    },
+    {
+      "id": "X19",
+      "surface": "well",
+      "context": "The well is dry.",
+      "linguistically_expected_reading": "well/noun independent",
+      "discovery_assertion": "Comparison paradigm does not belong to noun."
+    },
+    {
+      "id": "X20",
+      "surface": "well",
+      "context": "She is well now.",
+      "linguistically_expected_reading": "well/adjective independent",
+      "discovery_assertion": "Same spelling, different POS."
+    },
+    {
+      "id": "X21",
+      "surface": "interested",
+      "context": "He is interested in the topic.",
+      "linguistically_expected_reading": "interested/adjective independent (conditional dictionary validation)",
+      "discovery_assertion": "Interest/verb candidate retained, do not force verb."
+    },
+    {
+      "id": "X22",
+      "surface": "exhausted",
+      "context": "The exhausted runner rested.",
+      "linguistically_expected_reading": "exhausted/adjective independent",
+      "discovery_assertion": "Exhaust/verb past/participle also discovered."
+    }
+  ],
+  "gold_source_note": "Dictionary gold references and independent API record counts are from attached gold.json/results.json. Holdout independent observations come from results.json, not a manually scored gold set; raw Wiktionary HTML payloads must be frozen for parser integration tests. The additional parser/cache/schema/context cases are controlled fixtures/expected application invariants. The M* cases are unambiguous standard-English examples supplied as controlled provider fixtures; they do not assert LemmInflect coverage or live Wiktionary output.",
+  "reference_morphology_cases": [
+    {
+      "id": "M01",
+      "lemma": "study",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "studies",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "studied",
+          "relation_type": "past"
+        },
+        {
+          "form": "studied",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "studying",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "studying",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Regular -y → -ies/-ied; two grammatical types share studied and studying."
+    },
+    {
+      "id": "M02",
+      "lemma": "stop",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "stops",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "stopped",
+          "relation_type": "past"
+        },
+        {
+          "form": "stopped",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "stopping",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "stopping",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Consonant doubling."
+    },
+    {
+      "id": "M03",
+      "lemma": "make",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "makes",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "made",
+          "relation_type": "past"
+        },
+        {
+          "form": "made",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "making",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "making",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Silent-e removal in making; irregular past."
+    },
+    {
+      "id": "M04",
+      "lemma": "take",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "takes",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "took",
+          "relation_type": "past"
+        },
+        {
+          "form": "taken",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "taking",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "taking",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Different past and past participle."
+    },
+    {
+      "id": "M05",
+      "lemma": "give",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "gives",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "gave",
+          "relation_type": "past"
+        },
+        {
+          "form": "given",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "giving",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "giving",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Different past and past participle."
+    },
+    {
+      "id": "M06",
+      "lemma": "swim",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "swims",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "swam",
+          "relation_type": "past"
+        },
+        {
+          "form": "swum",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "swimming",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "swimming",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Irregular vowel alternation and consonant doubling."
+    },
+    {
+      "id": "M07",
+      "lemma": "sing",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "sings",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "sang",
+          "relation_type": "past"
+        },
+        {
+          "form": "sung",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "singing",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "singing",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Irregular past vs participle."
+    },
+    {
+      "id": "M08",
+      "lemma": "buy",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "buys",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "bought",
+          "relation_type": "past"
+        },
+        {
+          "form": "bought",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "buying",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "buying",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Same spelling has two grammatical relations."
+    },
+    {
+      "id": "M09",
+      "lemma": "teach",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "teaches",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "taught",
+          "relation_type": "past"
+        },
+        {
+          "form": "taught",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "teaching",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "teaching",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Irregular past and participle."
+    },
+    {
+      "id": "M10",
+      "lemma": "read",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "reads",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "read",
+          "relation_type": "past"
+        },
+        {
+          "form": "read",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "reading",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "reading",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Past/participle orthographically identical to base; grammatical roles must remain distinguishable."
+    },
+    {
+      "id": "M11",
+      "lemma": "cut",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "cuts",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "cut",
+          "relation_type": "past"
+        },
+        {
+          "form": "cut",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "cutting",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "cutting",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Base spelling identical to past/participle."
+    },
+    {
+      "id": "M12",
+      "lemma": "run",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "runs",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "ran",
+          "relation_type": "past"
+        },
+        {
+          "form": "run",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "running",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "running",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Past participle same spelling as base; past different."
+    },
+    {
+      "id": "M13",
+      "lemma": "move",
+      "part_of_speech": "verb",
+      "expected_single_token_mappings": [
+        {
+          "form": "moves",
+          "relation_type": "present_3sg"
+        },
+        {
+          "form": "moved",
+          "relation_type": "past"
+        },
+        {
+          "form": "moved",
+          "relation_type": "past_participle"
+        },
+        {
+          "form": "moving",
+          "relation_type": "present_participle"
+        },
+        {
+          "form": "moving",
+          "relation_type": "gerund"
+        }
+      ],
+      "note": "Regular silent-e verbs."
+    },
+    {
+      "id": "M14",
+      "lemma": "cat",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "cats",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Regular plural."
+    },
+    {
+      "id": "M15",
+      "lemma": "baby",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "babies",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Consonant + y plural."
+    },
+    {
+      "id": "M16",
+      "lemma": "box",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "boxes",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Sibilant plural."
+    },
+    {
+      "id": "M17",
+      "lemma": "woman",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "women",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Irregular stem change."
+    },
+    {
+      "id": "M18",
+      "lemma": "goose",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "geese",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Irregular stem change."
+    },
+    {
+      "id": "M19",
+      "lemma": "tooth",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "teeth",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Irregular stem change."
+    },
+    {
+      "id": "M20",
+      "lemma": "criterion",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "criteria",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Greek-origin plural."
+    },
+    {
+      "id": "M21",
+      "lemma": "phenomenon",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "phenomena",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Greek-origin plural."
+    },
+    {
+      "id": "M22",
+      "lemma": "sheep",
+      "part_of_speech": "noun",
+      "expected_single_token_mappings": [
+        {
+          "form": "sheep",
+          "relation_type": "plural"
+        }
+      ],
+      "note": "Plural spelling identical to singular; preserve relationship despite word-form identity."
+    },
+    {
+      "id": "M23",
+      "lemma": "big",
+      "part_of_speech": "adjective",
+      "expected_single_token_mappings": [
+        {
+          "form": "bigger",
+          "relation_type": "comparative"
+        },
+        {
+          "form": "biggest",
+          "relation_type": "superlative"
+        }
+      ],
+      "note": "Consonant doubling."
+    },
+    {
+      "id": "M24",
+      "lemma": "bad",
+      "part_of_speech": "adjective",
+      "expected_single_token_mappings": [
+        {
+          "form": "worse",
+          "relation_type": "comparative"
+        },
+        {
+          "form": "worst",
+          "relation_type": "superlative"
+        }
+      ],
+      "note": "Irregular suppletion."
+    },
+    {
+      "id": "M25",
+      "lemma": "easy",
+      "part_of_speech": "adjective",
+      "expected_single_token_mappings": [
+        {
+          "form": "easier",
+          "relation_type": "comparative"
+        },
+        {
+          "form": "easiest",
+          "relation_type": "superlative"
+        }
+      ],
+      "note": "Consonant + y shift."
+    },
+    {
+      "id": "M26",
+      "lemma": "early",
+      "part_of_speech": "adverb",
+      "expected_single_token_mappings": [
+        {
+          "form": "earlier",
+          "relation_type": "comparative"
+        },
+        {
+          "form": "earliest",
+          "relation_type": "superlative"
+        }
+      ],
+      "note": "Adverb, not adjective-only; map RBR/RBS."
+    },
+    {
+      "id": "M27",
+      "lemma": "fast",
+      "part_of_speech": "adverb",
+      "expected_single_token_mappings": [
+        {
+          "form": "faster",
+          "relation_type": "comparative"
+        },
+        {
+          "form": "fastest",
+          "relation_type": "superlative"
+        }
+      ],
+      "note": "Adverb with single-token comparison."
+    },
+    {
+      "id": "M28",
+      "lemma": "high",
+      "part_of_speech": "adjective",
+      "expected_single_token_mappings": [
+        {
+          "form": "higher",
+          "relation_type": "comparative"
+        },
+        {
+          "form": "highest",
+          "relation_type": "superlative"
+        }
+      ],
+      "note": "Regular comparison."
+    },
+    {
+      "id": "M29",
+      "lemma": "beautiful",
+      "part_of_speech": "adjective",
+      "expected_single_token_mappings": [],
+      "note": "Periphrastic “more beautiful” and “most beautiful” are not single-token WordForm rows."
+    },
+    {
+      "id": "M30",
+      "lemma": "quickly",
+      "part_of_speech": "adverb",
+      "expected_single_token_mappings": [],
+      "note": "Periphrastic “more quickly” and “most quickly” are not single-token WordForm rows."
+    }
+  ]
+}

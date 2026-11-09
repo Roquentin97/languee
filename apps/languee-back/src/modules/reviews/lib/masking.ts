@@ -34,6 +34,13 @@ export function collectTargetForms(
     for (const [key, value] of Object.entries(inflectionForms)) {
       if (key === 'type') continue;
       if (typeof value === 'string') add(value);
+      if (key === 'variants' && typeof value === 'object' && value !== null) {
+        for (const spellings of Object.values(value)) {
+          if (Array.isArray(spellings))
+            for (const spelling of spellings)
+              if (typeof spelling === 'string') add(spelling);
+        }
+      }
     }
   }
 

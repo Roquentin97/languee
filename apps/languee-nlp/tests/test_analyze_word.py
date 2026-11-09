@@ -517,9 +517,9 @@ def test_words_adv_populates_adj_fields_not_verb_or_noun():
 
     def fake_inflection(lemma: str, tag: str) -> tuple:
         mapping = {
-            "JJ": ("fast",),
-            "JJR": ("faster",),
-            "JJS": ("fastest",),
+            "RB": ("fast",),
+            "RBR": ("faster",),
+            "RBS": ("fastest",),
         }
         return mapping.get(tag, ())
 

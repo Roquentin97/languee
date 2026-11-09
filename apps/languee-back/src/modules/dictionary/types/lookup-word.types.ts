@@ -7,8 +7,6 @@ export type LookupWordInput = {
   language: string;
   lemma?: string;
   pos?: string;
-  isIrregular?: boolean;
-  inflectionForms?: InflectionForms | null;
   kind: LexicalKind;
 };
 

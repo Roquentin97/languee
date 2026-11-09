@@ -1,3 +1,7 @@
+import { MorphologyService } from '../morphology/morphology.service';
+import { HeadwordDiscoveryService } from './headword-discovery.service';
+import { PrismaService } from '../core/prisma/prisma.service';
+import { MORPHOLOGY_PROVIDER } from '../morphology/morphology-provider';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DictionaryApiAdapter } from './adapters/dictionary-api.adapter';
@@ -154,10 +158,12 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
   const wordsServiceMock = {
     canonicalise: jest.fn().mockImplementation((w: string) => w.toLowerCase()),
     findByLemma: jest.fn(),
+    findLookupCandidates: jest.fn(),
     ensureExistsAndReturn: jest.fn(),
   };
   const definitionServiceMock = {
     findByWordId: jest.fn(),
+    findByWordIds: jest.fn(),
     createMany: jest.fn(),
   };
   const adapterMock: jest.Mocked<IDictionaryApiAdapter> = {
@@ -167,6 +173,8 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    wordsServiceMock.findLookupCandidates.mockResolvedValue([]);
+    definitionServiceMock.findByWordIds.mockResolvedValue([]);
     wordsServiceMock.canonicalise.mockImplementation((w: string) =>
       w.toLowerCase(),
     );
@@ -174,6 +182,30 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
     testModule = await Test.createTestingModule({
       providers: [
         DictionaryService,
+        HeadwordDiscoveryService,
+        {
+          provide: MORPHOLOGY_PROVIDER,
+          useValue: {
+            findLemmaCandidates: () => Promise.resolve([]),
+            getInflections: () => Promise.resolve([]),
+          },
+        },
+        {
+          provide: MorphologyService,
+          useValue: {
+            findOrigins: () => Promise.resolve([]),
+            describeEntries: () => Promise.resolve(new Map()),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            lookupState: {
+              findUnique: () => Promise.resolve(null),
+              upsert: () => Promise.resolve({}),
+            },
+          },
+        },
         { provide: WordsService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
         { provide: DICTIONARY_API_ADAPTER, useValue: adapterMock },

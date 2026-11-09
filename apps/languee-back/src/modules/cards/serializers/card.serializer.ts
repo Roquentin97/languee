@@ -12,6 +12,7 @@ import type { InflectionForms } from '../../dictionary/types/inflection-forms.ty
 
 function serializeDefinition(
   definition: CardWithRelations['definition'],
+  snapshot: InflectionForms | null,
 ): CardResponseDto['definition'] {
   if (!definition) return null;
   return {
@@ -20,8 +21,7 @@ function serializeDefinition(
     definition: definition.definition,
     example: definition.example ?? null,
     provider: definition.provider,
-    inflectionForms:
-      (definition.inflectionForms as InflectionForms | null) ?? null,
+    inflectionForms: snapshot,
   };
 }
 
@@ -48,7 +48,10 @@ export function serializeCard(card: CardWithRelations): CardResponseDto {
     inflectionForms: (card.inflectionForms as InflectionForms | null) ?? null,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
-    definition: serializeDefinition(card.definition),
+    definition: serializeDefinition(
+      card.definition,
+      card.lexicalInflectionForms ?? null,
+    ),
     word: serializeWord(card),
   };
 }

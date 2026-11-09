@@ -72,16 +72,12 @@ export class VocabularyService {
       },
     });
 
-    const inflectionForms: InflectionForms | null = nlpResult.inflectionForms;
-
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
       lemma: nlpResult.lemma,
       language: input.language,
       kind: LexicalKind.word,
       pos: nlpResult.pos ?? undefined,
-      isIrregular: nlpResult.isIrregular,
-      inflectionForms,
     });
 
     const mappedPos: PartOfSpeech | null = nlpResult.pos;

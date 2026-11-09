@@ -1,3 +1,5 @@
+import { HeadwordDiscoveryService } from './headword-discovery.service';
+import { MorphologyModule } from '../morphology/morphology.module';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WordsModule } from '../words/words.module';
@@ -12,7 +14,7 @@ import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 
 @Module({
-  imports: [WordsModule, DefinitionsModule, AuthModule],
+  imports: [WordsModule, DefinitionsModule, AuthModule, MorphologyModule],
   providers: [
     DictionaryApiAdapter,
     FreeDictionaryApiAdapter,
@@ -38,9 +40,10 @@ import { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.inter
         WiktionaryApiAdapter,
       ],
     },
+    HeadwordDiscoveryService,
     DictionaryService,
   ],
   controllers: [DictionaryController],
-  exports: [DictionaryService],
+  exports: [DictionaryService, HeadwordDiscoveryService],
 })
 export class DictionaryModule {}

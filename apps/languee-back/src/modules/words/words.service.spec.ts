@@ -25,6 +25,7 @@ describe('WordsService', () => {
   const prismaMock = {
     word: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       updateMany: jest.fn(),
@@ -220,6 +221,35 @@ describe('WordsService', () => {
       await expect(
         service.setIpaIfMissing('word-id-1', '/ɹʌn/'),
       ).resolves.toBeUndefined();
+    });
+  });
+  describe('findLookupCandidates', () => {
+    it('loads the literal spelling and supplied reverse-index origins in lexical order', async () => {
+      const rows = [makeWord({ lemma: 'better' }), makeWord({ lemma: 'well' })];
+      prismaMock.word.findMany.mockResolvedValue(rows);
+      expect(
+        await service.findLookupCandidates('better', 'en', ['well-id']),
+      ).toEqual(rows);
+      expect(prismaMock.word.findMany).toHaveBeenCalledWith({
+        where: {
+          language: 'en',
+          OR: [{ lemma: 'better' }, { id: { in: ['well-id'] } }],
+        },
+        orderBy: { lemma: 'asc' },
+      });
+    });
+    it('can resolve a literal spelling without any reverse-index origins', async () => {
+      prismaMock.word.findMany.mockResolvedValue([]);
+      expect(await service.findLookupCandidates('unknown', 'en', [])).toEqual(
+        [],
+      );
+      expect(prismaMock.word.findMany).toHaveBeenCalledWith({
+        where: {
+          language: 'en',
+          OR: [{ lemma: 'unknown' }, { id: { in: [] } }],
+        },
+        orderBy: { lemma: 'asc' },
+      });
     });
   });
 });

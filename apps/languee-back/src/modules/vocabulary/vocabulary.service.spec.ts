@@ -686,7 +686,7 @@ describe('VocabularyService', () => {
       );
     });
 
-    it('dictionaryService.lookup() is called with NLP lemma, pos, and inflection data', async () => {
+    it('dictionaryService.lookup() receives contextual candidates without copying token morphology', async () => {
       const nlpResult: NlpWordAnalysis = {
         kind: 'word',
         lemma: 'walk',
@@ -713,12 +713,16 @@ describe('VocabularyService', () => {
           word: 'walked',
           lemma: 'walk',
           pos: PartOfSpeech.VERB,
-          isIrregular: false,
-          inflectionForms: {
-            type: 'verb' as const,
-            base: 'walk',
-            past: 'walked',
-          },
+        }),
+      );
+      expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          inflectionForms: expect.anything() as unknown,
+        }),
+      );
+      expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          isIrregular: expect.anything() as unknown,
         }),
       );
     });

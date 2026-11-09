@@ -1,5 +1,7 @@
+import { NlpUnavailableError, NlpInputInvalidError } from '../nlp/nlp.errors';
 import {
   BadGatewayException,
+  BadRequestException,
   Controller,
   Get,
   NotFoundException,
@@ -8,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadGatewayResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -43,6 +46,9 @@ export class DictionaryController {
     example: 'en',
     description: 'ISO 639-1 language code. Defaults to en.',
   })
+  @ApiBadRequestResponse({
+    description: 'Unsupported language or invalid morphology input',
+  })
   @ApiOkResponse({ type: LookupWordResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiNotFoundResponse({
@@ -60,6 +66,10 @@ export class DictionaryController {
         kind: LexicalKind.word,
       });
     } catch (e: unknown) {
+      if (e instanceof NlpInputInvalidError)
+        throw new BadRequestException('INPUT_INVALID');
+      if (e instanceof NlpUnavailableError)
+        throw new BadGatewayException('NLP_UNAVAILABLE');
       if (e instanceof DefinitionsNotFoundException) {
         throw new NotFoundException({
           message: 'No dictionary definitions were found for this word.',

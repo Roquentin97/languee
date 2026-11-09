@@ -19,7 +19,6 @@ import type {
   Definition,
   Word,
 } from '@prisma/client';
-import type { InflectionForms } from '../dictionary/types/inflection-forms.types';
 
 const mockUser: CurrentUserPayload = {
   userId: 'user-id-1',
@@ -43,22 +42,11 @@ const mockDefinition: Definition = {
   example: 'She runs every morning.',
   provider: 'free-dictionary',
   gapFillMetadata: null,
-  hasIrregularForms: false,
-  inflectionForms: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
 const mockDefinitionWithInflections: Definition = {
   ...mockDefinition,
-  inflectionForms: {
-    type: 'verb',
-    base: 'run',
-    past: 'ran',
-    pastParticiple: 'run',
-    gerundParticiple: 'running',
-    present3sg: 'runs',
-    presentNon3sg: 'run',
-  } satisfies InflectionForms,
 };
 
 function baseCard(overrides: Partial<Card>): Card {
@@ -242,9 +230,18 @@ describe('CardsController', () => {
       });
     });
 
-    it('serializes inflectionForms from definition when present', async () => {
+    it('serializes definition morphology projected from the canonical paradigm', async () => {
       const cardWithInflections: CardWithAnkiDroidExport = {
         ...mockCardWithRelations,
+        lexicalInflectionForms: {
+          type: 'verb',
+          base: 'run',
+          past: 'ran',
+          present3sg: 'runs',
+          presentNon3sg: 'run',
+          pastParticiple: 'run',
+          gerundParticiple: 'running',
+        },
         definition: { ...mockDefinitionWithInflections, word: mockWord },
         ankidroidExport: null,
       };

@@ -1,3 +1,4 @@
+import { MorphologyService } from '../morphology/morphology.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { CardType, Prisma } from '@prisma/client';
 import type {
@@ -23,6 +24,7 @@ export type CardWithRelations = Card & {
   definition: (Definition & { word: Word }) | null;
   word: Word | null;
   decks: DeckRef[];
+  lexicalInflectionForms?: InflectionForms | null;
 };
 
 export type CardWithAnkiDroidExport = CardWithRelations & {
@@ -71,14 +73,20 @@ function toDeckRefs(decks: RawCard['decks']): DeckRef[] {
 
 function toCardWithRelations(card: RawCard): CardWithRelations {
   const { decks, ...rest } = card;
-  return { ...rest, decks: toDeckRefs(decks) };
+  return {
+    ...rest,
+    decks: toDeckRefs(decks),
+  };
 }
 
 function toCardWithAnkiDroidExport(
   card: RawCardWithExport,
 ): CardWithAnkiDroidExport {
   const { decks, ...rest } = card;
-  return { ...rest, decks: toDeckRefs(decks) };
+  return {
+    ...rest,
+    decks: toDeckRefs(decks),
+  };
 }
 
 @Injectable()
@@ -89,6 +97,7 @@ export class CardsService {
     private readonly prisma: PrismaService,
     private readonly decksService: DecksService,
     private readonly definitionService: DefinitionService,
+    private readonly morphology: MorphologyService,
   ) {}
 
   /**
@@ -110,13 +119,28 @@ export class CardsService {
       throw new DefinitionNotFoundError();
     }
 
+    const paradigms = await this.morphology.describeEntries([
+      {
+        wordId: definition.wordId,
+        lemma: definition.word.lemma,
+        partOfSpeech: definition.partOfSpeech,
+      },
+    ]);
+    const paradigm = paradigms
+      .get(definition.wordId)
+      ?.get(definition.partOfSpeech);
+    const lexicalSnapshot = paradigm?.snapshot ?? null;
+    const snapshot =
+      definition.word.kind === 'word'
+        ? lexicalSnapshot
+        : (inflectionForms ?? null);
     const cardIds = await this.prisma.$transaction(async (tx) => {
       const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.cloze,
         definitionId,
         context: context ?? null,
-        inflectionForms: inflectionForms ?? null,
+        inflectionForms: snapshot,
       });
 
       const alreadyInDeck = await tx.cardDeck.findUnique({
@@ -137,14 +161,14 @@ export class CardsService {
       const ids = [clozeCard.id, definitionCard.id];
 
       if (
-        definition.hasIrregularForms &&
-        wordInflects(definition.inflectionForms as InflectionForms | null)
+        paradigm?.hasIrregularForms &&
+        wordInflects(paradigm.inflectionForms)
       ) {
         const inflectionCard = await this.findOrCreateInflectionCard(tx, {
           userId,
           wordId: definition.wordId,
           partOfSpeech: definition.partOfSpeech,
-          inflectionForms: definition.inflectionForms as InflectionForms | null,
+          inflectionForms: lexicalSnapshot,
         });
         ids.push(inflectionCard.id);
       }
@@ -180,7 +204,7 @@ export class CardsService {
       },
     });
 
-    return result;
+    return this.withLexicalMorphology(result);
   }
 
   async findManyByUserId(
@@ -225,7 +249,7 @@ export class CardsService {
       data: { userId, filters, count: result.length },
     });
 
-    return result.map(toCardWithAnkiDroidExport);
+    return this.withLexicalMorphology(result.map(toCardWithAnkiDroidExport));
   }
 
   async findOneByIdAndUserId(
@@ -236,7 +260,11 @@ export class CardsService {
       where: { id, userId },
       include: DETAIL_INCLUDE,
     });
-    return card ? toCardWithAnkiDroidExport(card) : null;
+    if (!card) return null;
+    const [enriched] = await this.withLexicalMorphology([
+      toCardWithAnkiDroidExport(card),
+    ]);
+    return enriched;
   }
 
   async findOwnedOrThrow(
@@ -299,7 +327,9 @@ export class CardsService {
         orderBy: { dueAt: 'asc' },
         take: limit,
       })
-      .then((cards) => cards.map(toCardWithRelations));
+      .then((cards) =>
+        this.withLexicalMorphology(cards.map(toCardWithRelations)),
+      );
   }
 
   /** Cards never reviewed, oldest-first, optionally capped. */
@@ -319,7 +349,9 @@ export class CardsService {
         orderBy: { createdAt: 'asc' },
         ...(limit !== undefined ? { take: limit } : {}),
       })
-      .then((cards) => cards.map(toCardWithRelations));
+      .then((cards) =>
+        this.withLexicalMorphology(cards.map(toCardWithRelations)),
+      );
   }
 
   countDue(userId: string, now: Date): Promise<number> {
@@ -398,6 +430,31 @@ export class CardsService {
     data: CardSchedulingUpdate,
   ): Prisma.PrismaPromise<Card> {
     return this.prisma.card.update({ where: { id: cardId }, data });
+  }
+
+  private async withLexicalMorphology<T extends CardWithRelations>(
+    cards: T[],
+  ): Promise<T[]> {
+    const entries = cards.flatMap((card) =>
+      card.definition
+        ? [
+            {
+              wordId: card.definition.wordId,
+              lemma: card.definition.word.lemma,
+              partOfSpeech: card.definition.partOfSpeech,
+            },
+          ]
+        : [],
+    );
+    const paradigms = await this.morphology.describeEntries(entries);
+    return cards.map((card) => ({
+      ...card,
+      lexicalInflectionForms: card.definition
+        ? (paradigms
+            .get(card.definition.wordId)
+            ?.get(card.definition.partOfSpeech)?.inflectionForms ?? null)
+        : null,
+    }));
   }
 
   private async findOrCreateSenseCard(

@@ -31,6 +31,7 @@ model Word {
   ipa         String?
   kind        LexicalKind  @default(word)
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  forms       WordForm[]
   definitions Definition[]
   cards       Card[]
 
@@ -48,15 +49,12 @@ model Definition {
   example           String?
   provider          String
   gapFillMetadata   Json?    @map("gap_fill_metadata") @db.JsonB
-  hasIrregularForms Boolean  @default(false) @map("has_irregular_forms")
-  inflectionForms   Json?    @map("inflection_forms") @db.JsonB
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   cards             Card[]
 
   @@unique([wordId, partOfSpeech, definition])
   @@index([wordId])
   @@index([partOfSpeech])
-  @@index([partOfSpeech, hasIrregularForms])
   @@map("definitions")
 }
 
@@ -240,4 +238,27 @@ model ReviewLog {
 
   @@index([cardId, reviewedAt])
   @@map("review_logs")
+}
+
+model WordForm {
+  id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  wordId String @map("word_id") @db.Uuid
+  word Word @relation(fields: [wordId], references: [id])
+  form String
+  partOfSpeech String @map("part_of_speech")
+  relationType String @map("relation_type")
+
+  @@unique([wordId, form, partOfSpeech, relationType])
+  @@index([form])
+  @@map("word_forms")
+}
+
+model LookupState {
+  term String
+  language String
+  dictionaryFetchedAt DateTime? @map("dictionary_fetched_at") @db.Timestamptz
+  discoveryCompletedAt DateTime? @map("discovery_completed_at") @db.Timestamptz
+
+  @@id([term, language])
+  @@map("lookup_states")
 }

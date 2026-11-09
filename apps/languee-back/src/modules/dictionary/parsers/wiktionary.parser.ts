@@ -1,3 +1,5 @@
+import { classifyReference } from './form-reference.parser';
+import type { DictionaryEntry } from '../interfaces/dictionary-api-adapter.interface';
 import { Logger } from '@nestjs/common';
 import { RawDefinitionEntry } from '../interfaces/dictionary-api-adapter.interface';
 import { mapWiktionaryPos } from '../mappers/wiktionary-pos.mapper';
@@ -97,7 +99,11 @@ function extractRawExample(
   return undefined;
 }
 
-function parseUsage(usage: unknown): RawDefinitionEntry[] {
+function parseUsage(
+  usage: unknown,
+  source: string,
+  references: DictionaryEntry['references'],
+): RawDefinitionEntry[] {
   if (!isRecord(usage)) {
     return [];
   }
@@ -109,6 +115,15 @@ function parseUsage(usage: unknown): RawDefinitionEntry[] {
 
   const partOfSpeech = mapWiktionaryPos(rawPartOfSpeech);
   if (partOfSpeech === null) {
+    references.push({
+      category: 'unresolved',
+      source,
+      sourcePos: null,
+      targets: [],
+      targetPos: null,
+      relationTypes: [],
+      text: `Unsupported POS: ${rawPartOfSpeech}`,
+    });
     logger.debug({
       message: 'unrecognised part of speech, skipping usage',
       event: 'wiktionary.pos_skipped',
@@ -132,9 +147,21 @@ function parseUsage(usage: unknown): RawDefinitionEntry[] {
       continue;
     }
 
-    const definition = stripWiktionaryHtml(
-      stripNestedSenseLists(rawDefinition['definition']),
-    );
+    const html = stripNestedSenseLists(rawDefinition['definition']);
+    const reference = classifyReference(html, source, partOfSpeech);
+    if (reference) {
+      references.push(reference);
+      if (
+        reference.category === 'unresolved' ||
+        reference.category === 'other_reference'
+      )
+        logger.warn({
+          event: 'wiktionary.unresolved_reference',
+          data: reference,
+        });
+      continue;
+    }
+    const definition = stripWiktionaryHtml(html);
     if (definition.length === 0) {
       continue;
     }
@@ -193,18 +220,30 @@ export function extractEnglishIpaFromWikitext(
  * RawDefinitionEntry[] for the given language code. Defensive throughout —
  * malformed or unexpected shapes are skipped rather than throwing.
  */
+export function parseWiktionaryEntry(
+  body: unknown,
+  language: string,
+  source: string,
+): DictionaryEntry {
+  if (!isRecord(body)) throw new Error('Invalid Wiktionary response');
+  const usages = body[language];
+  if (usages !== undefined && !Array.isArray(usages))
+    throw new Error('Invalid Wiktionary language section');
+  const references: DictionaryEntry['references'] = [];
+  const definitions = (Array.isArray(usages) ? usages : []).flatMap((usage) =>
+    parseUsage(usage, source, references),
+  );
+  return { definitions, references };
+}
+
 export function parseWiktionaryResponse(
   body: unknown,
   language: string,
 ): RawDefinitionEntry[] {
-  if (!isRecord(body)) {
+  if (
+    !isRecord(body) ||
+    (body[language] !== undefined && !Array.isArray(body[language]))
+  )
     return [];
-  }
-
-  const usages = body[language];
-  if (!Array.isArray(usages)) {
-    return [];
-  }
-
-  return usages.flatMap((usage) => parseUsage(usage));
+  return parseWiktionaryEntry(body, language, '').definitions;
 }

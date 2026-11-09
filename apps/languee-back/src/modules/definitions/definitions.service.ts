@@ -24,6 +24,14 @@ export class DefinitionService {
     return this.prisma.definition.findMany({ where: { wordId } });
   }
 
+  findByWordIds(wordIds: string[]): Promise<DbDefinition[]> {
+    if (!wordIds.length) return Promise.resolve([]);
+    return this.prisma.definition.findMany({
+      where: { wordId: { in: wordIds } },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   findByIdWithWord(id: string): Promise<DefinitionWithWord | null> {
     return this.prisma.definition.findUnique({
       where: { id },
@@ -67,11 +75,6 @@ export class DefinitionService {
               ...key,
               example: entry.example ?? null,
               provider: providerName,
-              hasIrregularForms: entry.hasIrregularForms ?? false,
-              inflectionForms:
-                entry.inflectionForms != null
-                  ? (entry.inflectionForms as Prisma.InputJsonValue)
-                  : Prisma.JsonNull,
             },
           });
         } catch (err: unknown) {
@@ -102,11 +105,6 @@ export class DefinitionService {
           definition: entry.definition,
           example: entry.example ?? null,
           provider: providerName,
-          hasIrregularForms: entry.hasIrregularForms ?? false,
-          inflectionForms:
-            entry.inflectionForms != null
-              ? (entry.inflectionForms as Prisma.InputJsonValue)
-              : Prisma.JsonNull,
         },
       });
     } catch (err: unknown) {
