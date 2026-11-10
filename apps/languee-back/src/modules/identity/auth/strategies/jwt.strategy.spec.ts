@@ -1,0 +1,93 @@
+import { UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../../../system/core/redis/redis.service';
+import { JwtStrategy } from './jwt.strategy';
+
+const mockConfigService = {
+  getOrThrow: jest.fn().mockReturnValue('jwt-secret'),
+} as unknown as ConfigService;
+
+const mockRedisServiceImpl = {
+  get: jest.fn(),
+};
+
+const mockRedisService = mockRedisServiceImpl as unknown as RedisService;
+
+function makeSession(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    sessionId: 'session-123',
+    userId: 'user-123',
+    hashedRefreshToken: 'hashed-refresh-token',
+    userAgent: 'test-agent',
+    ip: '127.0.0.1',
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 60000).toISOString(),
+    revoked: false,
+    ...overrides,
+  });
+}
+
+describe('JwtStrategy', () => {
+  let strategy: JwtStrategy;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    strategy = new JwtStrategy(mockConfigService, mockRedisService);
+  });
+
+  it('returns the current user when the Redis session is active', async () => {
+    mockRedisServiceImpl.get.mockResolvedValue(makeSession());
+
+    await expect(
+      strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
+    ).resolves.toEqual({ userId: 'user-123', sessionId: 'session-123' });
+
+    expect(mockRedisServiceImpl.get).toHaveBeenCalledWith(
+      'session:session-123',
+    );
+  });
+
+  it('rejects access tokens whose session no longer exists', async () => {
+    mockRedisServiceImpl.get.mockResolvedValue(null);
+
+    await expect(
+      strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects access tokens for revoked sessions', async () => {
+    mockRedisServiceImpl.get.mockResolvedValue(makeSession({ revoked: true }));
+
+    await expect(
+      strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects access tokens when the session belongs to another user', async () => {
+    mockRedisServiceImpl.get.mockResolvedValue(
+      makeSession({ userId: 'user-456' }),
+    );
+
+    await expect(
+      strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects access tokens when the stored session id does not match', async () => {
+    mockRedisServiceImpl.get.mockResolvedValue(
+      makeSession({ sessionId: 'session-456' }),
+    );
+
+    await expect(
+      strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects malformed session data', async () => {
+    mockRedisServiceImpl.get.mockResolvedValue('not-json');
+
+    await expect(
+      strategy.validate({ sub: 'user-123', session_id: 'session-123' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+});

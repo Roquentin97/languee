@@ -4,7 +4,7 @@ import com.languee.droid.R
 
 /**
  * Maps the raw inflection-form keys returned by the backend (see
- * `apps/languee-back/src/modules/dictionary/types/inflection-forms.types.ts`)
+ * `apps/languee-back/src/modules/lexicon/types/inflection-forms.types.ts`)
  * to human-readable display labels for the definition-lookup and review
  * screens. Pure and unit-testable: no Android Context or Composable state is
  * required to resolve a key to either a string resource id or a fallback

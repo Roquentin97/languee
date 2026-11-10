@@ -79,7 +79,7 @@ module.exports = tseslint.config(
   },
   {
     // Null-coalescing defaults are counted as branches in this configuration map.
-    files: ['src/modules/config/configuration.ts'],
+    files: ['src/modules/system/config/configuration.ts'],
     rules: { complexity: 'off' },
   },
 );

@@ -24,7 +24,7 @@
 ## NestJS Conventions
 
 - One module per domain; never put feature logic directly in `AppModule`.
-- Modules live at `src/modules/<module>/`.
+- Domain modules live at `src/modules/<domain>/`; feature modules may be nested in domain folders.
 - Use constructor injection, never property injection.
 - DTOs live in `dto/` inside their module folder and use `class-validator`.
 - Controllers handle HTTP only and never contain business logic.
@@ -48,7 +48,7 @@
 Default feature structure:
 
 ```text
-apps/languee-back/src/modules/<module>/
+apps/languee-back/src/modules/<domain>/<feature>/
   <module>.module.ts
   <module>.service.ts
   <module>.controller.ts
