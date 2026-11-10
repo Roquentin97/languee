@@ -193,6 +193,73 @@ export class ReviewsService {
   ): Promise<GradeOutcome> {
     const card = await this.cardsService.findOwnedOrThrow(cardId, userId);
 
+    const { currentState, scheduled, persisted } = this.scheduleCard(
+      card,
+      input,
+    );
+
+    // CardsService owns writes to the Card model; ReviewsService only
+    // composes its lazy update into this transaction alongside the
+    // ReviewLog it owns, so both land atomically.
+    const [updatedCard] = await this.prisma.$transaction([
+      this.cardsService.buildGradeUpdate(cardId, persisted),
+      this.createReviewLog(cardId, input, currentState, scheduled),
+    ]);
+
+    this.logger.log({
+      message: 'card graded',
+      event: 'reviews.card_graded',
+      method: this.gradeCard.name,
+      data: {
+        userId,
+        cardId,
+        type: card.type,
+        rating: input.rating,
+        newState: updatedCard.state,
+        intervalDays: updatedCard.scheduledDays,
+        stability: updatedCard.stability,
+        difficulty: updatedCard.difficulty,
+      },
+    });
+
+    return {
+      nextDueAt: updatedCard.dueAt,
+      intervalDays: updatedCard.scheduledDays,
+      state: updatedCard.state,
+    };
+  }
+
+  private createReviewLog(
+    cardId: string,
+    input: GradeInput,
+    currentState: ReviewSchedulingState,
+    scheduled: ReturnType<typeof scheduleReview>,
+  ) {
+    return this.prisma.reviewLog.create({
+      data: {
+        cardId,
+        rating: input.rating,
+        typedAnswer: input.typedAnswer ?? null,
+        typedForms: input.typedForms ?? Prisma.JsonNull,
+        answerResult: input.answerResult ?? null,
+        stateBefore: currentState.state,
+        previousIntervalDays: currentState.scheduledDays,
+        newIntervalDays: scheduled.scheduledDays,
+        stabilityAfter: scheduled.stability,
+        difficultyAfter: scheduled.difficulty,
+        dueAtAfter: scheduled.dueAt,
+      },
+    });
+  }
+
+  private scheduleCard(
+    card: CardWithRelations,
+    input: GradeInput,
+  ): {
+    currentState: ReviewSchedulingState;
+    scheduled: ReturnType<typeof scheduleReview>;
+    persisted: CardSchedulingUpdate;
+  } {
     const currentState: ReviewSchedulingState = {
       state: card.state,
       stability: card.stability,
@@ -218,49 +285,7 @@ export class ReviewsService {
       lastReviewedAt: scheduled.lastReviewedAt,
     };
 
-    // CardsService owns writes to the Card model; ReviewsService only
-    // composes its lazy update into this transaction alongside the
-    // ReviewLog it owns, so both land atomically.
-    const [updatedCard] = await this.prisma.$transaction([
-      this.cardsService.buildGradeUpdate(cardId, persisted),
-      this.prisma.reviewLog.create({
-        data: {
-          cardId,
-          rating: input.rating,
-          typedAnswer: input.typedAnswer ?? null,
-          typedForms: input.typedForms ?? Prisma.JsonNull,
-          answerResult: input.answerResult ?? null,
-          stateBefore: currentState.state,
-          previousIntervalDays: currentState.scheduledDays,
-          newIntervalDays: scheduled.scheduledDays,
-          stabilityAfter: scheduled.stability,
-          difficultyAfter: scheduled.difficulty,
-          dueAtAfter: scheduled.dueAt,
-        },
-      }),
-    ]);
-
-    this.logger.log({
-      message: 'card graded',
-      event: 'reviews.card_graded',
-      method: this.gradeCard.name,
-      data: {
-        userId,
-        cardId,
-        type: card.type,
-        rating: input.rating,
-        newState: updatedCard.state,
-        intervalDays: updatedCard.scheduledDays,
-        stability: updatedCard.stability,
-        difficulty: updatedCard.difficulty,
-      },
-    });
-
-    return {
-      nextDueAt: updatedCard.dueAt,
-      intervalDays: updatedCard.scheduledDays,
-      state: updatedCard.state,
-    };
+    return { currentState, scheduled, persisted };
   }
 
   private targetFormsForCard(card: CardWithRelations): string[] {

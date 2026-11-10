@@ -46,46 +46,7 @@ fun AuthLandingScreen(
                 .fillMaxSize()
                 .background(GreenPrimary),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = 56.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color.White.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                LangueeLeafIcon(
-                    modifier = Modifier.size(44.dp),
-                    leafColor = Color.White,
-                )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "Languee",
-                fontFamily = LoraFontFamily,
-                fontSize = 40.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                color = Color.White,
-                letterSpacing = (-1.5).sp,
-                lineHeight = 44.sp,
-            )
-            Spacer(modifier = Modifier.height(13.dp))
-            Text(
-                text = "Capture words. Build vocabulary.\nExport to AnkiDroid.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.58f),
-                textAlign = TextAlign.Center,
-                lineHeight = 23.sp,
-            )
-        }
+        LandingHeader()
 
         Column(
             modifier =
@@ -124,22 +85,71 @@ fun AuthLandingScreen(
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = onNavigateToRegister,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
-            ) {
-                Text(
-                    text = "Create account",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = GreenPrimary,
-                )
-            }
+            CreateAccountButton(onNavigateToRegister)
         }
+    }
+}
+
+@Composable
+private fun CreateAccountButton(onNavigateToRegister: () -> Unit) {
+    OutlinedButton(
+        onClick = onNavigateToRegister,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
+    ) {
+        Text(
+            text = "Create account",
+            style = MaterialTheme.typography.labelLarge,
+            color = GreenPrimary,
+        )
+    }
+}
+
+@Composable
+private fun LandingHeader() {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 56.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Color.White.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            LangueeLeafIcon(
+                modifier = Modifier.size(44.dp),
+                leafColor = Color.White,
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Languee",
+            fontFamily = LoraFontFamily,
+            fontSize = 40.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            color = Color.White,
+            letterSpacing = (-1.5).sp,
+            lineHeight = 44.sp,
+        )
+        Spacer(modifier = Modifier.height(13.dp))
+        Text(
+            text = "Capture words. Build vocabulary.\nExport to AnkiDroid.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.58f),
+            textAlign = TextAlign.Center,
+            lineHeight = 23.sp,
+        )
     }
 }
 

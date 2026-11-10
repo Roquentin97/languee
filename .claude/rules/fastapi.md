@@ -41,3 +41,5 @@ apps/languee-nlp/
     schemas/
     nlp/
 ```
+
+Keep production functions within Ruff’s configured complexity, branch, statement, and nesting limits. Run lint early; test files are excluded.

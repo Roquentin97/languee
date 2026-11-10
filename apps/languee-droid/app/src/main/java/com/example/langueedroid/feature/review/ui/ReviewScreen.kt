@@ -88,29 +88,7 @@ fun ReviewScreen(
         modifier = modifier,
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.review_screen_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            ReviewTopBar(onNavigateBack)
         },
     ) { innerPadding ->
         Box(
@@ -128,15 +106,7 @@ fun ReviewScreen(
                 }
 
                 is ReviewSessionState.Empty -> {
-                    Text(
-                        text = stringResource(R.string.review_empty_state),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                        modifier =
-                            Modifier
-                                .align(Alignment.Center)
-                                .padding(24.dp),
-                    )
+                    ReviewEmptyState(Modifier.align(Alignment.Center))
                 }
 
                 is ReviewSessionState.Error -> {
@@ -158,15 +128,7 @@ fun ReviewScreen(
                 }
 
                 is ReviewSessionState.Correct -> {
-                    CorrectContent(
-                        matchedForm = state.matchedForm,
-                        revealed = state.revealed,
-                        item = state.item,
-                        typedForms = state.typedForms,
-                        language = state.item.prompt.language,
-                        speaker = speaker,
-                        onGrade = onGrade,
-                    )
+                    CorrectStateContent(state, speaker, onGrade)
                 }
 
                 is ReviewSessionState.Revealed -> {
@@ -185,6 +147,33 @@ fun ReviewScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ReviewEmptyState(modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(R.string.review_empty_state),
+        style = MaterialTheme.typography.bodyMedium,
+        color = TextSecondary,
+        modifier = modifier.padding(24.dp),
+    )
+}
+
+@Composable
+private fun CorrectStateContent(
+    state: ReviewSessionState.Correct,
+    speaker: Speaker,
+    onGrade: (ReviewRating) -> Unit,
+) {
+    CorrectContent(
+        matchedForm = state.matchedForm,
+        revealed = state.revealed,
+        item = state.item,
+        typedForms = state.typedForms,
+        language = state.item.prompt.language,
+        speaker = speaker,
+        onGrade = onGrade,
+    )
 }
 
 @Composable
@@ -245,6 +234,162 @@ private fun ErrorContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReviewTopBar(onNavigateBack: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = stringResource(R.string.review_screen_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun QuestionHeader(state: ReviewSessionState.Question) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = state.item.deckName,
+            style = MaterialTheme.typography.labelLarge,
+            color = TextSecondary,
+        )
+        Text(
+            text = stringResource(R.string.review_progress, state.index, state.total),
+            style = MaterialTheme.typography.labelLarge,
+            color = TextSecondary,
+        )
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (state.item.isNew) {
+            ReviewChip(text = stringResource(R.string.review_new_badge))
+        }
+        val kindLabelRes =
+            when (state.item.prompt.kind) {
+                LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+                LexicalKind.EXPRESSION -> R.string.review_kind_expression
+                LexicalKind.WORD -> null
+            }
+        if (kindLabelRes != null) {
+            ReviewChip(text = stringResource(kindLabelRes))
+        }
+    }
+}
+
+@Composable
+private fun QuestionPrompt(state: ReviewSessionState.Question) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Do NOT add a speaker to the review Question state — pronouncing the
+            // masked target would leak the answer.
+            Text(
+                text = state.item.prompt.definition,
+                style = MaterialTheme.typography.headlineSmall,
+                color = TextPrimary,
+            )
+            val maskedText = state.item.prompt.maskedSentence
+            if (maskedText != null) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(GreenContainer)
+                            .padding(12.dp),
+                ) {
+                    Text(
+                        text = maskedText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextMedium,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuestionInputs(
+    state: ReviewSessionState.Question,
+    onInputChange: (String) -> Unit,
+    onFormInputChange: (String, String) -> Unit,
+    onSubmit: () -> Unit,
+) {
+    if (state.item.type == ReviewCardType.INFLECTION) {
+        state.item.inflection?.formKeys.orEmpty().forEach { key ->
+            OutlinedTextField(
+                value = state.typedForms[key].orEmpty(),
+                onValueChange = { onFormInputChange(key, it) },
+                label = {
+                    Text(
+                        InflectionFormLabels.resourceFor(key)?.let { stringResource(it) } ?: InflectionFormLabels.humanize(key),
+                    )
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(11.dp),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GreenBorder,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                    ),
+            )
+        }
+    } else if (state.item.type != ReviewCardType.DEFINITION) {
+        OutlinedTextField(
+            value = state.typedAnswer,
+            onValueChange = onInputChange,
+            label = { Text(stringResource(R.string.review_answer_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+            shape = RoundedCornerShape(11.dp),
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GreenPrimary,
+                    unfocusedBorderColor = GreenBorder,
+                    focusedLabelColor = GreenPrimary,
+                    unfocusedLabelColor = TextSecondary,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                ),
+        )
+    }
+}
+
 @Composable
 private fun QuestionContent(
     state: ReviewSessionState.Question,
@@ -261,75 +406,9 @@ private fun QuestionContent(
                 .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = state.item.deckName,
-                style = MaterialTheme.typography.labelLarge,
-                color = TextSecondary,
-            )
-            Text(
-                text = stringResource(R.string.review_progress, state.index, state.total),
-                style = MaterialTheme.typography.labelLarge,
-                color = TextSecondary,
-            )
-        }
+        QuestionHeader(state)
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (state.item.isNew) {
-                ReviewChip(text = stringResource(R.string.review_new_badge))
-            }
-            val kindLabelRes =
-                when (state.item.prompt.kind) {
-                    LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
-                    LexicalKind.EXPRESSION -> R.string.review_kind_expression
-                    LexicalKind.WORD -> null
-                }
-            if (kindLabelRes != null) {
-                ReviewChip(text = stringResource(kindLabelRes))
-            }
-        }
-
-        Card(
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                // Do NOT add a speaker to the review Question state — pronouncing the
-                // masked target would leak the answer.
-                Text(
-                    text = state.item.prompt.definition,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = TextPrimary,
-                )
-                val maskedText = state.item.prompt.maskedSentence
-                if (maskedText != null) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(GreenContainer)
-                                .padding(12.dp),
-                    ) {
-                        Text(
-                            text = maskedText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextMedium,
-                        )
-                    }
-                }
-            }
-        }
+        QuestionPrompt(state)
 
         when (state.feedback) {
             is QuestionFeedback.Incorrect -> {
@@ -349,49 +428,7 @@ private fun QuestionContent(
             is QuestionFeedback.None -> Unit
         }
 
-        if (state.item.type == ReviewCardType.INFLECTION) {
-            state.item.inflection?.formKeys.orEmpty().forEach { key ->
-                OutlinedTextField(
-                    value = state.typedForms[key].orEmpty(),
-                    onValueChange = { onFormInputChange(key, it) },
-                    label = {
-                        Text(
-                            InflectionFormLabels.resourceFor(key)?.let { stringResource(it) } ?: InflectionFormLabels.humanize(key),
-                        )
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(11.dp),
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenPrimary,
-                            unfocusedBorderColor = GreenBorder,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                        ),
-                )
-            }
-        } else if (state.item.type != ReviewCardType.DEFINITION) {
-            OutlinedTextField(
-                value = state.typedAnswer,
-                onValueChange = onInputChange,
-                label = { Text(stringResource(R.string.review_answer_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-                shape = RoundedCornerShape(11.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = GreenBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextSecondary,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                    ),
-            )
-        }
+        QuestionInputs(state, onInputChange, onFormInputChange, onSubmit)
 
         val isDefinition = state.item.type == ReviewCardType.DEFINITION
         Button(
@@ -419,6 +456,92 @@ private fun QuestionContent(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RevealedWordDetails(
+    revealed: RevealedWord,
+    typedForms: Map<String, String>?,
+) {
+    revealed.definition?.let { meaning ->
+        Text(
+            text = meaning,
+            style = MaterialTheme.typography.headlineSmall,
+            color = TextPrimary,
+        )
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = revealed.lemma,
+            style = MaterialTheme.typography.titleMedium,
+            color = TextPrimary,
+        )
+        if (revealed.ipa != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = revealed.ipa,
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+            )
+        }
+    }
+    // Same display rule as card creation: the "type" discriminator and
+    // expression context forms are bookkeeping, not learnable forms.
+    val displayForms =
+        revealed.inflectionForms
+            ?.takeUnless { it["type"] == "expression" }
+            ?.filterKeys { it != "type" }
+    if (!displayForms.isNullOrEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.review_word_forms_title),
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary,
+        )
+        displayForms.forEach { (key, value) ->
+            val label =
+                InflectionFormLabels
+                    .resourceFor(key)
+                    ?.let { stringResource(it) }
+                    ?: InflectionFormLabels.humanize(key)
+            Text(
+                text = "$label: $value${typedForms?.get(key)?.let { " (you: $it)" } ?: ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReviewGradeButtons(onGrade: (ReviewRating) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        GradeButton(
+            labelRes = R.string.review_rating_again,
+            onClick = { onGrade(ReviewRating.AGAIN) },
+            modifier = Modifier.weight(1f),
+        )
+        GradeButton(
+            labelRes = R.string.review_rating_hard,
+            onClick = { onGrade(ReviewRating.HARD) },
+            modifier = Modifier.weight(1f),
+        )
+        GradeButton(
+            labelRes = R.string.review_rating_good,
+            onClick = { onGrade(ReviewRating.GOOD) },
+            modifier = Modifier.weight(1f),
+            filled = true,
+        )
+        GradeButton(
+            labelRes = R.string.review_rating_easy,
+            onClick = { onGrade(ReviewRating.EASY) },
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -478,85 +601,10 @@ private fun CorrectContent(
                         Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                     }
                 }
-                if (revealed != null) {
-                    revealed.definition?.let { meaning ->
-                        Text(
-                            text = meaning,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = TextPrimary,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = revealed.lemma,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary,
-                        )
-                        if (revealed.ipa != null) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = revealed.ipa,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary,
-                            )
-                        }
-                    }
-                    // Same display rule as card creation: the "type" discriminator and
-                    // expression context forms are bookkeeping, not learnable forms.
-                    val displayForms =
-                        revealed.inflectionForms
-                            ?.takeUnless { it["type"] == "expression" }
-                            ?.filterKeys { it != "type" }
-                    if (!displayForms.isNullOrEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.review_word_forms_title),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextSecondary,
-                        )
-                        displayForms.forEach { (key, value) ->
-                            val label =
-                                InflectionFormLabels
-                                    .resourceFor(key)
-                                    ?.let { stringResource(it) }
-                                    ?: InflectionFormLabels.humanize(key)
-                            Text(
-                                text = "$label: $value${typedForms?.get(key)?.let { " (you: $it)" } ?: ""}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
-                            )
-                        }
-                    }
-                }
+                if (revealed != null) RevealedWordDetails(revealed, typedForms)
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            GradeButton(
-                labelRes = R.string.review_rating_again,
-                onClick = { onGrade(ReviewRating.AGAIN) },
-                modifier = Modifier.weight(1f),
-            )
-            GradeButton(
-                labelRes = R.string.review_rating_hard,
-                onClick = { onGrade(ReviewRating.HARD) },
-                modifier = Modifier.weight(1f),
-            )
-            GradeButton(
-                labelRes = R.string.review_rating_good,
-                onClick = { onGrade(ReviewRating.GOOD) },
-                modifier = Modifier.weight(1f),
-                filled = true,
-            )
-            GradeButton(
-                labelRes = R.string.review_rating_easy,
-                onClick = { onGrade(ReviewRating.EASY) },
-                modifier = Modifier.weight(1f),
-            )
-        }
+        ReviewGradeButtons(onGrade)
     }
 }
 
@@ -599,6 +647,37 @@ private fun GradeButton(
 }
 
 @Composable
+private fun NextReviewInfo(nextDueAt: String) {
+    val nextReview =
+        remember(nextDueAt) {
+            parseIsoInstantToEpochMillis(nextDueAt)?.let { millis ->
+                val now = System.currentTimeMillis()
+                // Under a minute out reads as "in 0 minutes"; the "comes back soon"
+                // message already covers that, so only show a concrete relative time.
+                if (millis - now < DateUtils.MINUTE_IN_MILLIS) {
+                    null
+                } else {
+                    DateUtils
+                        .getRelativeTimeSpanString(
+                            millis,
+                            now,
+                            DateUtils.MINUTE_IN_MILLIS,
+                        ).toString()
+                        .replaceFirstChar { it.lowercase() }
+                }
+            }
+        }
+    if (nextReview != null) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.review_next_due_info, nextReview),
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+    }
+}
+
+@Composable
 private fun RevealedContent(
     nextDueAt: String,
     onContinue: () -> Unit,
@@ -628,33 +707,7 @@ private fun RevealedContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = TextMedium,
                 )
-                val nextReview =
-                    remember(nextDueAt) {
-                        parseIsoInstantToEpochMillis(nextDueAt)?.let { millis ->
-                            val now = System.currentTimeMillis()
-                            // Under a minute out reads as "in 0 minutes"; the "comes back soon"
-                            // message already covers that, so only show a concrete relative time.
-                            if (millis - now < DateUtils.MINUTE_IN_MILLIS) {
-                                null
-                            } else {
-                                DateUtils
-                                    .getRelativeTimeSpanString(
-                                        millis,
-                                        now,
-                                        DateUtils.MINUTE_IN_MILLIS,
-                                    ).toString()
-                                    .replaceFirstChar { it.lowercase() }
-                            }
-                        }
-                    }
-                if (nextReview != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.review_next_due_info, nextReview),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                    )
-                }
+                NextReviewInfo(nextDueAt)
             }
         }
         Button(

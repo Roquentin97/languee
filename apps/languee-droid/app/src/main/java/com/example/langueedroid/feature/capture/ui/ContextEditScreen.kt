@@ -64,29 +64,7 @@ fun ContextEditScreen(
         modifier = modifier,
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.context_edit_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onCancel) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            ContextEditTopBar(onCancel)
         },
     ) { innerPadding ->
         Column(
@@ -98,51 +76,9 @@ fun ContextEditScreen(
                     .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            OutlinedTextField(
-                value = state.targetWord,
-                onValueChange = {},
-                label = {
-                    Text(
-                        text = stringResource(R.string.label_target_word).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                readOnly = true,
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CardBorder,
-                        unfocusedBorderColor = CardBorder,
-                        disabledBorderColor = CardBorder,
-                        focusedLabelColor = TextSecondary,
-                        unfocusedLabelColor = TextSecondary,
-                    ),
-            )
+            TargetWordField(state.targetWord)
 
-            OutlinedTextField(
-                value = editedContext,
-                onValueChange = { editedContext = it },
-                label = {
-                    Text(
-                        text = stringResource(R.string.label_context_optional).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = CardBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextSecondary,
-                        cursorColor = GreenPrimary,
-                    ),
-            )
+            EditableContextField(editedContext) { editedContext = it }
 
             if (!isBlank && !containsWord) {
                 Text(
@@ -152,27 +88,12 @@ fun ContextEditScreen(
                 )
             }
 
-            Button(
-                onClick = {
-                    when (onSave(editedContext)) {
-                        is ContextEditSaveResult.Valid -> Unit
-                        is ContextEditSaveResult.EmptyContextPendingConfirmation -> showConfirmDialog = true
-                        is ContextEditSaveResult.InvalidContextBlockedSave -> Unit
-                    }
-                },
-                enabled = saveEnabled,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-            ) {
-                Text(
-                    text = stringResource(R.string.btn_save),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                )
+            SaveContextButton(saveEnabled) {
+                when (onSave(editedContext)) {
+                    is ContextEditSaveResult.Valid -> Unit
+                    is ContextEditSaveResult.EmptyContextPendingConfirmation -> showConfirmDialog = true
+                    is ContextEditSaveResult.InvalidContextBlockedSave -> Unit
+                }
             }
 
             TextButton(
@@ -192,28 +113,144 @@ fun ContextEditScreen(
     }
 
     if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text(text = stringResource(R.string.context_edit_title)) },
-            text = { Text(text = stringResource(R.string.context_edit_empty_warning)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showConfirmDialog = false
-                        onConfirmSaveWithoutContext()
-                    },
-                ) {
-                    Text(
-                        text = stringResource(R.string.context_edit_save_without_context),
-                        color = GreenPrimary,
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text(text = stringResource(R.string.btn_cancel))
-                }
-            },
+        EmptyContextDialog(onDismiss = { showConfirmDialog = false }, onConfirm = {
+            showConfirmDialog = false
+            onConfirmSaveWithoutContext()
+        })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContextEditTopBar(onCancel: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = stringResource(R.string.context_edit_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onCancel) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun TargetWordField(word: String) {
+    OutlinedTextField(
+        value = word,
+        onValueChange = {},
+        label = {
+            Text(
+                text = stringResource(R.string.label_target_word).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        readOnly = true,
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CardBorder,
+                unfocusedBorderColor = CardBorder,
+                disabledBorderColor = CardBorder,
+                focusedLabelColor = TextSecondary,
+                unfocusedLabelColor = TextSecondary,
+            ),
+    )
+}
+
+@Composable
+private fun EditableContextField(
+    editedContext: String,
+    onChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = editedContext,
+        onValueChange = onChange,
+        label = {
+            Text(
+                text = stringResource(R.string.label_context_optional).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = CardBorder,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = TextSecondary,
+                cursorColor = GreenPrimary,
+            ),
+    )
+}
+
+@Composable
+private fun EmptyContextDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.context_edit_title)) },
+        text = { Text(text = stringResource(R.string.context_edit_empty_warning)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm()
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.context_edit_save_without_context),
+                    color = GreenPrimary,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.btn_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun SaveContextButton(
+    saveEnabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        enabled = saveEnabled,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+    ) {
+        Text(
+            text = stringResource(R.string.btn_save),
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
         )
     }
 }

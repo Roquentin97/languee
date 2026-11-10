@@ -48,39 +48,11 @@ object NetworkModule {
         sessionStore: AuthSessionStore,
         authAuthenticator: AuthAuthenticator,
         logger: Logger,
-    ): OkHttpClient {
-        val requestIdInterceptor =
-            Interceptor { chain ->
-                val request = chain.request()
-                if (request.header("X-Request-ID") != null) {
-                    return@Interceptor chain.proceed(request)
-                }
-                chain.proceed(
-                    request
-                        .newBuilder()
-                        .header("X-Request-ID", UUID.randomUUID().toString())
-                        .build(),
-                )
-            }
-        val authInterceptor =
-            Interceptor { chain ->
-                val accessToken = sessionStore.read()?.accessToken
-                val request =
-                    if (accessToken != null) {
-                        chain
-                            .request()
-                            .newBuilder()
-                            .header("Authorization", "Bearer $accessToken")
-                            .build()
-                    } else {
-                        chain.request()
-                    }
-                chain.proceed(request)
-            }
-        return OkHttpClient
+    ): OkHttpClient =
+        OkHttpClient
             .Builder()
-            .addInterceptor(requestIdInterceptor)
-            .addInterceptor(authInterceptor)
+            .addInterceptor(requestIdInterceptor())
+            .addInterceptor(authInterceptor(sessionStore))
             .addNetworkInterceptor { chain ->
                 val request = chain.request()
                 val started = System.nanoTime()
@@ -125,7 +97,36 @@ object NetworkModule {
                 }
             }.authenticator(authAuthenticator)
             .build()
-    }
+
+    private fun requestIdInterceptor(): Interceptor =
+        Interceptor { chain ->
+            val request = chain.request()
+            if (request.header("X-Request-ID") != null) {
+                return@Interceptor chain.proceed(request)
+            }
+            chain.proceed(
+                request
+                    .newBuilder()
+                    .header("X-Request-ID", UUID.randomUUID().toString())
+                    .build(),
+            )
+        }
+
+    private fun authInterceptor(sessionStore: AuthSessionStore): Interceptor =
+        Interceptor { chain ->
+            val accessToken = sessionStore.read()?.accessToken
+            val request =
+                if (accessToken != null) {
+                    chain
+                        .request()
+                        .newBuilder()
+                        .header("Authorization", "Bearer $accessToken")
+                        .build()
+                } else {
+                    chain.request()
+                }
+            chain.proceed(request)
+        }
 
     @Provides
     @Singleton

@@ -63,45 +63,7 @@ fun OfflineQueueScreen(
     Scaffold(
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.offline_queue_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier =
-                                Modifier
-                                    .clip(RoundedCornerShape(7.dp))
-                                    .background(AmberContainer)
-                                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                        ) {
-                            Text(
-                                text = state.entries.size.toString(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AmberWarning,
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.navigate_back_description),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            OfflineQueueTopBar(state.entries.size, onNavigateBack)
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -147,34 +109,89 @@ fun OfflineQueueScreen(
                 }
             }
 
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-                Button(
-                    onClick = onStartReviewing,
-                    enabled = !state.isOffline && state.entries.isNotEmpty(),
+            OfflineReviewButton(state, onStartReviewing)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OfflineQueueTopBar(
+    entryCount: Int,
+    onNavigateBack: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.offline_queue_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = GreenPrimary,
-                            disabledContainerColor = Color(0xFFE8E4DC),
-                            contentColor = Color.White,
-                            disabledContentColor = TextSecondary,
-                        ),
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(AmberContainer)
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
                     Text(
-                        text =
-                            if (state.isOffline) {
-                                stringResource(R.string.offline_queue_reconnect_to_review)
-                            } else {
-                                stringResource(R.string.offline_queue_start_reviewing)
-                            },
-                        style = MaterialTheme.typography.labelLarge,
+                        text = entryCount.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AmberWarning,
                     )
                 }
             }
+        },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.navigate_back_description),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun OfflineReviewButton(
+    state: OfflineQueueState,
+    onStartReviewing: () -> Unit,
+) {
+    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
+        Button(
+            onClick = onStartReviewing,
+            enabled = !state.isOffline && state.entries.isNotEmpty(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = GreenPrimary,
+                    disabledContainerColor = Color(0xFFE8E4DC),
+                    contentColor = Color.White,
+                    disabledContentColor = TextSecondary,
+                ),
+        ) {
+            Text(
+                text =
+                    if (state.isOffline) {
+                        stringResource(R.string.offline_queue_reconnect_to_review)
+                    } else {
+                        stringResource(R.string.offline_queue_start_reviewing)
+                    },
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }

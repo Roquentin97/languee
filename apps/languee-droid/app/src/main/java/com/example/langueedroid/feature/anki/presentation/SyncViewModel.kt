@@ -9,6 +9,7 @@ import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.domain.Card
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,75 +74,87 @@ class SyncViewModel
                             .getOrDefault(emptyList())
                             .associate { it.id to it.name }
 
-                    var syncedCount = 0
-                    val failedWords = mutableListOf<String>()
-
-                    for (cardId in cardIds) {
-                        val card = cardRepository.getCard(cardId).getOrNull()
-                        if (card == null) {
-                            failedWords.add(cardId)
-                            continue
-                        }
-
-                        val deckName = deckNamesById[card.deckId]
-                        if (deckName == null) {
-                            failedWords.add(card.lemma)
-                            continue
-                        }
-
-                        val exportRecord = exportRepository.createOrGetExportRecord(cardId).getOrNull()
-                        if (exportRecord == null) {
-                            failedWords.add(card.lemma)
-                            continue
-                        }
-
-                        val fields =
-                            AnkiDroidNoteBuilder.buildFields(
-                                cardId = cardId,
-                                word = card.lemma,
-                                lemma = card.lemma,
-                                partOfSpeech = card.partOfSpeech,
-                                definition = card.definition,
-                                context = card.context,
-                                example = card.example,
-                                inflectionForms = card.inflectionForms,
-                            )
-
-                        val noteResult =
-                            exportService.exportNote(
-                                noteTypeName = prefs.noteTypeName,
-                                deckName = deckName,
-                                fields = fields,
-                                cardId = cardId,
-                            )
-
-                        noteResult.fold(
-                            onSuccess = { result ->
-                                exportRepository.recordAttemptCompleted(
-                                    exportId = exportRecord.id,
-                                    ankiNoteId = result.noteId,
-                                    ankiDeckId = result.deckId,
-                                    ankiDeckNameSnapshot = deckName,
-                                    ankiModelId = result.modelId,
-                                    ankiModelNameSnapshot = prefs.noteTypeName,
-                                    templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
-                                )
-                                syncedCount++
-                            },
-                            onFailure = { error ->
-                                exportRepository.recordAttemptFailed(
-                                    exportId = exportRecord.id,
-                                    failureReason = error.javaClass.simpleName,
-                                    failureMessage = error.message ?: "",
-                                )
-                                failedWords.add(card.lemma)
-                            },
-                        )
-                    }
-
-                    _uiState.value = SyncUiState.Result(syncedCount = syncedCount, failedWords = failedWords)
+                    _uiState.value = syncCards(cardIds, deckNamesById, prefs.noteTypeName)
                 }
         }
+
+        private suspend fun syncCards(
+            cardIds: List<String>,
+            deckNamesById: Map<String, String>,
+            noteTypeName: String,
+        ): SyncUiState.Result {
+            var syncedCount = 0
+            val failedWords = mutableListOf<String>()
+
+            for (cardId in cardIds) {
+                val card = cardRepository.getCard(cardId).getOrNull()
+                if (card == null) {
+                    failedWords.add(cardId)
+                    continue
+                }
+
+                val deckName = deckNamesById[card.deckId]
+                if (deckName == null) {
+                    failedWords.add(card.lemma)
+                    continue
+                }
+
+                val exportRecord = exportRepository.createOrGetExportRecord(cardId).getOrNull()
+                if (exportRecord == null) {
+                    failedWords.add(card.lemma)
+                    continue
+                }
+
+                val fields = buildFields(cardId, card)
+
+                val noteResult =
+                    exportService.exportNote(
+                        noteTypeName = noteTypeName,
+                        deckName = deckName,
+                        fields = fields,
+                        cardId = cardId,
+                    )
+
+                noteResult.fold(
+                    onSuccess = { result ->
+                        exportRepository.recordAttemptCompleted(
+                            exportId = exportRecord.id,
+                            ankiNoteId = result.noteId,
+                            ankiDeckId = result.deckId,
+                            ankiDeckNameSnapshot = deckName,
+                            ankiModelId = result.modelId,
+                            ankiModelNameSnapshot = noteTypeName,
+                            templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
+                        )
+                        syncedCount++
+                    },
+                    onFailure = { error ->
+                        exportRepository.recordAttemptFailed(
+                            exportId = exportRecord.id,
+                            failureReason = error.javaClass.simpleName,
+                            failureMessage = error.message ?: "",
+                        )
+                        failedWords.add(card.lemma)
+                    },
+                )
+            }
+
+            return SyncUiState.Result(syncedCount = syncedCount, failedWords = failedWords)
+        }
+
+        private fun buildFields(
+            cardId: String,
+            card: Card,
+        ) = AnkiDroidNoteBuilder.buildFields(
+            cardId = cardId,
+            word = card.lemma,
+            lemma = card.lemma,
+            partOfSpeech = card.partOfSpeech,
+            definition = card.definition,
+            context = card.context,
+            example = card.example,
+            inflectionForms = card.inflectionForms,
+        )
 
         fun dismissResult() {
             _uiState.value = SyncUiState.Idle

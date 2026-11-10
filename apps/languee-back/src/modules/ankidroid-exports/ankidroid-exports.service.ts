@@ -53,27 +53,34 @@ export class AnkiDroidExportsService {
       });
       return { export: created, created: true };
     } catch (err: unknown) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
-        this.logger.warn({
-          message: 'concurrent creation detected',
-          event: 'ankidroid.concurrent_creation',
-          method: this.getOrCreateExportForCard.name,
-          data: { cardId },
-        });
-        // Concurrent creation — re-fetch the existing record
-        const refetched = await this.prisma.cardAnkiDroidExport.findUnique({
-          where: { cardId },
-        });
-        if (!refetched) {
-          throw err;
-        }
-        return { export: refetched, created: false };
-      }
-      throw err;
+      return this.refetchAfterConcurrentCreate(err, cardId);
     }
+  }
+
+  private async refetchAfterConcurrentCreate(
+    err: unknown,
+    cardId: string,
+  ): Promise<{ export: CardAnkiDroidExport; created: boolean }> {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      this.logger.warn({
+        message: 'concurrent creation detected',
+        event: 'ankidroid.concurrent_creation',
+        method: this.getOrCreateExportForCard.name,
+        data: { cardId },
+      });
+      // Concurrent creation — re-fetch the existing record
+      const refetched = await this.prisma.cardAnkiDroidExport.findUnique({
+        where: { cardId },
+      });
+      if (!refetched) {
+        throw err;
+      }
+      return { export: refetched, created: false };
+    }
+    throw err;
   }
 
   async findOneById(
@@ -121,29 +128,7 @@ export class AnkiDroidExportsService {
       throw new ExportNotFoundError();
     }
 
-    const now = new Date();
-
-    const updateData: Prisma.CardAnkiDroidExportUpdateInput =
-      dto.status === 'completed'
-        ? {
-            status: 'completed',
-            failureReason: null,
-            failureMessage: null,
-            ankiNoteId: dto.ankiNoteId ?? null,
-            ankiDeckId: dto.ankiDeckId ?? null,
-            ankiDeckNameSnapshot: dto.ankiDeckNameSnapshot ?? null,
-            ankiModelId: dto.ankiModelId ?? null,
-            ankiModelNameSnapshot: dto.ankiModelNameSnapshot ?? null,
-            templateVersion: dto.templateVersion ?? null,
-            lastAttemptedAt: now,
-            completedAt: now,
-          }
-        : {
-            status: 'failed',
-            failureReason: dto.failureReason ?? null,
-            failureMessage: dto.failureMessage ?? null,
-            lastAttemptedAt: now,
-          };
+    const updateData = this.buildAttemptUpdate(dto);
 
     const [, updatedExport] = await this.prisma.$transaction([
       this.prisma.cardAnkiDroidExportAttempt.create({
@@ -161,6 +146,12 @@ export class AnkiDroidExportsService {
       }),
     ]);
 
+    this.logAttempt(exportId, dto);
+
+    return updatedExport;
+  }
+
+  private logAttempt(exportId: string, dto: RecordAttemptDto): void {
     if (dto.status === 'completed') {
       this.logger.log({
         message: 'export completed',
@@ -184,7 +175,32 @@ export class AnkiDroidExportsService {
         },
       });
     }
+  }
 
-    return updatedExport;
+  private buildAttemptUpdate(
+    dto: RecordAttemptDto,
+  ): Prisma.CardAnkiDroidExportUpdateInput {
+    const now = new Date();
+
+    return dto.status === 'completed'
+      ? {
+          status: 'completed',
+          failureReason: null,
+          failureMessage: null,
+          ankiNoteId: dto.ankiNoteId ?? null,
+          ankiDeckId: dto.ankiDeckId ?? null,
+          ankiDeckNameSnapshot: dto.ankiDeckNameSnapshot ?? null,
+          ankiModelId: dto.ankiModelId ?? null,
+          ankiModelNameSnapshot: dto.ankiModelNameSnapshot ?? null,
+          templateVersion: dto.templateVersion ?? null,
+          lastAttemptedAt: now,
+          completedAt: now,
+        }
+      : {
+          status: 'failed',
+          failureReason: dto.failureReason ?? null,
+          failureMessage: dto.failureMessage ?? null,
+          lastAttemptedAt: now,
+        };
   }
 }

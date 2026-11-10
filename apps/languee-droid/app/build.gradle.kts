@@ -1,6 +1,7 @@
 import java.util.Properties
 
 plugins {
+    id("dev.detekt")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ktlint)
@@ -70,6 +71,11 @@ android {
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
 
+    lint {
+        ignoreTestSources = true
+        ignoreTestFixturesSources = true
+    }
+
     testOptions {
         unitTests {
             isReturnDefaultValues = true
@@ -99,6 +105,7 @@ ktlint {
     filter {
         // Vendored third-party AnkiDroid API sources; not owned by this project's style.
         exclude("**/com/ichi2/**")
+        exclude("**/test/**", "**/androidTest/**")
     }
 }
 
@@ -178,4 +185,14 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+detekt {
+    source.setFrom(files("src/main/java"))
+    config.setFrom(files("../detekt.yml"))
+    basePath = rootProject.projectDir
+}
+
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+    exclude("**/com/ichi2/**", "**/test/**", "**/androidTest/**")
 }

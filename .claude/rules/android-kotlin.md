@@ -141,3 +141,5 @@ because the Forge auto-lint step depends on it.
 - User-facing strings and accessibility labels are present where appropriate.
 - Gradle changes are scoped to the Android app.
 - Secrets and environment-specific values are not committed.
+
+Keep production methods within Detekt’s configured length, complexity, and nesting limits. Run Detekt early; test and vendored files are excluded.

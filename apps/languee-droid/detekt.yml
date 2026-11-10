@@ -1,0 +1,47 @@
+comments:
+  active: false
+complexity:
+  CognitiveComplexMethod:
+    active: false
+  ComplexCondition:
+    active: false
+  ComplexInterface:
+    active: false
+  CyclomaticComplexMethod:
+    active: true
+  LabeledExpression:
+    active: false
+  LargeClass:
+    active: false
+  LongMethod:
+    active: true
+  LongParameterList:
+    active: false
+  MethodOverloading:
+    active: false
+  NamedArguments:
+    active: false
+  NestedBlockDepth:
+    active: true
+  NestedScopeFunctions:
+    active: false
+  ReplaceSafeCallChainWithRun:
+    active: false
+  StringLiteralDuplication:
+    active: false
+  TooManyFunctions:
+    active: false
+coroutines:
+  active: false
+empty-blocks:
+  active: false
+exceptions:
+  active: false
+naming:
+  active: false
+performance:
+  active: false
+potential-bugs:
+  active: false
+style:
+  active: false

@@ -59,41 +59,10 @@ fun DeckDetailScreen(
     Scaffold(
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = deckName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            DeckDetailTopBar(deckName, onNavigateBack)
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddWord,
-                containerColor = GreenPrimary,
-                contentColor = Color.White,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.deck_detail_add_word),
-                )
-            }
+            AddWordButton(onAddWord)
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -122,24 +91,7 @@ fun DeckDetailScreen(
                 }
 
                 is DeckDetailState.Error -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.deck_detail_error),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        Button(
-                            onClick = onRetry,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                        ) {
-                            Text(stringResource(R.string.card_creation_retry), color = Color.White)
-                        }
-                    }
+                    DeckDetailError(onRetry, Modifier.align(Alignment.Center))
                 }
 
                 is DeckDetailState.Loaded -> {
@@ -151,6 +103,76 @@ fun DeckDetailScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DeckDetailError(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.deck_detail_error),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        Button(
+            onClick = onRetry,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(stringResource(R.string.card_creation_retry), color = Color.White)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeckDetailTopBar(
+    deckName: String,
+    onNavigateBack: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = deckName,
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun AddWordButton(onAddWord: () -> Unit) {
+    FloatingActionButton(
+        onClick = onAddWord,
+        containerColor = GreenPrimary,
+        contentColor = Color.White,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Add,
+            contentDescription = stringResource(R.string.deck_detail_add_word),
+        )
     }
 }
 
@@ -208,16 +230,21 @@ private fun DeckCardItem(
                 color = TextSecondary,
             )
         }
-        if (card.type == com.example.langueedroid.core.domain.CardType.INFLECTION) {
-            val forms = card.inflectionForms.orEmpty().filterKeys { it != "type" }
-            if (forms.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = forms.entries.joinToString { (key, value) -> "$key: $value" },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                )
-            }
+        CardInflectionForms(card)
+    }
+}
+
+@Composable
+private fun CardInflectionForms(card: Card) {
+    if (card.type == com.example.langueedroid.core.domain.CardType.INFLECTION) {
+        val forms = card.inflectionForms.orEmpty().filterKeys { it != "type" }
+        if (forms.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = forms.entries.joinToString { (key, value) -> "$key: $value" },
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+            )
         }
     }
 }

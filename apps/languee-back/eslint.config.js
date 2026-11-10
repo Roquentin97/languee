@@ -6,7 +6,7 @@ const tseslint = require('typescript-eslint');
 
 module.exports = tseslint.config(
   {
-    ignores: ['eslint.config.js', 'dist', 'node_modules'],
+    ignores: ['eslint.config.js', 'dist', 'node_modules', '**/*.spec.ts', '**/*.test.ts', 'test/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -26,6 +26,9 @@ module.exports = tseslint.config(
   },
   {
     rules: {
+      'max-lines-per-function': 'error',
+      complexity: 'error',
+      'max-depth': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/naming-convention': [
@@ -75,14 +78,8 @@ module.exports = tseslint.config(
     },
   },
   {
-    // Jest mock methods (e.g. `expect(mockService.method).toHaveBeenCalled()`)
-    // reference a class/interface method without calling it. TypeScript's
-    // stricter type resolution surfaces this as an unbound-method risk, but
-    // jest.fn()-backed mocks never rely on `this`, so it is a false positive
-    // in test files specifically.
-    files: ['**/*.spec.ts', 'test/**/*.ts'],
-    rules: {
-      '@typescript-eslint/unbound-method': 'off',
-    },
+    // Null-coalescing defaults are counted as branches in this configuration map.
+    files: ['src/modules/config/configuration.ts'],
+    rules: { complexity: 'off' },
   },
 );

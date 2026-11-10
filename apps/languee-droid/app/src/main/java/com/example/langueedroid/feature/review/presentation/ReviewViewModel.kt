@@ -118,55 +118,63 @@ class ReviewViewModel
             actionJob =
                 viewModelScope.launch {
                     if (current.item.type == ReviewCardType.INFLECTION) {
-                        reviewRepository
-                            .checkForms(
-                                cardId = current.item.cardId,
-                                typedForms =
-                                    current.item.inflection!!
-                                        .formKeys
-                                        .associateWith { current.typedForms[it].orEmpty() },
-                            ).fold(
-                                onSuccess = { response ->
-                                    _state.value =
-                                        ReviewSessionState.Correct(
-                                            item = current.item,
-                                            index = current.index,
-                                            total = current.total,
-                                            matchedForm = null,
-                                            revealed = response.revealed.toDomain(),
-                                            typedForms = current.typedForms,
-                                        )
-                                },
-                                onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
-                            )
+                        submitInflectionAnswer(current)
                     } else {
-                        reviewRepository
-                            .checkAnswer(
-                                cardId = current.item.cardId,
-                                typedAnswer = current.typedAnswer,
-                            ).fold(
-                                onSuccess = { check ->
-                                    _state.value =
-                                        when (check.result) {
-                                            AnswerResult.CORRECT ->
-                                                ReviewSessionState.Correct(
-                                                    item = current.item,
-                                                    index = current.index,
-                                                    total = current.total,
-                                                    matchedForm = check.matchedForm,
-                                                    revealed = check.revealed,
-                                                )
-                                            AnswerResult.INCORRECT ->
-                                                current.copy(
-                                                    typedAnswer = "",
-                                                    feedback = QuestionFeedback.Incorrect,
-                                                )
-                                        }
-                                },
-                                onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
-                            )
+                        submitTextAnswer(current)
                     }
                 }
+        }
+
+        private suspend fun submitInflectionAnswer(current: ReviewSessionState.Question) {
+            reviewRepository
+                .checkForms(
+                    cardId = current.item.cardId,
+                    typedForms =
+                        current.item.inflection!!
+                            .formKeys
+                            .associateWith { current.typedForms[it].orEmpty() },
+                ).fold(
+                    onSuccess = { response ->
+                        _state.value =
+                            ReviewSessionState.Correct(
+                                item = current.item,
+                                index = current.index,
+                                total = current.total,
+                                matchedForm = null,
+                                revealed = response.revealed.toDomain(),
+                                typedForms = current.typedForms,
+                            )
+                    },
+                    onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                )
+        }
+
+        private suspend fun submitTextAnswer(current: ReviewSessionState.Question) {
+            reviewRepository
+                .checkAnswer(
+                    cardId = current.item.cardId,
+                    typedAnswer = current.typedAnswer,
+                ).fold(
+                    onSuccess = { check ->
+                        _state.value =
+                            when (check.result) {
+                                AnswerResult.CORRECT ->
+                                    ReviewSessionState.Correct(
+                                        item = current.item,
+                                        index = current.index,
+                                        total = current.total,
+                                        matchedForm = check.matchedForm,
+                                        revealed = check.revealed,
+                                    )
+                                AnswerResult.INCORRECT ->
+                                    current.copy(
+                                        typedAnswer = "",
+                                        feedback = QuestionFeedback.Incorrect,
+                                    )
+                            }
+                    },
+                    onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                )
         }
 
         private fun showSelfRatedAnswer(current: ReviewSessionState.Question) {

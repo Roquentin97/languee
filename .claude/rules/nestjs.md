@@ -83,3 +83,5 @@ auth logic.
 
 Always update the Bruno collection in `apps/languee-back/bruno/` when adding or changing
 NestJS API requests.
+
+Keep production functions within ESLint’s configured length, complexity, and nesting limits. Run lint early; test files are excluded.
