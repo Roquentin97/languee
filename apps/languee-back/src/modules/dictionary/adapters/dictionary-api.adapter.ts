@@ -44,7 +44,11 @@ export class DictionaryApiAdapter implements IDictionaryApiAdapter {
     try {
       data = await this.request.getJson<DictionaryApiEntry[]>(
         `${DICTIONARY_API_BASE_URL}/${language}/${lemma}`,
-        { target: this.providerName },
+        {
+          target: this.providerName,
+          operation: 'dictionary entry',
+          timeoutMs: 10000,
+        },
       );
     } catch (err: unknown) {
       if (err instanceof RequestFailure && err.status === 404) {

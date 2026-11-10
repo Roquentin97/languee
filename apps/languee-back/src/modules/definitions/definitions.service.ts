@@ -18,6 +18,7 @@ export type DefinitionSummary = {
 
 @Injectable()
 export class DefinitionService {
+  private readonly activeWrites = new Map<string, Promise<DbDefinition[]>>();
   constructor(private readonly prisma: PrismaService) {}
 
   async findByWordId(wordId: string): Promise<DbDefinition[]> {
@@ -56,40 +57,56 @@ export class DefinitionService {
     entries: RawDefinitionEntry[],
     providerName: string,
   ): Promise<DbDefinition[]> {
-    return Promise.all(
-      entries.map(async (entry) => {
-        const key = {
-          wordId,
-          partOfSpeech: entry.partOfSpeech,
-          definition: entry.definition,
-        };
-
-        const existing = await this.prisma.definition.findUnique({
-          where: { wordId_partOfSpeech_definition: key },
-        });
-        if (existing) return existing;
-
-        try {
-          return await this.prisma.definition.create({
-            data: {
-              ...key,
-              example: entry.example ?? null,
-              provider: providerName,
-            },
-          });
-        } catch (err: unknown) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2002'
-          ) {
-            return this.prisma.definition.findUniqueOrThrow({
-              where: { wordId_partOfSpeech_definition: key },
-            });
-          }
-          throw err;
-        }
-      }),
+    const key = JSON.stringify([wordId, entries, providerName]);
+    const existing = this.activeWrites.get(key);
+    if (existing) return existing;
+    const work = this.createManyOnce(wordId, entries, providerName);
+    this.activeWrites.set(key, work);
+    void work.then(
+      () => this.activeWrites.delete(key),
+      () => this.activeWrites.delete(key),
     );
+    return work;
+  }
+
+  private async createManyOnce(
+    wordId: string,
+    entries: RawDefinitionEntry[],
+    providerName: string,
+  ): Promise<DbDefinition[]> {
+    if (!entries.length) return [];
+    await this.prisma.definition.createMany({
+      data: entries.map((entry) => ({
+        wordId,
+        partOfSpeech: entry.partOfSpeech,
+        definition: entry.definition,
+        example: entry.example ?? null,
+        provider: providerName,
+      })),
+      skipDuplicates: true,
+    });
+    const rows = await this.prisma.definition.findMany({
+      where: {
+        wordId,
+        OR: entries.map(({ partOfSpeech, definition }) => ({
+          partOfSpeech,
+          definition,
+        })),
+      },
+    });
+    const byKey = new Map(
+      rows.map((row) => [
+        JSON.stringify([row.partOfSpeech, row.definition]),
+        row,
+      ]),
+    );
+    return entries.map((entry) => {
+      const row = byKey.get(
+        JSON.stringify([entry.partOfSpeech, entry.definition]),
+      );
+      if (!row) throw new Error('Persisted definition not found');
+      return row;
+    });
   }
 
   async createOne(

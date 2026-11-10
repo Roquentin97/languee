@@ -97,6 +97,43 @@ def test_authenticated_endpoint_validation():
         )
 
 
+def test_batch_contract_and_validation():
+    client = TestClient(app)
+    url = "/morphology/inflections/batch"
+    entries = [
+        {"lemma": " GO ", "partOfSpeech": "verb"},
+        {"lemma": "well", "partOfSpeech": "adverb"},
+        {"lemma": "go", "partOfSpeech": "verb"},
+    ]
+    payload = {"language": "en", "entries": entries}
+    assert client.post(url, json=payload).status_code == 401
+    with patch(
+        "languee_nlp.routers.morphology.get_inflections", return_value=[]
+    ) as get:
+        response = client.post(url, json=payload, auth=("admin", "changeme"))
+    assert response.status_code == 200
+    assert response.json() == {
+        "results": [
+            {"lemma": "go", "partOfSpeech": "verb", "forms": []},
+            {"lemma": "well", "partOfSpeech": "adverb", "forms": []},
+        ]
+    }
+    assert get.call_count == 2
+    for invalid in (
+        {"language": "en", "entries": []},
+        {"language": "fr", "entries": entries},
+        {"language": "en", "entries": [{"lemma": "two words", "partOfSpeech": "verb"}]},
+        {"language": "en", "entries": [{"lemma": "go", "partOfSpeech": "invalid"}]},
+        {
+            "language": "en",
+            "entries": [{"lemma": str(i), "partOfSpeech": "noun"} for i in range(101)],
+        },
+    ):
+        assert client.post(
+            url, json=invalid, auth=("admin", "changeme")
+        ).status_code in (400, 422)
+
+
 @pytest.mark.parametrize(
     "case", CORPUS["lemminflect_candidate_cases"], ids=lambda c: c["id"]
 )
@@ -121,3 +158,20 @@ def test_installed_resource_preserves_observed_paradigm(case):
         for relation in TAGS[pos].get(tag, ())
         for form in spellings
     }
+
+
+def test_batch_limit_counts_normalized_distinct_pairs():
+    client = TestClient(app)
+    entries = [{"lemma": str(i), "partOfSpeech": "noun"} for i in range(100)]
+    entries.append(entries[0])
+    with patch(
+        "languee_nlp.routers.morphology.get_inflections", return_value=[]
+    ) as get:
+        response = client.post(
+            "/morphology/inflections/batch",
+            json={"language": "en", "entries": entries},
+            auth=("admin", "changeme"),
+        )
+    assert response.status_code == 200
+    assert len(response.json()["results"]) == 100
+    assert get.call_count == 100

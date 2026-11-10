@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { MS_PER_SECOND } from '../time/time.constants';
+import { AppLogger } from '../logger/app-logger';
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 5 * MS_PER_SECOND;
 
@@ -33,6 +34,7 @@ export interface RequestOptions {
   timeoutMs?: number;
   /** Identifies the remote in logs and spans, e.g. 'wiktionary' or 'nlp'. */
   target: string;
+  operation?: string;
 }
 
 /**
@@ -44,8 +46,10 @@ export interface RequestOptions {
 @Injectable()
 export class RequestService {
   private readonly logger = new Logger(RequestService.name);
+  private readonly slowLogger = new AppLogger(RequestService.name);
 
   async getJson<T>(url: string, options: RequestOptions): Promise<T> {
+    if (options.operation) return this.lookupJson<T>(url, options);
     const response = await this.send(url, options);
     try {
       return (await response.json()) as T;
@@ -59,6 +63,111 @@ export class RequestService {
           err,
         ),
         options.target,
+      );
+    }
+  }
+
+  postJson<T>(url: string, body: unknown, options: RequestOptions): Promise<T> {
+    return this.lookupJson<T>(url, options, body);
+  }
+
+  private async lookupJson<T>(
+    url: string,
+    options: RequestOptions,
+    body?: unknown,
+  ): Promise<T> {
+    const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const slowTimer = this.startSlowTimer(options, timeoutMs);
+    let timeout: ReturnType<typeof setTimeout>;
+    const deadline = new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(
+          new RequestFailure(
+            'timeout',
+            `${options.target} did not respond within ${timeoutMs}ms`,
+          ),
+        );
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        this.readJson<T>(url, options, controller.signal, body),
+        deadline,
+      ]);
+    } catch (err: unknown) {
+      const failure =
+        err instanceof RequestFailure
+          ? err
+          : new RequestFailure(
+              'network',
+              `${options.target} could not be reached`,
+              undefined,
+              undefined,
+              err,
+            );
+      throw this.fail(failure, options.target, true);
+    } finally {
+      clearTimeout(timeout!);
+      clearTimeout(slowTimer);
+    }
+  }
+
+  private startSlowTimer(options: RequestOptions, timeoutMs: number) {
+    const started = Date.now();
+    const span = trace.getActiveSpan();
+    return setTimeout(() => {
+      const data = {
+        target: options.target,
+        operation: options.operation ?? 'request',
+        elapsedMs: Date.now() - started,
+        thresholdMs: 3000,
+        timeoutMs,
+        inFlight: true,
+      };
+      this.slowLogger.warn({
+        message: 'outbound request slow',
+        event: 'http.request_slow',
+        ...data,
+      });
+      span?.addEvent('http.request_slow', data);
+    }, 3000);
+  }
+
+  private async readJson<T>(
+    url: string,
+    options: RequestOptions,
+    signal: AbortSignal,
+    body?: unknown,
+  ): Promise<T> {
+    const response = await fetch(url, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers:
+        body === undefined
+          ? options.headers
+          : { ...options.headers, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => undefined);
+      throw new RequestFailure(
+        'http',
+        `${options.target} responded with HTTP ${response.status}`,
+        response.status,
+        text,
+      );
+    }
+    try {
+      return (await response.json()) as T;
+    } catch (err: unknown) {
+      throw new RequestFailure(
+        'parse',
+        `${options.target} returned a body that is not valid JSON`,
+        response.status,
+        undefined,
+        err,
       );
     }
   }
@@ -114,9 +223,14 @@ export class RequestService {
     return response;
   }
 
-  private fail(failure: RequestFailure, target: string): RequestFailure {
+  private fail(
+    failure: RequestFailure,
+    target: string,
+    safe = false,
+  ): RequestFailure {
     const span = trace.getActiveSpan();
-    if (failure.cause instanceof Error) span?.recordException(failure.cause);
+    if (!safe && failure.cause instanceof Error)
+      span?.recordException(failure.cause);
     span?.addEvent('http.request_failed', {
       target,
       kind: failure.kind,
@@ -134,8 +248,11 @@ export class RequestService {
         target,
         kind: failure.kind,
         status: failure.status ?? null,
-        body: failure.body?.slice(0, 500) ?? null,
-        cause: failure.cause instanceof Error ? failure.cause.message : null,
+        body: safe ? null : (failure.body?.slice(0, 500) ?? null),
+        cause:
+          !safe && failure.cause instanceof Error
+            ? failure.cause.message
+            : null,
       },
     });
 

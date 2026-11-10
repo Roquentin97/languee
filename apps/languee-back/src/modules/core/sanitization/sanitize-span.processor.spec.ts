@@ -17,6 +17,20 @@ function makeDelegate() {
 }
 
 describe('SanitizingSpanProcessor', () => {
+  it('removes credentials and query strings from recorded URLs', () => {
+    const span = makeReadableSpan({
+      'url.full':
+        'https://user:password@example.com/path?token=secret#fragment',
+      'http.target': '/morphology/lemmas?text=private',
+      'url.query': 'text=private',
+    });
+    new SanitizingSpanProcessor(makeDelegate()).onEnd(span);
+    expect(span.attributes).toEqual({
+      'url.full': 'https://example.com/path',
+      'http.target': '/morphology/lemmas',
+      'url.query': REDACTED_VALUE,
+    });
+  });
   it('passes non-sensitive attributes through to the delegate', () => {
     const delegate = makeDelegate();
     const processor = new SanitizingSpanProcessor(delegate);

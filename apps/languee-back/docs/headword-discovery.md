@@ -14,9 +14,10 @@ LookupState. Cards obtain current morphology and new snapshots through
 `MorphologyService`, keeping paradigm helpers internal to the morphology domain.
 
 `MorphologyProvider` supplies POS-independent candidates and typed paradigms.
-`NlpMorphologyAdapter` uses authenticated `/morphology/lemmas` and
-`/morphology/inflections` requests with the shared HTTP client's five-second
-request timeout and NLP error mapping. Neither operation invokes spaCy.
+`NlpMorphologyAdapter` uses authenticated `/morphology/lemmas`,
+`/morphology/inflections`, and `/morphology/inflections/batch` requests.
+Lookup requests have a ten-second deadline and emit a warning after three
+seconds in flight. None of these operations invokes spaCy.
 Dictionary adapters may implement `fetchEntry` for structured references; the
 legacy semantic-only `fetch` operation remains supported with empty references.
 

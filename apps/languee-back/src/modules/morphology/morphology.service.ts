@@ -11,8 +11,14 @@ import type {
 } from './morphology.types';
 import { projectParadigm, snapshotParadigm } from './paradigm';
 
+type IndexEntry = CanonicalEntry & {
+  partOfSpeech: PartOfSpeech;
+  language: string;
+};
+
 @Injectable()
 export class MorphologyService {
+  private readonly indexing = new Map<string, Promise<void>>();
   constructor(
     private readonly prisma: PrismaService,
     @Inject(MORPHOLOGY_PROVIDER) private readonly provider: MorphologyProvider,
@@ -39,6 +45,82 @@ export class MorphologyService {
         })),
       skipDuplicates: true,
     });
+  }
+
+  async indexParadigms(entries: IndexEntry[]): Promise<void> {
+    const owned: IndexEntry[] = [];
+    const flights: Promise<void>[] = [];
+    const completions: {
+      key: string;
+      resolve: () => void;
+      reject: (error: unknown) => void;
+    }[] = [];
+    for (const entry of entries) {
+      const key = JSON.stringify([
+        entry.wordId,
+        entry.partOfSpeech,
+        entry.language,
+      ]);
+      let flight = this.indexing.get(key);
+      if (!flight) {
+        flight = new Promise<void>((resolve, reject) =>
+          completions.push({ key, resolve, reject }),
+        );
+        this.indexing.set(key, flight);
+        owned.push(entry);
+      }
+      flights.push(flight);
+    }
+    if (owned.length) {
+      void this.indexNewParadigms(owned).then(
+        () =>
+          completions.forEach(({ key, resolve }) => {
+            this.indexing.delete(key);
+            resolve();
+          }),
+        (error: unknown) =>
+          completions.forEach(({ key, reject }) => {
+            this.indexing.delete(key);
+            reject(error);
+          }),
+      );
+    }
+    await Promise.all(flights);
+  }
+
+  private async indexNewParadigms(entries: IndexEntry[]): Promise<void> {
+    if (!entries.length) return;
+    if (!this.provider.getInflectionsBatch || entries.length === 1) {
+      await Promise.all(entries.map((entry) => this.indexParadigm(entry)));
+      return;
+    }
+    const language = entries[0].language;
+    const results = await this.provider.getInflectionsBatch(
+      entries.map(({ lemma, partOfSpeech }) => ({ lemma, partOfSpeech })),
+      language,
+    );
+    const byKey = new Map(
+      results.map((result) => [
+        JSON.stringify([normalizeSpelling(result.lemma), result.partOfSpeech]),
+        result.forms,
+      ]),
+    );
+    const data = entries.flatMap((entry) => {
+      const forms = byKey.get(
+        JSON.stringify([normalizeSpelling(entry.lemma), entry.partOfSpeech]),
+      );
+      if (!forms) throw new Error('Missing morphology result');
+      return forms
+        .filter((f) => f.form.trim() && !/\s/.test(f.form.trim()))
+        .map((f) => ({
+          wordId: entry.wordId,
+          form: normalizeSpelling(f.form),
+          partOfSpeech: entry.partOfSpeech,
+          relationType: f.formType,
+        }));
+    });
+    if (data.length)
+      await this.prisma.wordForm.createMany({ data, skipDuplicates: true });
   }
 
   /** Persists explicit relationships only after dictionary target validation. */

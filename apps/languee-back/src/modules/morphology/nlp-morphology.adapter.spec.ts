@@ -6,6 +6,7 @@ import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
 
 describe('NlpMorphologyAdapter HTTP contract', () => {
   const getJson = jest.fn();
+  const postJson = jest.fn();
   const config = new ConfigService({
     nlp: {
       baseUrl: 'http://nlp',
@@ -14,7 +15,7 @@ describe('NlpMorphologyAdapter HTTP contract', () => {
     },
   });
   const adapter = new NlpMorphologyAdapter(
-    { getJson } as unknown as RequestService,
+    { getJson, postJson } as unknown as RequestService,
     config,
   );
   beforeEach(() => jest.resetAllMocks());
@@ -62,5 +63,43 @@ describe('NlpMorphologyAdapter HTTP contract', () => {
     await expect(adapter.findLemmaCandidates('x', 'en')).rejects.toBeInstanceOf(
       NlpUnavailableError,
     );
+  });
+  it('deduplicates and chunks batch requests and preserves empty paradigms', async () => {
+    postJson.mockImplementation(
+      (
+        _url: string,
+        body: { entries: { lemma: string; partOfSpeech: PartOfSpeech }[] },
+      ) =>
+        Promise.resolve({
+          results: body.entries.map((entry) => ({ ...entry, forms: [] })),
+        }),
+    );
+    const entries = Array.from({ length: 101 }, (_, i) => ({
+      lemma: `word${i}`,
+      partOfSpeech: PartOfSpeech.NOUN,
+    }));
+    const result = await adapter.getInflectionsBatch(
+      [...entries, entries[0]],
+      'en',
+    );
+    expect(result).toHaveLength(101);
+    expect(postJson).toHaveBeenCalledTimes(2);
+    expect(postJson.mock.calls[0][1].entries).toHaveLength(100);
+    expect(postJson.mock.calls[1][1].entries).toHaveLength(1);
+    expect(postJson.mock.calls[0][2]).toEqual(
+      expect.objectContaining({
+        timeoutMs: 10000,
+        operation: 'nlp inflections batch',
+      }),
+    );
+  });
+  it('rejects missing and malformed batch results', async () => {
+    postJson.mockResolvedValue({ results: [] });
+    await expect(
+      adapter.getInflectionsBatch(
+        [{ lemma: 'go', partOfSpeech: PartOfSpeech.VERB }],
+        'en',
+      ),
+    ).rejects.toBeInstanceOf(NlpUnavailableError);
   });
 });
