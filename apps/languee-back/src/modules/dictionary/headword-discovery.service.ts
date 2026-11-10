@@ -11,7 +11,10 @@ import {
 import type { MorphologyProvider } from '../morphology/morphology-provider';
 import { MorphologyService } from '../morphology/morphology.service';
 import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
-import type { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
+import type {
+  DictionaryReference,
+  IDictionaryApiAdapter,
+} from './interfaces/dictionary-api-adapter.interface';
 import type { DefinitionResult } from './types/lookup-word.types';
 
 export type ResolvedHeadword = {
@@ -49,97 +52,7 @@ export class HeadwordDiscoveryService {
     if (state?.discoveryCompletedAt)
       return { source: 'cache', headwords: await this.resolve(term, language) };
     const visited = new Set<string>();
-    const process = async (spelling: string): Promise<void> => {
-      const lemma = normalizeSpelling(spelling);
-      if (visited.has(lemma)) return;
-      visited.add(lemma);
-      const where = { term_language: { term: lemma, language } };
-      const cached = await this.prisma.lookupState.findUnique({ where });
-      if (cached?.dictionaryFetchedAt) return;
-      const entry = this.dictionary.fetchEntry
-        ? await this.dictionary.fetchEntry(lemma, language)
-        : {
-            definitions: await this.dictionary.fetch(lemma, language),
-            references: [],
-          };
-      if (entry.definitions.length) {
-        const word = await this.words.ensureExistsAndReturn(
-          lemma,
-          language,
-          kind,
-        );
-        await this.definitions.createMany(
-          word.id,
-          entry.definitions,
-          this.dictionary.providerName,
-        );
-        for (const pos of new Set(
-          entry.definitions.map((d) => d.partOfSpeech),
-        )) {
-          if (kind === LexicalKind.word) {
-            await this.morphology.indexParadigm({
-              wordId: word.id,
-              lemma,
-              partOfSpeech: pos,
-              language,
-            });
-          }
-        }
-        if (!word.ipa && this.dictionary.fetchIpa) {
-          try {
-            const ipa = await this.dictionary.fetchIpa(lemma, language);
-            if (ipa) await this.words.setIpaIfMissing(word.id, ipa);
-          } catch {
-            /* Pronunciation is optional enrichment. */
-          }
-        }
-      }
-      for (const reference of entry.references) {
-        if (
-          !['morphological_reference', 'alternative_spelling'].includes(
-            reference.category,
-          ) ||
-          !reference.targetPos
-        )
-          continue;
-        for (const target of reference.targets) {
-          await process(target);
-          // A cycle cannot validate a target from partially persisted definitions.
-          const targetState = await this.prisma.lookupState.findUnique({
-            where: {
-              term_language: { term: normalizeSpelling(target), language },
-            },
-          });
-          if (!targetState?.dictionaryFetchedAt) continue;
-          const word = await this.words.findByLemma(
-            normalizeSpelling(target),
-            language,
-          );
-          if (!word) continue;
-          const definitions = await this.definitions.findByWordId(word.id);
-          if (
-            !definitions.some(
-              (d) =>
-                d.partOfSpeech === String(reference.targetPos) &&
-                d.provider === this.dictionary.providerName,
-            )
-          )
-            continue;
-          await this.morphology.recordValidatedRelationships(
-            word.id,
-            lemma,
-            reference.targetPos,
-            reference.relationTypes,
-          );
-        }
-      }
-      await this.prisma.lookupState.upsert({
-        where,
-        create: { term: lemma, language, dictionaryFetchedAt: new Date() },
-        update: { dictionaryFetchedAt: new Date() },
-      });
-    };
-    await process(term);
+    await this.process(term, language, kind, visited);
     if (kind === LexicalKind.word) {
       const candidates = await this.morphologyProvider.findLemmaCandidates(
         term,
@@ -156,7 +69,8 @@ export class HeadwordDiscoveryService {
         ...knownWords.map((w) => w.lemma),
         ...(contextualLemma ? [contextualLemma] : []),
       ]);
-      for (const lemma of lemmas) await process(lemma);
+      for (const lemma of lemmas)
+        await this.process(lemma, language, kind, visited);
     }
     await this.prisma.lookupState.upsert({
       where: key,
@@ -167,6 +81,147 @@ export class HeadwordDiscoveryService {
       source: 'provider',
       headwords: await this.resolve(term, language),
     };
+  }
+
+  private async process(
+    spelling: string,
+    language: string,
+    kind: LexicalKind,
+    visited: Set<string>,
+  ): Promise<void> {
+    const lemma = normalizeSpelling(spelling);
+    if (visited.has(lemma)) return;
+    visited.add(lemma);
+    const where = { term_language: { term: lemma, language } };
+    const cached = await this.prisma.lookupState.findUnique({ where });
+    if (cached?.dictionaryFetchedAt) return;
+    const entry = this.dictionary.fetchEntry
+      ? await this.dictionary.fetchEntry(lemma, language)
+      : {
+          definitions: await this.dictionary.fetch(lemma, language),
+          references: [],
+        };
+    if (entry.definitions.length)
+      await this.persistDefinitions(lemma, language, kind, entry.definitions);
+    await this.processReferences(
+      entry.references,
+      lemma,
+      language,
+      kind,
+      visited,
+    );
+    await this.prisma.lookupState.upsert({
+      where,
+      create: { term: lemma, language, dictionaryFetchedAt: new Date() },
+      update: { dictionaryFetchedAt: new Date() },
+    });
+  }
+
+  private async processReferences(
+    references: DictionaryReference[],
+    lemma: string,
+    language: string,
+    kind: LexicalKind,
+    visited: Set<string>,
+  ): Promise<void> {
+    for (const reference of references) {
+      if (
+        !['morphological_reference', 'alternative_spelling'].includes(
+          reference.category,
+        ) ||
+        !reference.targetPos
+      )
+        continue;
+      for (const target of reference.targets) {
+        await this.process(target, language, kind, visited);
+        // A cycle cannot validate a target from partially persisted definitions.
+        const targetState = await this.prisma.lookupState.findUnique({
+          where: {
+            term_language: { term: normalizeSpelling(target), language },
+          },
+        });
+        if (!targetState?.dictionaryFetchedAt) continue;
+        const word = await this.words.findByLemma(
+          normalizeSpelling(target),
+          language,
+        );
+        if (!word) continue;
+        const definitions = await this.definitions.findByWordId(word.id);
+        if (
+          !definitions.some(
+            (d) =>
+              d.partOfSpeech === String(reference.targetPos) &&
+              d.provider === this.dictionary.providerName,
+          )
+        )
+          continue;
+        await this.morphology.recordValidatedRelationships(
+          word.id,
+          lemma,
+          reference.targetPos,
+          reference.relationTypes,
+        );
+      }
+    }
+  }
+
+  private async persistDefinitions(
+    lemma: string,
+    language: string,
+    kind: LexicalKind,
+    definitions: Awaited<ReturnType<IDictionaryApiAdapter['fetch']>>,
+  ): Promise<void> {
+    const word = await this.words.ensureExistsAndReturn(lemma, language, kind);
+    await this.definitions.createMany(
+      word.id,
+      definitions,
+      this.dictionary.providerName,
+    );
+    for (const pos of new Set(definitions.map((d) => d.partOfSpeech))) {
+      if (kind === LexicalKind.word) {
+        await this.morphology.indexParadigm({
+          wordId: word.id,
+          lemma,
+          partOfSpeech: pos,
+          language,
+        });
+      }
+    }
+    if (!word.ipa && this.dictionary.fetchIpa) {
+      try {
+        const ipa = await this.dictionary.fetchIpa(lemma, language);
+        if (ipa) await this.words.setIpaIfMissing(word.id, ipa);
+      } catch {
+        /* Pronunciation is optional enrichment. */
+      }
+    }
+  }
+
+  private groupDefinitions(
+    definitions: Awaited<ReturnType<DefinitionService['findByWordIds']>>,
+  ) {
+    const byWord = new Map<string, typeof definitions>();
+    for (const definition of definitions) {
+      const rows = byWord.get(definition.wordId) ?? [];
+      rows.push(definition);
+      byWord.set(definition.wordId, rows);
+    }
+    return byWord;
+  }
+
+  private async describeWords(
+    words: Awaited<ReturnType<WordsService['findLookupCandidates']>>,
+    byWord: ReturnType<HeadwordDiscoveryService['groupDefinitions']>,
+  ) {
+    return this.morphology.describeEntries(
+      words.flatMap((word) =>
+        (byWord.get(word.id) ?? []).map((d) => ({
+          wordId: word.id,
+          lemma: word.lemma,
+          partOfSpeech: d.partOfSpeech,
+        })),
+      ),
+    );
   }
 
   private async resolve(
@@ -182,21 +237,8 @@ export class HeadwordDiscoveryService {
     const definitions = await this.definitions.findByWordIds(
       words.map((w) => w.id),
     );
-    const byWord = new Map<string, typeof definitions>();
-    for (const definition of definitions) {
-      const rows = byWord.get(definition.wordId) ?? [];
-      rows.push(definition);
-      byWord.set(definition.wordId, rows);
-    }
-    const paradigms = await this.morphology.describeEntries(
-      words.flatMap((word) =>
-        (byWord.get(word.id) ?? []).map((d) => ({
-          wordId: word.id,
-          lemma: word.lemma,
-          partOfSpeech: d.partOfSpeech,
-        })),
-      ),
-    );
+    const byWord = this.groupDefinitions(definitions);
+    const paradigms = await this.describeWords(words, byWord);
     return words
       .map((word) => {
         const allowed = new Set(

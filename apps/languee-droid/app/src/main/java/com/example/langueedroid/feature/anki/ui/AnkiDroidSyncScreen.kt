@@ -57,29 +57,7 @@ fun AnkiDroidSyncScreen(
     Scaffold(
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.ankidroid_sync_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            SyncTopBar(onNavigateBack)
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -93,93 +71,133 @@ fun AnkiDroidSyncScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (uiState) {
-                is SyncUiState.Syncing -> {
-                    CircularProgressIndicator(
-                        color = GreenPrimary,
-                        modifier = Modifier.size(56.dp),
-                        strokeWidth = 3.dp,
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Text(
-                        text = stringResource(R.string.ankidroid_sync_in_progress),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = TextPrimary,
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.ankidroid_sync_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                    )
-                }
+                is SyncUiState.Syncing -> SyncInProgressContent()
 
-                is SyncUiState.Result -> {
-                    SyncSuccessContent(result = uiState)
-                    Spacer(modifier = Modifier.height(28.dp))
-                    Button(
-                        onClick = onDismissResult,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.ankidroid_status_ok),
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                }
+                is SyncUiState.Result -> SyncResultContent(uiState, onDismissResult)
 
-                is SyncUiState.Idle -> {
-                    AnkiDroidIcon()
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = stringResource(R.string.ankidroid_sync_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = TextPrimary,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.ankidroid_sync_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Button(
-                        onClick = onSync,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Text(
-                                text = stringResource(R.string.ankidroid_sync_button),
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                        }
-                    }
-                }
+                is SyncUiState.Idle -> SyncIdleContent(onSync)
             }
         }
     }
+}
+
+@Composable
+private fun SyncInProgressContent() {
+    CircularProgressIndicator(
+        color = GreenPrimary,
+        modifier = Modifier.size(56.dp),
+        strokeWidth = 3.dp,
+    )
+    Spacer(modifier = Modifier.height(20.dp))
+    Text(
+        text = stringResource(R.string.ankidroid_sync_in_progress),
+        style = MaterialTheme.typography.titleSmall,
+        color = TextPrimary,
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    Text(
+        text = stringResource(R.string.ankidroid_sync_description),
+        style = MaterialTheme.typography.bodySmall,
+        color = TextSecondary,
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun SyncResultContent(
+    result: SyncUiState.Result,
+    onDismissResult: () -> Unit,
+) {
+    SyncSuccessContent(result = result)
+    Spacer(modifier = Modifier.height(28.dp))
+    Button(
+        onClick = onDismissResult,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+    ) {
+        Text(
+            text = stringResource(R.string.ankidroid_status_ok),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+@Composable
+private fun SyncIdleContent(onSync: () -> Unit) {
+    AnkiDroidIcon()
+    Spacer(modifier = Modifier.height(24.dp))
+    Text(
+        text = stringResource(R.string.ankidroid_sync_title),
+        style = MaterialTheme.typography.headlineSmall,
+        color = TextPrimary,
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = stringResource(R.string.ankidroid_sync_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = TextSecondary,
+        textAlign = TextAlign.Center,
+    )
+    Spacer(modifier = Modifier.height(32.dp))
+    Button(
+        onClick = onSync,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = stringResource(R.string.ankidroid_sync_button),
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SyncTopBar(onNavigateBack: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = stringResource(R.string.ankidroid_sync_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
 }
 
 @Composable
@@ -202,6 +220,25 @@ private fun AnkiDroidIcon(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun SyncSuccessIcon() {
+    Box(
+        modifier =
+            Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(GreenContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Check,
+            contentDescription = null,
+            tint = GreenPrimaryDark,
+            modifier = Modifier.size(36.dp),
+        )
+    }
+}
+
+@Composable
 private fun SyncSuccessContent(
     result: SyncUiState.Result,
     modifier: Modifier = Modifier,
@@ -211,21 +248,7 @@ private fun SyncSuccessContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(GreenContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = null,
-                tint = GreenPrimaryDark,
-                modifier = Modifier.size(36.dp),
-            )
-        }
+        SyncSuccessIcon()
         if (result.syncedCount == 0 && result.failedWords.isEmpty()) {
             Text(
                 text = stringResource(R.string.ankidroid_sync_up_to_date),

@@ -56,21 +56,13 @@ export class VocabularyService {
     return this.lookupExpression(input, analysis);
   }
 
+  // Keep lookup orchestration and its response together.
+  // eslint-disable-next-line max-lines-per-function
   private async lookupSingleWord(
     input: LookupVocabularyInput,
     nlpResult: NlpWordAnalysis,
   ): Promise<LookupVocabularyOutput> {
-    this.logger.debug({
-      message: 'nlp result',
-      event: 'vocabulary.nlp_result',
-      method: this.lookupSingleWord.name,
-      data: {
-        word: input.word,
-        lemma: nlpResult.lemma,
-        pos: nlpResult.pos,
-        isIrregular: nlpResult.isIrregular,
-      },
-    });
+    this.logWordAnalysis(input, nlpResult);
 
     const baseOutput = await this.dictionaryService.lookup({
       word: input.word,
@@ -80,101 +72,30 @@ export class VocabularyService {
       pos: nlpResult.pos ?? undefined,
     });
 
-    const mappedPos: PartOfSpeech | null = nlpResult.pos;
-
-    // Collect available parts of speech from all definitions before filtering
-    const availablePartsOfSpeech: PartOfSpeech[] = [
-      ...new Set(baseOutput.definitions.map((d) => d.partOfSpeech)),
-    ];
-
-    const hasContext = Boolean(input.context?.trim());
-    const shouldFilterByPos =
-      hasContext && !input.disablePosFiltering && mappedPos !== null;
-
-    this.logger.debug({
-      message: 'pos filter decision',
-      event: 'vocabulary.pos_filter_decision',
-      method: this.lookupSingleWord.name,
-      data: {
-        shouldFilterByPos,
-        hasContext,
-        mappedPos,
-        totalDefinitions: baseOutput.definitions.length,
-      },
-    });
-
-    // Filter definitions by POS only for context-aware lookups.
-    const filteredDefinitions = shouldFilterByPos
-      ? baseOutput.definitions.filter((def) => def.partOfSpeech === mappedPos)
-      : baseOutput.definitions;
-
-    const filteredByPos = shouldFilterByPos;
-    const unmatchedPos = filteredByPos && filteredDefinitions.length === 0;
-
-    if (unmatchedPos) {
-      this.logger.warn({
-        message: 'no definitions match pos',
-        event: 'vocabulary.no_definitions_match_pos',
-        method: this.lookupSingleWord.name,
-        data: {
-          word: input.word,
-          mappedPos,
-          availablePartsOfSpeech,
-        },
-      });
-    }
+    const {
+      mappedPos,
+      filteredDefinitions,
+      filteredByPos,
+      unmatchedPos,
+      availablePartsOfSpeech,
+    } = this.filterDefinitions(input, nlpResult, baseOutput);
 
     // Deck enrichment on filtered definitions
-    const definitionIds = filteredDefinitions.map((d) => d.id);
-
-    const cards = await this.cardsService.findCardsByDefinitionIdsAndUserId(
-      definitionIds,
+    const definitions = await this.enrichDefinitions(
+      filteredDefinitions,
       input.userId,
+      null,
+      true,
     );
 
-    this.logger.debug({
-      message: 'deck enrichment',
-      event: 'vocabulary.deck_enrichment',
-      method: this.lookupSingleWord.name,
-      data: {
-        definitionCount: filteredDefinitions.length,
-        cardsFound: cards.length,
-      },
-    });
-
-    const decksByDefinition = new Map<string, DeckRef[]>();
-    for (const card of cards) {
-      const existing = decksByDefinition.get(card.definitionId) ?? [];
-      existing.push({ id: card.deck.id, name: card.deck.name });
-      decksByDefinition.set(card.definitionId, existing);
-    }
-
-    const definitions: EnrichedDefinitionResult[] = filteredDefinitions.map(
-      (def) => ({
-        id: def.id,
-        partOfSpeech: def.partOfSpeech,
-        definition: def.definition,
-        example: def.example,
-        provider: def.provider,
-        hasIrregularForms: def.hasIrregularForms,
-        inflectionForms: def.inflectionForms,
-        decks: decksByDefinition.get(def.id) ?? [],
-      }),
+    this.logWordLookup(
+      input,
+      baseOutput,
+      mappedPos,
+      filteredByPos,
+      definitions,
+      unmatchedPos,
     );
-
-    this.logger.log({
-      message: 'lookup complete',
-      event: 'vocabulary.lookup_complete',
-      method: this.lookupSingleWord.name,
-      data: {
-        word: input.word,
-        lemma: baseOutput.lemma,
-        pos: mappedPos,
-        filteredByPos,
-        definitionCount: definitions.length,
-        unmatchedPos,
-      },
-    });
 
     return {
       input: input.word,
@@ -195,6 +116,128 @@ export class VocabularyService {
     };
   }
 
+  private logWordLookup(
+    input: LookupVocabularyInput,
+    baseOutput: LookupWordOutput,
+    mappedPos: PartOfSpeech | null,
+    filteredByPos: boolean,
+    definitions: EnrichedDefinitionResult[],
+    unmatchedPos: boolean,
+  ): void {
+    this.logger.log({
+      message: 'lookup complete',
+      event: 'vocabulary.lookup_complete',
+      method: this.lookupSingleWord.name,
+      data: {
+        word: input.word,
+        lemma: baseOutput.lemma,
+        pos: mappedPos,
+        filteredByPos,
+        definitionCount: definitions.length,
+        unmatchedPos,
+      },
+    });
+  }
+
+  private logWordAnalysis(
+    input: LookupVocabularyInput,
+    nlpResult: NlpWordAnalysis,
+  ): void {
+    this.logger.debug({
+      message: 'nlp result',
+      event: 'vocabulary.nlp_result',
+      method: this.lookupSingleWord.name,
+      data: {
+        word: input.word,
+        lemma: nlpResult.lemma,
+        pos: nlpResult.pos,
+        isIrregular: nlpResult.isIrregular,
+      },
+    });
+  }
+
+  private filterDefinitions(
+    input: LookupVocabularyInput,
+    nlpResult: NlpWordAnalysis,
+    baseOutput: LookupWordOutput,
+  ) {
+    const mappedPos: PartOfSpeech | null = nlpResult.pos;
+
+    // Collect available parts of speech from all definitions before filtering
+    const availablePartsOfSpeech: PartOfSpeech[] = [
+      ...new Set(baseOutput.definitions.map((d) => d.partOfSpeech)),
+    ];
+
+    const hasContext = Boolean(input.context?.trim());
+    const shouldFilterByPos =
+      hasContext && !input.disablePosFiltering && mappedPos !== null;
+
+    this.logPosFilter(
+      shouldFilterByPos,
+      hasContext,
+      mappedPos,
+      baseOutput.definitions.length,
+    );
+
+    // Filter definitions by POS only for context-aware lookups.
+    const filteredDefinitions = shouldFilterByPos
+      ? baseOutput.definitions.filter((def) => def.partOfSpeech === mappedPos)
+      : baseOutput.definitions;
+
+    const filteredByPos = shouldFilterByPos;
+    const unmatchedPos = filteredByPos && filteredDefinitions.length === 0;
+
+    if (unmatchedPos) {
+      this.logUnmatchedPos(input.word, mappedPos, availablePartsOfSpeech);
+    }
+
+    return {
+      mappedPos,
+      filteredDefinitions,
+      filteredByPos,
+      unmatchedPos,
+      availablePartsOfSpeech,
+    };
+  }
+
+  private logUnmatchedPos(
+    word: string,
+    mappedPos: PartOfSpeech | null,
+    availablePartsOfSpeech: PartOfSpeech[],
+  ): void {
+    this.logger.warn({
+      message: 'no definitions match pos',
+      event: 'vocabulary.no_definitions_match_pos',
+      method: this.lookupSingleWord.name,
+      data: {
+        word,
+        mappedPos,
+        availablePartsOfSpeech,
+      },
+    });
+  }
+
+  private logPosFilter(
+    shouldFilterByPos: boolean,
+    hasContext: boolean,
+    mappedPos: PartOfSpeech | null,
+    totalDefinitions: number,
+  ): void {
+    this.logger.debug({
+      message: 'pos filter decision',
+      event: 'vocabulary.pos_filter_decision',
+      method: this.lookupSingleWord.name,
+      data: {
+        shouldFilterByPos,
+        hasContext,
+        mappedPos,
+        totalDefinitions,
+      },
+    });
+  }
+
+  // Keep expression context and response assembly together.
+  // eslint-disable-next-line max-lines-per-function
   private async lookupExpression(
     input: LookupVocabularyInput,
     analysis: NlpExpressionAnalysis,
@@ -213,56 +256,15 @@ export class VocabularyService {
     });
 
     const kind: LookupVocabularyKind = analysis.kind;
-    const dictionaryKind =
-      analysis.kind === 'phrasal_verb'
-        ? LexicalKind.phrasal_verb
-        : LexicalKind.expression;
-
-    let baseOutput: LookupWordOutput;
-    let providerMiss = false;
-    try {
-      baseOutput = await this.dictionaryService.lookup({
-        word: trimmedWord,
-        lemma: analysis.canonical,
-        language: input.language,
-        kind: dictionaryKind,
-      });
-    } catch (err: unknown) {
-      if (err instanceof DefinitionsNotFoundException) {
-        providerMiss = true;
-        baseOutput = {
-          lemma: analysis.canonical,
-          source: 'provider',
-          definitions: [],
-        };
-        this.logger.warn({
-          message: 'expression provider miss',
-          event: 'vocabulary.expression_provider_miss',
-          method: this.lookupExpression.name,
-          data: { word: trimmedWord, lemma: analysis.canonical },
-        });
-      } else {
-        throw err;
-      }
-    }
+    const { baseOutput, providerMiss } = await this.lookupExpressionDefinitions(
+      input,
+      analysis,
+      trimmedWord,
+    );
 
     const availablePartsOfSpeech: PartOfSpeech[] = [
       ...new Set(baseOutput.definitions.map((d) => d.partOfSpeech)),
     ];
-
-    const definitionIds = baseOutput.definitions.map((d) => d.id);
-
-    const cards = await this.cardsService.findCardsByDefinitionIdsAndUserId(
-      definitionIds,
-      input.userId,
-    );
-
-    const decksByDefinition = new Map<string, DeckRef[]>();
-    for (const card of cards) {
-      const existing = decksByDefinition.get(card.definitionId) ?? [];
-      existing.push({ id: card.deck.id, name: card.deck.name });
-      decksByDefinition.set(card.definitionId, existing);
-    }
 
     const hasContext = Boolean(input.context?.trim());
     const expressionContextFound = hasContext
@@ -280,17 +282,10 @@ export class VocabularyService {
         ? { type: 'expression', contextForm: matchedText.trim() }
         : null;
 
-    const definitions: EnrichedDefinitionResult[] = baseOutput.definitions.map(
-      (def) => ({
-        id: def.id,
-        partOfSpeech: def.partOfSpeech,
-        definition: def.definition,
-        example: def.example,
-        provider: def.provider,
-        hasIrregularForms: def.hasIrregularForms,
-        inflectionForms: def.inflectionForms ?? contextInflections,
-        decks: decksByDefinition.get(def.id) ?? [],
-      }),
+    const definitions = await this.enrichDefinitions(
+      baseOutput.definitions,
+      input.userId,
+      contextInflections,
     );
 
     this.logger.log({
@@ -325,6 +320,83 @@ export class VocabularyService {
     };
   }
 
+  private async lookupExpressionDefinitions(
+    input: LookupVocabularyInput,
+    analysis: NlpExpressionAnalysis,
+    trimmedWord: string,
+  ): Promise<{ baseOutput: LookupWordOutput; providerMiss: boolean }> {
+    const dictionaryKind =
+      analysis.kind === 'phrasal_verb'
+        ? LexicalKind.phrasal_verb
+        : LexicalKind.expression;
+
+    let baseOutput: LookupWordOutput;
+    let providerMiss = false;
+    try {
+      baseOutput = await this.dictionaryService.lookup({
+        word: trimmedWord,
+        lemma: analysis.canonical,
+        language: input.language,
+        kind: dictionaryKind,
+      });
+    } catch (err: unknown) {
+      if (err instanceof DefinitionsNotFoundException) {
+        providerMiss = true;
+        baseOutput = {
+          lemma: analysis.canonical,
+          source: 'provider',
+          definitions: [],
+        };
+        this.logger.warn({
+          message: 'expression provider miss',
+          event: 'vocabulary.expression_provider_miss',
+          method: this.lookupExpression.name,
+          data: { word: trimmedWord, lemma: analysis.canonical },
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    return { baseOutput, providerMiss };
+  }
+
+  private async enrichDefinitions(
+    definitions: LookupWordOutput['definitions'],
+    userId: string,
+    contextInflections: InflectionForms | null = null,
+    logEnrichment = false,
+  ): Promise<EnrichedDefinitionResult[]> {
+    const cards = await this.cardsService.findCardsByDefinitionIdsAndUserId(
+      definitions.map((d) => d.id),
+      userId,
+    );
+    if (logEnrichment) {
+      this.logger.debug({
+        message: 'deck enrichment',
+        event: 'vocabulary.deck_enrichment',
+        method: this.lookupSingleWord.name,
+        data: { definitionCount: definitions.length, cardsFound: cards.length },
+      });
+    }
+    const decksByDefinition = new Map<string, DeckRef[]>();
+    for (const card of cards) {
+      const existing = decksByDefinition.get(card.definitionId) ?? [];
+      existing.push({ id: card.deck.id, name: card.deck.name });
+      decksByDefinition.set(card.definitionId, existing);
+    }
+    return definitions.map((def) => ({
+      id: def.id,
+      partOfSpeech: def.partOfSpeech,
+      definition: def.definition,
+      example: def.example,
+      provider: def.provider,
+      hasIrregularForms: def.hasIrregularForms,
+      inflectionForms: def.inflectionForms ?? contextInflections,
+      decks: decksByDefinition.get(def.id) ?? [],
+    }));
+  }
+
   async createUserDefinition(
     input: CreateUserDefinitionInput,
   ): Promise<CreateUserDefinitionOutput> {
@@ -337,6 +409,61 @@ export class VocabularyService {
       input.language,
     );
 
+    const { canonical, effectiveKind, partOfSpeech } =
+      this.classifyUserDefinition(input, analysis);
+
+    const word = await this.wordsService.ensureExistsAndReturn(
+      canonical,
+      input.language,
+      effectiveKind,
+    );
+
+    const row = await this.definitionService.createOne(
+      word.id,
+      {
+        partOfSpeech,
+        definition: input.definition,
+        ...(input.example !== undefined ? { example: input.example } : {}),
+      },
+      USER_DEFINITION_PROVIDER,
+    );
+
+    this.logCreatedDefinition(word.id, canonical, effectiveKind, partOfSpeech);
+
+    return {
+      id: row.id,
+      wordId: word.id,
+      lemma: canonical,
+      kind: effectiveKind,
+      partOfSpeech: row.partOfSpeech as PartOfSpeech,
+      definition: row.definition,
+      example: row.example ?? null,
+      provider: row.provider,
+    };
+  }
+  private logCreatedDefinition(
+    wordId: string,
+    canonical: string,
+    effectiveKind: LexicalKind,
+    partOfSpeech: PartOfSpeech,
+  ): void {
+    this.logger.log({
+      message: 'user definition created',
+      event: 'vocabulary.user_definition_created',
+      method: this.createUserDefinition.name,
+      data: {
+        wordId,
+        lemma: canonical,
+        kind: effectiveKind,
+        partOfSpeech,
+      },
+    });
+  }
+
+  private classifyUserDefinition(
+    input: CreateUserDefinitionInput,
+    analysis: Awaited<ReturnType<NlpService['analyze']>>,
+  ) {
     let canonical: string;
     let effectiveKind: LexicalKind;
     let partOfSpeech: PartOfSpeech;
@@ -359,43 +486,6 @@ export class VocabularyService {
       partOfSpeech = input.partOfSpeech ?? PartOfSpeech.PHRASE;
     }
 
-    const word = await this.wordsService.ensureExistsAndReturn(
-      canonical,
-      input.language,
-      effectiveKind,
-    );
-
-    const row = await this.definitionService.createOne(
-      word.id,
-      {
-        partOfSpeech,
-        definition: input.definition,
-        ...(input.example !== undefined ? { example: input.example } : {}),
-      },
-      USER_DEFINITION_PROVIDER,
-    );
-
-    this.logger.log({
-      message: 'user definition created',
-      event: 'vocabulary.user_definition_created',
-      method: this.createUserDefinition.name,
-      data: {
-        wordId: word.id,
-        lemma: canonical,
-        kind: effectiveKind,
-        partOfSpeech,
-      },
-    });
-
-    return {
-      id: row.id,
-      wordId: word.id,
-      lemma: canonical,
-      kind: effectiveKind,
-      partOfSpeech: row.partOfSpeech as PartOfSpeech,
-      definition: row.definition,
-      example: row.example ?? null,
-      provider: row.provider,
-    };
+    return { canonical, effectiveKind, partOfSpeech };
   }
 }

@@ -13,3 +13,5 @@ or explanations that merely restate clear code or duplicate nearby docs. Keep
 non-obvious constraints, invariants, reasons, useful public behavior, and
 operational procedures. Review new and modified comments and docs for relevance
 and concision before finishing.
+
+Keep production functions within the target service’s configured maintainability limits and run lint early. Test files are excluded from lint checks.

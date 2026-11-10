@@ -75,6 +75,48 @@ export class AppLogger implements LoggerService {
       payload['message'] = String(message);
     }
 
+    this.addErrorDetails(payload, level, message);
+
+    // Top-level fields always win over spread object fields.
+    // process.env is read directly — see constructor comment.
+    payload['timestamp'] = new Date().toISOString();
+    payload['level'] = level;
+    payload['service'] = process.env['SERVICE_NAME'] ?? 'languee-back';
+    payload['context'] = resolvedContext;
+    payload['pid'] = process.pid;
+    payload['environment'] = process.env['NODE_ENV'] ?? 'development';
+
+    this.addTraceContext(payload);
+
+    const line = JSON.stringify(sanitizeLogPayload(payload)) + '\n';
+
+    if (level === 'error' || level === 'fatal') {
+      process.stderr.write(line);
+    } else {
+      process.stdout.write(line);
+    }
+  }
+
+  private addTraceContext(payload: Record<string, unknown>): void {
+    // Enrich with request context (requestId) and active OTel span ids.
+    const reqCtx = requestContextStorage.getStore();
+    if (reqCtx !== undefined) {
+      payload['requestId'] = reqCtx.requestId;
+    }
+
+    const activeSpan = trace.getActiveSpan();
+    const spanCtx = activeSpan?.spanContext();
+    if (spanCtx !== undefined && isSpanContextValid(spanCtx)) {
+      payload['trace_id'] = spanCtx.traceId;
+      payload['span_id'] = spanCtx.spanId;
+    }
+  }
+
+  private addErrorDetails(
+    payload: Record<string, unknown>,
+    level: string,
+    message: unknown,
+  ): void {
     if (level === 'error' || level === 'fatal') {
       if (message instanceof Error) {
         payload['message'] = message.message;
@@ -94,36 +136,6 @@ export class AppLogger implements LoggerService {
           stack: msgObj['stack'],
         };
       }
-    }
-
-    // Top-level fields always win over spread object fields.
-    // process.env is read directly — see constructor comment.
-    payload['timestamp'] = new Date().toISOString();
-    payload['level'] = level;
-    payload['service'] = process.env['SERVICE_NAME'] ?? 'languee-back';
-    payload['context'] = resolvedContext;
-    payload['pid'] = process.pid;
-    payload['environment'] = process.env['NODE_ENV'] ?? 'development';
-
-    // Enrich with request context (requestId) and active OTel span ids.
-    const reqCtx = requestContextStorage.getStore();
-    if (reqCtx !== undefined) {
-      payload['requestId'] = reqCtx.requestId;
-    }
-
-    const activeSpan = trace.getActiveSpan();
-    const spanCtx = activeSpan?.spanContext();
-    if (spanCtx !== undefined && isSpanContextValid(spanCtx)) {
-      payload['trace_id'] = spanCtx.traceId;
-      payload['span_id'] = spanCtx.spanId;
-    }
-
-    const line = JSON.stringify(sanitizeLogPayload(payload)) + '\n';
-
-    if (level === 'error' || level === 'fatal') {
-      process.stderr.write(line);
-    } else {
-      process.stdout.write(line);
     }
   }
 }

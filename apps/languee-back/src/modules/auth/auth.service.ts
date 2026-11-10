@@ -65,66 +65,8 @@ export class AuthService {
     plainRefreshToken: string;
     sessionId: string;
   }> {
-    const user = await this.usersService.findByEmail(
-      this.normalizeEmail(dto.email),
-    );
-
-    if (!user) {
-      // Compare against dummy hash to prevent timing attacks
-      await bcrypt.compare(dto.password, DUMMY_HASH);
-      this.logger.log({
-        message: 'user not found',
-        event: 'auth.user_not_found',
-        method: this.login.name,
-        data: { email: dto.email },
-      });
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const sessionId = randomUUID();
-    const plainRefreshToken = randomUUID();
-    const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
-
-    const now = new Date();
-    const expiresAt = new Date(
-      now.getTime() + THIRTY_DAYS_SECONDS * MS_PER_SECOND,
-    );
-
-    const sessionData: SessionData = {
-      sessionId,
-      userId: user.id,
-      hashedRefreshToken,
-      userAgent,
-      ip,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      revoked: false,
-    };
-
-    await this.redisService.set(
-      `session:${sessionId}`,
-      JSON.stringify(sessionData),
-      THIRTY_DAYS_SECONDS,
-    );
-    await this.redisService.sadd(`user_sessions:${user.id}`, sessionId);
-
-    const accessToken = this.jwtService.sign({
-      sub: user.id,
-      session_id: sessionId,
-    });
-
-    this.logger.log({
-      message: 'session created',
-      event: 'auth.session_created',
-      method: this.login.name,
-      data: { userId: user.id, sessionId, userAgent, ip },
-    });
-
+    const { accessToken, plainRefreshToken, sessionId } =
+      await this.createSession(dto, userAgent, ip, this.login.name);
     return { accessToken, plainRefreshToken, sessionId };
   }
 
@@ -139,46 +81,41 @@ export class AuthService {
     userId: string;
     email: string;
   }> {
-    const user = await this.usersService.findByEmail(
-      this.normalizeEmail(dto.email),
-    );
+    const { accessToken, plainRefreshToken, sessionId, user } =
+      await this.createSession(dto, userAgent, ip, this.loginMobile.name);
+    return {
+      accessToken,
+      plainRefreshToken,
+      sessionId,
+      userId: user.id,
+      email: user.email,
+    };
+  }
 
-    if (!user) {
-      // Compare against dummy hash to prevent timing attacks
-      await bcrypt.compare(dto.password, DUMMY_HASH);
-      this.logger.log({
-        message: 'user not found',
-        event: 'auth.user_not_found',
-        method: this.loginMobile.name,
-        data: { email: dto.email },
-      });
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+  private async createSession(
+    dto: LoginDto,
+    userAgent: string,
+    ip: string,
+    method: string,
+  ): Promise<{
+    accessToken: string;
+    plainRefreshToken: string;
+    sessionId: string;
+    user: User;
+  }> {
+    const user = await this.authenticate(dto, method);
 
     const sessionId = randomUUID();
     const plainRefreshToken = randomUUID();
     const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
 
-    const now = new Date();
-    const expiresAt = new Date(
-      now.getTime() + THIRTY_DAYS_SECONDS * MS_PER_SECOND,
-    );
-
-    const sessionData: SessionData = {
+    const sessionData = this.makeSessionData(
       sessionId,
-      userId: user.id,
+      user.id,
       hashedRefreshToken,
       userAgent,
       ip,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      revoked: false,
-    };
+    );
 
     await this.redisService.set(
       `session:${sessionId}`,
@@ -195,48 +132,67 @@ export class AuthService {
     this.logger.log({
       message: 'session created',
       event: 'auth.session_created',
-      method: this.loginMobile.name,
+      method: method,
       data: { userId: user.id, sessionId, userAgent, ip },
     });
 
+    return { accessToken, plainRefreshToken, sessionId, user };
+  }
+
+  private makeSessionData(
+    sessionId: string,
+    userId: string,
+    hashedRefreshToken: string,
+    userAgent: string,
+    ip: string,
+  ): SessionData {
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + THIRTY_DAYS_SECONDS * MS_PER_SECOND,
+    );
+
     return {
-      accessToken,
-      plainRefreshToken,
       sessionId,
-      userId: user.id,
-      email: user.email,
+      userId,
+      hashedRefreshToken,
+      userAgent,
+      ip,
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      revoked: false,
     };
+  }
+
+  private async authenticate(dto: LoginDto, method: string): Promise<User> {
+    const user = await this.usersService.findByEmail(
+      this.normalizeEmail(dto.email),
+    );
+
+    if (!user) {
+      // Compare against dummy hash to prevent timing attacks
+      await bcrypt.compare(dto.password, DUMMY_HASH);
+      this.logger.log({
+        message: 'user not found',
+        event: 'auth.user_not_found',
+        method: method,
+        data: { email: dto.email },
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return user;
   }
 
   async refresh(
     refreshTokenFromCookie: string,
     sessionId: string,
   ): Promise<{ accessToken: string; plainRefreshToken: string }> {
-    const raw = await this.redisService.get(`session:${sessionId}`);
-    if (!raw) {
-      this.logger.warn({
-        message: 'session not found',
-        event: 'auth.session_not_found',
-        method: this.refresh.name,
-        data: { sessionId },
-      });
-      throw new UnauthorizedException('Session not found');
-    }
-
-    const session: SessionData = JSON.parse(raw) as SessionData;
-
-    if (session.revoked) {
-      this.logger.warn({
-        message: 'revoked session presented',
-        event: 'auth.revoked_session_presented',
-        method: this.refresh.name,
-        data: { sessionId, userId: session.userId },
-      });
-      await this.revokeAllUserSessions(session.userId);
-      throw new UnauthorizedException(
-        'Refresh token reuse detected — all sessions revoked',
-      );
-    }
+    const session = await this.loadRefreshSession(sessionId);
 
     const tokenValid = await bcrypt.compare(
       refreshTokenFromCookie,
@@ -246,26 +202,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const now = new Date();
-    const expiresAt = new Date(session.expiresAt);
-    if (now >= expiresAt) {
-      throw new UnauthorizedException('Session expired');
-    }
-
-    const remainingTtl = Math.floor(
-      (expiresAt.getTime() - now.getTime()) / 1000,
-    );
-
-    this.logger.debug({
-      message: 'session expiry',
-      event: 'auth.session_expiry',
-      method: this.refresh.name,
-      data: {
-        sessionId,
-        expiresAt: session.expiresAt,
-        remainingTtlSeconds: remainingTtl,
-      },
-    });
+    const remainingTtl = this.refreshTtl(session, sessionId);
 
     const plainRefreshToken = randomUUID();
     const hashedRefreshToken = await bcrypt.hash(plainRefreshToken, 10);
@@ -298,6 +235,61 @@ export class AuthService {
     });
 
     return { accessToken, plainRefreshToken };
+  }
+
+  private refreshTtl(session: SessionData, sessionId: string): number {
+    const now = new Date();
+    const expiresAt = new Date(session.expiresAt);
+    if (now >= expiresAt) {
+      throw new UnauthorizedException('Session expired');
+    }
+
+    const remainingTtl = Math.floor(
+      (expiresAt.getTime() - now.getTime()) / 1000,
+    );
+
+    this.logger.debug({
+      message: 'session expiry',
+      event: 'auth.session_expiry',
+      method: this.refresh.name,
+      data: {
+        sessionId,
+        expiresAt: session.expiresAt,
+        remainingTtlSeconds: remainingTtl,
+      },
+    });
+
+    return remainingTtl;
+  }
+
+  private async loadRefreshSession(sessionId: string): Promise<SessionData> {
+    const raw = await this.redisService.get(`session:${sessionId}`);
+    if (!raw) {
+      this.logger.warn({
+        message: 'session not found',
+        event: 'auth.session_not_found',
+        method: this.refresh.name,
+        data: { sessionId },
+      });
+      throw new UnauthorizedException('Session not found');
+    }
+
+    const session: SessionData = JSON.parse(raw) as SessionData;
+
+    if (session.revoked) {
+      this.logger.warn({
+        message: 'revoked session presented',
+        event: 'auth.revoked_session_presented',
+        method: this.refresh.name,
+        data: { sessionId, userId: session.userId },
+      });
+      await this.revokeAllUserSessions(session.userId);
+      throw new UnauthorizedException(
+        'Refresh token reuse detected — all sessions revoked',
+      );
+    }
+
+    return session;
   }
 
   async logout(sessionId: string): Promise<void> {

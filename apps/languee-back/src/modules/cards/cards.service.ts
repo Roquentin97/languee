@@ -1,3 +1,4 @@
+import type { LexicalParadigm } from '../morphology/morphology.types';
 import { MorphologyService } from '../morphology/morphology.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { CardType, Prisma } from '@prisma/client';
@@ -61,6 +62,16 @@ type RawCard = Prisma.CardGetPayload<{ include: typeof RELATIONS_INCLUDE }>;
 type RawCardWithExport = Prisma.CardGetPayload<{
   include: typeof DETAIL_INCLUDE;
 }>;
+
+type CreateDeckCardsInput = {
+  userId: string;
+  deckId: string;
+  definition: Definition & { word: Word };
+  context?: string;
+  snapshot: InflectionForms | null;
+  paradigm: LexicalParadigm | undefined;
+  lexicalSnapshot: InflectionForms | null;
+};
 
 type TxClient = Prisma.TransactionClient;
 
@@ -134,11 +145,74 @@ export class CardsService {
       definition.word.kind === 'word'
         ? lexicalSnapshot
         : (inflectionForms ?? null);
-    const cardIds = await this.prisma.$transaction(async (tx) => {
+    const cardIds = await this.createDeckCards({
+      userId,
+      deckId,
+      definition,
+      context,
+      snapshot,
+      paradigm,
+      lexicalSnapshot,
+    });
+
+    const result = await this.findCardsInOrder(cardIds);
+
+    this.logCreatedCards(userId, deckId, definitionId, cardIds, result);
+
+    return this.withLexicalMorphology(result);
+  }
+
+  private logCreatedCards(
+    userId: string,
+    deckId: string,
+    definitionId: string,
+    cardIds: string[],
+    result: CardWithRelations[],
+  ): void {
+    this.logger.log({
+      message: 'cards created for deck',
+      event: 'card.created',
+      method: this.create.name,
+      data: {
+        userId,
+        deckId,
+        definitionId,
+        cardIds,
+        types: result.map((card) => card.type),
+      },
+    });
+  }
+
+  private async findCardsInOrder(
+    cardIds: string[],
+  ): Promise<CardWithRelations[]> {
+    const created = await this.prisma.card.findMany({
+      where: { id: { in: cardIds } },
+      include: RELATIONS_INCLUDE,
+    });
+    const byId = new Map(created.map((card) => [card.id, card]));
+    const result = cardIds
+      .map((id) => byId.get(id))
+      .filter((card): card is RawCard => card !== undefined)
+      .map(toCardWithRelations);
+
+    return result;
+  }
+
+  private async createDeckCards({
+    userId,
+    deckId,
+    definition,
+    context,
+    snapshot,
+    paradigm,
+    lexicalSnapshot,
+  }: CreateDeckCardsInput): Promise<string[]> {
+    return this.prisma.$transaction(async (tx) => {
       const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.cloze,
-        definitionId,
+        definitionId: definition.id,
         context: context ?? null,
         inflectionForms: snapshot,
       });
@@ -153,25 +227,19 @@ export class CardsService {
       const definitionCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.definition,
-        definitionId,
+        definitionId: definition.id,
         context: null,
         inflectionForms: null,
       });
 
       const ids = [clozeCard.id, definitionCard.id];
 
-      if (
-        paradigm?.hasIrregularForms &&
-        wordInflects(paradigm.inflectionForms)
-      ) {
-        const inflectionCard = await this.findOrCreateInflectionCard(tx, {
-          userId,
-          wordId: definition.wordId,
-          partOfSpeech: definition.partOfSpeech,
-          inflectionForms: lexicalSnapshot,
-        });
-        ids.push(inflectionCard.id);
-      }
+      await this.addInflectionCard(tx, ids, {
+        userId,
+        definition,
+        paradigm,
+        lexicalSnapshot,
+      });
 
       await tx.cardDeck.createMany({
         data: ids.map((cardId) => ({ cardId, deckId })),
@@ -180,31 +248,30 @@ export class CardsService {
 
       return ids;
     });
+  }
 
-    const created = await this.prisma.card.findMany({
-      where: { id: { in: cardIds } },
-      include: RELATIONS_INCLUDE,
-    });
-    const byId = new Map(created.map((card) => [card.id, card]));
-    const result = cardIds
-      .map((id) => byId.get(id))
-      .filter((card): card is RawCard => card !== undefined)
-      .map(toCardWithRelations);
-
-    this.logger.log({
-      message: 'cards created for deck',
-      event: 'card.created',
-      method: this.create.name,
-      data: {
+  private async addInflectionCard(
+    tx: TxClient,
+    ids: string[],
+    {
+      userId,
+      definition,
+      paradigm,
+      lexicalSnapshot,
+    }: Pick<
+      CreateDeckCardsInput,
+      'userId' | 'definition' | 'paradigm' | 'lexicalSnapshot'
+    >,
+  ): Promise<void> {
+    if (paradigm?.hasIrregularForms && wordInflects(paradigm.inflectionForms)) {
+      const inflectionCard = await this.findOrCreateInflectionCard(tx, {
         userId,
-        deckId,
-        definitionId,
-        cardIds,
-        types: result.map((card) => card.type),
-      },
-    });
-
-    return this.withLexicalMorphology(result);
+        wordId: definition.wordId,
+        partOfSpeech: definition.partOfSpeech,
+        inflectionForms: lexicalSnapshot,
+      });
+      ids.push(inflectionCard.id);
+    }
   }
 
   async findManyByUserId(

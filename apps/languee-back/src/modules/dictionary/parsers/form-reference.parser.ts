@@ -37,11 +37,11 @@ const walk = (n: Node): Node[] => [
 const cls = (n: Node, c: string): boolean =>
   (n.attrs.class ?? '').split(/\s+/).includes(c);
 
-export function classifyReference(
-  html: string,
-  source: string,
-  sourcePos: PartOfSpeech | null,
-): DictionaryReference | null {
+function parseHtml(html: string): {
+  root: Node;
+  broken: boolean;
+  stack: Node[];
+} {
   const root: Node = { tag: '', attrs: {}, children: [] };
   const stack = [root];
   let broken = false;
@@ -76,44 +76,37 @@ export function classifyReference(
     )
       stack.push(node);
   }
-  const nodes = walk(root);
-  const markers = nodes.filter((n) => cls(n, 'form-of-definition'));
-  const fullText = text(root);
-  const base: DictionaryReference = {
-    source,
-    sourcePos,
-    targets: [],
-    targetPos: null,
-    relationTypes: [],
-    text: fullText,
-    category: 'unresolved',
-  };
-  if (!markers.length) {
-    if (nodes.some((n) => cls(n, 'form-of-definition-link'))) return base;
-    if (
-      /\b(?:alternative (?:form|spelling)|inflection|singular|plural|past participle|simple past|comparative|superlative) (?:form |degree )?of\b/i.test(
-        fullText,
-      )
+  return { root, broken, stack };
+}
+
+function classifyUnmarked(
+  nodes: Node[],
+  fullText: string,
+  base: DictionaryReference,
+): DictionaryReference | null {
+  if (nodes.some((n) => cls(n, 'form-of-definition-link'))) return base;
+  if (
+    /\b(?:alternative (?:form|spelling)|inflection|singular|plural|past participle|simple past|comparative|superlative) (?:form |degree )?of\b/i.test(
+      fullText,
     )
-      return base;
-    const anchors = nodes.filter((n) => n.tag === 'a');
-    if (
-      anchors.length === 1 &&
-      /\s/.test(text(anchors[0])) &&
-      fullText.replace(/[.\s]+$/, '').toLowerCase() ===
-        text(anchors[0]).toLowerCase()
-    )
-      return { ...base, category: 'other_reference' };
-    return null;
-  }
-  if (broken || stack.length !== 1 || markers.length !== 1) return base;
-  const marker = markers[0];
-  const phrase = text(marker).toLowerCase();
-  const links = walk(marker).filter((n) => cls(n, 'form-of-definition-link'));
+  )
+    return base;
+  const anchors = nodes.filter((n) => n.tag === 'a');
+  if (
+    anchors.length === 1 &&
+    /\s/.test(text(anchors[0])) &&
+    fullText.replace(/[.\s]+$/, '').toLowerCase() ===
+      text(anchors[0]).toLowerCase()
+  )
+    return { ...base, category: 'other_reference' };
+  return null;
+}
+
+function extractTargets(links: Node[]): string[] | null {
   const targets: string[] = [];
   for (const link of links) {
     const anchors = walk(link).filter((n) => n.tag === 'a');
-    if (anchors.length !== 1) return base;
+    if (anchors.length !== 1) return null;
     const a = anchors[0];
     const title = a.attrs.title;
     const href = a.attrs.href ?? '';
@@ -126,14 +119,61 @@ export function classifyReference(
           title ||
         text(a) !== title
       )
-        return base;
+        return null;
     } catch {
-      return base;
+      return null;
     }
     targets.push(title);
   }
-  if (!targets.length) return base;
+  return targets;
+}
+
+export function classifyReference(
+  html: string,
+  source: string,
+  sourcePos: PartOfSpeech | null,
+): DictionaryReference | null {
+  const { root, broken, stack } = parseHtml(html);
+  const nodes = walk(root);
+  const markers = nodes.filter((n) => cls(n, 'form-of-definition'));
+  const fullText = text(root);
+  const base: DictionaryReference = {
+    source,
+    sourcePos,
+    targets: [],
+    targetPos: null,
+    relationTypes: [],
+    text: fullText,
+    category: 'unresolved',
+  };
+  if (!markers.length) return classifyUnmarked(nodes, fullText, base);
+  if (broken || stack.length !== 1 || markers.length !== 1) return base;
+  const marker = markers[0];
+  const phrase = text(marker).toLowerCase();
+  const links = walk(marker).filter((n) => cls(n, 'form-of-definition-link'));
+  const targets = extractTargets(links);
+  if (!targets?.length) return base;
   const result = { ...base, targets: [...new Set(targets)] };
+  return classifyPhrase(phrase, sourcePos, result);
+}
+
+const relationPatterns: [RegExp, RelationType][] = [
+  [/\bplural\b/, 'plural'],
+  [/\bsingular of\b/, 'singular'],
+  [/\bcomparative\b/, 'comparative'],
+  [/\bsuperlative\b/, 'superlative'],
+  [/\b(?:simple past|past tense)\b/, 'past'],
+  [/\bpast participle\b/, 'past_participle'],
+  [/\bpresent participle\b/, 'present_participle'],
+  [/\bgerund\b/, 'gerund'],
+  [/\bthird-person singular\b.*\bpresent\b/, 'present_3sg'],
+];
+
+function classifyPhrase(
+  phrase: string,
+  sourcePos: PartOfSpeech | null,
+  result: DictionaryReference,
+): DictionaryReference {
   if (/\b(?:alternative|alternate) spelling of\b/.test(phrase))
     return {
       ...result,
@@ -143,22 +183,13 @@ export function classifyReference(
     };
   if (/\b(?:alternative|alternate|variant|misspelling|obsolete)\b/.test(phrase))
     return { ...result, category: 'other_reference' };
-  const patterns: [RegExp, RelationType][] = [
-    [/\bplural\b/, 'plural'],
-    [/\bsingular of\b/, 'singular'],
-    [/\bcomparative\b/, 'comparative'],
-    [/\bsuperlative\b/, 'superlative'],
-    [/\b(?:simple past|past tense)\b/, 'past'],
-    [/\bpast participle\b/, 'past_participle'],
-    [/\bpresent participle\b/, 'present_participle'],
-    [/\bgerund\b/, 'gerund'],
-    [/\bthird-person singular\b.*\bpresent\b/, 'present_3sg'],
-  ];
   const relationPhrase = phrase.slice(0, phrase.indexOf(' of ')).trim();
   const grammar =
     /^(?:plural|singular|(?:comparative|superlative)(?: degree| form)?|(?:simple past|past tense|past participle|present participle|gerund)(?: and (?:simple past|past participle|present participle|gerund))?|third-person singular (?:simple )?present(?: indicative)?(?: form)?)$/;
   if (!grammar.test(relationPhrase)) return result;
-  const types = patterns.filter(([r]) => r.test(phrase)).map(([, t]) => t);
+  const types = relationPatterns
+    .filter(([r]) => r.test(phrase))
+    .map(([, t]) => t);
   const allowed: Record<string, string[]> = {
     noun: ['plural', 'singular'],
     verb: [

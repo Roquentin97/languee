@@ -1,6 +1,12 @@
 import * as crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 
+function safeEqual(incoming: string, expected: string): boolean {
+  const hash = (value: string): Buffer =>
+    crypto.createHash('sha256').update(value).digest();
+  return crypto.timingSafeEqual(hash(incoming), hash(expected));
+}
+
 export function createBasicAuthMiddleware(
   user: string,
   password: string,
@@ -30,29 +36,8 @@ export function createBasicAuthMiddleware(
     const incomingUser = decoded.slice(0, separatorIndex);
     const incomingPassword = decoded.slice(separatorIndex + 1);
 
-    // Use hashing to normalise lengths before timingSafeEqual
-    const hashIncomingUser = crypto
-      .createHash('sha256')
-      .update(incomingUser)
-      .digest();
-    const hashExpectedUser = crypto.createHash('sha256').update(user).digest();
-    const hashIncomingPassword = crypto
-      .createHash('sha256')
-      .update(incomingPassword)
-      .digest();
-    const hashExpectedPassword = crypto
-      .createHash('sha256')
-      .update(password)
-      .digest();
-
-    const userMatch = crypto.timingSafeEqual(
-      hashIncomingUser,
-      hashExpectedUser,
-    );
-    const passwordMatch = crypto.timingSafeEqual(
-      hashIncomingPassword,
-      hashExpectedPassword,
-    );
+    const userMatch = safeEqual(incomingUser, user);
+    const passwordMatch = safeEqual(incomingPassword, password);
 
     if (!userMatch || !passwordMatch) {
       res.setHeader('WWW-Authenticate', `Basic realm="${realm}"`);

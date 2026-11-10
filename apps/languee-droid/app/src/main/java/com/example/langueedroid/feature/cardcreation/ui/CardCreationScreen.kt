@@ -81,6 +81,8 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationSt
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
 import com.languee.droid.R
 
+// The state dispatcher keeps screen transitions and their callbacks together.
+@Suppress("LongMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CardCreationScreen(
@@ -104,31 +106,7 @@ fun CardCreationScreen(
     Scaffold(
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (inExampleSelection) "Choose example" else "New card",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = if (inExampleSelection) onBackFromExampleSelection else onNavigateBack,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            CardCreationTopBar(inExampleSelection, onBackFromExampleSelection, onNavigateBack)
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -140,30 +118,7 @@ fun CardCreationScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(GreenContainer)
-                            .border(1.5.dp, GreenBorder, RoundedCornerShape(11.dp))
-                            .padding(horizontal = 16.dp, vertical = 9.dp),
-                ) {
-                    Text(
-                        text = state.targetWord,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = GreenPrimary,
-                    )
-                }
-                SpeakerIconButton(
-                    text = state.targetWord,
-                    languageCode = state.language,
-                    speaker = speaker,
-                )
-            }
+            CardCreationWord(state, speaker)
 
             ExpressionKindIndicator(
                 kind = state.kind,
@@ -263,42 +218,7 @@ fun CardCreationScreen(
                 }
 
                 is CardCreationFlowState.CardCreated -> {
-                    when (flowState.ankiExportStatus) {
-                        AnkiExportTriggerStatus.NotTriggered -> {
-                            Text(
-                                text = stringResource(R.string.card_creation_success),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = GreenPrimary,
-                            )
-                        }
-                        AnkiExportTriggerStatus.InProgress -> {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                CircularProgressIndicator(color = GreenPrimary)
-                                Text(
-                                    text = stringResource(R.string.card_creation_syncing),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                            }
-                        }
-                        AnkiExportTriggerStatus.Success -> {
-                            Text(
-                                text = stringResource(R.string.card_creation_sync_success),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = GreenPrimary,
-                            )
-                        }
-                        is AnkiExportTriggerStatus.Failed -> {
-                            Text(
-                                text = stringResource(R.string.card_creation_sync_failed),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
+                    CardCreatedStatus(flowState.ankiExportStatus)
                 }
 
                 is CardCreationFlowState.CreateCardError -> {
@@ -309,6 +229,111 @@ fun CardCreationScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CardCreationTopBar(
+    inExampleSelection: Boolean,
+    onBackFromExampleSelection: () -> Unit,
+    onNavigateBack: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = if (inExampleSelection) "Choose example" else "New card",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(
+                onClick = if (inExampleSelection) onBackFromExampleSelection else onNavigateBack,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun CardCreationWord(
+    state: CardCreationState,
+    speaker: Speaker,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(GreenContainer)
+                    .border(1.5.dp, GreenBorder, RoundedCornerShape(11.dp))
+                    .padding(horizontal = 16.dp, vertical = 9.dp),
+        ) {
+            Text(
+                text = state.targetWord,
+                style = MaterialTheme.typography.headlineSmall,
+                color = GreenPrimary,
+            )
+        }
+        SpeakerIconButton(
+            text = state.targetWord,
+            languageCode = state.language,
+            speaker = speaker,
+        )
+    }
+}
+
+@Composable
+private fun CardCreatedStatus(status: AnkiExportTriggerStatus) {
+    when (status) {
+        AnkiExportTriggerStatus.NotTriggered -> {
+            Text(
+                text = stringResource(R.string.card_creation_success),
+                style = MaterialTheme.typography.bodyLarge,
+                color = GreenPrimary,
+            )
+        }
+        AnkiExportTriggerStatus.InProgress -> {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(color = GreenPrimary)
+                Text(
+                    text = stringResource(R.string.card_creation_syncing),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+        }
+        AnkiExportTriggerStatus.Success -> {
+            Text(
+                text = stringResource(R.string.card_creation_sync_success),
+                style = MaterialTheme.typography.bodyLarge,
+                color = GreenPrimary,
+            )
+        }
+        is AnkiExportTriggerStatus.Failed -> {
+            Text(
+                text = stringResource(R.string.card_creation_sync_failed),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }
@@ -342,60 +367,70 @@ private fun DeckSelector(
         }
 
         is DeckSelectionState.Loaded -> {
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-                modifier = modifier.fillMaxWidth(),
-            ) {
-                OutlinedTextField(
-                    value =
-                        deckSelectionState.selectedDeck?.name
-                            ?: stringResource(R.string.card_creation_select_deck_placeholder),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = {
-                        Text(
-                            text = stringResource(R.string.card_creation_deck_label).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                        )
-                    },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                    shape = RoundedCornerShape(13.dp),
-                    colors =
-                        OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GreenPrimary,
-                            unfocusedBorderColor = GreenPrimary,
-                            focusedLabelColor = GreenPrimary,
-                            unfocusedLabelColor = GreenPrimary,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                        ),
+            LoadedDeckSelector(deckSelectionState, onDeckSelected, modifier)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LoadedDeckSelector(
+    deckSelectionState: DeckSelectionState.Loaded,
+    onDeckSelected: (Deck) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        OutlinedTextField(
+            value =
+                deckSelectionState.selectedDeck?.name
+                    ?: stringResource(R.string.card_creation_select_deck_placeholder),
+            onValueChange = {},
+            readOnly = true,
+            label = {
+                Text(
+                    text = stringResource(R.string.card_creation_deck_label).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    deckSelectionState.decks.forEach { deck ->
-                        DropdownMenuItem(
-                            text = { Text(deck.name) },
-                            onClick = {
-                                onDeckSelected(deck)
-                                expanded = false
-                            },
-                        )
-                    }
-                }
+            },
+            trailingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                )
+            },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+            shape = RoundedCornerShape(13.dp),
+            colors =
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GreenPrimary,
+                    unfocusedBorderColor = GreenPrimary,
+                    focusedLabelColor = GreenPrimary,
+                    unfocusedLabelColor = GreenPrimary,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                ),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            deckSelectionState.decks.forEach { deck ->
+                DropdownMenuItem(
+                    text = { Text(deck.name) },
+                    onClick = {
+                        onDeckSelected(deck)
+                        expanded = false
+                    },
+                )
             }
         }
     }
@@ -442,23 +477,7 @@ private fun DefinitionsList(
         // The target deck is asked only after a definition has been picked, so the
         // definitions (and their saved-state badges) can inform the deck choice.
         if (selectedDefinition != null) {
-            when (definitionState) {
-                is DefinitionState.AlreadyInSelectedDeck -> {
-                    Text(
-                        text = stringResource(R.string.card_creation_already_in_deck),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                is DefinitionState.ExistsInAnotherDeck -> {
-                    Text(
-                        text = stringResource(R.string.card_creation_exists_in_another_deck),
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                is DefinitionState.Available, null -> Unit
-            }
+            DefinitionAvailability(definitionState)
             DeckSelector(
                 deckSelectionState = deckSelectionState,
                 onDeckSelected = onDeckSelected,
@@ -482,6 +501,27 @@ private fun DefinitionsList(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DefinitionAvailability(definitionState: DefinitionState?) {
+    when (definitionState) {
+        is DefinitionState.AlreadyInSelectedDeck -> {
+            Text(
+                text = stringResource(R.string.card_creation_already_in_deck),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        is DefinitionState.ExistsInAnotherDeck -> {
+            Text(
+                text = stringResource(R.string.card_creation_exists_in_another_deck),
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        is DefinitionState.Available, null -> Unit
     }
 }
 
@@ -549,45 +589,61 @@ private fun ExampleSelectionSection(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        if (hasOptions) {
-            Button(
-                onClick = {
-                    val example =
-                        when (selectedSource) {
-                            ExampleSource.USER_CONTEXT -> userContext
-                            ExampleSource.DICTIONARY -> dictionaryExample
-                            null -> null
-                        }
-                    onExampleConfirmed(example)
-                },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-            ) {
-                Text(
-                    text = stringResource(R.string.card_creation_example_confirm),
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-        }
+        ExampleConfirmation(hasOptions, selectedSource, userContext, dictionaryExample, onExampleConfirmed)
 
-        TextButton(
-            onClick = { onExampleConfirmed(null) },
+        SkipExampleButton(onExampleConfirmed)
+    }
+}
+
+@Composable
+private fun ExampleConfirmation(
+    hasOptions: Boolean,
+    selectedSource: ExampleSource?,
+    userContext: String?,
+    dictionaryExample: String?,
+    onExampleConfirmed: (String?) -> Unit,
+) {
+    if (hasOptions) {
+        Button(
+            onClick = {
+                val example =
+                    when (selectedSource) {
+                        ExampleSource.USER_CONTEXT -> userContext
+                        ExampleSource.DICTIONARY -> dictionaryExample
+                        null -> null
+                    }
+                onExampleConfirmed(example)
+            },
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(44.dp),
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
         ) {
             Text(
-                text = stringResource(R.string.card_creation_example_skip),
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
+                text = stringResource(R.string.card_creation_example_confirm),
+                color = Color.White,
+                style = MaterialTheme.typography.labelLarge,
             )
         }
+    }
+}
+
+@Composable
+private fun SkipExampleButton(onExampleConfirmed: (String?) -> Unit) {
+    TextButton(
+        onClick = { onExampleConfirmed(null) },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(44.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.card_creation_example_skip),
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+        )
     }
 }
 
@@ -694,48 +750,8 @@ private fun DefinitionCard(
             }
         }
         Column(modifier = Modifier.padding(end = if (isSelected) 28.dp else 0.dp)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(5.dp))
-                            .background(if (isSelected) GreenHighlight else Color(0xFFF0EDE8))
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        text = definition.partOfSpeech.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) GreenPrimary else TextSecondary,
-                    )
-                }
-                Text(
-                    text = definition.provider,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
-                )
-            }
-            // Saved-state badge: aggressive when the definition is already in the
-            // selected deck, softer when it only exists in other decks.
-            if (savedInSelectedDeck) {
-                Spacer(modifier = Modifier.height(6.dp))
-                SavedBadge(
-                    text = stringResource(R.string.card_creation_saved_in_this_deck),
-                    strong = true,
-                )
-            } else if (savedElsewhere) {
-                Spacer(modifier = Modifier.height(6.dp))
-                SavedBadge(
-                    text =
-                        stringResource(
-                            R.string.card_creation_saved_in_decks,
-                            definition.decks.joinToString { it.name },
-                        ),
-                    strong = false,
-                )
-            }
+            DefinitionHeader(definition, isSelected)
+            DefinitionSavedState(definition, savedInSelectedDeck, savedElsewhere)
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = definition.definition,
@@ -750,27 +766,89 @@ private fun DefinitionCard(
                     color = TextSecondary,
                 )
             }
-            // Word forms are shown as metadata; the "type" discriminator and the
-            // expression context form are internal bookkeeping, not user-facing forms.
-            val displayForms =
-                definition.inflectionForms
-                    ?.takeUnless { it["type"] == "expression" }
-                    ?.filterKeys { it != "type" }
-            if (!displayForms.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                displayForms.forEach { (key, value) ->
-                    val label =
-                        InflectionFormLabels
-                            .resourceFor(key)
-                            ?.let { stringResource(it) }
-                            ?: InflectionFormLabels.humanize(key)
-                    Text(
-                        text = "$label: $value",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                    )
-                }
-            }
+            DefinitionForms(definition)
+        }
+    }
+}
+
+@Composable
+private fun DefinitionHeader(
+    definition: DefinitionResult,
+    isSelected: Boolean,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(if (isSelected) GreenHighlight else Color(0xFFF0EDE8))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+        ) {
+            Text(
+                text = definition.partOfSpeech.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isSelected) GreenPrimary else TextSecondary,
+            )
+        }
+        Text(
+            text = definition.provider,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary,
+        )
+    }
+}
+
+@Composable
+private fun DefinitionSavedState(
+    definition: DefinitionResult,
+    savedInSelectedDeck: Boolean,
+    savedElsewhere: Boolean,
+) {
+    // Saved-state badge: aggressive when the definition is already in the
+    // selected deck, softer when it only exists in other decks.
+    if (savedInSelectedDeck) {
+        Spacer(modifier = Modifier.height(6.dp))
+        SavedBadge(
+            text = stringResource(R.string.card_creation_saved_in_this_deck),
+            strong = true,
+        )
+    } else if (savedElsewhere) {
+        Spacer(modifier = Modifier.height(6.dp))
+        SavedBadge(
+            text =
+                stringResource(
+                    R.string.card_creation_saved_in_decks,
+                    definition.decks.joinToString { it.name },
+                ),
+            strong = false,
+        )
+    }
+}
+
+@Composable
+private fun DefinitionForms(definition: DefinitionResult) {
+    // Word forms are shown as metadata; the "type" discriminator and the
+    // expression context form are internal bookkeeping, not user-facing forms.
+    val displayForms =
+        definition.inflectionForms
+            ?.takeUnless { it["type"] == "expression" }
+            ?.filterKeys { it != "type" }
+    if (!displayForms.isNullOrEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        displayForms.forEach { (key, value) ->
+            val label =
+                InflectionFormLabels
+                    .resourceFor(key)
+                    ?.let { stringResource(it) }
+                    ?: InflectionFormLabels.humanize(key)
+            Text(
+                text = "$label: $value",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+            )
         }
     }
 }
@@ -892,40 +970,8 @@ private fun ManualDefinitionForm(
                 style = MaterialTheme.typography.titleSmall,
                 color = TextPrimary,
             )
-            OutlinedTextField(
-                value = flowState.definitionText,
-                onValueChange = onDefinitionTextChanged,
-                label = { Text(stringResource(R.string.label_definition)) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !flowState.isSubmitting,
-                shape = RoundedCornerShape(11.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = GreenBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextSecondary,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                    ),
-            )
-            OutlinedTextField(
-                value = flowState.exampleText,
-                onValueChange = onExampleTextChanged,
-                label = { Text(stringResource(R.string.label_example_optional)) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !flowState.isSubmitting,
-                shape = RoundedCornerShape(11.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = GreenBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextSecondary,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                    ),
-            )
+            ManualDefinitionField(flowState.definitionText, onDefinitionTextChanged, R.string.label_definition, !flowState.isSubmitting)
+            ManualDefinitionField(flowState.exampleText, onExampleTextChanged, R.string.label_example_optional, !flowState.isSubmitting)
             if (flowState.error != null) {
                 Text(
                     text = stringResource(flowState.error.toStringRes()),
@@ -960,4 +1006,30 @@ private fun ManualDefinitionForm(
             }
         }
     }
+}
+
+@Composable
+private fun ManualDefinitionField(
+    value: String,
+    onChange: (String) -> Unit,
+    label: Int,
+    enabled: Boolean,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(stringResource(label)) },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        shape = RoundedCornerShape(11.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = GreenBorder,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = TextSecondary,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+            ),
+    )
 }

@@ -58,28 +58,34 @@ export function projectParadigm(
       ...(get('comparative') ? { comparative: get('comparative') } : {}),
       ...(get('superlative') ? { superlative: get('superlative') } : {}),
     };
-  const hasIrregularForms = forms.some(({ form, relationType }) => {
-    if (pos === 'verb' && ['past', 'past_participle'].includes(relationType))
-      return !regularForms(lemma, 'ed').has(form);
-    if (pos === 'verb' && relationType === 'present_non_3sg')
-      return form !== lemma;
-    if (pos === 'noun' && relationType === 'plural')
-      return !new Set([
-        lemma + 's',
-        lemma + 'es',
-        ...(/[^aeiou]y$/.test(lemma) ? [lemma.slice(0, -1) + 'ies'] : []),
-      ]).has(form);
-    if (
-      ['adjective', 'adverb'].includes(pos) &&
-      ['comparative', 'superlative'].includes(relationType)
-    )
-      return !regularForms(
-        lemma,
-        relationType === 'comparative' ? 'er' : 'est',
-      ).has(form);
-    return false;
-  });
+  const hasIrregularForms = forms.some((row) => isIrregular(row, lemma, pos));
   return { inflectionForms, hasIrregularForms };
+}
+
+function isIrregular(
+  { form, relationType }: ParadigmRow,
+  lemma: string,
+  pos: string,
+): boolean {
+  if (pos === 'verb' && ['past', 'past_participle'].includes(relationType))
+    return !regularForms(lemma, 'ed').has(form);
+  if (pos === 'verb' && relationType === 'present_non_3sg')
+    return form !== lemma;
+  if (pos === 'noun' && relationType === 'plural')
+    return !new Set([
+      lemma + 's',
+      lemma + 'es',
+      ...(/[^aeiou]y$/.test(lemma) ? [lemma.slice(0, -1) + 'ies'] : []),
+    ]).has(form);
+  if (
+    ['adjective', 'adverb'].includes(pos) &&
+    ['comparative', 'superlative'].includes(relationType)
+  )
+    return !regularForms(
+      lemma,
+      relationType === 'comparative' ? 'er' : 'est',
+    ).has(form);
+  return false;
 }
 
 /** Keeps variant answers in a frozen card snapshot without changing scalar DTO fields. */

@@ -87,18 +87,22 @@ cc:
 	@if [ -z "$(_CC_SVC)" ] || [ "$(_CC_SVC)" = "languee-back" ]; then \
 		echo "==> cc languee-back"; \
 		cd apps/languee-back && \
+		yarn prisma generate && \
 		yarn format && \
 		yarn lint && \
 		yarn test && \
 		yarn build && \
-		yarn prisma validate; \
+		yarn prisma validate && \
+		bash scripts/check-migrator.sh; \
 	fi
 	@if [ -z "$(_CC_SVC)" ] || [ "$(_CC_SVC)" = "languee-nlp" ]; then \
 		echo "==> cc languee-nlp"; \
 		cd apps/languee-nlp && \
-		$(UV) run --extra dev ruff format . && \
+		$(UV) sync --inexact --extra dev && \
+		$(UV) run --extra dev ruff format --check . && \
 		$(UV) run --extra dev ruff check . && \
-		$(UV) run --extra dev pytest; \
+		$(UV) pip install "en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl" && \
+		$(UV) run --no-sync pytest; \
 	fi
 	@if [ -z "$(_CC_SVC)" ] && [ ! -d apps/languee-droid ]; then \
 		echo "==> cc languee-droid skipped (apps/languee-droid not present)"; \
@@ -109,8 +113,9 @@ cc:
 		fi; \
 		echo "==> cc languee-droid"; \
 		cd apps/languee-droid && \
-		./gradlew ktlintFormat && \
+		./gradlew ktlintCheck && \
 		./gradlew lintDebug && \
+		./gradlew detekt && \
 		./gradlew testDebugUnitTest && \
 		./gradlew assembleDebug; \
 	fi

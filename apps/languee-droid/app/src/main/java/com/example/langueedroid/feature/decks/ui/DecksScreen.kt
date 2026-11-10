@@ -94,91 +94,7 @@ fun DecksScreen(
     Scaffold(
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(28.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(GreenContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LangueeLeafIcon(
-                                modifier = Modifier.size(16.dp),
-                                leafColor = GreenPrimary,
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.decks_screen_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary,
-                        )
-                    }
-                },
-                actions = {
-                    if (onReviewClick != null) {
-                        IconButton(onClick = onReviewClick) {
-                            if (dueReviewCount != null && dueReviewCount > 0) {
-                                BadgedBox(
-                                    badge = {
-                                        Badge(containerColor = GreenPrimary, contentColor = Color.White) {
-                                            Text(dueReviewCount.toString())
-                                        }
-                                    },
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.PlayArrow,
-                                        contentDescription = stringResource(R.string.decks_review_button),
-                                        tint = GreenPrimary,
-                                    )
-                                }
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.PlayArrow,
-                                    contentDescription = stringResource(R.string.decks_review_button),
-                                    tint = GreenPrimary,
-                                )
-                            }
-                        }
-                    }
-                    if (onIntegrationsClick != null) {
-                        IconButton(onClick = onIntegrationsClick) {
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = stringResource(R.string.ankidroid_integrations_description),
-                                tint = TextSecondary,
-                            )
-                        }
-                    }
-                    if (onSyncClick != null) {
-                        IconButton(onClick = onSyncClick) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.ankidroid_sync_description),
-                                tint = TextSecondary,
-                            )
-                        }
-                    }
-                    IconButton(
-                        onClick = onLogout,
-                        enabled = !logoutInProgress,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = stringResource(R.string.logout_description),
-                            tint = TextSecondary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            DecksTopBar(onReviewClick, dueReviewCount, onIntegrationsClick, onSyncClick, onLogout, logoutInProgress)
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -260,6 +176,116 @@ private fun OfflineStrip(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DecksTopBar(
+    onReviewClick: (() -> Unit)?,
+    dueReviewCount: Int?,
+    onIntegrationsClick: (() -> Unit)?,
+    onSyncClick: (() -> Unit)?,
+    onLogout: () -> Unit,
+    logoutInProgress: Boolean,
+) {
+    TopAppBar(
+        title = {
+            DecksTitle()
+        },
+        actions = {
+            ReviewAction(onReviewClick, dueReviewCount)
+            if (onIntegrationsClick != null) {
+                IconButton(onClick = onIntegrationsClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = stringResource(R.string.ankidroid_integrations_description),
+                        tint = TextSecondary,
+                    )
+                }
+            }
+            if (onSyncClick != null) {
+                IconButton(onClick = onSyncClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.ankidroid_sync_description),
+                        tint = TextSecondary,
+                    )
+                }
+            }
+            IconButton(
+                onClick = onLogout,
+                enabled = !logoutInProgress,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = stringResource(R.string.logout_description),
+                    tint = TextSecondary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun DecksTitle() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier =
+                Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(GreenContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            LangueeLeafIcon(
+                modifier = Modifier.size(16.dp),
+                leafColor = GreenPrimary,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.decks_screen_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = TextPrimary,
+        )
+    }
+}
+
+@Composable
+private fun ReviewAction(
+    onReviewClick: (() -> Unit)?,
+    dueReviewCount: Int?,
+) {
+    if (onReviewClick != null) {
+        IconButton(onClick = onReviewClick) {
+            if (dueReviewCount != null && dueReviewCount > 0) {
+                BadgedBox(
+                    badge = {
+                        Badge(containerColor = GreenPrimary, contentColor = Color.White) {
+                            Text(dueReviewCount.toString())
+                        }
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.decks_review_button),
+                        tint = GreenPrimary,
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(R.string.decks_review_button),
+                    tint = GreenPrimary,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun DecksScreenBody(
     state: DecksScreenState,
@@ -317,31 +343,40 @@ private fun DecksScreenBody(
             }
 
             is DecksScreenState.Success -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding =
-                        PaddingValues(
-                            start = 16.dp,
-                            end = 16.dp,
-                            top = 16.dp,
-                            bottom = 80.dp,
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    items(state.decks) { deck ->
-                        DeckCard(
-                            deck = deck,
-                            onClick = { onDeckClick(deck) },
-                            onBrowseClick = { onDeckBrowseClick(deck) },
-                        )
-                    }
-                }
+                DeckList(state.decks, onDeckClick, onDeckBrowseClick)
             }
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DeckList(
+    decks: List<Deck>,
+    onDeckClick: (Deck) -> Unit,
+    onDeckBrowseClick: (Deck) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding =
+            PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 80.dp,
+            ),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(decks) { deck ->
+            DeckCard(
+                deck = deck,
+                onClick = { onDeckClick(deck) },
+                onBrowseClick = { onDeckBrowseClick(deck) },
+            )
+        }
+    }
+}
+
 @Composable
 private fun DeckCard(
     deck: Deck,
@@ -365,21 +400,7 @@ private fun DeckCard(
                     ).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(GreenContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.List,
-                    contentDescription = null,
-                    tint = GreenPrimary,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+            DeckIcon()
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -411,5 +432,24 @@ private fun DeckCard(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun DeckIcon() {
+    Box(
+        modifier =
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(GreenContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.List,
+            contentDescription = null,
+            tint = GreenPrimary,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }

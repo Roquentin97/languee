@@ -51,6 +51,8 @@ import { VocabularyService } from './vocabulary.service';
 export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
 
+  // The route's OpenAPI decorators are counted as part of the method.
+  // eslint-disable-next-line max-lines-per-function
   @Get('lookup')
   @ApiOperation({ summary: 'Look up a vocabulary entry with deck membership' })
   @ApiQuery({

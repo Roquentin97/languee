@@ -224,35 +224,7 @@ private fun ManualCaptureContent(
         modifier = modifier,
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Add a word",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = TextPrimary,
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onCancel) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(34.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(CardBorder),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.btn_cancel),
-                                tint = TextPrimary,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWarm),
-            )
+            ManualCaptureTopBar(onCancel)
         },
     ) { innerPadding ->
         Column(
@@ -275,55 +247,9 @@ private fun ManualCaptureContent(
                 onLanguageSelected = onSelectLanguage,
             )
 
-            OutlinedTextField(
-                value = word,
-                onValueChange = { word = it },
-                label = {
-                    Text(
-                        text = stringResource(R.string.label_target_word).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = GreenPrimary,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = GreenPrimary,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        cursorColor = GreenPrimary,
-                    ),
-            )
+            CaptureWordField(word) { word = it }
 
-            OutlinedTextField(
-                value = context,
-                onValueChange = { context = it },
-                label = {
-                    Text(
-                        text = "CONTEXT (OPTIONAL)",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(100.dp),
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = GreenPrimary,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = GreenPrimary,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        cursorColor = GreenPrimary,
-                    ),
-            )
+            CaptureContextField(context) { context = it }
 
             if (contextIsNonBlank && !contextIsValid) {
                 Text(
@@ -333,53 +259,160 @@ private fun ManualCaptureContent(
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = { onSave(word, context.trim().ifBlank { null }) },
-                    enabled = canSave,
+            ManualCaptureActions(word, context, canSave, onSave, onCancel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ManualCaptureTopBar(onCancel: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = "Add a word",
+                style = MaterialTheme.typography.headlineSmall,
+                color = TextPrimary,
+            )
+        },
+        actions = {
+            IconButton(onClick = onCancel) {
+                Box(
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(CardBorder),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = stringResource(R.string.btn_save),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
-                    )
-                }
-                OutlinedButton(
-                    onClick = { onSave(word, null) },
-                    enabled = word.isNotBlank(),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_save_without_context),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = GreenPrimary,
-                    )
-                }
-                TextButton(
-                    onClick = onCancel,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_cancel),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.btn_cancel),
+                        tint = TextPrimary,
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWarm),
+    )
+}
+
+@Composable
+private fun CaptureWordField(
+    word: String,
+    onChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = word,
+        onValueChange = onChange,
+        label = {
+            Text(
+                text = stringResource(R.string.label_target_word).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = GreenPrimary,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = GreenPrimary,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                cursorColor = GreenPrimary,
+            ),
+    )
+}
+
+@Composable
+private fun CaptureContextField(
+    context: String,
+    onChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = context,
+        onValueChange = onChange,
+        label = {
+            Text(
+                text = "CONTEXT (OPTIONAL)",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(100.dp),
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = GreenPrimary,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = GreenPrimary,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                cursorColor = GreenPrimary,
+            ),
+    )
+}
+
+@Composable
+private fun ManualCaptureActions(
+    word: String,
+    context: String,
+    canSave: Boolean,
+    onSave: (String, String?) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            onClick = { onSave(word, context.trim().ifBlank { null }) },
+            enabled = canSave,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_save),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
+        }
+        OutlinedButton(
+            onClick = { onSave(word, null) },
+            enabled = word.isNotBlank(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_save_without_context),
+                style = MaterialTheme.typography.labelLarge,
+                color = GreenPrimary,
+            )
+        }
+        TextButton(
+            onClick = onCancel,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_cancel),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+            )
         }
     }
 }
@@ -397,35 +430,7 @@ private fun SharedWordCaptureContent(
         modifier = modifier,
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Add a word",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = TextPrimary,
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onCancel) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(34.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(CardBorder),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.btn_cancel),
-                                tint = TextPrimary,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWarm),
-            )
+            ManualCaptureTopBar(onCancel)
         },
     ) { innerPadding ->
         Column(
@@ -450,51 +455,60 @@ private fun SharedWordCaptureContent(
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onAddContextManually,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_add_context_manually),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
-                    )
-                }
-                OutlinedButton(
-                    onClick = onSaveWithoutContext,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_save_without_context),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = GreenPrimary,
-                    )
-                }
-                TextButton(
-                    onClick = onCancel,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_cancel),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                    )
-                }
-            }
+            SharedWordActions(onAddContextManually, onSaveWithoutContext, onCancel)
+        }
+    }
+}
+
+@Composable
+private fun SharedWordActions(
+    onAddContextManually: () -> Unit,
+    onSaveWithoutContext: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            onClick = onAddContextManually,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_add_context_manually),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
+        }
+        OutlinedButton(
+            onClick = onSaveWithoutContext,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_save_without_context),
+                style = MaterialTheme.typography.labelLarge,
+                color = GreenPrimary,
+            )
+        }
+        TextButton(
+            onClick = onCancel,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_cancel),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+            )
         }
     }
 }
@@ -515,29 +529,7 @@ private fun SharedContextCaptureContent(
         modifier = modifier,
         containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Tap a word",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onCancel) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            SharedContextTopBar(onCancel)
         },
     ) { innerPadding ->
         Column(
@@ -558,66 +550,8 @@ private fun SharedContextCaptureContent(
                 onLanguageSelected = onSelectLanguage,
             )
             Spacer(modifier = Modifier.height(16.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.weight(1f),
-            ) {
-                tokens.forEachIndexed { index, token ->
-                    when (token) {
-                        is Token.Word -> {
-                            val isSelected = index in selectedIndices
-                            Text(
-                                text = "${token.text} ",
-                                style =
-                                    MaterialTheme.typography.bodyLarge.copy(
-                                        color = if (isSelected) GreenPrimaryDark else TextPrimary,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .clip(RoundedCornerShape(5.dp))
-                                        .background(if (isSelected) GreenHighlight else Color.Transparent)
-                                        .clickable { onWordTapped(index) }
-                                        .padding(horizontal = 3.dp, vertical = 1.dp),
-                            )
-                        }
-
-                        is Token.Separator -> {
-                            Text(
-                                text = token.text,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = TextPrimary,
-                            )
-                        }
-                    }
-                }
-            }
-            if (selectedIndices.isNotEmpty()) {
-                Text(
-                    text =
-                        stringResource(
-                            R.string.label_selection_preview,
-                            ExpressionSpanSelector.joinSelection(tokens, selectedIndices),
-                        ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = GreenPrimary,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onConfirmSelection,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_continue_selection),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
-                    )
-                }
-            }
+            SelectableTokens(tokens, selectedIndices, onWordTapped, Modifier.weight(1f))
+            SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
             TextButton(
                 onClick = onCancel,
                 modifier =
@@ -637,16 +571,169 @@ private fun SharedContextCaptureContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ContextReviewContent(
-    state: AppState.Screen.ContextReview,
-    onSave: () -> Unit,
-    onSaveWithoutContext: () -> Unit,
-    onConfirmTruncation: () -> Unit,
-    onKeepFullContext: () -> Unit,
-    onEditContext: () -> Unit,
-    onCancel: () -> Unit,
+private fun SharedContextTopBar(onCancel: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = "Tap a word",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onCancel) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun SelectionConfirmation(
+    tokens: List<Token>,
+    selectedIndices: List<Int>,
+    onConfirmSelection: () -> Unit,
+) {
+    if (selectedIndices.isNotEmpty()) {
+        Text(
+            text =
+                stringResource(
+                    R.string.label_selection_preview,
+                    ExpressionSpanSelector.joinSelection(tokens, selectedIndices),
+                ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = GreenPrimary,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onConfirmSelection,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_continue_selection),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SelectableTokens(
+    tokens: List<Token>,
+    selectedIndices: List<Int>,
+    onWordTapped: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier,
+    ) {
+        tokens.forEachIndexed { index, token ->
+            when (token) {
+                is Token.Word -> {
+                    val isSelected = index in selectedIndices
+                    Text(
+                        text = "${token.text} ",
+                        style =
+                            MaterialTheme.typography.bodyLarge.copy(
+                                color = if (isSelected) GreenPrimaryDark else TextPrimary,
+                            ),
+                        modifier =
+                            Modifier
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(if (isSelected) GreenHighlight else Color.Transparent)
+                                .clickable { onWordTapped(index) }
+                                .padding(horizontal = 3.dp, vertical = 1.dp),
+                    )
+                }
+
+                is Token.Separator -> {
+                    Text(
+                        text = token.text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextPrimary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContextReviewTopBar(onCancel: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text(
+                text = "Review",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onCancel) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
+                )
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun ReviewWordCard(state: AppState.Screen.ContextReview) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "WORD",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                )
+                LanguageBadge(selectedLanguage = state.selectedLanguage)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = state.targetWord,
+                style = MaterialTheme.typography.headlineLarge,
+                color = GreenPrimary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReviewContextCard(state: AppState.Screen.ContextReview) {
     val highlightStyle =
         SpanStyle(
             background = GreenHighlight,
@@ -659,33 +746,164 @@ private fun ContextReviewContent(
             highlightStyle = highlightStyle,
         )
 
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(18.dp, 18.dp, 20.dp, 18.dp)) {
+            Text(
+                text = "CONTEXT",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = annotated,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MultiSentenceWarning(
+    state: AppState.Screen.ContextReview,
+    onConfirmTruncation: () -> Unit,
+    onKeepFullContext: () -> Unit,
+) {
+    if (state.isMultiSentence) {
+        val canTruncate =
+            EntryValidator.extractSentenceContaining(
+                state.targetWord,
+                state.context,
+            ) != null
+
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                ),
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = stringResource(R.string.warning_multi_sentence),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (canTruncate) {
+                    Button(
+                        onClick = onConfirmTruncation,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                    ) {
+                        Text(stringResource(R.string.btn_truncate_to_sentence))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                OutlinedButton(
+                    onClick = onKeepFullContext,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(R.string.btn_keep_full_context))
+                }
+            }
+        }
+    }
+}
+
+// Keep the related review actions together.
+@Suppress("LongMethod")
+@Composable
+private fun ContextReviewActions(
+    onSave: () -> Unit,
+    onEditContext: () -> Unit,
+    onSaveWithoutContext: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            onClick = onSave,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(
+                text = "Save and create card",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
+        }
+        OutlinedButton(
+            onClick = onEditContext,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_edit_context),
+                style = MaterialTheme.typography.labelLarge,
+                color = GreenPrimary,
+            )
+        }
+        OutlinedButton(
+            onClick = onSaveWithoutContext,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, CardBorder),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_save_without_context),
+                style = MaterialTheme.typography.labelLarge,
+                color = TextPrimary,
+            )
+        }
+        TextButton(
+            onClick = onCancel,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.btn_cancel),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContextReviewContent(
+    state: AppState.Screen.ContextReview,
+    onSave: () -> Unit,
+    onSaveWithoutContext: () -> Unit,
+    onConfirmTruncation: () -> Unit,
+    onKeepFullContext: () -> Unit,
+    onEditContext: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Scaffold(
         modifier = modifier,
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Review",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onCancel) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            ContextReviewTopBar(onCancel)
         },
     ) { innerPadding ->
         Column(
@@ -697,154 +915,13 @@ private fun ContextReviewContent(
                     .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "WORD",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextSecondary,
-                        )
-                        LanguageBadge(selectedLanguage = state.selectedLanguage)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = state.targetWord,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = GreenPrimary,
-                    )
-                }
-            }
+            ReviewWordCard(state)
 
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            ) {
-                Column(modifier = Modifier.padding(18.dp, 18.dp, 20.dp, 18.dp)) {
-                    Text(
-                        text = "CONTEXT",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary,
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = annotated,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
+            ReviewContextCard(state)
 
-            if (state.isMultiSentence) {
-                val canTruncate =
-                    EntryValidator.extractSentenceContaining(
-                        state.targetWord,
-                        state.context,
-                    ) != null
+            MultiSentenceWarning(state, onConfirmTruncation, onKeepFullContext)
 
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                        ),
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = stringResource(R.string.warning_multi_sentence),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (canTruncate) {
-                            Button(
-                                onClick = onConfirmTruncation,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                            ) {
-                                Text(stringResource(R.string.btn_truncate_to_sentence))
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-                        OutlinedButton(
-                            onClick = onKeepFullContext,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                        ) {
-                            Text(stringResource(R.string.btn_keep_full_context))
-                        }
-                    }
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onSave,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                ) {
-                    Text(
-                        text = "Save and create card",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
-                    )
-                }
-                OutlinedButton(
-                    onClick = onEditContext,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_edit_context),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = GreenPrimary,
-                    )
-                }
-                OutlinedButton(
-                    onClick = onSaveWithoutContext,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, CardBorder),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_save_without_context),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = TextPrimary,
-                    )
-                }
-                TextButton(
-                    onClick = onCancel,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.btn_cancel),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                    )
-                }
-            }
+            ContextReviewActions(onSave, onEditContext, onSaveWithoutContext, onCancel)
         }
     }
 }

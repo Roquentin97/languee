@@ -138,6 +138,15 @@ function parseUsage(
     return [];
   }
 
+  return parseDefinitions(definitions, source, partOfSpeech, references);
+}
+
+function parseDefinitions(
+  definitions: unknown[],
+  source: string,
+  partOfSpeech: NonNullable<ReturnType<typeof mapWiktionaryPos>>,
+  references: DictionaryEntry['references'],
+): RawDefinitionEntry[] {
   const entries: RawDefinitionEntry[] = [];
   for (const rawDefinition of definitions) {
     if (

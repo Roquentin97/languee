@@ -85,23 +85,7 @@ fun RegisterScreen(
         modifier = modifier,
         containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.btn_cancel),
-                            tint = TextPrimary,
-                        )
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            RegisterTopBar(onNavigateBack)
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { innerPadding ->
@@ -126,81 +110,13 @@ fun RegisterScreen(
             )
             Spacer(modifier = Modifier.height(26.dp))
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = onEmailChange,
-                label = {
-                    Text(
-                        text = stringResource(R.string.auth_email_label).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = CardBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextMuted,
-                        cursorColor = GreenPrimary,
-                    ),
-            )
+            RegisterEmailField(email, onEmailChange, isLoading)
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = {
-                    Text(
-                        text = stringResource(R.string.auth_password_label).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading,
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = CardBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextMuted,
-                        cursorColor = GreenPrimary,
-                    ),
-            )
+            RegisterPasswordField(password, onPasswordChange, isLoading)
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = onConfirmPasswordChange,
-                label = {
-                    Text(
-                        text = stringResource(R.string.auth_confirm_password).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading,
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = RoundedCornerShape(13.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GreenPrimary,
-                        unfocusedBorderColor = CardBorder,
-                        focusedLabelColor = GreenPrimary,
-                        unfocusedLabelColor = TextMuted,
-                        cursorColor = GreenPrimary,
-                    ),
-            )
+            RegisterConfirmField(confirmPassword, onConfirmPasswordChange, isLoading)
 
             if (uiState is AuthUiState.Error) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -213,59 +129,189 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(26.dp))
 
-            if (isLoading) {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        color = GreenPrimary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            } else {
-                Button(
-                    onClick = onRegisterClick,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                ) {
-                    Text(
-                        text = stringResource(R.string.auth_create_account),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
-                    )
-                }
-            }
+            RegisterSubmitButton(isLoading, onRegisterClick)
 
             Spacer(modifier = Modifier.height(16.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text =
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = TextSecondary)) { append("Already have an account? ") }
-                            withStyle(SpanStyle(color = GreenPrimary, fontWeight = FontWeight.SemiBold)) {
-                                append("Sign in")
-                            }
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier =
-                        Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onNavigateToLogin,
-                        ),
+            LoginPrompt(onNavigateToLogin)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegisterTopBar(onNavigateBack: () -> Unit) {
+    TopAppBar(
+        title = {},
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.btn_cancel),
+                    tint = TextPrimary,
                 )
             }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
+@Composable
+private fun RegisterEmailField(
+    email: String,
+    onEmailChange: (String) -> Unit,
+    isLoading: Boolean,
+) {
+    OutlinedTextField(
+        value = email,
+        onValueChange = onEmailChange,
+        label = {
+            Text(
+                text = stringResource(R.string.auth_email_label).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = CardBorder,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = TextMuted,
+                cursorColor = GreenPrimary,
+            ),
+    )
+}
+
+@Composable
+private fun RegisterPasswordField(
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    isLoading: Boolean,
+) {
+    OutlinedTextField(
+        value = password,
+        onValueChange = onPasswordChange,
+        label = {
+            Text(
+                text = stringResource(R.string.auth_password_label).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading,
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = CardBorder,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = TextMuted,
+                cursorColor = GreenPrimary,
+            ),
+    )
+}
+
+@Composable
+private fun RegisterConfirmField(
+    confirmPassword: String,
+    onConfirmPasswordChange: (String) -> Unit,
+    isLoading: Boolean,
+) {
+    OutlinedTextField(
+        value = confirmPassword,
+        onValueChange = onConfirmPasswordChange,
+        label = {
+            Text(
+                text = stringResource(R.string.auth_confirm_password).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading,
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        shape = RoundedCornerShape(13.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = GreenPrimary,
+                unfocusedBorderColor = CardBorder,
+                focusedLabelColor = GreenPrimary,
+                unfocusedLabelColor = TextMuted,
+                cursorColor = GreenPrimary,
+            ),
+    )
+}
+
+@Composable
+private fun RegisterSubmitButton(
+    isLoading: Boolean,
+    onRegisterClick: () -> Unit,
+) {
+    if (isLoading) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(
+                color = GreenPrimary,
+                modifier = Modifier.size(24.dp),
+            )
         }
+    } else {
+        Button(
+            onClick = onRegisterClick,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        ) {
+            Text(
+                text = stringResource(R.string.auth_create_account),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoginPrompt(onNavigateToLogin: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text =
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = TextSecondary)) { append("Already have an account? ") }
+                    withStyle(SpanStyle(color = GreenPrimary, fontWeight = FontWeight.SemiBold)) {
+                        append("Sign in")
+                    }
+                },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier =
+                Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onNavigateToLogin,
+                ),
+        )
     }
 }

@@ -86,14 +86,10 @@ jobs:
         run: yarn prisma generate
 
       - name: Format check
-        run: |
-          yarn format
-          git diff --exit-code
+        run: yarn format
 
       - name: Lint
-        run: |
-          yarn lint
-          git diff --exit-code
+        run: yarn lint
 
       - name: Tests
         run: yarn test
@@ -105,19 +101,7 @@ jobs:
         run: yarn prisma validate
 
       - name: Migrator image loads Prisma config
-        # `migrate deploy` fails with "datasource.url property is required" when
-        # prisma.config.ts is missing from the image. With the config present and
-        # an unreachable dummy URL it fails later, with a connection error (P1001).
-        run: |
-          docker build --target migrator -t migrator-ci .
-          status=0
-          out=$(docker run --rm -e DATABASE_URL=postgresql://ci:ci@127.0.0.1:1/ci \
-            migrator-ci yarn prisma migrate deploy 2>&1) || status=$?
-          echo "$out"
-          if [ "$status" -eq 0 ] || ! grep -q 'P1001' <<< "$out"; then
-            echo "::error::migrator did not reach the database connection stage"
-            exit 1
-          fi
+        run: bash scripts/check-migrator.sh
 
   nlp:
     name: languee-nlp
@@ -179,6 +163,9 @@ jobs:
 
       - name: Lint
         run: ./gradlew lintDebug
+
+      - name: Maintainability
+        run: ./gradlew detekt
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest

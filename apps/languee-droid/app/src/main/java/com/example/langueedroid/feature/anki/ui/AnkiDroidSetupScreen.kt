@@ -87,31 +87,7 @@ fun AnkiDroidSetupScreen(
     Scaffold(
         containerColor = SurfaceWarm,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.ankidroid_setup_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                    )
-                },
-                navigationIcon = {
-                    if (showBackButton) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.btn_cancel),
-                                tint = TextPrimary,
-                            )
-                        }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        scrolledContainerColor = Color.White,
-                    ),
-            )
+            SetupTopBar(showBackButton, onNavigateBack)
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -158,6 +134,39 @@ fun AnkiDroidSetupScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SetupTopBar(
+    showBackButton: Boolean,
+    onNavigateBack: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = stringResource(R.string.ankidroid_setup_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+            )
+        },
+        navigationIcon = {
+            if (showBackButton) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.btn_cancel),
+                        tint = TextPrimary,
+                    )
+                }
+            }
+        },
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White,
+                scrolledContainerColor = Color.White,
+            ),
+    )
+}
+
 @Composable
 private fun IssueCard(
     issue: AnkiDroidSetupIssue,
@@ -178,22 +187,7 @@ private fun IssueCard(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(AmberWarning.copy(alpha = 0.15f))
-                            .border(1.dp, AmberWarning.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = null,
-                        tint = AmberWarning,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                IssueIcon()
                 when (issue) {
                     is AnkiDroidSetupIssue.NotInstalled -> {
                         Column {
@@ -226,55 +220,88 @@ private fun IssueCard(
                         }
                     }
                     is AnkiDroidSetupIssue.PermissionDenied -> {
-                        Column {
-                            Text(
-                                text = "Permission required",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = TextPrimary,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.ankidroid_setup_permission_denied),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = onRequestPermission,
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.ankidroid_setup_grant_permission),
-                                    color = Color.White,
-                                )
-                            }
-                        }
+                        PermissionIssue(onRequestPermission)
                     }
                     is AnkiDroidSetupIssue.NoNoteTypeSelected -> {
-                        Column {
-                            Text(
-                                text = "Choose card format",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = TextPrimary,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.ankidroid_setup_no_note_type),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            NoteTypeRadioGroup(
-                                selectedNoteType = selectedNoteType,
-                                onNoteTypeSelected = onNoteTypeSelected,
-                            )
-                        }
+                        NoteTypeIssue(selectedNoteType, onNoteTypeSelected)
                     }
                     is AnkiDroidSetupIssue.NoExportPreference -> Unit
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PermissionIssue(onRequestPermission: () -> Unit) {
+    Column {
+        Text(
+            text = "Permission required",
+            style = MaterialTheme.typography.titleSmall,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.ankidroid_setup_permission_denied),
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onRequestPermission,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
+        ) {
+            Text(
+                text = stringResource(R.string.ankidroid_setup_grant_permission),
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun NoteTypeIssue(
+    selectedNoteType: String,
+    onNoteTypeSelected: (String) -> Unit,
+) {
+    Column {
+        Text(
+            text = "Choose card format",
+            style = MaterialTheme.typography.titleSmall,
+            color = TextPrimary,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.ankidroid_setup_no_note_type),
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        NoteTypeRadioGroup(
+            selectedNoteType = selectedNoteType,
+            onNoteTypeSelected = onNoteTypeSelected,
+        )
+    }
+}
+
+@Composable
+private fun IssueIcon() {
+    Box(
+        modifier =
+            Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(AmberWarning.copy(alpha = 0.15f))
+                .border(1.dp, AmberWarning.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Settings,
+            contentDescription = null,
+            tint = AmberWarning,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

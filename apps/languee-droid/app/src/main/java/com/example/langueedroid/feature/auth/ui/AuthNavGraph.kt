@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -33,31 +34,7 @@ fun AuthNavGraph(
         }
 
         composable(AuthNavRoutes.LOGIN) {
-            val loginViewModel: LoginViewModel = hiltViewModel()
-            val uiState by loginViewModel.uiState.collectAsState()
-            val email by loginViewModel.email.collectAsState()
-            val password by loginViewModel.password.collectAsState()
-
-            LaunchedEffect(loginViewModel) {
-                loginViewModel.authSuccessEvent.collect { session ->
-                    onAuthSuccess(session)
-                }
-            }
-
-            LoginScreen(
-                uiState = uiState,
-                email = email,
-                password = password,
-                onEmailChange = { loginViewModel.onEmailChange(it) },
-                onPasswordChange = { loginViewModel.onPasswordChange(it) },
-                onLoginClick = { loginViewModel.onLoginClick() },
-                onNavigateBack = {
-                    navController.navigate(AuthNavRoutes.LANDING) {
-                        popUpTo(AuthNavRoutes.LANDING) { inclusive = false }
-                    }
-                },
-                onNavigateToRegister = { navController.navigate(AuthNavRoutes.REGISTER) },
-            )
+            LoginRoute(navController, onAuthSuccess)
         }
 
         composable(AuthNavRoutes.REGISTER) {
@@ -86,4 +63,36 @@ fun AuthNavGraph(
             )
         }
     }
+}
+
+@Composable
+private fun LoginRoute(
+    navController: NavHostController,
+    onAuthSuccess: (AuthSession) -> Unit,
+) {
+    val loginViewModel: LoginViewModel = hiltViewModel()
+    val uiState by loginViewModel.uiState.collectAsState()
+    val email by loginViewModel.email.collectAsState()
+    val password by loginViewModel.password.collectAsState()
+
+    LaunchedEffect(loginViewModel) {
+        loginViewModel.authSuccessEvent.collect { session ->
+            onAuthSuccess(session)
+        }
+    }
+
+    LoginScreen(
+        uiState = uiState,
+        email = email,
+        password = password,
+        onEmailChange = { loginViewModel.onEmailChange(it) },
+        onPasswordChange = { loginViewModel.onPasswordChange(it) },
+        onLoginClick = { loginViewModel.onLoginClick() },
+        onNavigateBack = {
+            navController.navigate(AuthNavRoutes.LANDING) {
+                popUpTo(AuthNavRoutes.LANDING) { inclusive = false }
+            }
+        },
+        onNavigateToRegister = { navController.navigate(AuthNavRoutes.REGISTER) },
+    )
 }

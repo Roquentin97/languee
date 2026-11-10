@@ -55,22 +55,7 @@ fun DeckCreateDialog(
                 modifier = Modifier.padding(top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = mode == DeckCreateMode.CreateNew,
-                        onClick = { mode = DeckCreateMode.CreateNew },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    ) {
-                        Text(stringResource(R.string.deck_create_mode_new))
-                    }
-                    SegmentedButton(
-                        selected = mode == DeckCreateMode.UseExisting,
-                        onClick = { mode = DeckCreateMode.UseExisting },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    ) {
-                        Text(stringResource(R.string.deck_create_mode_existing))
-                    }
-                }
+                DeckModeSelector(mode) { mode = it }
 
                 when (mode) {
                     DeckCreateMode.CreateNew -> {
@@ -107,6 +92,30 @@ fun DeckCreateDialog(
         },
         modifier = modifier,
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeckModeSelector(
+    mode: DeckCreateMode,
+    onModeChange: (DeckCreateMode) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        SegmentedButton(
+            selected = mode == DeckCreateMode.CreateNew,
+            onClick = { onModeChange(DeckCreateMode.CreateNew) },
+            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+        ) {
+            Text(stringResource(R.string.deck_create_mode_new))
+        }
+        SegmentedButton(
+            selected = mode == DeckCreateMode.UseExisting,
+            onClick = { onModeChange(DeckCreateMode.UseExisting) },
+            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+        ) {
+            Text(stringResource(R.string.deck_create_mode_existing))
+        }
+    }
 }
 
 private fun buildDeckName(subDeckName: String): String {

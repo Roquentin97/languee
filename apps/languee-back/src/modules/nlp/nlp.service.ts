@@ -43,6 +43,18 @@ export class NlpService {
       data: { text, language, hasContext: Boolean(context?.trim()) },
     });
 
+    const start = Date.now();
+    const body = await this.requestAnalysis(text, context, language);
+    const durationMs = Date.now() - start;
+
+    return this.mapAnalysis(body, text, language, durationMs);
+  }
+
+  private async requestAnalysis(
+    text: string,
+    context: string | undefined,
+    language: string,
+  ): Promise<NlpAnalyzeResponse> {
     const baseUrl = this.configService.getOrThrow<string>('nlp.baseUrl');
     const login = this.configService.getOrThrow<string>('nlp.basicAuthLogin');
     const password = this.configService.getOrThrow<string>(
@@ -55,10 +67,8 @@ export class NlpService {
       params.set('input_text', context);
     }
 
-    const start = Date.now();
-    let body: NlpAnalyzeResponse;
     try {
-      body = await this.request.getJson<NlpAnalyzeResponse>(
+      return await this.request.getJson<NlpAnalyzeResponse>(
         `${baseUrl}/analyze?${params.toString()}`,
         {
           target: 'nlp',
@@ -83,40 +93,16 @@ export class NlpService {
       }
       throw new NlpUnavailableError(err);
     }
-    const durationMs = Date.now() - start;
+  }
 
-    if (body.kind === 'word') {
-      const token = body.tokens[0];
-      if (!token) {
-        throw new NlpUnavailableError(
-          new Error('NLP word analysis returned no tokens'),
-        );
-      }
-
-      const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
-
-      this.logger.log({
-        message: 'word analyzed',
-        event: 'nlp.word_analyzed',
-        method: this.analyze.name,
-        duration_ms: durationMs,
-        data: {
-          text,
-          language,
-          lemma: token.lemma,
-          pos: token.pos,
-          isIrregular: token['is_irregular'],
-        },
-      });
-
-      return {
-        kind: 'word',
-        lemma: token.lemma,
-        pos: mapSpacyPos(token.pos),
-        isIrregular: token['is_irregular'],
-        inflectionForms,
-      };
-    }
+  private mapAnalysis(
+    body: NlpAnalyzeResponse,
+    text: string,
+    language: string,
+    durationMs: number,
+  ): NlpAnalyzeResult {
+    if (body.kind === 'word')
+      return this.mapWord(body, text, language, durationMs);
 
     const contextMatch = body.context_match
       ? {
@@ -148,6 +134,44 @@ export class NlpService {
     };
   }
 
+  private mapWord(
+    body: Extract<NlpAnalyzeResponse, { kind: 'word' }>,
+    text: string,
+    language: string,
+    durationMs: number,
+  ): NlpAnalyzeResult {
+    const token = body.tokens[0];
+    if (!token) {
+      throw new NlpUnavailableError(
+        new Error('NLP word analysis returned no tokens'),
+      );
+    }
+
+    const inflectionForms = this.buildInflectionForms(token.pos, token.forms);
+
+    this.logger.log({
+      message: 'word analyzed',
+      event: 'nlp.word_analyzed',
+      method: this.analyze.name,
+      duration_ms: durationMs,
+      data: {
+        text,
+        language,
+        lemma: token.lemma,
+        pos: token.pos,
+        isIrregular: token['is_irregular'],
+      },
+    });
+
+    return {
+      kind: 'word',
+      lemma: token.lemma,
+      pos: mapSpacyPos(token.pos),
+      isIrregular: token['is_irregular'],
+      inflectionForms,
+    };
+  }
+
   private buildInflectionForms(
     pos: string,
     forms: NlpTokenForms,
@@ -162,12 +186,7 @@ export class NlpService {
         present3sg: forms['verb_present_3sg'],
       });
       if (!compact.base) return null;
-      this.logger.debug({
-        message: 'inflection forms built',
-        event: 'nlp.inflection_forms_built',
-        method: this.buildInflectionForms.name,
-        data: { pos, formKeys: Object.keys(compact) },
-      });
+      this.logInflectionForms(pos, compact);
       return { type: 'verb', ...compact } as InflectionForms;
     }
 
@@ -177,12 +196,7 @@ export class NlpService {
         plural: forms['noun_plural'],
       });
       if (Object.keys(compact).length === 0) return null;
-      this.logger.debug({
-        message: 'inflection forms built',
-        event: 'nlp.inflection_forms_built',
-        method: this.buildInflectionForms.name,
-        data: { pos, formKeys: Object.keys(compact) },
-      });
+      this.logInflectionForms(pos, compact);
       return { type: 'noun', ...compact };
     }
 
@@ -193,16 +207,20 @@ export class NlpService {
         superlative: forms['adj_superlative'],
       });
       if (!compact.positive) return null;
-      this.logger.debug({
-        message: 'inflection forms built',
-        event: 'nlp.inflection_forms_built',
-        method: this.buildInflectionForms.name,
-        data: { pos, formKeys: Object.keys(compact) },
-      });
+      this.logInflectionForms(pos, compact);
       return { type: 'adjective', ...compact } as InflectionForms;
     }
 
     return null;
+  }
+
+  private logInflectionForms(pos: string, forms: Record<string, string>): void {
+    this.logger.debug({
+      message: 'inflection forms built',
+      event: 'nlp.inflection_forms_built',
+      method: this.buildInflectionForms.name,
+      data: { pos, formKeys: Object.keys(forms) },
+    });
   }
 
   private compactRecord(

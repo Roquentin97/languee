@@ -417,14 +417,7 @@ class CardCreationViewModel
             viewModelScope.launch {
                 val setupResult = ankiDroidExportService.checkSetup(prefsStore)
                 if (!setupResult.isReady) {
-                    _state.value =
-                        _state.value.copy(
-                            flowState =
-                                CardCreationFlowState.CardCreated(
-                                    ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
-                                ),
-                        )
-                    _cardCreatedEvent.tryEmit(Unit)
+                    finishExport(AnkiExportTriggerStatus.NotTriggered)
                     return@launch
                 }
 
@@ -436,26 +429,12 @@ class CardCreationViewModel
                 val exportRecordResult = ankiDroidExportRepository.createOrGetExportRecord(cardId)
                 val exportRecord =
                     exportRecordResult.getOrNull() ?: run {
-                        _state.value =
-                            _state.value.copy(
-                                flowState =
-                                    CardCreationFlowState.CardCreated(
-                                        ankiExportStatus = AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED),
-                                    ),
-                            )
-                        _cardCreatedEvent.tryEmit(Unit)
+                        finishExport(AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED))
                         return@launch
                     }
 
                 if (prefs.exportPreference != ExportPreference.AUTO) {
-                    _state.value =
-                        _state.value.copy(
-                            flowState =
-                                CardCreationFlowState.CardCreated(
-                                    ankiExportStatus = AnkiExportTriggerStatus.NotTriggered,
-                                ),
-                        )
-                    _cardCreatedEvent.tryEmit(Unit)
+                    finishExport(AnkiExportTriggerStatus.NotTriggered)
                     return@launch
                 }
 
@@ -467,17 +446,7 @@ class CardCreationViewModel
                             ),
                     )
 
-                val fields =
-                    AnkiDroidNoteBuilder.buildFields(
-                        cardId = cardId,
-                        word = currentFlowState.lemma,
-                        lemma = currentFlowState.lemma,
-                        partOfSpeech = selectedDefinition.partOfSpeech,
-                        definition = selectedDefinition.definition,
-                        context = context,
-                        example = confirmedExample,
-                        inflectionForms = selectedDefinition.inflectionForms,
-                    )
+                val fields = buildExportFields(cardId, selectedDefinition, currentFlowState, confirmedExample)
 
                 val noteResult =
                     ankiDroidExportService.exportNote(
@@ -498,14 +467,7 @@ class CardCreationViewModel
                             ankiModelNameSnapshot = prefs.noteTypeName,
                             templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
                         )
-                        _state.value =
-                            _state.value.copy(
-                                flowState =
-                                    CardCreationFlowState.CardCreated(
-                                        ankiExportStatus = AnkiExportTriggerStatus.Success,
-                                    ),
-                            )
-                        _cardCreatedEvent.tryEmit(Unit)
+                        finishExport(AnkiExportTriggerStatus.Success)
                     },
                     onFailure = { error ->
                         ankiDroidExportRepository.recordAttemptFailed(
@@ -513,17 +475,31 @@ class CardCreationViewModel
                             failureReason = error.javaClass.simpleName,
                             failureMessage = error.message ?: "",
                         )
-                        _state.value =
-                            _state.value.copy(
-                                flowState =
-                                    CardCreationFlowState.CardCreated(
-                                        ankiExportStatus = AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED),
-                                    ),
-                            )
-                        _cardCreatedEvent.tryEmit(Unit)
+                        finishExport(AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED))
                     },
                 )
             }
+        }
+
+        private fun buildExportFields(
+            cardId: String,
+            selectedDefinition: DefinitionResult,
+            currentFlowState: CardCreationFlowState.DefinitionsLoaded,
+            confirmedExample: String?,
+        ) = AnkiDroidNoteBuilder.buildFields(
+            cardId = cardId,
+            word = currentFlowState.lemma,
+            lemma = currentFlowState.lemma,
+            partOfSpeech = selectedDefinition.partOfSpeech,
+            definition = selectedDefinition.definition,
+            context = context,
+            example = confirmedExample,
+            inflectionForms = selectedDefinition.inflectionForms,
+        )
+
+        private fun finishExport(status: AnkiExportTriggerStatus) {
+            _state.value = _state.value.copy(flowState = CardCreationFlowState.CardCreated(ankiExportStatus = status))
+            _cardCreatedEvent.tryEmit(Unit)
         }
 
         fun retryLookup() {
