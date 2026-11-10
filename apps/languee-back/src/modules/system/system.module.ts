@@ -1,36 +1,21 @@
-import {
-  MiddlewareConsumer,
-  Module,
-  NestModule,
-  RequestMethod,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createBasicAuthMiddleware } from '../core/basic-auth/basic-auth.middleware.factory';
-import { SystemController } from './system.controller';
-import { SystemService } from './system.service';
+import { Module } from '@nestjs/common';
+import { AppConfigModule } from './config/config.module';
+import { HttpModule } from './core/http/http.module';
+import { PrismaModule } from './core/prisma/prisma.module';
+import { RedisModule } from './core/redis/redis.module';
+import { RequestContextModule } from './core/context/request-context.module';
+import { HealthModule } from './operations/health/health.module';
+import { EnvironmentModule } from './operations/environment/environment.module';
 
 @Module({
-  controllers: [SystemController],
-  providers: [SystemService],
+  imports: [
+    AppConfigModule,
+    HttpModule,
+    PrismaModule,
+    RedisModule,
+    RequestContextModule,
+    HealthModule,
+    EnvironmentModule,
+  ],
 })
-export class SystemModule implements NestModule {
-  constructor(private readonly configService: ConfigService) {}
-
-  configure(consumer: MiddlewareConsumer): void {
-    const basicAuthUser = this.configService.getOrThrow<string>(
-      'system.basicAuthUser',
-    );
-    const basicAuthPassword = this.configService.getOrThrow<string>(
-      'system.basicAuthPassword',
-    );
-
-    consumer
-      .apply(
-        createBasicAuthMiddleware(basicAuthUser, basicAuthPassword, 'System'),
-      )
-      .forRoutes({
-        path: 'system/env',
-        method: RequestMethod.GET,
-      });
-  }
-}
+export class SystemModule {}

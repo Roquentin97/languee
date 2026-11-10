@@ -1,41 +1,19 @@
+import { IdentityModule } from './modules/identity/identity.module';
+import { LexiconModule } from './modules/lexicon/lexicon.module';
+import { LearningModule } from './modules/learning/learning.module';
+import { SystemModule } from './modules/system/system.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { AppConfigModule } from './modules/config/config.module';
-import { PrismaModule } from './modules/core/prisma/prisma.module';
-import { RedisModule } from './modules/core/redis/redis.module';
-import { RequestContextModule } from './modules/core/context/request-context.module';
-import { HttpLoggingInterceptor } from './modules/core/interceptors/http-logging.interceptor';
-import { HealthModule } from './modules/health/health.module';
-import { AuthModule } from './modules/auth/auth.module';
-import { SystemModule } from './modules/system/system.module';
-import { DictionaryModule } from './modules/dictionary/dictionary.module';
-import { DecksModule } from './modules/decks/decks.module';
-import { CardsModule } from './modules/cards/cards.module';
-import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
-import { NlpModule } from './modules/nlp/nlp.module';
-import { AnkiDroidExportsModule } from './modules/ankidroid-exports/ankidroid-exports.module';
-import { ReviewsModule } from './modules/reviews/reviews.module';
-import { HttpModule } from './modules/core/http/http.module';
-import { MS_PER_MINUTE } from './modules/core/time/time.constants';
+import { HttpLoggingInterceptor } from './modules/system/core/interceptors/http-logging.interceptor';
+import { MS_PER_MINUTE } from './modules/system/core/time/time.constants';
 
 @Module({
   imports: [
-    AppConfigModule,
-    HttpModule,
-    PrismaModule,
-    RedisModule,
-    RequestContextModule,
-    HealthModule,
-    AuthModule,
+    IdentityModule,
+    LexiconModule,
+    LearningModule,
     SystemModule,
-    DictionaryModule,
-    DecksModule,
-    CardsModule,
-    VocabularyModule,
-    NlpModule,
-    AnkiDroidExportsModule,
-    ReviewsModule,
     ThrottlerModule.forRoot([{ ttl: MS_PER_MINUTE, limit: 10 }]),
   ],
   providers: [

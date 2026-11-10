@@ -4,11 +4,11 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
-import { DICTIONARY_API_ADAPTER } from '../src/modules/dictionary/dictionary.tokens';
-import type { IDictionaryApiAdapter } from '../src/modules/dictionary/interfaces/dictionary-api-adapter.interface';
-import { NlpService } from '../src/modules/nlp/nlp.service';
-import { NlpInputInvalidError } from '../src/modules/nlp/nlp.errors';
-import { PartOfSpeech } from '../src/modules/vocabulary/enums/part-of-speech.enum';
+import { DICTIONARY_API_ADAPTER } from '../src/modules/lexicon/enrichment/dictionary/dictionary.tokens';
+import type { IDictionaryApiAdapter } from '../src/modules/lexicon/enrichment/dictionary/interfaces/dictionary-api-adapter.interface';
+import { NlpService } from '../src/modules/lexicon/enrichment/nlp/nlp.service';
+import { NlpInputInvalidError } from '../src/modules/lexicon/enrichment/nlp/nlp.errors';
+import { PartOfSpeech } from '../src/modules/lexicon/types/part-of-speech.enum';
 
 const MOCK_WORD_DEFINITIONS = [
   {
@@ -31,8 +31,21 @@ const mockAdapter: jest.Mocked<IDictionaryApiAdapter> = {
   fetch: jest.fn(),
 };
 
-const mockNlpService: jest.Mocked<Pick<NlpService, 'analyze'>> = {
+const mockNlpService: jest.Mocked<
+  Pick<
+    NlpService,
+    'analyze' | 'findLemmaCandidates' | 'getInflections' | 'getInflectionsBatch'
+  >
+> = {
   analyze: jest.fn(),
+  findLemmaCandidates: jest.fn().mockResolvedValue([]),
+  getInflections: jest.fn().mockResolvedValue([]),
+  getInflectionsBatch: jest
+    .fn()
+    .mockImplementation(
+      (entries: Array<{ lemma: string; partOfSpeech: PartOfSpeech }>) =>
+        Promise.resolve(entries.map((entry) => ({ ...entry, forms: [] }))),
+    ),
 };
 
 async function createApp(): Promise<INestApplication<App>> {

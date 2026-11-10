@@ -1,21 +1,21 @@
-import { MorphologyService } from '../src/modules/morphology/morphology.service';
+import { MorphologyService } from '../src/modules/lexicon/enrichment/morphology/morphology.service';
 import { readFile } from 'node:fs/promises';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../src/modules/core/prisma/prisma.service';
-import { WordsService } from '../src/modules/words/words.service';
-import { DefinitionService } from '../src/modules/definitions/definitions.service';
-import { HeadwordDiscoveryService } from '../src/modules/dictionary/headword-discovery.service';
-import { parseWiktionaryEntry } from '../src/modules/dictionary/parsers/wiktionary.parser';
+import { PrismaService } from '../src/modules/system/core/prisma/prisma.service';
+import { WordsService } from '../src/modules/lexicon/entries/words/words.service';
+import { DefinitionService } from '../src/modules/lexicon/entries/definitions/definitions.service';
+import { HeadwordDiscoveryService } from '../src/modules/lexicon/enrichment/dictionary/headword-discovery.service';
+import { parseWiktionaryEntry } from '../src/modules/lexicon/enrichment/dictionary/parsers/wiktionary.parser';
 import type {
   MorphologyProvider,
   InflectionForm,
-} from '../src/modules/morphology/morphology-provider';
-import { PartOfSpeech } from '../src/modules/vocabulary/enums/part-of-speech.enum';
-import { projectParadigm } from '../src/modules/morphology/paradigm';
-import corpus from '../src/modules/dictionary/fixtures/corpus.json';
+} from '../src/modules/lexicon/enrichment/morphology/morphology-provider';
+import { PartOfSpeech } from '../src/modules/lexicon/types/part-of-speech.enum';
+import { projectParadigm } from '../src/modules/lexicon/enrichment/morphology/paradigm';
+import corpus from '../src/modules/lexicon/enrichment/dictionary/fixtures/corpus.json';
 
 const url = process.env.HEADWORD_TEST_DATABASE_URL;
 if (!url)
@@ -26,7 +26,10 @@ const prisma = new PrismaService(
   new ConfigService({ postgres: { databaseUrl: url } }),
 );
 const raw = new Client({ connectionString: url });
-const fixtures = join(__dirname, '../src/modules/dictionary/fixtures');
+const fixtures = join(
+  __dirname,
+  '../src/modules/lexicon/enrichment/dictionary/fixtures',
+);
 const tags: Record<string, string[]> = {
   NNS: ['plural'],
   VBD: ['past'],
@@ -122,7 +125,7 @@ const dictionary = {
   }),
 };
 const morphologyService = new MorphologyService(prisma, morphology);
-const words = new WordsService(prisma, null!, null!, null!);
+const words = new WordsService(prisma);
 const service = new HeadwordDiscoveryService(
   prisma,
   words,
@@ -493,8 +496,8 @@ it('C20 NFC and case-normalized selected spelling share state and mappings', asy
   ).toHaveLength(1);
 });
 
-import { CardsService } from '../src/modules/cards/cards.service';
-import { DecksService } from '../src/modules/decks/decks.service';
+import { CardsService } from '../src/modules/learning/cards/cards.service';
+import { DecksService } from '../src/modules/learning/decks/decks.service';
 it.each([
   ['go', 'verb', true],
   ['child', 'noun', true],

@@ -60,7 +60,7 @@ between cases. Do not point it at an application database.
 sh scripts/load-env.sh yarn --cwd apps/languee-back test:headwords
 ```
 
-Fixtures in `src/modules/dictionary/fixtures` are frozen diagnostic payloads.
+Fixtures in `src/modules/lexicon/enrichment/dictionary/fixtures` are frozen diagnostic payloads.
 `corpus.json` records their provenance and the controlled acceptance cases.
 Morphology tests cover both mocked exact resource output and installed
 LemmInflect 0.2.3 output. Missing tags remain absent; controlled English cases

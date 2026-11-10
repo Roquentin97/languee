@@ -4,11 +4,11 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/modules/core/prisma/prisma.service';
-import { DICTIONARY_API_ADAPTER } from '../src/modules/dictionary/dictionary.tokens';
-import { ProviderUnavailableError } from '../src/modules/definitions/definitions.errors';
-import type { IDictionaryApiAdapter } from '../src/modules/dictionary/interfaces/dictionary-api-adapter.interface';
-import { PartOfSpeech } from '../src/modules/vocabulary/enums/part-of-speech.enum';
+import { PrismaService } from '../src/modules/system/core/prisma/prisma.service';
+import { DICTIONARY_API_ADAPTER } from '../src/modules/lexicon/enrichment/dictionary/dictionary.tokens';
+import { ProviderUnavailableError } from '../src/modules/lexicon/entries/definitions/definitions.errors';
+import type { IDictionaryApiAdapter } from '../src/modules/lexicon/enrichment/dictionary/interfaces/dictionary-api-adapter.interface';
+import { PartOfSpeech } from '../src/modules/lexicon/types/part-of-speech.enum';
 
 const MOCK_DEFINITIONS = [
   {
