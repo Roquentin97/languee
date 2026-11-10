@@ -53,7 +53,11 @@ export class FreeDictionaryApiAdapter implements IDictionaryApiAdapter {
     try {
       data = await this.request.getJson<FreeDictionaryApiResponse>(
         `${FREE_DICTIONARY_API_BASE_URL}/entries/${language}/${encodeURIComponent(lemma)}`,
-        { target: this.providerName },
+        {
+          target: this.providerName,
+          operation: 'dictionary entry',
+          timeoutMs: 10000,
+        },
       );
     } catch (err: unknown) {
       if (err instanceof RequestFailure && err.status === 404) {

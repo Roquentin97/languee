@@ -568,3 +568,204 @@ it.each([
     expect(cloze.context).toBe('Original Context');
   },
 );
+
+test('independent candidates share a four-request provider limit', async () => {
+  const original = dictionary.fetchEntry.getMockImplementation()!;
+  const started: string[] = [];
+  const releases = new Map<string, () => void>();
+  let notify!: () => void;
+  let next = new Promise<void>((resolve) => {
+    notify = resolve;
+  });
+  const candidates = ['one', 'two', 'three', 'four', 'five', 'six'];
+  jest
+    .mocked(morphology.findLemmaCandidates)
+    .mockImplementationOnce(() =>
+      Promise.resolve(
+        candidates.map((lemma) => ({ lemma, partOfSpeech: PartOfSpeech.NOUN })),
+      ),
+    );
+  dictionary.fetchEntry.mockImplementation(async (lemma) => {
+    if (!candidates.includes(lemma)) return original(lemma);
+    started.push(lemma);
+    notify();
+    await new Promise<void>((resolve) => releases.set(lemma, resolve));
+    return { definitions: [], references: [] };
+  });
+  const result = lookup('cohort');
+  while (started.length < 4) {
+    await next;
+    next = new Promise((resolve) => {
+      notify = resolve;
+    });
+  }
+  expect(started).toHaveLength(4);
+  releases.get(started[0])!();
+  while (started.length < 5) {
+    await next;
+    next = new Promise((resolve) => {
+      notify = resolve;
+    });
+  }
+  releases.get(started[1])!();
+  while (started.length < 6) {
+    await next;
+    next = new Promise((resolve) => {
+      notify = resolve;
+    });
+  }
+  for (const release of releases.values()) release();
+  await result;
+  dictionary.fetchEntry.mockImplementation(original);
+});
+
+test('overlapping lookups share a pending headword fetch and failures retry', async () => {
+  const original = dictionary.fetchEntry.getMockImplementation()!;
+  const originalCandidates = jest
+    .mocked(morphology.findLemmaCandidates)
+    .getMockImplementation()!;
+  let release!: () => void;
+  let started!: () => void;
+  const began = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const seam = service as unknown as {
+    fetchEntry(lemma: string, language: string): Promise<unknown>;
+  };
+  const originalFetch = seam.fetchEntry.bind(service);
+  let joined!: () => void;
+  const bothJoined = new Promise<void>((resolve) => {
+    joined = resolve;
+  });
+  let participants = 0;
+  const fetchSpy = jest
+    .spyOn(seam, 'fetchEntry')
+    .mockImplementation((lemma, language) => {
+      const work = originalFetch(lemma, language);
+      if (lemma === 'shared' && ++participants === 2) joined();
+      return work;
+    });
+  let calls = 0;
+  dictionary.fetchEntry.mockImplementation(async (lemma) => {
+    if (lemma !== 'shared') return original(lemma);
+    calls++;
+    started();
+    await gate;
+    throw new Error('provider failed');
+  });
+  jest
+    .mocked(morphology.findLemmaCandidates)
+    .mockImplementation((surface) =>
+      Promise.resolve(
+        surface.startsWith('surface')
+          ? [{ lemma: 'shared', partOfSpeech: PartOfSpeech.NOUN }]
+          : [],
+      ),
+    );
+  const first = lookup('surface-one');
+  const second = lookup('surface-two');
+  await began;
+  await bothJoined;
+  release();
+  await expect(first).rejects.toThrow('provider failed');
+  await expect(second).rejects.toThrow('provider failed');
+  expect(calls).toBe(1);
+  fetchSpy.mockRestore();
+  dictionary.fetchEntry.mockImplementation(original);
+  await lookup('surface-one');
+  expect(await state('shared')).toBeTruthy();
+  jest
+    .mocked(morphology.findLemmaCandidates)
+    .mockImplementation(originalCandidates);
+});
+
+test('cycles validate both directions after the full inventories are stored', async () => {
+  const original = dictionary.fetchEntry.getMockImplementation()!;
+  const originalCandidates = jest
+    .mocked(morphology.findLemmaCandidates)
+    .getMockImplementation()!;
+  jest.mocked(morphology.findLemmaCandidates).mockResolvedValue([]);
+  dictionary.fetchEntry.mockImplementation(async (lemma) => {
+    if (!['cycle-a', 'cycle-b'].includes(lemma)) return original(lemma);
+    const target = lemma === 'cycle-a' ? 'cycle-b' : 'cycle-a';
+    return {
+      definitions: [
+        {
+          partOfSpeech: PartOfSpeech.NOUN,
+          definition: `Definition of ${lemma}`,
+        },
+      ],
+      references: [
+        {
+          category: 'alternative_spelling',
+          source: lemma,
+          sourcePos: PartOfSpeech.NOUN,
+          targets: [target],
+          targetPos: PartOfSpeech.NOUN,
+          relationTypes: ['alternative_spelling'],
+          text: '',
+        },
+      ],
+    };
+  });
+  const found = await lookup('cycle-a');
+  expect(pairs(found)).toEqual(['cycle-a/noun', 'cycle-b/noun']);
+  expect(await rows('cycle-a')).toContain('cycle-b/noun/alternative_spelling');
+  expect(await rows('cycle-b')).toContain('cycle-a/noun/alternative_spelling');
+  expect((await state('cycle-a'))?.dictionaryFetchedAt).toBeTruthy();
+  expect((await state('cycle-b'))?.dictionaryFetchedAt).toBeTruthy();
+  dictionary.fetchEntry.mockImplementation(original);
+  jest
+    .mocked(morphology.findLemmaCandidates)
+    .mockImplementation(originalCandidates);
+});
+
+test('discovery batches and indexes canonical paradigms across reference targets', async () => {
+  const original = dictionary.fetchEntry.getMockImplementation()!;
+  const batch = jest.fn(
+    async (entries: { lemma: string; partOfSpeech: PartOfSpeech }[]) =>
+      entries.map((entry) => ({
+        ...entry,
+        forms: [{ form: `${entry.lemma}s`, formType: 'plural' as const }],
+      })),
+  );
+  morphology.getInflectionsBatch = batch;
+  dictionary.fetchEntry.mockImplementation(async (lemma) => {
+    if (lemma === 'batch-surface')
+      return {
+        definitions: [],
+        references: [
+          {
+            category: 'morphological_reference',
+            source: lemma,
+            sourcePos: PartOfSpeech.NOUN,
+            targets: ['batch-one', 'batch-two'],
+            targetPos: PartOfSpeech.NOUN,
+            relationTypes: ['plural'],
+            text: '',
+          },
+        ],
+      };
+    if (lemma === 'batch-one' || lemma === 'batch-two')
+      return {
+        definitions: [{ partOfSpeech: PartOfSpeech.NOUN, definition: lemma }],
+        references: [],
+      };
+    return original(lemma);
+  });
+  await lookup('batch-surface');
+  expect(batch).toHaveBeenCalledWith(
+    expect.arrayContaining([
+      { lemma: 'batch-one', partOfSpeech: 'noun' },
+      { lemma: 'batch-two', partOfSpeech: 'noun' },
+    ]),
+    'en',
+  );
+  expect(await rows('batch-ones')).toContain('batch-one/noun/plural');
+  expect(await rows('batch-twos')).toContain('batch-two/noun/plural');
+  delete morphology.getInflectionsBatch;
+  dictionary.fetchEntry.mockImplementation(original);
+});

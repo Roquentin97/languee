@@ -16,6 +16,7 @@ describe('MorphologyService', () => {
   const prisma = { wordForm: { createMany: jest.fn(), findMany: jest.fn() } };
   const provider = {
     getInflections: jest.fn(),
+    getInflectionsBatch: jest.fn(),
     findLemmaCandidates: jest.fn(),
   };
   beforeEach(async () => {
@@ -64,6 +65,45 @@ describe('MorphologyService', () => {
     provider.getInflections.mockResolvedValue([]);
     await service.indexParadigm(entry);
     expect(prisma.wordForm.createMany).not.toHaveBeenCalled();
+  });
+  it('batches multiple entries and shares indexing for overlapping calls', async () => {
+    let finish!: (value: unknown) => void;
+    provider.getInflectionsBatch.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const second = {
+      ...entry,
+      wordId: 'well-id',
+      lemma: 'well',
+      partOfSpeech: PartOfSpeech.ADVERB,
+    };
+    const first = service.indexParadigms([entry, second]);
+    const overlapping = service.indexParadigms([entry]);
+    expect(provider.getInflectionsBatch).toHaveBeenCalledTimes(1);
+    expect(provider.getInflections).not.toHaveBeenCalled();
+    finish([
+      {
+        lemma: 'go',
+        partOfSpeech: 'verb',
+        forms: [{ form: 'went', formType: 'past' }],
+      },
+      { lemma: 'well', partOfSpeech: 'adverb', forms: [] },
+    ]);
+    await Promise.all([first, overlapping]);
+    expect(prisma.wordForm.createMany).toHaveBeenCalledTimes(1);
+    expect(prisma.wordForm.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          wordId: 'go-id',
+          form: 'went',
+          partOfSpeech: 'verb',
+          relationType: 'past',
+        },
+      ],
+      skipDuplicates: true,
+    });
   });
   it('propagates morphology failures without writing a paradigm', async () => {
     provider.getInflections.mockRejectedValue(new Error('outage'));

@@ -1,0 +1,30 @@
+meta {
+  name: Inflections Batch
+  type: http
+  seq: 3
+}
+post {
+  url: {{base_url}}/morphology/inflections/batch
+  body: json
+  auth: inherit
+}
+body:json {
+  {
+    "language": "en",
+    "entries": [
+      { "lemma": "go", "partOfSpeech": "verb" },
+      { "lemma": "well", "partOfSpeech": "adverb" }
+    ]
+  }
+}
+tests {
+  test("returns a paradigm for each requested pair", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.results).to.have.lengthOf(2);
+    expect(res.body.results[0].lemma).to.equal("go");
+    expect(res.body.results[0].partOfSpeech).to.equal("verb");
+    expect(res.body.results[0].forms).to.deep.include({ form: "went", formType: "past" });
+    expect(res.body.results[1].lemma).to.equal("well");
+    expect(res.body.results[1].partOfSpeech).to.equal("adverb");
+  });
+}

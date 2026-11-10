@@ -47,6 +47,8 @@ export class WiktionaryApiAdapter implements IDictionaryApiAdapter {
         `${WIKTIONARY_API_BASE_URL}/${encodeURIComponent(lemma)}`,
         {
           target: this.providerName,
+          operation: 'dictionary entry',
+          timeoutMs: 10000,
           headers: { 'User-Agent': userAgent, Accept: 'application/json' },
         },
       );
@@ -96,6 +98,8 @@ export class WiktionaryApiAdapter implements IDictionaryApiAdapter {
         `${WIKTIONARY_WIKITEXT_API_URL}?${query.toString()}`,
         {
           target: this.providerName,
+          operation: 'dictionary ipa',
+          timeoutMs: 10000,
           headers: { 'User-Agent': userAgent, Accept: 'application/json' },
         },
       );

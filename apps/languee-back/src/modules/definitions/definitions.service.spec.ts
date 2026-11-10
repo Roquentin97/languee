@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
 import { DefinitionService } from './definitions.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { PartOfSpeech } from '../vocabulary/enums/part-of-speech.enum';
@@ -35,6 +34,7 @@ describe('DefinitionService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      createMany: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
   };
@@ -122,153 +122,45 @@ describe('DefinitionService', () => {
   });
 
   describe('createMany', () => {
-    it('persists each entry with the caller-provided provider name', async () => {
-      const entries = [
-        {
-          partOfSpeech: PartOfSpeech.VERB,
-          definition: 'move at a fast pace',
-          example: 'She runs.',
-        },
-        {
-          partOfSpeech: PartOfSpeech.NOUN,
-          definition: 'a run',
-          example: undefined,
-        },
-      ];
-      const rows = [
-        makeDefinitionRow({ id: 'def-1', example: 'She runs.' }),
-        makeDefinitionRow({
-          id: 'def-2',
-          partOfSpeech: 'noun',
-          definition: 'a run',
-          example: null,
-        }),
-      ];
-
-      prismaMock.definition.findUnique.mockResolvedValue(null);
-      prismaMock.definition.create
-        .mockResolvedValueOnce(rows[0])
-        .mockResolvedValueOnce(rows[1]);
-
-      const result = await service.createMany(
-        'word-id-1',
-        entries,
-        'dictionaryapi',
-      );
-
-      expect(result).toEqual(rows);
-      expect(prismaMock.definition.create).toHaveBeenCalledTimes(2);
-      expect(prismaMock.definition.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            wordId: 'word-id-1',
-            partOfSpeech: 'verb',
-            definition: 'move at a fast pace',
-            example: 'She runs.',
-            provider: 'dictionaryapi',
-          }) as unknown,
-        }),
-      );
-    });
-
-    it('returns existing row without calling create when definition already exists', async () => {
+    it('bulk inserts without overwriting existing rows and preserves input order and duplicates', async () => {
       const existing = makeDefinitionRow();
-      prismaMock.definition.findUnique.mockResolvedValue(existing);
-
-      const result = await service.createMany(
-        'word-id-1',
-        [
-          {
-            partOfSpeech: PartOfSpeech.VERB,
-            definition: 'move at a fast pace',
-          },
-        ],
-        'dictionaryapi',
-      );
-
-      expect(result).toEqual([existing]);
-      expect(prismaMock.definition.create).not.toHaveBeenCalled();
-    });
-
-    it('falls back to findUniqueOrThrow when concurrent create hits P2002', async () => {
-      prismaMock.definition.findUnique.mockResolvedValue(null);
-
-      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique', {
-        code: 'P2002',
-        clientVersion: '5.0.0',
+      const second = makeDefinitionRow({
+        id: 'second',
+        partOfSpeech: 'noun',
+        definition: 'a run',
       });
-      prismaMock.definition.create.mockRejectedValue(p2002);
-      const concurrentRow = makeDefinitionRow();
-      prismaMock.definition.findUniqueOrThrow.mockResolvedValue(concurrentRow);
-
-      const result = await service.createMany(
-        'word-id-1',
-        [
-          {
-            partOfSpeech: PartOfSpeech.VERB,
-            definition: 'move at a fast pace',
-          },
-        ],
-        'dictionaryapi',
-      );
-
-      expect(result).toEqual([concurrentRow]);
-      expect(prismaMock.definition.findUniqueOrThrow).toHaveBeenCalledTimes(1);
-    });
-
-    it('re-throws non-P2002 Prisma errors from create', async () => {
-      prismaMock.definition.findUnique.mockResolvedValue(null);
-
-      const p2025 = new Prisma.PrismaClientKnownRequestError('Not found', {
-        code: 'P2025',
-        clientVersion: '5.0.0',
-      });
-      prismaMock.definition.create.mockRejectedValue(p2025);
-
-      await expect(
-        service.createMany(
+      prismaMock.definition.findMany.mockResolvedValue([second, existing]);
+      const verb = {
+        partOfSpeech: PartOfSpeech.VERB,
+        definition: existing.definition,
+      };
+      const noun = {
+        partOfSpeech: PartOfSpeech.NOUN,
+        definition: second.definition,
+      };
+      expect(
+        await service.createMany(
           'word-id-1',
-          [
-            {
-              partOfSpeech: PartOfSpeech.VERB,
-              definition: 'move at a fast pace',
-            },
-          ],
-          'dictionaryapi',
+          [verb, noun, verb],
+          'new-provider',
         ),
-      ).rejects.toThrow();
-    });
-
-    it('returns empty array when entries is empty', async () => {
-      const result = await service.createMany('word-id-1', [], 'dictionaryapi');
-
-      expect(result).toEqual([]);
-      expect(prismaMock.definition.findUnique).not.toHaveBeenCalled();
-      expect(prismaMock.definition.create).not.toHaveBeenCalled();
-    });
-
-    it('does not write removed definition morphology', async () => {
-      prismaMock.definition.findUnique.mockResolvedValue(null);
-      prismaMock.definition.create.mockResolvedValue(makeDefinitionRow());
-
-      await service.createMany(
-        'word-id-1',
-        [
-          {
-            partOfSpeech: PartOfSpeech.VERB,
-            definition: 'move at a fast pace',
-          },
-        ],
-        'dictionaryapi',
-      );
-
-      expect(prismaMock.definition.create).toHaveBeenCalledWith(
+      ).toEqual([existing, second, existing]);
+      expect(prismaMock.definition.createMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.definition.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.not.objectContaining({
-            inflectionForms: expect.anything() as unknown,
-          }) as unknown,
+          skipDuplicates: true,
+          data: expect.arrayContaining([
+            expect.objectContaining({ provider: 'new-provider' }),
+          ]) as unknown,
         }),
       );
+      expect(prismaMock.definition.findMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.definition.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('does not query storage for empty input', async () => {
+      expect(await service.createMany('word-id-1', [], 'provider')).toEqual([]);
+      expect(prismaMock.definition.createMany).not.toHaveBeenCalled();
     });
   });
   describe('findByWordIds', () => {

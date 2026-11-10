@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from languee_nlp.nlp.morphology import (
     InflectionForm,
@@ -25,6 +26,24 @@ router = APIRouter(
 Text = Annotated[str, Query(min_length=1, max_length=200)]
 
 
+class BatchEntry(BaseModel):
+    lemma: str = Field(min_length=1, max_length=200)
+    partOfSpeech: Pos
+
+
+class BatchRequest(BaseModel):
+    language: str
+    entries: list[BatchEntry] = Field(min_length=1)
+
+
+class BatchResult(BatchEntry):
+    forms: list[InflectionForm]
+
+
+class BatchResponse(BaseModel):
+    results: list[BatchResult]
+
+
 def _word(text: str, language: str) -> str:
     _validate_language(language)
     word = normalize(text)
@@ -43,3 +62,23 @@ def inflections(
     text: Text, partOfSpeech: Pos, language: str = "en"
 ) -> list[InflectionForm]:
     return get_inflections(_word(text, language), partOfSpeech)
+
+
+@router.post("/inflections/batch", summary="Generate canonical paradigms")
+def inflections_batch(request: BatchRequest) -> BatchResponse:
+    pairs = list(
+        dict.fromkeys(
+            (_word(entry.lemma, request.language), entry.partOfSpeech)
+            for entry in request.entries
+        )
+    )
+    if len(pairs) > 100:
+        raise HTTPException(status_code=400, detail="At most 100 distinct entries")
+    return BatchResponse(
+        results=[
+            BatchResult(
+                lemma=lemma, partOfSpeech=pos, forms=get_inflections(lemma, pos)
+            )
+            for lemma, pos in pairs
+        ]
+    )

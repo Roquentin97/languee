@@ -18,6 +18,13 @@ export class SanitizingSpanProcessor implements SpanProcessor {
     for (const key of Object.keys(attrs)) {
       if (isSensitiveKey(key)) {
         attrs[key] = REDACTED_VALUE;
+      } else if (key === 'url.query') {
+        attrs[key] = REDACTED_VALUE;
+      } else if (
+        ['url.full', 'http.url', 'http.target'].includes(key) &&
+        typeof attrs[key] === 'string'
+      ) {
+        attrs[key] = sanitizeUrl(attrs[key]);
       }
     }
     this.delegate.onEnd(span);
@@ -29,5 +36,18 @@ export class SanitizingSpanProcessor implements SpanProcessor {
 
   shutdown(): Promise<void> {
     return this.delegate.shutdown();
+  }
+}
+
+function sanitizeUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return value.split(/[?#]/, 1)[0];
   }
 }

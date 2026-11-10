@@ -200,6 +200,8 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
         {
           provide: PrismaService,
           useValue: {
+            $transaction: (operations: Promise<unknown>[]) =>
+              Promise.all(operations),
             lookupState: {
               findUnique: () => Promise.resolve(null),
               upsert: () => Promise.resolve({}),

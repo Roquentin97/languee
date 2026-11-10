@@ -28,6 +28,29 @@ export class WordsService {
     });
   }
 
+  findByLemmas(lemmas: string[], language: string): Promise<Word[]> {
+    if (!lemmas.length) return Promise.resolve([]);
+    return this.prisma.word.findMany({
+      where: { language, lemma: { in: [...new Set(lemmas)] } },
+    });
+  }
+
+  async ensureMany(
+    lemmas: string[],
+    language: string,
+    kind: LexicalKind,
+  ): Promise<Word[]> {
+    if (!lemmas.length) return [];
+    const unique = [...new Set(lemmas)];
+    await this.prisma.word.createMany({
+      data: unique.map((lemma) => ({ lemma, language, kind })),
+      skipDuplicates: true,
+    });
+    return this.prisma.word.findMany({
+      where: { language, lemma: { in: unique } },
+    });
+  }
+
   findLookupCandidates(
     term: string,
     language: string,
