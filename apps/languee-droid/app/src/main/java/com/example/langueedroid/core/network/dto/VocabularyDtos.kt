@@ -17,6 +17,8 @@ data class EnrichedDefinitionDto(
 )
 
 data class LookupMetaDto(
+    val analyzedLemma: String? = null,
+    val analyzedPos: String? = null,
     val filteredByPos: Boolean,
     val unmatchedPos: Boolean,
     val availablePartsOfSpeech: List<String>,
@@ -25,14 +27,38 @@ data class LookupMetaDto(
     val expressionContextFound: Boolean? = null,
 )
 
+data class SurfaceRelationDto(
+    val partOfSpeech: String,
+    val relationType: String,
+)
+
+data class PreferredInterpretationDto(
+    val wordId: String,
+    val partOfSpeech: String?,
+)
+
+data class VocabularyPosGroupDto(
+    val partOfSpeech: String,
+    val definitions: List<EnrichedDefinitionDto>,
+)
+
+data class VocabularyHeadwordDto(
+    val wordId: String,
+    val lemma: String,
+    val language: String,
+    val relations: List<SurfaceRelationDto>,
+    val partsOfSpeech: List<VocabularyPosGroupDto>,
+)
+
 data class LookupVocabularyResponseDto(
     val input: String,
     val context: String?,
-    val lemma: String,
-    val partOfSpeech: String?,
-    val definitions: List<EnrichedDefinitionDto>,
+    val language: String,
+    val kind: String,
+    val source: String,
+    val preferred: PreferredInterpretationDto?,
+    val headwords: List<VocabularyHeadwordDto>,
     val meta: LookupMetaDto,
-    val kind: String? = null,
 )
 
 data class CreateUserDefinitionRequestDto(

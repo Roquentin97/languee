@@ -21,10 +21,16 @@ describe('DictionaryService public projection', () => {
     discover.mockResolvedValue({
       source: 'provider',
       headwords: [
-        { wordId: '1', lemma: 'poise', definitions: [definition] },
+        {
+          wordId: '1',
+          lemma: 'poise',
+          relations: [],
+          definitions: [definition],
+        },
         {
           wordId: '2',
           lemma: 'poised',
+          relations: [],
           definitions: [
             { ...definition, id: 'adj', partOfSpeech: PartOfSpeech.ADJECTIVE },
           ],
@@ -37,9 +43,64 @@ describe('DictionaryService public projection', () => {
       kind: 'word',
       language: 'en',
     });
-    expect(result.lemma).toBe('poise');
-    expect(result.definitions).toEqual([definition]);
+    expect(result.preferred).toEqual({ wordId: '1', partOfSpeech: null });
+    expect(result.headwords.map((w) => w.lemma)).toEqual(['poise', 'poised']);
+    expect(result.headwords[0].partsOfSpeech[0].definitions).toEqual([
+      definition,
+    ]);
     expect(discover).toHaveBeenCalledWith('poised', 'en', 'poise', 'word');
+  });
+  it('preserves headword identities, POS groups, and surface relationships', async () => {
+    const adj = {
+      ...definition,
+      id: 'adj',
+      partOfSpeech: PartOfSpeech.ADJECTIVE,
+    };
+    const adverb = {
+      ...definition,
+      id: 'adv',
+      partOfSpeech: PartOfSpeech.ADVERB,
+    };
+    discover.mockResolvedValue({
+      source: 'cache',
+      headwords: [
+        {
+          wordId: 'better-id',
+          lemma: 'better',
+          relations: [],
+          definitions: [definition],
+        },
+        {
+          wordId: 'good-id',
+          lemma: 'good',
+          relations: [
+            {
+              partOfSpeech: PartOfSpeech.ADJECTIVE,
+              relationType: 'comparative',
+            },
+          ],
+          definitions: [adj, adverb],
+        },
+      ],
+    });
+    const result = await service.lookup({
+      word: 'better',
+      lemma: 'good',
+      language: 'en',
+      kind: 'word',
+    });
+    expect(result.preferred).toEqual({ wordId: 'good-id', partOfSpeech: null });
+    expect(result.headwords).toHaveLength(2);
+    expect(result.headwords[1]).toMatchObject({
+      wordId: 'good-id',
+      language: 'en',
+      relations: [{ partOfSpeech: 'adjective', relationType: 'comparative' }],
+      partsOfSpeech: [
+        { partOfSpeech: 'adjective', definitions: [adj] },
+        { partOfSpeech: 'adverb', definitions: [adverb] },
+      ],
+    });
+    expect(result).not.toHaveProperty('definitions');
   });
   it('reports an empty completed result as a dictionary miss', async () => {
     discover.mockResolvedValue({ source: 'cache', headwords: [] });

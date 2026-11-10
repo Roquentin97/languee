@@ -17,8 +17,10 @@ get {
 tests {
   test("returns definitions for the requested word", function() {
     expect(res.status).to.equal(200);
-    expect(res.body.lemma).to.be.a("string");
     expect(res.body.source).to.be.oneOf(["cache", "provider"]);
-    expect(res.body.definitions).to.be.an("array");
+    expect(res.body.headwords).to.be.an("array");
+    if (res.body.preferred) {
+      expect(res.body.headwords.some(h => h.wordId === res.body.preferred.wordId)).to.equal(true);
+    }
   });
 }

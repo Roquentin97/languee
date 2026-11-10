@@ -1,4 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  PreferredInterpretationDto,
+  SurfaceRelationDto,
+} from '../../../lexicon/enrichment/dictionary/dto/lookup-word-response.dto';
 import { PartOfSpeech } from '../../../lexicon/types/part-of-speech.enum';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../../lexicon/types/inflection-forms.types';
@@ -38,7 +42,17 @@ export class EnrichedDefinitionResultDto {
 }
 
 export class LookupVocabularyMetaDto {
-  @ApiProperty({ example: true })
+  @ApiProperty({ example: 'good' })
+  analyzedLemma!: string;
+
+  @ApiProperty({ enum: PartOfSpeech, nullable: true })
+  analyzedPos!: PartOfSpeech | null;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether the existing context-based POS filter applies to the preferred presentation. All groups remain in headwords.',
+  })
   filteredByPos!: boolean;
 
   @ApiProperty({ example: false })
@@ -57,37 +71,52 @@ export class LookupVocabularyMetaDto {
   expressionContextFound!: boolean | null;
 }
 
-export class LookupVocabularyResponseDto {
-  @ApiProperty({ example: 'running' })
-  input!: string;
-
-  @ApiPropertyOptional({ example: 'She runs every morning.' })
-  context?: string;
-
-  @ApiProperty({ example: 'run' })
-  lemma!: string;
-
-  @ApiProperty({
-    example: 'en',
-    description: 'Effective ISO 639-1 language code used for this lookup.',
-  })
-  language!: string;
-
-  @ApiProperty({
-    enum: ['word', 'phrasal_verb', 'expression'],
-    example: 'word',
-  })
-  kind!: 'word' | 'phrasal_verb' | 'expression';
-
-  @ApiProperty({
-    enum: PartOfSpeech,
-    nullable: true,
-    example: PartOfSpeech.VERB,
-  })
-  partOfSpeech!: PartOfSpeech | null;
+export class VocabularyPosGroupDto {
+  @ApiProperty({ enum: PartOfSpeech })
+  partOfSpeech!: PartOfSpeech;
 
   @ApiProperty({ type: [EnrichedDefinitionResultDto] })
   definitions!: EnrichedDefinitionResultDto[];
+}
+
+export class VocabularyHeadwordDto {
+  @ApiProperty({ example: 'word_123' })
+  wordId!: string;
+
+  @ApiProperty({ example: 'good' })
+  lemma!: string;
+
+  @ApiProperty({ example: 'en' })
+  language!: string;
+
+  @ApiProperty({ type: [SurfaceRelationDto] })
+  relations!: SurfaceRelationDto[];
+
+  @ApiProperty({ type: [VocabularyPosGroupDto] })
+  partsOfSpeech!: VocabularyPosGroupDto[];
+}
+
+export class LookupVocabularyResponseDto {
+  @ApiProperty({ example: 'better' })
+  input!: string;
+
+  @ApiPropertyOptional({ example: 'This is better.' })
+  context?: string;
+
+  @ApiProperty({ example: 'en' })
+  language!: string;
+
+  @ApiProperty({ enum: ['word', 'phrasal_verb', 'expression'] })
+  kind!: string;
+
+  @ApiProperty({ enum: ['cache', 'provider'] })
+  source!: string;
+
+  @ApiProperty({ type: PreferredInterpretationDto, nullable: true })
+  preferred!: PreferredInterpretationDto | null;
+
+  @ApiProperty({ type: [VocabularyHeadwordDto] })
+  headwords!: VocabularyHeadwordDto[];
 
   @ApiProperty({ type: LookupVocabularyMetaDto })
   meta!: LookupVocabularyMetaDto;

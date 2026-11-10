@@ -26,13 +26,63 @@ export class DefinitionResultDto {
   inflectionForms!: InflectionForms | null;
 }
 
-export class LookupWordResponseDto {
-  @ApiProperty({ example: 'run' })
+export class SurfaceRelationDto {
+  @ApiProperty({ enum: PartOfSpeech })
+  partOfSpeech!: PartOfSpeech;
+
+  @ApiProperty({ example: 'comparative' })
+  relationType!: string;
+}
+
+export class PreferredInterpretationDto {
+  @ApiProperty({ example: 'word_123' })
+  wordId!: string;
+
+  @ApiProperty({ enum: PartOfSpeech, nullable: true })
+  partOfSpeech!: PartOfSpeech | null;
+}
+
+export class DictionaryPosGroupDto {
+  @ApiProperty({ enum: PartOfSpeech })
+  partOfSpeech!: PartOfSpeech;
+
+  @ApiProperty({ type: [DefinitionResultDto] })
+  definitions!: DefinitionResultDto[];
+}
+
+export class DictionaryHeadwordDto {
+  @ApiProperty({ example: 'word_123' })
+  wordId!: string;
+
+  @ApiProperty({ example: 'good' })
   lemma!: string;
+
+  @ApiProperty({ example: 'en' })
+  language!: string;
+
+  @ApiProperty({ type: [SurfaceRelationDto] })
+  relations!: SurfaceRelationDto[];
+
+  @ApiProperty({ type: [DictionaryPosGroupDto] })
+  partsOfSpeech!: DictionaryPosGroupDto[];
+}
+
+export class LookupWordResponseDto {
+  @ApiProperty({ example: 'better' })
+  input!: string;
+
+  @ApiProperty({ example: 'en' })
+  language!: string;
+
+  @ApiProperty({ enum: ['word', 'expression', 'phrasal_verb'] })
+  kind!: string;
 
   @ApiProperty({ enum: ['cache', 'provider'], example: 'cache' })
   source!: 'cache' | 'provider';
 
-  @ApiProperty({ type: [DefinitionResultDto] })
-  definitions!: DefinitionResultDto[];
+  @ApiProperty({ type: PreferredInterpretationDto, nullable: true })
+  preferred!: PreferredInterpretationDto | null;
+
+  @ApiProperty({ type: [DictionaryHeadwordDto] })
+  headwords!: DictionaryHeadwordDto[];
 }

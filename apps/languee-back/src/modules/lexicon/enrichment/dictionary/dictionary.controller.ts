@@ -37,7 +37,7 @@ export class DictionaryController {
   constructor(private readonly dictionaryService: DictionaryService) {}
 
   @Get('lookup')
-  @ApiOperation({ summary: 'Look up dictionary definitions for a word' })
+  @ApiOperation({ summary: 'Look up dictionary headwords' })
   @ApiQuery({ name: 'word', type: String, required: true, example: 'running' })
   @ApiQuery({
     name: 'language',

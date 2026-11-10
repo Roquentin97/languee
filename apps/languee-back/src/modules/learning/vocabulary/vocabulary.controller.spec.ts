@@ -28,23 +28,42 @@ const mockUser: CurrentUserPayload = {
 
 const successOutput: LookupVocabularyOutput = {
   input: 'run',
-  lemma: 'run',
   language: 'en',
   kind: 'word',
-  partOfSpeech: PartOfSpeech.VERB,
-  definitions: [
+  source: 'cache',
+  preferred: { wordId: 'word-1', partOfSpeech: PartOfSpeech.VERB },
+  headwords: [
     {
-      id: 'def-id-1',
-      partOfSpeech: PartOfSpeech.VERB,
-      definition: 'to move fast',
-      example: 'She ran quickly.',
-      provider: 'free-dictionary',
-      hasIrregularForms: true,
-      inflectionForms: { type: 'verb' as const, base: 'run', past: 'ran' },
-      decks: [],
+      wordId: 'word-1',
+      lemma: 'run',
+      language: 'en',
+      relations: [],
+      partsOfSpeech: [
+        {
+          partOfSpeech: PartOfSpeech.VERB,
+          definitions: [
+            {
+              id: 'def-id-1',
+              partOfSpeech: PartOfSpeech.VERB,
+              definition: 'to move fast',
+              example: 'She ran quickly.',
+              provider: 'free-dictionary',
+              hasIrregularForms: true,
+              inflectionForms: {
+                type: 'verb' as const,
+                base: 'run',
+                past: 'ran',
+              },
+              decks: [],
+            },
+          ],
+        },
+      ],
     },
   ],
   meta: {
+    analyzedLemma: 'run',
+    analyzedPos: PartOfSpeech.VERB,
     filteredByPos: true,
     unmatchedPos: false,
     availablePartsOfSpeech: [PartOfSpeech.VERB],

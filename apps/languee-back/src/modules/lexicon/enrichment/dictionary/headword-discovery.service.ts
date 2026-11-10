@@ -20,6 +20,7 @@ import type { DefinitionResult } from './types/lookup-word.types';
 export type ResolvedHeadword = {
   wordId: string;
   lemma: string;
+  relations: { partOfSpeech: string; relationType: string }[];
   definitions: DefinitionResult[];
 };
 export type DiscoveryResult = {
@@ -417,6 +418,12 @@ export class HeadwordDiscoveryService {
         return {
           wordId: word.id,
           lemma: word.lemma,
+          relations: origins
+            .filter((o) => o.wordId === word.id)
+            .map(({ partOfSpeech, relationType }) => ({
+              partOfSpeech,
+              relationType,
+            })),
           definitions: (byWord.get(word.id) ?? [])
             .filter((d) => word.lemma === term || allowed.has(d.partOfSpeech))
             .map((d) => {

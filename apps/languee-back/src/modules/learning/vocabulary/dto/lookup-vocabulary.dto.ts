@@ -43,7 +43,8 @@ export class LookupVocabularyDto {
   @ApiPropertyOptional({
     enum: ['true', 'false'],
     example: 'false',
-    description: 'Disable context-derived part-of-speech filtering',
+    description:
+      'Do not select a context-derived preferred part of speech; all groups are always returned',
   })
   @IsOptional()
   @IsIn(['true', 'false'])
