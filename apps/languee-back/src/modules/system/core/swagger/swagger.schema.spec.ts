@@ -13,9 +13,12 @@ jest.mock('../../operations/health/health.service', () => ({
 jest.mock('../../../identity/auth/auth.service', () => ({
   AuthService: class AuthService {},
 }));
-jest.mock('../../../learning/exports/ankidroid/ankidroid-exports.service', () => ({
-  AnkiDroidExportsService: class AnkiDroidExportsService {},
-}));
+jest.mock(
+  '../../../learning/exports/ankidroid/ankidroid-exports.service',
+  () => ({
+    AnkiDroidExportsService: class AnkiDroidExportsService {},
+  }),
+);
 jest.mock('../../../learning/cards/cards.service', () => ({
   CardsService: class CardsService {},
 }));
