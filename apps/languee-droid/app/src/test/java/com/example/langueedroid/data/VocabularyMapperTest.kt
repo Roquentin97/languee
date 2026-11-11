@@ -7,6 +7,10 @@ import com.example.langueedroid.core.network.dto.CreateUserDefinitionResponseDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.network.dto.PreferredInterpretationDto
+import com.example.langueedroid.core.network.dto.VocabularyHeadwordDto
+import com.example.langueedroid.core.network.dto.VocabularyPosGroupDto
+import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -40,17 +44,18 @@ class VocabularyMapperTest {
     )
 
     private fun aResponseDto(
-        kind: String? = null,
+        kind: String = "word",
         meta: LookupMetaDto = aMetaDto(),
         definitions: List<EnrichedDefinitionDto> = listOf(aDefinitionDto()),
     ) = LookupVocabularyResponseDto(
         input = "cat",
         context = null,
-        lemma = "cat",
-        partOfSpeech = "noun",
-        definitions = definitions,
-        meta = meta,
+        language = "en",
         kind = kind,
+        source = "cache",
+        preferred = PreferredInterpretationDto("word1", null),
+        headwords = listOf(VocabularyHeadwordDto("word1", "cat", "en", emptyList(), listOf(VocabularyPosGroupDto("noun", definitions)))),
+        meta = meta,
     )
 
     // -------------------------------------------------------------------------
@@ -73,8 +78,8 @@ class VocabularyMapperTest {
     }
 
     @Test
-    fun `missing kind falls back to WORD`() {
-        assertEquals(LexicalKind.WORD, aResponseDto(kind = null).toLookupResult().kind)
+    fun `word kind defaults to WORD`() {
+        assertEquals(LexicalKind.WORD, aResponseDto(kind = "word").toLookupResult().kind)
     }
 
     @Test
@@ -120,6 +125,29 @@ class VocabularyMapperTest {
     fun `absent expressionContextFound maps to null`() {
         val result = aResponseDto(meta = aMetaDto(expressionContextFound = null)).toLookupResult()
         assertNull(result.expressionContextFound)
+    }
+
+    @Test
+    fun `parses alternatives and projects preferred POS with stable definition ID`() {
+        val json =
+            """
+            {"input":"better","context":"It is better","language":"en","kind":"word","source":"cache",
+             "preferred":{"wordId":"good","partOfSpeech":"adjective"},
+             "headwords":[
+               {"wordId":"better","lemma":"better","language":"en","relations":[],"partsOfSpeech":
+                 [{"partOfSpeech":"verb","definitions":[{"id":"v","partOfSpeech":"verb","definition":"improve","example":null,"provider":"dict","hasIrregularForms":false,"inflectionForms":null,"decks":[]}]}]},
+               {"wordId":"good","lemma":"good","language":"en","relations":[{"partOfSpeech":"adjective","relationType":"comparative"}],"partsOfSpeech":
+                 [{"partOfSpeech":"adjective","definitions":[{"id":"a","partOfSpeech":"adjective","definition":"excellent","example":null,"provider":"dict","hasIrregularForms":false,"inflectionForms":null,"decks":[{"id":"deck","name":"Saved"}]}]},
+                  {"partOfSpeech":"noun","definitions":[]}] }],
+             "meta":{"filteredByPos":true,"unmatchedPos":false,"availablePartsOfSpeech":["adjective","noun"]}}
+            """.trimIndent()
+        val dto = Gson().fromJson(json, LookupVocabularyResponseDto::class.java)
+        assertEquals(2, dto.headwords.size)
+        assertEquals("comparative", dto.headwords[1].relations[0].relationType)
+        val result = dto.toLookupResult()
+        assertEquals("good", result.lemma)
+        assertEquals(listOf("a"), result.definitions.map { it.id })
+        assertEquals("deck", result.definitions[0].decks[0].id)
     }
 
     // -------------------------------------------------------------------------

@@ -170,11 +170,11 @@ describe('VocabularyController (e2e)', () => {
         .expect(200);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(res.body.lemma).toBe('run into');
+      expect(res.body.meta.analyzedLemma).toBe('run into');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.kind).toBe('phrasal_verb');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(res.body.partOfSpeech).toBeNull();
+      expect(res.body.preferred.partOfSpeech).toBeNull();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.meta.isExpression).toBe(true);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -199,7 +199,7 @@ describe('VocabularyController (e2e)', () => {
         .expect(200);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(res.body.definitions).toEqual([]);
+      expect(res.body.headwords).toEqual([]);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.meta.providerMiss).toBe(true);
     });

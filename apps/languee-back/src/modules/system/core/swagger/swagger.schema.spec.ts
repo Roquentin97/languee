@@ -376,4 +376,26 @@ describe('generated Swagger schema', () => {
       }
     },
   );
+  it('documents hierarchical lookup responses and their preferred interpretation', () => {
+    const schemas = document.components?.schemas ?? {};
+    for (const name of [
+      'LookupWordResponseDto',
+      'LookupVocabularyResponseDto',
+    ]) {
+      const schema = schemas[name];
+      expect(schema).toBeDefined();
+      const serialized = JSON.stringify(schema);
+      expect(serialized).toContain('headwords');
+      expect(serialized).toContain('preferred');
+    }
+    expect(JSON.stringify(schemas.DictionaryHeadwordDto)).toContain(
+      'partsOfSpeech',
+    );
+    expect(JSON.stringify(schemas.VocabularyHeadwordDto)).toContain(
+      'relations',
+    );
+    expect(JSON.stringify(schemas.VocabularyPosGroupDto)).toContain(
+      'definitions',
+    );
+  });
 });

@@ -57,7 +57,9 @@ export class VocabularyController {
   // The route's OpenAPI decorators are counted as part of the method.
   // eslint-disable-next-line max-lines-per-function
   @Get('lookup')
-  @ApiOperation({ summary: 'Look up a vocabulary entry with deck membership' })
+  @ApiOperation({
+    summary: 'Look up headwords and definitions with deck membership',
+  })
   @ApiQuery({
     name: 'word',
     type: String,
@@ -82,6 +84,8 @@ export class VocabularyController {
     enum: ['true', 'false'],
     required: false,
     example: 'false',
+    description:
+      'Disable the contextual POS preference; alternatives are always returned.',
   })
   @ApiOkResponse({ type: LookupVocabularyResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })

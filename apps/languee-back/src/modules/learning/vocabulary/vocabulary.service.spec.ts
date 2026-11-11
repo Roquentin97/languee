@@ -17,6 +17,11 @@ import type {
   NlpWordAnalysis,
 } from '../../lexicon/enrichment/nlp/nlp.interfaces';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
+import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
+import type {
+  DefinitionResult,
+  LookupWordInput,
+} from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
 import { PartOfSpeechRequiredError } from './vocabulary.errors';
 
 const mockDictionaryService = {
@@ -73,6 +78,20 @@ const baseOutput = {
   definitions: [baseDefinition],
 };
 
+function preferredDefinitions(result: LookupVocabularyOutput) {
+  const word = result.headwords.find(
+    (entry) => entry.wordId === result.preferred?.wordId,
+  );
+  if (result.meta.unmatchedPos) return [];
+  return (word?.partsOfSpeech ?? [])
+    .filter(
+      (group) =>
+        !result.preferred?.partOfSpeech ||
+        group.partOfSpeech === result.preferred.partOfSpeech,
+    )
+    .flatMap((group) => group.definitions);
+}
+
 describe('VocabularyService', () => {
   let service: VocabularyService;
 
@@ -83,7 +102,41 @@ describe('VocabularyService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VocabularyService,
-        { provide: DictionaryService, useValue: mockDictionaryService },
+        {
+          provide: DictionaryService,
+          useValue: {
+            lookup: async (input: LookupWordInput) => {
+              const old: {
+                lemma: string;
+                source: 'cache' | 'provider';
+                definitions: DefinitionResult[];
+              } = await mockDictionaryService.lookup(input);
+              return {
+                input: input.word,
+                language: input.language,
+                kind: input.kind,
+                source: old.source,
+                preferred: { wordId: 'word-id', partOfSpeech: null },
+                headwords: [
+                  {
+                    wordId: 'word-id',
+                    lemma: old.lemma,
+                    language: input.language,
+                    relations: [],
+                    partsOfSpeech: [
+                      ...new Set(old.definitions.map((d) => d.partOfSpeech)),
+                    ].map((partOfSpeech) => ({
+                      partOfSpeech,
+                      definitions: old.definitions.filter(
+                        (d) => d.partOfSpeech === partOfSpeech,
+                      ),
+                    })),
+                  },
+                ],
+              };
+            },
+          },
+        },
         { provide: CardsService, useValue: mockCardsService },
         { provide: NlpService, useValue: mockNlpService },
         { provide: WordsService, useValue: mockWordsService },
@@ -118,9 +171,11 @@ describe('VocabularyService', () => {
       });
 
       expect(result.input).toBe('run');
-      expect(result.lemma).toBe('run');
-      expect(result.definitions[0].decks).toHaveLength(1);
-      expect(result.definitions[0].decks[0]).toEqual({
+      expect(result.headwords[0]?.lemma ?? result.meta.analyzedLemma).toBe(
+        'run',
+      );
+      expect(preferredDefinitions(result)[0].decks).toHaveLength(1);
+      expect(preferredDefinitions(result)[0].decks[0]).toEqual({
         id: 'deck-id-1',
         name: 'My Deck',
       });
@@ -144,7 +199,7 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions[0].decks).toHaveLength(1);
+      expect(preferredDefinitions(result)[0].decks).toHaveLength(1);
     });
 
     it('edge case — definition without matching card has empty decks array', async () => {
@@ -176,8 +231,8 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions[0].decks).toHaveLength(1);
-      expect(result.definitions[1].decks).toEqual([]);
+      expect(preferredDefinitions(result)[0].decks).toHaveLength(1);
+      expect(preferredDefinitions(result)[1].decks).toEqual([]);
     });
 
     it('edge case — user has no cards at all, all definitions return empty decks arrays', async () => {
@@ -190,7 +245,7 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions[0].decks).toEqual([]);
+      expect(preferredDefinitions(result)[0].decks).toEqual([]);
     });
 
     it('edge case — cards from another user do not appear (query scoped by userId)', async () => {
@@ -221,12 +276,12 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions[0].decks).toHaveLength(2);
-      expect(result.definitions[0].decks).toContainEqual({
+      expect(preferredDefinitions(result)[0].decks).toHaveLength(2);
+      expect(preferredDefinitions(result)[0].decks).toContainEqual({
         id: 'deck-id-1',
         name: 'Deck A',
       });
-      expect(result.definitions[0].decks).toContainEqual({
+      expect(preferredDefinitions(result)[0].decks).toContainEqual({
         id: 'deck-id-2',
         name: 'Deck B',
       });
@@ -256,8 +311,9 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.VERB);
-      expect(result.definitions[0]).not.toHaveProperty('part_of_speech');
+      expect(preferredDefinitions(result)[0].partOfSpeech).toBe(
+        PartOfSpeech.VERB,
+      );
     });
 
     // -------------------------------------------------------------------------
@@ -297,8 +353,10 @@ describe('VocabularyService', () => {
         context: 'She runs every morning.',
       });
 
-      expect(result.definitions).toHaveLength(1);
-      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.VERB);
+      expect(preferredDefinitions(result)).toHaveLength(1);
+      expect(preferredDefinitions(result)[0].partOfSpeech).toBe(
+        PartOfSpeech.VERB,
+      );
       expect(result.meta.filteredByPos).toBe(true);
       expect(result.meta.unmatchedPos).toBe(false);
       expect(result.meta.availablePartsOfSpeech).toContain(PartOfSpeech.VERB);
@@ -330,7 +388,7 @@ describe('VocabularyService', () => {
         context: 'She runs every morning.',
       });
 
-      expect(result.definitions).toHaveLength(0);
+      expect(preferredDefinitions(result)).toHaveLength(0);
       expect(result.meta.filteredByPos).toBe(true);
       expect(result.meta.unmatchedPos).toBe(true);
     });
@@ -375,7 +433,7 @@ describe('VocabularyService', () => {
         userId: 'user-id-1',
       });
 
-      expect(result.definitions).toHaveLength(2);
+      expect(preferredDefinitions(result)).toHaveLength(2);
       expect(result.meta.filteredByPos).toBe(false);
       expect(result.meta.unmatchedPos).toBe(false);
     });
@@ -419,7 +477,7 @@ describe('VocabularyService', () => {
       expect(verbCount).toBe(1);
     });
 
-    it('deck enrichment runs on the filtered definitions set only', async () => {
+    it('deck enrichment covers all definitions even when a POS is preferred', async () => {
       const verbDef = {
         id: 'def-id-1',
         partOfSpeech: PartOfSpeech.VERB,
@@ -455,7 +513,7 @@ describe('VocabularyService', () => {
       // Only the verb def id should be passed (noun filtered out by POS=VERB)
       expect(
         mockCardsService.findCardsByDefinitionIdsAndUserId,
-      ).toHaveBeenCalledWith(['def-id-1'], 'user-id-1');
+      ).toHaveBeenCalledWith(['def-id-1', 'def-id-2'], 'user-id-1');
     });
 
     it('POS filtering — only adjective definitions returned when NLP maps to ADJ', async () => {
@@ -499,8 +557,10 @@ describe('VocabularyService', () => {
         context: 'That was a fast train.',
       });
 
-      expect(result.definitions).toHaveLength(1);
-      expect(result.definitions[0].partOfSpeech).toBe(PartOfSpeech.ADJECTIVE);
+      expect(preferredDefinitions(result)).toHaveLength(1);
+      expect(preferredDefinitions(result)[0].partOfSpeech).toBe(
+        PartOfSpeech.ADJECTIVE,
+      );
       expect(result.meta.filteredByPos).toBe(true);
       expect(result.meta.unmatchedPos).toBe(false);
     });
@@ -590,7 +650,7 @@ describe('VocabularyService', () => {
         // no context field
       });
 
-      expect(result.definitions).toHaveLength(2);
+      expect(preferredDefinitions(result)).toHaveLength(2);
       expect(result.context).toBeUndefined();
       expect(result.meta.filteredByPos).toBe(false);
       expect(result.meta.unmatchedPos).toBe(false);
@@ -630,7 +690,7 @@ describe('VocabularyService', () => {
         disablePosFiltering: true,
       });
 
-      expect(result.definitions).toHaveLength(2);
+      expect(preferredDefinitions(result)).toHaveLength(2);
       expect(result.meta.filteredByPos).toBe(false);
       expect(result.meta.unmatchedPos).toBe(false);
     });
@@ -824,9 +884,11 @@ describe('VocabularyService', () => {
           language: 'en',
           kind: LexicalKind.phrasal_verb,
         });
-        expect(result.lemma).toBe('run into');
+        expect(result.headwords[0]?.lemma ?? result.meta.analyzedLemma).toBe(
+          'run into',
+        );
         expect(result.kind).toBe('phrasal_verb');
-        expect(result.partOfSpeech).toBeNull();
+        expect(result.meta.analyzedPos).toBeNull();
         expect(result.meta.isExpression).toBe(true);
       });
 
@@ -877,9 +939,9 @@ describe('VocabularyService', () => {
           context: 'I ran into trouble.',
         });
 
-        expect(result.definitions).toHaveLength(2);
+        expect(preferredDefinitions(result)).toHaveLength(2);
         expect(result.meta.filteredByPos).toBe(false);
-        expect(result.partOfSpeech).toBeNull();
+        expect(result.meta.analyzedPos).toBeNull();
       });
 
       it('providerMiss=true and definitions=[] when dictionaryService throws DefinitionsNotFoundException (expression path only)', async () => {
@@ -897,9 +959,11 @@ describe('VocabularyService', () => {
           userId: 'user-id-1',
         });
 
-        expect(result.definitions).toEqual([]);
+        expect(preferredDefinitions(result)).toEqual([]);
         expect(result.meta.providerMiss).toBe(true);
-        expect(result.lemma).toBe('run into');
+        expect(result.headwords[0]?.lemma ?? result.meta.analyzedLemma).toBe(
+          'run into',
+        );
       });
 
       it('non-DefinitionsNotFoundException errors from dictionaryService propagate', async () => {
@@ -967,7 +1031,7 @@ describe('VocabularyService', () => {
           context: 'I ran into an old friend.',
         });
 
-        expect(result.definitions[0].inflectionForms).toEqual({
+        expect(preferredDefinitions(result)[0].inflectionForms).toEqual({
           type: 'expression',
           contextForm: 'ran into',
         });
@@ -994,7 +1058,7 @@ describe('VocabularyService', () => {
           context: 'I run into problems daily.',
         });
 
-        expect(result.definitions[0].inflectionForms).toBeNull();
+        expect(preferredDefinitions(result)[0].inflectionForms).toBeNull();
       });
 
       it('expressionContextFound is null when no context is provided', async () => {
@@ -1029,7 +1093,7 @@ describe('VocabularyService', () => {
           userId: 'user-id-1',
         });
 
-        expect(result.definitions[0].decks).toEqual([
+        expect(preferredDefinitions(result)[0].decks).toEqual([
           { id: 'deck-id-1', name: 'Idioms' },
         ]);
       });

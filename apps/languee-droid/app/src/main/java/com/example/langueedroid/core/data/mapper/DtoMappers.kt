@@ -69,17 +69,26 @@ fun EnrichedDefinitionDto.toDomain(): DefinitionResult =
         inflectionForms = inflectionForms,
     )
 
-fun LookupVocabularyResponseDto.toLookupResult(): LookupResult =
-    LookupResult(
+fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
+    val headword = headwords.firstOrNull { it.wordId == preferred?.wordId }
+    val groups = headword?.partsOfSpeech.orEmpty()
+    val selectedGroups =
+        when {
+            meta.unmatchedPos -> emptyList()
+            preferred?.partOfSpeech != null -> groups.filter { it.partOfSpeech == preferred.partOfSpeech }
+            else -> groups
+        }
+    return LookupResult(
         input = input,
-        lemma = lemma,
-        definitions = definitions.map { it.toDomain() },
+        lemma = headword?.lemma ?: meta.analyzedLemma ?: input,
+        definitions = selectedGroups.flatMap { it.definitions }.map { it.toDomain() },
         context = context,
         kind = kind.toLexicalKind(),
         isExpression = meta.isExpression ?: false,
         providerMiss = meta.providerMiss ?: false,
         expressionContextFound = meta.expressionContextFound,
     )
+}
 
 fun CreateUserDefinitionResponseDto.toDomain(): CreatedUserDefinition =
     CreatedUserDefinition(

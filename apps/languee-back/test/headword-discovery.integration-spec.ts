@@ -8,6 +8,7 @@ import { PrismaService } from '../src/modules/system/core/prisma/prisma.service'
 import { WordsService } from '../src/modules/lexicon/entries/words/words.service';
 import { DefinitionService } from '../src/modules/lexicon/entries/definitions/definitions.service';
 import { HeadwordDiscoveryService } from '../src/modules/lexicon/enrichment/dictionary/headword-discovery.service';
+import { DictionaryService } from '../src/modules/lexicon/enrichment/dictionary/dictionary.service';
 import { parseWiktionaryEntry } from '../src/modules/lexicon/enrichment/dictionary/parsers/wiktionary.parser';
 import type {
   MorphologyProvider,
@@ -239,6 +240,11 @@ it('C01/C02/C12 well → good → better → better keeps discovery independent 
   const ids = first.headwords.flatMap((w) => w.definitions.map((d) => d.id));
   expect((await state('better'))?.discoveryCompletedAt).toEqual(new Date());
   const second = await lookup('BETTER');
+  expect(second.source).toBe('cache');
+  expect(second.headwords).toEqual(first.headwords);
+  expect(
+    first.headwords.find((w) => w.lemma === 'good')?.relations,
+  ).toContainEqual({ partOfSpeech: 'adjective', relationType: 'comparative' });
   expect(
     second.headwords.flatMap((w) => w.definitions.map((d) => d.id)),
   ).toEqual(ids);
@@ -498,6 +504,37 @@ it('C20 NFC and case-normalized selected spelling share state and mappings', asy
 
 import { CardsService } from '../src/modules/learning/cards/cards.service';
 import { DecksService } from '../src/modules/learning/decks/decks.service';
+it('creates a card from a definition in the hierarchical lookup response', async () => {
+  const dictionaryService = new DictionaryService(service);
+  const response = await dictionaryService.lookup({
+    word: 'better',
+    lemma: 'good',
+    language: 'en',
+    kind: 'word',
+  });
+  const headword = response.headwords.find((word) => word.lemma === 'good');
+  const definition = headword?.partsOfSpeech.find(
+    (group) => group.partOfSpeech === PartOfSpeech.ADJECTIVE,
+  )?.definitions[0];
+  expect(definition).toBeDefined();
+  const userId = '00000000-0000-0000-0000-000000000001';
+  const deck = await prisma.deck.findFirstOrThrow({ where: { userId } });
+  const cards = new CardsService(
+    prisma,
+    new DecksService(prisma),
+    new DefinitionService(prisma),
+    morphologyService,
+  );
+  const created = await cards.create(
+    userId,
+    deck.id,
+    definition!.id,
+    'It is better',
+    null,
+  );
+  expect(created[0].definitionId).toBe(definition!.id);
+});
+
 it.each([
   ['go', 'verb', true],
   ['child', 'noun', true],

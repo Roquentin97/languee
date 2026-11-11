@@ -20,8 +20,22 @@ export type DefinitionResult = {
   inflectionForms: InflectionForms | null;
 };
 
-export type LookupWordOutput = {
+export type LookupHeadword = {
+  wordId: string;
   lemma: string;
+  language: string;
+  relations: { partOfSpeech: string; relationType: string }[];
+  partsOfSpeech: {
+    partOfSpeech: PartOfSpeech;
+    definitions: DefinitionResult[];
+  }[];
+};
+
+export type LookupWordOutput = {
+  input: string;
+  language: string;
+  kind: LexicalKind;
   source: 'cache' | 'provider';
-  definitions: DefinitionResult[];
+  preferred: { wordId: string; partOfSpeech: PartOfSpeech | null } | null;
+  headwords: LookupHeadword[];
 };

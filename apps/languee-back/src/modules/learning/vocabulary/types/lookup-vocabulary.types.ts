@@ -1,4 +1,5 @@
 import { PartOfSpeech } from '../../../lexicon/types/part-of-speech.enum';
+import type { LookupWordOutput } from '../../../lexicon/enrichment/dictionary/types/lookup-word.types';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 
 export type LookupVocabularyKind = 'word' | 'phrasal_verb' | 'expression';
@@ -27,15 +28,17 @@ export type EnrichedDefinitionResult = {
   decks: DeckRef[];
 };
 
-export type LookupVocabularyOutput = {
-  input: string;
+export type LookupVocabularyOutput = Omit<LookupWordOutput, 'headwords'> & {
   context?: string;
-  lemma: string;
-  language: string;
-  kind: LookupVocabularyKind;
-  partOfSpeech: PartOfSpeech | null;
-  definitions: EnrichedDefinitionResult[];
+  headwords: (Omit<LookupWordOutput['headwords'][number], 'partsOfSpeech'> & {
+    partsOfSpeech: {
+      partOfSpeech: PartOfSpeech;
+      definitions: EnrichedDefinitionResult[];
+    }[];
+  })[];
   meta: {
+    analyzedLemma: string;
+    analyzedPos: PartOfSpeech | null;
     filteredByPos: boolean;
     unmatchedPos: boolean;
     availablePartsOfSpeech: PartOfSpeech[];

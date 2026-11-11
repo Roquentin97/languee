@@ -29,9 +29,25 @@ export class DictionaryService {
     if (!selected)
       throw new DefinitionsNotFoundException(surface, input.language);
     return {
-      lemma: selected.lemma,
+      input: input.word,
+      language: input.language,
+      kind: input.kind,
       source: result.source,
-      definitions: selected.definitions,
+      preferred: { wordId: selected.wordId, partOfSpeech: null },
+      headwords: result.headwords.map((headword) => ({
+        wordId: headword.wordId,
+        lemma: headword.lemma,
+        language: input.language,
+        relations: headword.relations,
+        partsOfSpeech: [
+          ...new Set(headword.definitions.map((d) => d.partOfSpeech)),
+        ].map((partOfSpeech) => ({
+          partOfSpeech,
+          definitions: headword.definitions.filter(
+            (d) => d.partOfSpeech === partOfSpeech,
+          ),
+        })),
+      })),
     };
   }
 }

@@ -112,9 +112,11 @@ describe('DictionaryController (e2e)', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.source).toBe('provider');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(res.body.lemma).toBe('despite');
+      expect(res.body.headwords[0].lemma).toBe('despite');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      expect(res.body.definitions).toHaveLength(1);
+      expect(res.body.headwords[0].partsOfSpeech[0].definitions).toHaveLength(
+        1,
+      );
 
       expect(mockAdapter.fetch).toHaveBeenCalledTimes(1);
 

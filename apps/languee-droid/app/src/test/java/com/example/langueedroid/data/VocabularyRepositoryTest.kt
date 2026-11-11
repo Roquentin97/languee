@@ -12,6 +12,9 @@ import com.example.langueedroid.core.network.dto.DeckRefDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.network.dto.PreferredInterpretationDto
+import com.example.langueedroid.core.network.dto.VocabularyHeadwordDto
+import com.example.langueedroid.core.network.dto.VocabularyPosGroupDto
 import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -343,9 +346,14 @@ class VocabularyRepositoryTest {
         LookupVocabularyResponseDto(
             input = "cat",
             context = null,
-            lemma = "cat",
-            partOfSpeech = "noun",
-            definitions = definitions,
+            language = "en",
+            kind = "word",
+            source = "cache",
+            preferred = PreferredInterpretationDto("word1", null),
+            headwords =
+                listOf(
+                    VocabularyHeadwordDto("word1", "cat", "en", emptyList(), listOf(VocabularyPosGroupDto("noun", definitions))),
+                ),
             meta =
                 LookupMetaDto(
                     filteredByPos = false,
