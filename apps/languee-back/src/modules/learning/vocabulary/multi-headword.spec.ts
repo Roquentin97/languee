@@ -114,9 +114,30 @@ describe('multi-headword vocabulary lookup', () => {
         { id: 'verb', decks: [{ id: 'deck', name: 'Saved' }] },
       );
       expect(cards).toHaveBeenLastCalledWith(['verb', 'adj', 'noun'], 'user');
-      expect(JSON.parse(JSON.stringify(output))).not.toHaveProperty(
-        'definitions',
-      );
+      expect(JSON.parse(JSON.stringify(output))).toMatchObject({
+        input: 'better',
+        preferred: { wordId: 'good', partOfSpeech: preferred },
+        headwords: [
+          {
+            wordId: 'better',
+            partsOfSpeech: [
+              {
+                partOfSpeech: 'verb',
+                definitions: [
+                  { id: 'verb', decks: [{ id: 'deck', name: 'Saved' }] },
+                ],
+              },
+            ],
+          },
+          {
+            wordId: 'good',
+            partsOfSpeech: [
+              { partOfSpeech: 'adjective', definitions: [{ id: 'adj' }] },
+              { partOfSpeech: 'noun', definitions: [{ id: 'noun' }] },
+            ],
+          },
+        ],
+      });
     },
   );
 });

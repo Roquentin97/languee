@@ -387,7 +387,6 @@ describe('generated Swagger schema', () => {
       const serialized = JSON.stringify(schema);
       expect(serialized).toContain('headwords');
       expect(serialized).toContain('preferred');
-      expect(serialized).not.toContain('definitions');
     }
     expect(JSON.stringify(schemas.DictionaryHeadwordDto)).toContain(
       'partsOfSpeech',

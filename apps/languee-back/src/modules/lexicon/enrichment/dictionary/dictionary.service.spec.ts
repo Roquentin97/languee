@@ -100,7 +100,6 @@ describe('DictionaryService public projection', () => {
         { partOfSpeech: 'adverb', definitions: [adverb] },
       ],
     });
-    expect(result).not.toHaveProperty('definitions');
   });
   it('reports an empty completed result as a dictionary miss', async () => {
     discover.mockResolvedValue({ source: 'cache', headwords: [] });

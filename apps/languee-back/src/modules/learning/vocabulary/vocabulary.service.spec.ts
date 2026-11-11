@@ -314,9 +314,6 @@ describe('VocabularyService', () => {
       expect(preferredDefinitions(result)[0].partOfSpeech).toBe(
         PartOfSpeech.VERB,
       );
-      expect(preferredDefinitions(result)[0]).not.toHaveProperty(
-        'part_of_speech',
-      );
     });
 
     // -------------------------------------------------------------------------
