@@ -272,3 +272,97 @@ def test_get_words_input_text_with_word_no_phrasal_verb():
     ita = body["input_text_analysis"]
     assert ita["detected_expression"] is None
     assert ita["warnings"] == []
+
+
+def test_explicit_second_occurrence_is_forwarded_without_normalizing_context():
+    context = "😀 I saw the saw."
+    nlp = _make_single_token_nlp(text="saw")
+    with (
+        patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp),
+        patch("languee_nlp.routers.analyze.resolve_token_from_context") as resolve,
+    ):
+        result = MagicMock()
+        result.token = _make_mock_token(text="saw", lemma="saw", pos="NOUN")
+        result.matched_token_index = 4
+        result.confidence = "high"
+        result.detected_expression = None
+        result.warnings = []
+        resolve.return_value = result
+        response = client.get(
+            "/analyze",
+            params={
+                "text": "saw",
+                "input_text": context,
+                "selection_start": 12,
+                "selection_end": 15,
+            },
+            auth=AUTH,
+        )
+    assert response.status_code == 200
+    assert resolve.call_args.args[2:] == (context, 12, 15)
+
+
+def test_invalid_explicit_selection_does_not_fall_back():
+    nlp = _make_single_token_nlp(text="saw")
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp):
+        response = client.get(
+            "/analyze",
+            params={
+                "text": "saw",
+                "input_text": "I saw the saw.",
+                "selection_start": 3,
+                "selection_end": 5,
+            },
+            auth=AUTH,
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "SELECTION_DOES_NOT_MATCH_INPUT"
+
+
+def test_unicode_selection_validation_and_pair_invariants():
+    import pytest
+    from fastapi import HTTPException
+
+    from languee_nlp.routers.analyze import _validate_selection
+
+    _validate_selection("café", "😀 CAFE\u0301!", 2, 7, 1)
+    for context, start, end in [
+        ("saw", 0, None),
+        (None, 0, 3),
+        ("saw", -1, 3),
+        ("saw", 3, 1),
+        ("saw", 0, 4),
+        ("saws", 0, 3),
+        ("saw", 1, 3),
+    ]:
+        with pytest.raises(HTTPException) as exc:
+            _validate_selection("saw", context, start, end, 1)
+        assert exc.value.detail == "SELECTION_DOES_NOT_MATCH_INPUT"
+
+
+def test_repeated_word_uses_selected_spacy_token():
+    import en_core_web_md
+
+    nlp = en_core_web_md.load()
+    with patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp):
+        responses = [
+            client.get(
+                "/analyze",
+                params={
+                    "text": "saw",
+                    "input_text": "I saw the saw.",
+                    "selection_start": start,
+                    "selection_end": end,
+                },
+                auth=AUTH,
+            )
+            for start, end in [(2, 5), (10, 13)]
+        ]
+    assert all(response.status_code == 200 for response in responses)
+    assert [
+        (r.json()["tokens"][0]["lemma"], r.json()["tokens"][0]["pos"])
+        for r in responses
+    ] == [
+        ("see", "VERB"),
+        ("saw", "NOUN"),
+    ]

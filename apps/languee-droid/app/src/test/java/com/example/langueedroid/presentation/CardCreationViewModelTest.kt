@@ -113,7 +113,7 @@ class CardCreationViewModelTest {
     }
 
     private suspend fun stubLookup(result: LookupResult = aLookupResult()) {
-        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(result))
     }
 
@@ -174,7 +174,7 @@ class CardCreationViewModelTest {
             advanceUntilIdle()
 
             assertTrue(vm.state.value.flowState is CardCreationFlowState.DefinitionsLoaded)
-            verify(vocabularyRepository).lookup(eq("cat"), eq("en"), eq("I have a cat"))
+            verify(vocabularyRepository).lookup(eq("cat"), eq("en"), eq("I have a cat"), anyOrNull(), anyOrNull())
         }
 
     @Test
@@ -261,7 +261,7 @@ class CardCreationViewModelTest {
             vm.onDeckSelected(deck)
             advanceUntilIdle()
 
-            verify(vocabularyRepository, times(1)).lookup(any(), anyOrNull(), anyOrNull())
+            verify(vocabularyRepository, times(1)).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -325,7 +325,7 @@ class CardCreationViewModelTest {
             buildViewModel(language = "es")
             advanceUntilIdle()
 
-            verify(vocabularyRepository).lookup(eq("cat"), eq("es"), eq("I have a cat"))
+            verify(vocabularyRepository).lookup(eq("cat"), eq("es"), eq("I have a cat"), anyOrNull(), anyOrNull())
         }
 
     @Test
@@ -348,7 +348,7 @@ class CardCreationViewModelTest {
     fun `vocabulary lookup 404 — LookupError shown with message`() =
         runTest {
             stubDecks(aDeck())
-            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("Vocabulary lookup failed: HTTP 404")))
 
             val vm = buildViewModel()
@@ -363,7 +363,7 @@ class CardCreationViewModelTest {
     fun `vocabulary lookup 502 — LookupError shown`() =
         runTest {
             stubDecks(aDeck())
-            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("Vocabulary lookup failed: HTTP 502")))
 
             val vm = buildViewModel()
@@ -382,7 +382,7 @@ class CardCreationViewModelTest {
             advanceUntilIdle()
 
             // Re-stub for 401 and explicitly trigger a retry
-            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(UnauthorizedException()))
             var unauthorizedCalled = false
             val job =
@@ -401,7 +401,7 @@ class CardCreationViewModelTest {
     fun `vocabulary lookup ExpressionTooLongException — LookupError with EXPRESSION_TOO_LONG`() =
         runTest {
             stubDecks(aDeck())
-            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(ExpressionTooLongException()))
 
             val vm = buildViewModel(targetWord = "one two three four five six seven")
@@ -416,7 +416,7 @@ class CardCreationViewModelTest {
     fun `vocabulary lookup LookupInputInvalidException — LookupError with LOOKUP_INPUT_INVALID`() =
         runTest {
             stubDecks(aDeck())
-            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(LookupInputInvalidException()))
 
             val vm = buildViewModel(targetWord = "state-of-the-art")
@@ -473,7 +473,7 @@ class CardCreationViewModelTest {
 
             val switched = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
             assertEquals(DefinitionState.ExistsInAnotherDeck, switched.definitionState)
-            verify(vocabularyRepository, times(1)).lookup(any(), anyOrNull(), anyOrNull())
+            verify(vocabularyRepository, times(1)).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     @Test
@@ -1098,7 +1098,7 @@ class CardCreationViewModelTest {
             assertTrue(flowState is CardCreationFlowState.DefinitionsLoaded)
             assertEquals(CardCreationError.DEFINITION_ALREADY_EXISTS, (flowState as CardCreationFlowState.DefinitionsLoaded).notice)
             assertEquals("existing_def", flowState.definitions[0].id)
-            verify(vocabularyRepository, times(2)).lookup(any(), anyOrNull(), anyOrNull())
+            verify(vocabularyRepository, times(2)).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     @Test

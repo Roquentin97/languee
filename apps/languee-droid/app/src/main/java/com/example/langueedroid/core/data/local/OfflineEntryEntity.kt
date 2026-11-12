@@ -10,6 +10,10 @@ data class OfflineEntryEntity(
     val word: String,
     val context: String?,
     val capturedAt: Long,
+    val language: String? = null,
+    val lookupContext: String? = null,
+    val selectionStart: Int? = null,
+    val selectionEnd: Int? = null,
 )
 
 fun OfflineEntryEntity.toDomain() =
@@ -18,4 +22,8 @@ fun OfflineEntryEntity.toDomain() =
         word = word,
         context = context,
         capturedAt = capturedAt,
+        language = language,
+        lookupContext = lookupContext,
+        selectionStart = selectionStart,
+        selectionEnd = selectionEnd,
     )

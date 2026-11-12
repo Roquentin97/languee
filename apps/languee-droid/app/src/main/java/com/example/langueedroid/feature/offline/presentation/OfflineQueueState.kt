@@ -11,4 +11,8 @@ data class OfflineCardCreationRequest(
     val word: String,
     val context: String?,
     val entryId: String,
+    val language: String? = null,
+    val lookupContext: String? = null,
+    val selectionStart: Int? = null,
+    val selectionEnd: Int? = null,
 )

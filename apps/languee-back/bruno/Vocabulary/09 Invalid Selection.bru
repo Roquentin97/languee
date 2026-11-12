@@ -1,0 +1,17 @@
+meta {
+  name: 09 Invalid Selection
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{base_url}}/api/v1/vocabulary/lookup?word=saw&context=I%20saw%20the%20saw.&selectionStart=3&selectionEnd=5
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("expected status", function() {
+    expect(res.status).to.equal(400);
+  });
+}

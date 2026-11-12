@@ -9,6 +9,8 @@ export type LookupVocabularyInput = {
   language: string;
   userId: string;
   context?: string;
+  selectionStart?: number;
+  selectionEnd?: number;
   disablePosFiltering?: boolean;
 };
 

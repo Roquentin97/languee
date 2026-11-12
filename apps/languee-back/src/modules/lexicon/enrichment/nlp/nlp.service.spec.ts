@@ -489,6 +489,22 @@ describe('NlpService', () => {
       );
     });
 
+    it('forwards explicit occurrence offsets to NLP', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(makeNounResponse()),
+      });
+      global.fetch = mockFetch;
+      await service.analyze('saw', 'I saw the saw.', 'en', {
+        start: 10,
+        end: 13,
+      });
+      const url = getFirstFetchUrl(mockFetch);
+      expect(url.searchParams.get('selection_start')).toBe('10');
+      expect(url.searchParams.get('selection_end')).toBe('13');
+      expect(url.searchParams.get('input_text')).toBe('I saw the saw.');
+    });
+
     it('blank context is omitted from the NLP request', async () => {
       const mockFetch = jest.fn().mockResolvedValue({
         ok: true,

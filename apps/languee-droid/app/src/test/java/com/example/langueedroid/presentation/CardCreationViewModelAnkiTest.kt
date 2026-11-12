@@ -156,7 +156,7 @@ class CardCreationViewModelAnkiTest {
         val deck = aDeck()
         val definition = aDefinition()
         whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
-        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+        whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .thenReturn(Result.success(aLookupResult()))
 
         val vm = buildViewModel()
@@ -179,7 +179,7 @@ class CardCreationViewModelAnkiTest {
         runTest {
             val deck = aDeck()
             whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
-            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.success(aLookupResult()))
             whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-1"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupNotReady())

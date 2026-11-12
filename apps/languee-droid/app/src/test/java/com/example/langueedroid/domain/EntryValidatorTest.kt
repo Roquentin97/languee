@@ -230,6 +230,23 @@ class EntryValidatorTest {
     // -------------------------------------------------------------------------
 
     @Test
+    fun `splitIntoTokens preserves supplementary letters and combining marks`() {
+        val text = "😀 café cafe\u0301 𐐀word"
+        val tokens = EntryValidator.splitIntoTokens(text)
+        assertEquals(
+            listOf(
+                Token.Separator("😀 "),
+                Token.Word("café"),
+                Token.Separator(" "),
+                Token.Word("cafe\u0301"),
+                Token.Separator(" "),
+                Token.Word("𐐀word"),
+            ),
+            tokens,
+        )
+    }
+
+    @Test
     fun `splitIntoTokens splits simple sentence into words and separators`() {
         val tokens = EntryValidator.splitIntoTokens("Hello world")
         assertEquals(3, tokens.size)

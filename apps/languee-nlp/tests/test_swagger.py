@@ -32,7 +32,11 @@ def test_openapi_schema_describes_health_routes():
         "text",
         "input_text",
         "language",
+        "selection_start",
+        "selection_end",
     ]
     assert parameters[0]["required"] is True
     assert parameters[1]["required"] is False
     assert parameters[2]["required"] is False
+    assert parameters[3]["required"] is False
+    assert parameters[4]["required"] is False

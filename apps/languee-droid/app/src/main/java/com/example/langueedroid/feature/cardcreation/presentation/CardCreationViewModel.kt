@@ -53,6 +53,9 @@ class CardCreationViewModel
         @Assisted("targetWord") private val targetWord: String,
         @Assisted("context") private val context: String?,
         @Assisted("language") private val language: String,
+        @Assisted("lookupContext") private val lookupContext: String? = null,
+        @Assisted("selectionStart") private val selectionStart: Int? = null,
+        @Assisted("selectionEnd") private val selectionEnd: Int? = null,
         private val deckRepository: DeckRepository,
         private val vocabularyRepository: VocabularyRepository,
         private val cardRepository: CardRepository,
@@ -69,6 +72,9 @@ class CardCreationViewModel
                 @Assisted("targetWord") targetWord: String,
                 @Assisted("context") context: String?,
                 @Assisted("language") language: String,
+                @Assisted("lookupContext") lookupContext: String?,
+                @Assisted("selectionStart") selectionStart: Int?,
+                @Assisted("selectionEnd") selectionEnd: Int?,
             ): CardCreationViewModel
         }
 
@@ -197,7 +203,9 @@ class CardCreationViewModel
                     .lookup(
                         word = targetWord,
                         language = language,
-                        context = context,
+                        context = lookupContext ?: context,
+                        selectionStart = selectionStart,
+                        selectionEnd = selectionEnd,
                     ).fold(
                         onSuccess = { result ->
                             _state.value =

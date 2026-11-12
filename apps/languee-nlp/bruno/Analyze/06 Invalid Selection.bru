@@ -1,0 +1,17 @@
+meta {
+  name: 06 Invalid Selection
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{base_url}}/analyze?text=saw&input_text=I%20saw%20the%20saw.&selection_start=3&selection_end=5
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("expected status", function() {
+    expect(res.status).to.equal(422);
+  });
+}

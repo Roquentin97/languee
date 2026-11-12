@@ -21,6 +21,8 @@ class VocabularyRepository(
         word: String,
         language: String? = null,
         context: String? = null,
+        selectionStart: Int? = null,
+        selectionEnd: Int? = null,
     ): Result<LookupResult> =
         runCatching {
             // Fail fast on obviously-too-long input so the user gets a specific message without a
@@ -29,7 +31,14 @@ class VocabularyRepository(
                 logger.info("vocabulary.expression_too_long", mapOf("max_words" to ExpressionLimits.MAX_WORDS.toString()))
                 throw ExpressionTooLongException()
             }
-            val response = vocabularyApi.lookup(word = word, language = language, context = context)
+            val response =
+                vocabularyApi.lookup(
+                    word = word,
+                    language = language,
+                    context = context,
+                    selectionStart = selectionStart,
+                    selectionEnd = selectionEnd,
+                )
             when {
                 response.isSuccessful -> {
                     val body =

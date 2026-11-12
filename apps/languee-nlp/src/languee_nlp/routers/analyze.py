@@ -121,9 +121,16 @@ def _analyze_isolated_word(
 
 
 def _analyze_word_in_input_text(
-    word: str, input_text: str, language: str
+    word: str,
+    input_text: str,
+    language: str,
+    selection_start: int | None = None,
+    selection_end: int | None = None,
 ) -> JSONResponse:
-    context, selection_start, selection_end = _find_word_span(input_text, word)
+    if selection_start is None or selection_end is None:
+        context, selection_start, selection_end = _find_word_span(input_text, word)
+    else:
+        context = input_text
     result = resolve_token_from_context(
         get_nlp(language),
         word,
@@ -162,6 +169,33 @@ def _analyze_word_in_input_text(
             input_text_analysis=input_text_analysis,
         )
     )
+
+
+def _validate_selection(
+    word: str, context: str | None, start: int | None, end: int | None, count: int
+) -> None:
+    if start is None and end is None:
+        return
+
+    def word_char(char: str) -> bool:
+        return (
+            char.isalnum() or char == "_" or unicodedata.category(char).startswith("M")
+        )
+
+    valid = (
+        start is not None
+        and end is not None
+        and context is not None
+        and bool(context.strip())
+        and 0 <= start < end <= len(context)
+        and count == 1
+        and unicodedata.normalize("NFC", context[start:end]).casefold()
+        == unicodedata.normalize("NFC", word).casefold()
+        and (start == 0 or not word_char(context[start - 1]))
+        and (end == len(context) or not word_char(context[end]))
+    )
+    if not valid:
+        raise HTTPException(status_code=422, detail="SELECTION_DOES_NOT_MATCH_INPUT")
 
 
 def _analyze_expression(
@@ -226,6 +260,9 @@ def _analyze_expression(
     response_model=WordAnalysisResponse | ExpressionAnalysisResponse,
     summary="Analyze a word or multi-word expression with optional context",
     dependencies=[Depends(require_basic_auth)],
+    responses={
+        422: {"description": "Invalid selection: SELECTION_DOES_NOT_MATCH_INPUT"}
+    },
 )
 def analyze(
     text: Annotated[
@@ -240,6 +277,14 @@ def analyze(
         str,
         Query(description="Language of the text. Only 'en' is supported."),
     ] = "en",
+    selection_start: Annotated[
+        int | None,
+        Query(description="Inclusive Unicode code-point offset in input_text."),
+    ] = None,
+    selection_end: Annotated[
+        int | None,
+        Query(description="Exclusive Unicode code-point offset in input_text."),
+    ] = None,
 ) -> JSONResponse:
     logger.debug(
         "request",
@@ -262,6 +307,8 @@ def analyze(
     nlp = get_nlp(validated_language)
     doc = nlp(sanitized)
 
+    _validate_selection(sanitized, input_text, selection_start, selection_end, len(doc))
+
     logger.debug(
         "tokenized",
         extra={
@@ -277,6 +324,8 @@ def analyze(
     if len(doc) == 1:
         if input_text is None or not input_text.strip():
             return _analyze_isolated_word(doc, sanitized, validated_language)
-        return _analyze_word_in_input_text(sanitized, input_text, validated_language)
+        return _analyze_word_in_input_text(
+            sanitized, input_text, validated_language, selection_start, selection_end
+        )
 
     return _analyze_expression(nlp, doc, sanitized, input_text, validated_language)

@@ -97,6 +97,37 @@ describe('VocabularyController', () => {
   });
 
   describe('lookup()', () => {
+    it('forwards the selected Unicode code-point span', async () => {
+      mockVocabularyService.lookup.mockResolvedValue(successOutput);
+      await controller.lookup(
+        {
+          word: 'saw',
+          context: '😀 I saw the saw.',
+          selectionStart: '12',
+          selectionEnd: '15',
+        },
+        mockUser,
+      );
+      expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
+        expect.objectContaining({ selectionStart: 12, selectionEnd: 15 }),
+      );
+    });
+    it.each([
+      { selectionStart: '2' },
+      { selectionStart: '-1', selectionEnd: '5' },
+      { selectionStart: '3', selectionEnd: '5' },
+      { selectionStart: '10', selectionEnd: '99' },
+      { selectionStart: '10', selectionEnd: '2' },
+    ])('rejects invalid selections: %j', async (offsets) => {
+      await expect(
+        controller.lookup(
+          { word: 'saw', context: 'I saw the saw.', ...offsets },
+          mockUser,
+        ),
+      ).rejects.toThrow('INPUT_INVALID');
+      expect(mockVocabularyService.lookup).not.toHaveBeenCalled();
+    });
+
     it('happy path — returns vocabulary service output', async () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
 

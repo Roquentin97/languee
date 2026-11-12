@@ -55,6 +55,7 @@ sealed class AppState {
             val isMultiSentence: Boolean,
             val highlightRanges: kotlin.collections.List<IntRange>,
             val selectedLanguage: String = "en",
+            val selection: IntRange? = null,
         ) : Screen()
 
         /**

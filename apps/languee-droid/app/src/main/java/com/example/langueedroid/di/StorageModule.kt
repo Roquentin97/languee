@@ -7,6 +7,7 @@ import com.example.langueedroid.core.data.ConnectivityObserver
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.local.AppDatabase
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.data.local.MIGRATION_1_2
 import com.example.langueedroid.core.data.local.OfflineEntryDao
 import dagger.Module
 import dagger.Provides
@@ -34,7 +35,11 @@ object StorageModule {
     @Singleton
     fun provideAppDatabase(
         @ApplicationContext context: Context,
-    ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "languee_droid.db").build()
+    ): AppDatabase =
+        Room
+            .databaseBuilder(context, AppDatabase::class.java, "languee_droid.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     @Singleton
