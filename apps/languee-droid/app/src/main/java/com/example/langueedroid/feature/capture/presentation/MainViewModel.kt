@@ -139,7 +139,7 @@ class MainViewModel
 
         fun returnToCapture(): Boolean {
             val current = workspace ?: return false
-            _state.value = current.copy(selectedIndices = emptyList(), inspectedIndex = null).also { workspace = it }
+            _state.value = current
             return true
         }
 

@@ -152,8 +152,7 @@ class MainViewModelTest {
         assertTrue(viewModel.returnToCapture())
         state = currentState as AppState.Screen.SharedContextCapture
         assertEquals(1, state.completed.size)
-        assertTrue(state.selectedIndices.isEmpty())
-        viewModel.onWordTokenTapped(second)
+        assertEquals(listOf(second), state.selectedIndices)
         viewModel.confirmWordSelection()
         assertTrue(
             viewModel.captureCompleted(
