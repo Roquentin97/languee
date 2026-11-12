@@ -47,32 +47,6 @@ import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
 import type { CreateUserDefinitionOutput } from './types/create-user-definition.types';
 import { VocabularyService } from './vocabulary.service';
 
-function validateSelection(query: LookupVocabularyDto): void {
-  const { selectionStart, selectionEnd, context, word } = query;
-  if (selectionStart !== undefined || selectionEnd !== undefined) {
-    const start = Number(selectionStart);
-    const end = Number(selectionEnd);
-    const chars = Array.from(context ?? '');
-    const isWordChar = (char: string) => /[\p{L}\p{N}\p{M}_]/u.test(char);
-    if (
-      selectionStart === undefined ||
-      selectionEnd === undefined ||
-      !/^\d+$/.test(selectionStart) ||
-      !/^\d+$/.test(selectionEnd) ||
-      !Number.isSafeInteger(start) ||
-      !Number.isSafeInteger(end) ||
-      start >= end ||
-      end > chars.length ||
-      !context?.trim() ||
-      chars.slice(start, end).join('').normalize('NFC').toLowerCase() !==
-        word.normalize('NFC').toLowerCase() ||
-      (start > 0 && isWordChar(chars[start - 1])) ||
-      (end < chars.length && isWordChar(chars[end]))
-    )
-      throw new BadRequestException('INPUT_INVALID');
-  }
-}
-
 @ApiTags('vocabulary')
 @ApiBearerAuth('access-token')
 @Controller(`${API_V1_PREFIX}/vocabulary`)
@@ -141,7 +115,7 @@ export class VocabularyController {
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<LookupVocabularyOutput> {
     try {
-      validateSelection(query);
+      this.validateSelection(query);
       const { selectionStart, selectionEnd } = query;
       return await this.vocabularyService.lookup({
         word: query.word,
@@ -215,6 +189,32 @@ export class VocabularyController {
         throw new BadGatewayException('PROVIDER_UNAVAILABLE');
       }
       throw err;
+    }
+  }
+
+  private validateSelection(query: LookupVocabularyDto): void {
+    const { selectionStart, selectionEnd, context, word } = query;
+    if (selectionStart !== undefined || selectionEnd !== undefined) {
+      const start = Number(selectionStart);
+      const end = Number(selectionEnd);
+      const chars = Array.from(context ?? '');
+      const isWordChar = (char: string) => /[\p{L}\p{N}\p{M}_]/u.test(char);
+      if (
+        selectionStart === undefined ||
+        selectionEnd === undefined ||
+        !/^\d+$/.test(selectionStart) ||
+        !/^\d+$/.test(selectionEnd) ||
+        !Number.isSafeInteger(start) ||
+        !Number.isSafeInteger(end) ||
+        start >= end ||
+        end > chars.length ||
+        !context?.trim() ||
+        chars.slice(start, end).join('').normalize('NFC').toLowerCase() !==
+          word.normalize('NFC').toLowerCase() ||
+        (start > 0 && isWordChar(chars[start - 1])) ||
+        (end < chars.length && isWordChar(chars[end]))
+      )
+        throw new BadRequestException('INPUT_INVALID');
     }
   }
 }
