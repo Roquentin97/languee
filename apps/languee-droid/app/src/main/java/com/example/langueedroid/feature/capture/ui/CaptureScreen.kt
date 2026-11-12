@@ -583,7 +583,12 @@ private fun SharedContextCaptureContent(
             if (statusUnavailable) Text("Saved vocabulary is unavailable", color = TextSecondary)
             SelectableTokens(tokens, selectedIndices, completed, savedVocabulary, onWordTapped, scrollState, Modifier.weight(1f))
             val handled = completed.firstOrNull { inspectedIndex != null && inspectedIndex in it.indices }
-            val inspected = (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
+            val inspected =
+                if (selectedIndices.size > 1) {
+                    ExpressionSpanSelector.joinSelection(tokens, selectedIndices)
+                } else {
+                    (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
+                }
             val saved = savedVocabulary.filter { it.headword.equals(inspected, ignoreCase = true) }
             if (handled != null) {
                 Text("Added: ${handled.definition} · ${handled.deckName}")

@@ -53,6 +53,21 @@ class CaptureWorkspaceTest {
         composeRule.onNodeWithText("Done").assertIsDisplayed()
     }
 
+    @Test
+    fun savedExpressionDetailsFollowTheWholeSelection() {
+        showWorkspace(
+            AppState.Screen.SharedContextCapture(
+                tokens = EntryValidator.splitIntoTokens("They looked it up."),
+                rawContext = "They looked it up.",
+                selectedIndices = listOf(2, 6),
+                inspectedIndex = 6,
+                savedVocabulary = listOf(SavedVocabulary("looked up", "phrase", "Searched for information", listOf("English"))),
+            ),
+        )
+        composeRule.onNodeWithText("1 saved definition · Details").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("phrase: Searched for information\nEnglish").assertIsDisplayed()
+    }
+
     private fun showWorkspace(state: AppState.Screen.SharedContextCapture) {
         composeRule.setContent {
             MaterialTheme {
