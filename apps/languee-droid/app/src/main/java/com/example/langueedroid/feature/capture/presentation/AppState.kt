@@ -1,11 +1,14 @@
 package com.example.langueedroid.feature.capture.presentation
 
+import com.example.langueedroid.core.data.SavedVocabulary
 import com.example.langueedroid.core.domain.Token
 
 sealed class AppState {
     sealed class Screen : AppState() {
         /** The deck list screen showing all user decks. */
         object Decks : Screen()
+
+        object TextInput : Screen()
 
         /**
          * Manual capture: two text fields (target word, optional context).
@@ -16,10 +19,7 @@ sealed class AppState {
             val selectedLanguage: String = "en",
         ) : Screen()
 
-        /**
-         * Shared single-word capture: the app received one word via the share intent.
-         * Offers: add context manually, save without context, cancel.
-         */
+        /** Shared single-word target awaiting card editor navigation. */
         data class SharedWordCapture(
             val word: String,
             val selectedLanguage: String = "en",
@@ -39,6 +39,10 @@ sealed class AppState {
             val rawContext: String,
             val selectedIndices: kotlin.collections.List<Int> = emptyList(),
             val selectedLanguage: String = "en",
+            val completed: kotlin.collections.List<CompletedTarget> = emptyList(),
+            val savedVocabulary: kotlin.collections.List<SavedVocabulary> = emptyList(),
+            val savedStatusUnavailable: Boolean = false,
+            val inspectedIndex: Int? = null,
         ) : Screen()
 
         /**
@@ -67,3 +71,9 @@ sealed class AppState {
         ) : Screen()
     }
 }
+
+data class CompletedTarget(
+    val indices: List<Int>,
+    val definition: String,
+    val deckName: String,
+)

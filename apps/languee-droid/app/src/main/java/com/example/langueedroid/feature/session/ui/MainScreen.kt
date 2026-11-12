@@ -1,5 +1,7 @@
 package com.example.langueedroid.feature.session.ui
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -10,7 +12,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -30,6 +37,8 @@ import com.example.langueedroid.feature.anki.ui.AnkiDroidSyncScreen
 import com.example.langueedroid.feature.capture.presentation.AnkiStatusNotification
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
 import com.example.langueedroid.feature.decks.presentation.DeckDetailViewModel
@@ -50,12 +59,31 @@ fun MainScreen(
     logoutInProgress: Boolean,
     onUnauthorized: () -> Unit,
     sharedText: String?,
+    shareId: Long = 0L,
+    onExitSharedCapture: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
+    LaunchedEffect(mainViewModel) { mainViewModel.unauthorizedEvent.collect { onUnauthorized() } }
     val navController = rememberNavController()
+    val context = LocalContext.current
+    LaunchedEffect(mainViewModel, context) {
+        mainViewModel.exportFailures.collect {
+            Toast.makeText(context, "Added to deck. AnkiDroid sync needs attention; check Sync.", Toast.LENGTH_LONG).show()
+        }
+    }
 
-    ObserveMainNavigation(sharedText, mainViewModel, navController)
+    val offlineQueueError by mainViewModel.offlineQueueError.collectAsState()
+    if (offlineQueueError) {
+        AlertDialog(
+            onDismissRequest = { mainViewModel.dismissOfflineQueueError() },
+            title = { Text("Could not queue word") },
+            text = { Text("Your word could not be saved for offline review. Please try again.") },
+            confirmButton = { TextButton(onClick = { mainViewModel.dismissOfflineQueueError() }) { Text("OK") } },
+        )
+    }
+
+    ObserveMainNavigation(sharedText, shareId, mainViewModel, navController, onExitSharedCapture)
 
     val ankiStatusNotification by mainViewModel.ankiStatusNotification.collectAsState()
     ankiStatusNotification?.let { notification ->
@@ -79,8 +107,8 @@ fun MainScreen(
     ) {
         decksRoute(navController, mainViewModel, onUnauthorized, onLogout, logoutInProgress, isOffline, offlineQueueCount)
         deckDetailRoute(navController, mainViewModel, onUnauthorized)
-        captureRoute(navController, mainViewModel)
-        cardCreationRoute(navController, mainViewModel, onUnauthorized)
+        captureRoute(navController, mainViewModel, onExitSharedCapture)
+        cardCreationRoute(navController, mainViewModel, onUnauthorized, onExitSharedCapture)
         ankiSetupRoute(navController)
         ankiSyncRoute(navController)
         reviewRoute(navController, onUnauthorized)
@@ -91,11 +119,15 @@ fun MainScreen(
 @Composable
 private fun ObserveMainNavigation(
     sharedText: String?,
+    shareId: Long,
     mainViewModel: MainViewModel,
     navController: NavHostController,
+    onExitSharedCapture: () -> Unit,
 ) {
-    LaunchedEffect(sharedText) {
-        if (!sharedText.isNullOrBlank()) {
+    var handledShareId by rememberSaveable { mutableStateOf(-1L) }
+    LaunchedEffect(sharedText, shareId) {
+        if (handledShareId != shareId && !sharedText.isNullOrBlank()) {
+            handledShareId = shareId
             mainViewModel.startSharedTextCapture(sharedText)
             navController.navigate(MainNavRoutes.CAPTURE) {
                 popUpTo(MainNavRoutes.DECKS) { inclusive = false }
@@ -105,6 +137,7 @@ private fun ObserveMainNavigation(
 
     LaunchedEffect(mainViewModel) {
         mainViewModel.cardCreationRequest.collect { request ->
+            if (request.sessionId != mainViewModel.sessionId) return@collect
             val route = MainNavRoutes.cardCreation(request.targetWord, request.context, language = request.language)
             navController.navigate(route) {
                 popUpTo(MainNavRoutes.CAPTURE) { inclusive = false }
@@ -113,9 +146,9 @@ private fun ObserveMainNavigation(
     }
 
     LaunchedEffect(mainViewModel) {
-        mainViewModel.offlineWordSaved.collect {
-            mainViewModel.dismissCapture()
-            navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+        mainViewModel.offlineWordSaved.collect { generation ->
+            if (generation != mainViewModel.sessionId) return@collect
+            endCapture(mainViewModel, onExitSharedCapture) { navController.popBackStack(MainNavRoutes.DECKS, inclusive = false) }
         }
     }
 
@@ -142,6 +175,16 @@ private fun ObserveMainNavigation(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+}
+
+private fun endCapture(
+    mainViewModel: MainViewModel,
+    onExitSharedCapture: () -> Unit,
+    navigate: () -> Unit,
+) {
+    val external = mainViewModel.fromExternalShare
+    mainViewModel.dismissCapture()
+    if (external) onExitSharedCapture() else navigate()
 }
 
 private fun NavGraphBuilder.decksRoute(
@@ -192,6 +235,14 @@ private fun NavGraphBuilder.decksRoute(
             isOffline = isOffline,
             offlineQueueCount = offlineQueueCount,
             onOfflineStripClick = { navController.navigate(MainNavRoutes.OFFLINE_QUEUE) },
+            onAddWord = {
+                mainViewModel.startManualAdd()
+                navController.navigate(MainNavRoutes.CAPTURE)
+            },
+            onCaptureText = {
+                mainViewModel.startTextInput()
+                navController.navigate(MainNavRoutes.CAPTURE)
+            },
         )
     }
 }
@@ -235,7 +286,7 @@ private fun NavGraphBuilder.deckDetailRoute(
             deckName = deckName,
             state = deckDetailState,
             onAddWord = {
-                mainViewModel.startManualAdd()
+                mainViewModel.startManualAdd(deckId = deckId)
                 navController.navigate(MainNavRoutes.CAPTURE)
             },
             onRetry = { deckDetailViewModel.loadCards() },
@@ -247,9 +298,21 @@ private fun NavGraphBuilder.deckDetailRoute(
 private fun NavGraphBuilder.captureRoute(
     navController: NavHostController,
     mainViewModel: MainViewModel,
+    onExitSharedCapture: () -> Unit,
 ) {
     composable(MainNavRoutes.CAPTURE) {
         val captureState by mainViewModel.state.collectAsState()
+        LaunchedEffect(captureState) {
+            val sharedWord = captureState as? com.example.langueedroid.feature.capture.presentation.AppState.Screen.SharedWordCapture
+            if (sharedWord != null) mainViewModel.addEntry(sharedWord.word, null)
+        }
+        BackHandler {
+            if (!mainViewModel.returnToCapture()) {
+                endCapture(mainViewModel, onExitSharedCapture) { navController.popBackStack() }
+            } else if (captureState is com.example.langueedroid.feature.capture.presentation.AppState.Screen.SharedContextCapture) {
+                endCapture(mainViewModel, onExitSharedCapture) { navController.popBackStack() }
+            }
+        }
         CaptureScreen(
             state =
                 captureState as? com.example.langueedroid.feature.capture.presentation.AppState.Screen
@@ -270,8 +333,12 @@ private fun NavGraphBuilder.captureRoute(
                 }
             },
             onDismiss = {
-                mainViewModel.dismissCapture()
-                navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                val reviewing =
+                    captureState is com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextReview ||
+                        captureState is com.example.langueedroid.feature.capture.presentation.AppState.Screen.ContextEdit
+                if (!reviewing || !mainViewModel.returnToCapture()) {
+                    endCapture(mainViewModel, onExitSharedCapture) { navController.popBackStack() }
+                }
             },
             onContextEditSave = { editedContext -> mainViewModel.onContextEditSave(editedContext) },
             onConfirmSaveWithoutContext = {
@@ -283,6 +350,7 @@ private fun NavGraphBuilder.captureRoute(
                 }
             },
             onSelectLanguage = { code -> mainViewModel.selectLanguage(code) },
+            onStartTextWorkspace = { text -> mainViewModel.startTextWorkspace(text) },
         )
     }
 }
@@ -291,6 +359,7 @@ private fun NavGraphBuilder.cardCreationRoute(
     navController: NavHostController,
     mainViewModel: MainViewModel,
     onUnauthorized: () -> Unit,
+    onExitSharedCapture: () -> Unit,
 ) {
     composable(
         route = MainNavRoutes.CARD_CREATION,
@@ -317,24 +386,34 @@ private fun NavGraphBuilder.cardCreationRoute(
             ) { factory ->
                 factory.create(targetWord = targetWord, context = context, language = language)
             }
+        val captureSessionId = remember(cardCreationViewModel) { mainViewModel.sessionId }
         LaunchedEffect(cardCreationViewModel) {
             cardCreationViewModel.unauthorizedEvent.collect {
                 onUnauthorized()
             }
         }
         LaunchedEffect(cardCreationViewModel) {
-            cardCreationViewModel.cardCreatedEvent.collect {
+            cardCreationViewModel.cardCreatedEvent.collect { result ->
+                if (navController.currentBackStackEntry != backStackEntry) return@collect
                 if (offlineEntryId != null) {
                     mainViewModel.removeOfflineEntry(offlineEntryId)
                     mainViewModel.dismissCapture()
                     navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
-                } else {
-                    mainViewModel.dismissCapture()
-                    navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+                } else if (captureSessionId == mainViewModel.sessionId) {
+                    if (mainViewModel.captureCompleted(result.definition, result.deck, result.cardId)) {
+                        navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = false)
+                    } else {
+                        endCapture(mainViewModel, onExitSharedCapture) {
+                            navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = true)
+                        }
+                    }
                 }
             }
         }
-        CardCreationRouteContent(cardCreationViewModel, mainViewModel, navController, offlineEntryId)
+        LaunchedEffect(cardCreationViewModel) {
+            cardCreationViewModel.setInitialDeck(mainViewModel.preferredDeckId)
+        }
+        CardCreationRouteContent(cardCreationViewModel, mainViewModel, navController, offlineEntryId, onExitSharedCapture)
     }
 }
 
@@ -344,8 +423,31 @@ private fun CardCreationRouteContent(
     mainViewModel: MainViewModel,
     navController: NavHostController,
     offlineEntryId: String?,
+    onExitSharedCapture: () -> Unit,
 ) {
     val cardCreationState by cardCreationViewModel.state.collectAsState()
+    val offline by mainViewModel.isOffline.collectAsState()
+    LaunchedEffect(offline, cardCreationState.flowState) {
+        val flow = cardCreationState.flowState as? CardCreationFlowState.DefinitionsLoaded
+        if (offline &&
+            (flow?.notice == CardCreationError.CREATE_CARD_FAILED || cardCreationState.flowState is CardCreationFlowState.LookupError)
+        ) {
+            mainViewModel.addEntry(cardCreationState.targetWord, cardCreationState.context)
+        }
+    }
+    val navigateBack = {
+        if (offlineEntryId != null) {
+            navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
+        } else if (mainViewModel.state.value is com.example.langueedroid.feature.capture.presentation.AppState.Screen.SharedWordCapture) {
+            endCapture(mainViewModel, onExitSharedCapture) { navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = true) }
+        } else {
+            mainViewModel.returnToCapture()
+            navController.popBackStack()
+        }
+        Unit
+    }
+    val saving = cardCreationState.flowState is CardCreationFlowState.CreatingCard
+    BackHandler { if (!saving) navigateBack() }
     CardCreationScreen(
         state = cardCreationState,
         speaker = cardCreationViewModel.speaker,
@@ -353,16 +455,20 @@ private fun CardCreationRouteContent(
         onDefinitionSelected = { def -> cardCreationViewModel.onDefinitionSelected(def) },
         onExampleConfirmed = { example -> cardCreationViewModel.onExampleConfirmed(example) },
         onBackFromExampleSelection = { cardCreationViewModel.onBackFromExampleSelection() },
-        onCreateCard = { cardCreationViewModel.createCard() },
-        onRetryLookup = { cardCreationViewModel.retryLookup() },
-        onNavigateBack = {
-            mainViewModel.dismissCapture()
-            if (offlineEntryId != null) {
-                navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
-            } else {
-                navController.popBackStack(MainNavRoutes.DECKS, inclusive = false)
+        onCreateCard = {
+            val context = cardCreationState.context
+            if (cardCreationState.contextValid) {
+                if (mainViewModel.isOffline.value) {
+                    mainViewModel.addEntry(cardCreationState.targetWord, context)
+                } else {
+                    cardCreationViewModel.createCard()
+                }
             }
         },
+        onContextChanged = { cardCreationViewModel.onContextChanged(it) },
+        onRetryDecks = { cardCreationViewModel.loadDecks() },
+        onRetryLookup = { cardCreationViewModel.retryLookup() },
+        onNavigateBack = { if (!saving) navigateBack() },
         onManualDefinitionTextChanged = { text -> cardCreationViewModel.onManualDefinitionTextChanged(text) },
         onManualExampleTextChanged = { text -> cardCreationViewModel.onManualExampleTextChanged(text) },
         onSubmitManualDefinition = { cardCreationViewModel.submitManualDefinition() },

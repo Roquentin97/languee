@@ -23,6 +23,6 @@ interface CardsApi {
 
     @GET("/api/v1/cards")
     suspend fun listCards(
-        @Query("deckId") deckId: String,
+        @Query("deckId") deckId: String?,
     ): Response<List<CardResponseDto>>
 }

@@ -95,6 +95,8 @@ fun CardCreationScreen(
     onCreateCard: () -> Unit,
     onRetryLookup: () -> Unit,
     onNavigateBack: () -> Unit,
+    onContextChanged: (String) -> Unit = {},
+    onRetryDecks: () -> Unit = {},
     onManualDefinitionTextChanged: (String) -> Unit = {},
     onManualExampleTextChanged: (String) -> Unit = {},
     onSubmitManualDefinition: () -> Unit = {},
@@ -140,6 +142,8 @@ fun CardCreationScreen(
 
                 is CardCreationFlowState.DefinitionsLoaded -> {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ContextInput(state, onContextChanged)
+                        flowState.confirmedExample?.let { Text("Example: $it", style = MaterialTheme.typography.bodySmall) }
                         if (flowState.notice != null) {
                             Text(
                                 text = stringResource(flowState.notice.toStringRes()),
@@ -151,9 +155,12 @@ fun CardCreationScreen(
                             definitions = flowState.definitions,
                             lemma = flowState.lemma,
                             selectedDefinition = flowState.selectedDefinition,
+                            exampleConfirmed = flowState.exampleConfirmed,
+                            contextValid = state.contextValid,
                             definitionState = flowState.definitionState,
                             deckSelectionState = state.deckSelectionState,
                             onDeckSelected = onDeckSelected,
+                            onRetryDecks = onRetryDecks,
                             onDefinitionSelected = onDefinitionSelected,
                             onCreateCard = onCreateCard,
                             modifier = Modifier.weight(1f),
@@ -231,6 +238,27 @@ fun CardCreationScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ContextInput(
+    state: CardCreationState,
+    onContextChanged: (String) -> Unit,
+) {
+    var visible by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(state.context != null) }
+    val invalid = !state.contextValid
+    TextButton(onClick = { visible = !visible }) { Text(if (visible) "Hide context" else "Add context") }
+    if (visible) {
+        OutlinedTextField(
+            value = state.context.orEmpty(),
+            onValueChange = onContextChanged,
+            label = { Text("Context (optional)") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = invalid,
+        )
+    }
+    if (invalid) Text(stringResource(R.string.validation_context_must_contain_word), color = MaterialTheme.colorScheme.error)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -343,6 +371,7 @@ private fun CardCreatedStatus(status: AnkiExportTriggerStatus) {
 private fun DeckSelector(
     deckSelectionState: DeckSelectionState,
     onDeckSelected: (Deck) -> Unit,
+    onRetryDecks: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (deckSelectionState) {
@@ -358,12 +387,14 @@ private fun DeckSelector(
         }
 
         is DeckSelectionState.Error -> {
-            Text(
-                text = stringResource(deckSelectionState.type.toStringRes()),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = modifier,
-            )
+            Column(modifier = modifier) {
+                Text(
+                    text = stringResource(deckSelectionState.type.toStringRes()),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextButton(onClick = onRetryDecks) { Text(stringResource(R.string.card_creation_retry)) }
+            }
         }
 
         is DeckSelectionState.Loaded -> {
@@ -441,9 +472,12 @@ private fun DefinitionsList(
     definitions: List<DefinitionResult>,
     lemma: String,
     selectedDefinition: DefinitionResult?,
+    exampleConfirmed: Boolean,
+    contextValid: Boolean,
     definitionState: DefinitionState?,
     deckSelectionState: DeckSelectionState,
     onDeckSelected: (Deck) -> Unit,
+    onRetryDecks: () -> Unit,
     onDefinitionSelected: (DefinitionResult) -> Unit,
     onCreateCard: () -> Unit,
     modifier: Modifier = Modifier,
@@ -481,24 +515,31 @@ private fun DefinitionsList(
             DeckSelector(
                 deckSelectionState = deckSelectionState,
                 onDeckSelected = onDeckSelected,
+                onRetryDecks = onRetryDecks,
             )
-            if (definitionState != DefinitionState.AlreadyInSelectedDeck) {
-                Button(
-                    onClick = onCreateCard,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    enabled = selectedDeck != null && definitionState != null,
-                ) {
-                    Text(
-                        text = "${stringResource(R.string.card_creation_add_button)} →",
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+            if (!exampleConfirmed && definitionState != DefinitionState.AlreadyInSelectedDeck) {
+                Text("Select the definition to choose an example.", style = MaterialTheme.typography.bodySmall)
+            }
+            Button(
+                onClick = onCreateCard,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                enabled =
+                    selectedDeck != null &&
+                        definitionState != null &&
+                        definitionState != DefinitionState.AlreadyInSelectedDeck &&
+                        exampleConfirmed &&
+                        contextValid,
+            ) {
+                Text(
+                    text = "${stringResource(R.string.card_creation_add_button)} →",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
     }
@@ -510,8 +551,8 @@ private fun DefinitionAvailability(definitionState: DefinitionState?) {
         is DefinitionState.AlreadyInSelectedDeck -> {
             Text(
                 text = stringResource(R.string.card_creation_already_in_deck),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
         is DefinitionState.ExistsInAnotherDeck -> {
@@ -540,7 +581,10 @@ private fun ExampleSelectionSection(
             dictionaryExample != null -> ExampleSource.DICTIONARY
             else -> null
         }
-    var selectedSource by remember { mutableStateOf(initialSource) }
+    var selectedSource by androidx.compose.runtime.saveable.rememberSaveable(
+        userContext,
+        dictionaryExample,
+    ) { mutableStateOf(initialSource) }
     val hasOptions = userContext != null || dictionaryExample != null
 
     Column(

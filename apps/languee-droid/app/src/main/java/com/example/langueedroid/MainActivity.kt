@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.langueedroid.core.ui.theme.LangueeDroidTheme
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
@@ -24,31 +26,51 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var sharedText by mutableStateOf<String?>(null)
+    private var shareId by mutableStateOf(0L)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sharedText: String? =
-            when {
-                intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" ->
-                    intent.getStringExtra(Intent.EXTRA_TEXT)
-
-                intent?.action == Intent.ACTION_PROCESS_TEXT ->
-                    intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
-
-                else -> null
-            }
+        sharedText = sharedTextFrom(intent)
+        shareId = savedInstanceState?.getLong("shareId") ?: if (sharedText == null) 0L else 1L
 
         setContent {
             LangueeDroidTheme {
-                LangueeApp(sharedText = sharedText)
+                LangueeApp(sharedText = sharedText, shareId = shareId, onExitSharedCapture = { finish() })
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        sharedTextFrom(intent)?.let { text ->
+            sharedText = text
+            shareId++
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putLong("shareId", shareId)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun sharedTextFrom(intent: Intent?): String? =
+        when {
+            intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" -> intent.getStringExtra(Intent.EXTRA_TEXT)
+            intent?.action == Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+            else -> null
+        }
 }
 
 @Composable
-private fun LangueeApp(sharedText: String?) {
+private fun LangueeApp(
+    sharedText: String?,
+    shareId: Long,
+    onExitSharedCapture: () -> Unit,
+) {
     val appSessionViewModel: AppSessionViewModel = hiltViewModel()
     val sessionState by appSessionViewModel.sessionState.collectAsState()
     val logoutInProgress by appSessionViewModel.logoutInProgress.collectAsState()
@@ -102,6 +124,8 @@ private fun LangueeApp(sharedText: String?) {
                 logoutInProgress = logoutInProgress,
                 onUnauthorized = { appSessionViewModel.onLogout() },
                 sharedText = sharedText,
+                shareId = shareId,
+                onExitSharedCapture = onExitSharedCapture,
             )
         }
     }

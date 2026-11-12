@@ -36,7 +36,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -94,6 +93,10 @@ class CardCreationViewModelTest {
         ankiDroidExportService = ankiDroidExportService,
         prefsStore = prefsStore,
         speaker = speaker,
+        appScope = kotlinx.coroutines.CoroutineScope(Dispatchers.Main),
+        exportStatusNotifier =
+            com.example.langueedroid.core.data
+                .ExportStatusNotifier(),
     )
 
     // -------------------------------------------------------------------------
@@ -681,11 +684,11 @@ class CardCreationViewModelTest {
         }
 
     // -------------------------------------------------------------------------
-    // createCard — 404 DECK/DEFINITION_NOT_FOUND → CreateCardError then loadDecks() called
+    // createCard — stale reference preserves the draft and reloads decks
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createCard returns 404 StaleReference — CreateCardError shown and deck list reloaded`() =
+    fun `createCard returns 404 StaleReference — draft preserved and deck list reloaded`() =
         runTest {
             val deck = aDeck()
             stubDecks(deck)
@@ -706,7 +709,10 @@ class CardCreationViewModelTest {
             // loadDecks() is called after StaleReferenceException → deck list is refreshed.
             // getDecks() is called twice: once on init, once after stale reference.
             verify(deckRepository, times(2)).getDecks()
-            assertTrue(vm.state.value.flowState is CardCreationFlowState.CreateCardError)
+            val restored = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            assertEquals(CardCreationError.STALE_REFERENCE, restored.notice)
+            assertEquals("I have a cat", restored.confirmedExample)
+            assertEquals(flowState.definitions[0], restored.selectedDefinition)
         }
 
     // -------------------------------------------------------------------------
@@ -743,11 +749,11 @@ class CardCreationViewModelTest {
         }
 
     // -------------------------------------------------------------------------
-    // createCard — 500 / network failure → CreateCardError
+    // createCard — 500 / network failure preserves the draft
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createCard 500 or network failure — CreateCardError shown`() =
+    fun `createCard 500 or network failure — draft preserved for retry`() =
         runTest {
             val deck = aDeck()
             stubDecks(deck)
@@ -765,7 +771,71 @@ class CardCreationViewModelTest {
             vm.createCard()
             advanceUntilIdle()
 
-            assertTrue(vm.state.value.flowState is CardCreationFlowState.CreateCardError)
+            val restored = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            assertEquals(CardCreationError.CREATE_CARD_FAILED, restored.notice)
+            assertEquals("I have a cat", restored.confirmedExample)
+            assertEquals(flowState.definitions[0], restored.selectedDefinition)
+        }
+
+    @Test
+    fun `failed save can be retried with the same draft`() =
+        runTest {
+            val deck = aDeck()
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(aDefinition())))
+            stubAnkiSetupNotReady()
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.failure(RuntimeException("temporary")), Result.success("card"))
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            vm.onDefinitionSelected(definitions.definitions[0])
+            vm.onExampleConfirmed("I have a cat")
+            vm.onDeckSelected(deck)
+            vm.createCard()
+            advanceUntilIdle()
+            vm.createCard()
+            advanceUntilIdle()
+            verify(cardRepository, times(2)).createCard(eq(deck.id), any(), eq("I have a cat"), anyOrNull())
+            assertTrue(vm.state.value.flowState is CardCreationFlowState.CardCreated)
+        }
+
+    @Test
+    fun `selected discontinuous expression retains its source context`() =
+        runTest {
+            val deck = aDeck()
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(aDefinition())))
+            stubAnkiSetupNotReady()
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            val vm = buildViewModel(targetWord = "looked up", context = "He looked the word up.")
+            advanceUntilIdle()
+            val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            vm.onDefinitionSelected(definitions.definitions[0])
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(deck)
+            vm.createCard()
+            advanceUntilIdle()
+            verify(cardRepository).createCard(eq(deck.id), any(), eq("He looked the word up."), anyOrNull())
+        }
+
+    @Test
+    fun `selected dictionary example is saved as card context`() =
+        runTest {
+            val deck = aDeck()
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(aDefinition())))
+            stubAnkiSetupNotReady()
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            vm.onDefinitionSelected(definitions.definitions[0])
+            vm.onExampleConfirmed("The cat slept.")
+            vm.onDeckSelected(deck)
+            vm.createCard()
+            advanceUntilIdle()
+            verify(cardRepository).createCard(eq(deck.id), any(), eq("The cat slept."), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -873,18 +943,22 @@ class CardCreationViewModelTest {
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
 
-            val vm = buildViewModel(targetWord = "run into")
+            val vm = buildViewModel(targetWord = "run into", context = null)
             advanceUntilIdle()
 
             vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
             vm.submitManualDefinition()
             advanceUntilIdle()
 
-            val flowState = vm.state.value.flowState
-            assertTrue(flowState is CardCreationFlowState.SelectingExample)
-            assertEquals("def_user_1", (flowState as CardCreationFlowState.SelectingExample).selectedDefinition.id)
-            assertEquals(DefinitionState.Available, flowState.definitionState)
-            assertEquals(LexicalKind.PHRASAL_VERB, vm.state.value.kind)
+            val flowState = vm.state.value.flowState as CardCreationFlowState.SelectingExample
+            assertEquals("", flowState.selectedDefinition.id)
+            verify(vocabularyRepository, never()).createUserDefinition(any(), any(), anyOrNull(), anyOrNull())
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            stubAnkiSetupNotReady()
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(aDeck())
+            vm.createCard()
+            advanceUntilIdle()
             verify(vocabularyRepository).createUserDefinition(
                 eq("run into"),
                 eq("To encounter unexpectedly."),
@@ -901,11 +975,16 @@ class CardCreationViewModelTest {
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
 
-            val vm = buildViewModel(targetWord = "run into", language = "de")
+            val vm = buildViewModel(targetWord = "run into", context = null, language = "de")
             advanceUntilIdle()
 
             vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
             vm.submitManualDefinition()
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(aDeck())
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            stubAnkiSetupNotReady()
+            vm.createCard()
             advanceUntilIdle()
 
             verify(vocabularyRepository).createUserDefinition(
@@ -922,7 +1001,7 @@ class CardCreationViewModelTest {
             stubDecks(aDeck())
             stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
 
-            val vm = buildViewModel(targetWord = "run into")
+            val vm = buildViewModel(targetWord = "run into", context = null)
             advanceUntilIdle()
 
             vm.submitManualDefinition()
@@ -945,13 +1024,16 @@ class CardCreationViewModelTest {
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(DefinitionAlreadyExistsException()))
 
-            val vm = buildViewModel(targetWord = "run into")
+            val vm = buildViewModel(targetWord = "run into", context = null)
             advanceUntilIdle()
 
             vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
             // Re-stub lookup for the retry triggered by the 409 so it now returns the existing definition.
             stubLookup(aLookupResult(definitions = listOf(existingDefinition), kind = LexicalKind.EXPRESSION))
             vm.submitManualDefinition()
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(aDeck())
+            vm.createCard()
             advanceUntilIdle()
 
             val flowState = vm.state.value.flowState
@@ -969,7 +1051,7 @@ class CardCreationViewModelTest {
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(UnauthorizedException()))
 
-            val vm = buildViewModel(targetWord = "run into")
+            val vm = buildViewModel(targetWord = "run into", context = null)
             var unauthorizedCalled = false
             val job =
                 launch {
@@ -980,6 +1062,9 @@ class CardCreationViewModelTest {
 
             vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
             vm.submitManualDefinition()
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(aDeck())
+            vm.createCard()
             advanceUntilIdle()
             job.cancel()
 
@@ -994,16 +1079,19 @@ class CardCreationViewModelTest {
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("HTTP 500")))
 
-            val vm = buildViewModel(targetWord = "run into")
+            val vm = buildViewModel(targetWord = "run into", context = null)
             advanceUntilIdle()
 
             vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
             vm.submitManualDefinition()
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(aDeck())
+            vm.createCard()
             advanceUntilIdle()
 
             val flowState = vm.state.value.flowState
-            assertTrue(flowState is CardCreationFlowState.ManualDefinition)
-            assertEquals(CardCreationError.MANUAL_DEFINITION_FAILED, (flowState as CardCreationFlowState.ManualDefinition).error)
-            assertFalse(flowState.isSubmitting)
+            assertTrue(flowState is CardCreationFlowState.DefinitionsLoaded)
+            assertEquals(CardCreationError.MANUAL_DEFINITION_FAILED, (flowState as CardCreationFlowState.DefinitionsLoaded).notice)
+            assertEquals("To encounter unexpectedly.", flowState.selectedDefinition?.definition)
         }
 }

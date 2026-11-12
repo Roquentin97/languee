@@ -4,13 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.CardRepository
+import com.example.langueedroid.core.data.ExportStatusNotifier
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
+import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
+import com.example.langueedroid.core.domain.UnauthorizedException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -27,6 +33,7 @@ data class CardCreationRequest(
     val targetWord: String,
     val context: String?,
     val language: String = "en",
+    val sessionId: Int = 0,
 )
 
 sealed class AnkiStatusNotification {
@@ -47,6 +54,8 @@ class MainViewModel
         private val ankiDroidPreferencesStore: AnkiDroidPreferencesStore,
         private val offlineStateManager: OfflineStateManager,
         private val offlineQueueRepository: OfflineQueueRepository,
+        private val cardRepository: CardRepository,
+        exportStatusNotifier: ExportStatusNotifier,
     ) : ViewModel() {
         private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
         val state: StateFlow<AppState> = _state.asStateFlow()
@@ -61,8 +70,8 @@ class MainViewModel
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
         /** Emitted when a capture was stored in the offline queue instead of card creation. */
-        private val _offlineWordSaved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-        val offlineWordSaved: SharedFlow<Unit> = _offlineWordSaved.asSharedFlow()
+        private val _offlineWordSaved = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+        val offlineWordSaved: SharedFlow<Int> = _offlineWordSaved.asSharedFlow()
 
         /** Emitted when the capture flow has a word ready; the UI navigates to card creation. */
         private val _cardCreationRequest = MutableSharedFlow<CardCreationRequest>(extraBufferCapacity = 1)
@@ -81,9 +90,89 @@ class MainViewModel
         val ankiStatusNotification: StateFlow<AnkiStatusNotification?> = _ankiStatusNotification.asStateFlow()
 
         private var previousAnkiResult: AnkiDroidSetupCheckResult? = null
+        private var workspace: AppState.Screen.SharedContextCapture? = null
+        private var statusJob: Job? = null
+        private var sessionGeneration = 0
+        private val completedOperations = mutableSetOf<Pair<String, String>>()
+        val sessionId: Int get() = sessionGeneration
+        private var offlineQueued = false
+        private val _offlineQueueError = MutableStateFlow(false)
+        val offlineQueueError = _offlineQueueError.asStateFlow()
+        val exportFailures = exportStatusNotifier.failures
+        private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val unauthorizedEvent = _unauthorizedEvent.asSharedFlow()
+        var preferredDeckId: String? = null
+            private set
+        var fromExternalShare: Boolean = false
+            private set
 
-        fun startManualAdd(prefilledWord: String = "") {
+        fun captureCompleted(
+            definition: String,
+            deck: Deck,
+            cardId: String? = null,
+        ): Boolean {
+            val current = workspace ?: return false
+            val operation = cardId?.let { it to deck.id }
+            if (operation != null && operation in completedOperations) return true
+            if (current.selectedIndices.isEmpty()) return false
+            if (current.completed.any { completed -> completed.indices.any { it in current.selectedIndices } }) return false
+            preferredDeckId = deck.id
+            if (operation != null) completedOperations.add(operation)
+            val updated =
+                current.copy(
+                    selectedIndices = emptyList(),
+                    completed = current.completed + CompletedTarget(current.selectedIndices, definition, deck.name),
+                )
+            workspace = updated
+            _state.value = updated
+            loadSavedVocabulary()
+            return true
+        }
+
+        fun returnToCapture(): Boolean {
+            val current = workspace ?: return false
+            _state.value = current.copy(selectedIndices = emptyList(), inspectedIndex = null).also { workspace = it }
+            return true
+        }
+
+        fun startManualAdd(
+            prefilledWord: String = "",
+            deckId: String? = null,
+        ) {
+            fromExternalShare = fromExternalShare && _state.value is AppState.Screen.SharedWordCapture && prefilledWord.isNotBlank()
+            sessionGeneration++
+            completedOperations.clear()
+            offlineQueued = false
+            workspace = null
+            preferredDeckId = deckId
             _state.value = AppState.Screen.ManualCapture(prefilledWord = prefilledWord)
+        }
+
+        fun startTextInput() {
+            fromExternalShare = false
+            sessionGeneration++
+            completedOperations.clear()
+            offlineQueued = false
+            workspace = null
+            preferredDeckId = null
+            _state.value = AppState.Screen.TextInput
+        }
+
+        fun startTextWorkspace(text: String) {
+            if (text.isBlank()) return
+            fromExternalShare = false
+            sessionGeneration++
+            completedOperations.clear()
+            offlineQueued = false
+            val current =
+                AppState.Screen.SharedContextCapture(
+                    tokens = EntryValidator.splitIntoTokens(text),
+                    rawContext = text,
+                )
+            workspace = current
+            preferredDeckId = null
+            _state.value = current
+            loadSavedVocabulary()
         }
 
         /**
@@ -99,13 +188,24 @@ class MainViewModel
             val normalizedContext = context?.trim()?.ifBlank { null }
             val language = currentSelectedLanguage()
             if (isOffline.value) {
+                if (offlineQueued) return
+                offlineQueued = true
+                val generation = sessionGeneration
                 viewModelScope.launch {
-                    offlineQueueRepository.add(trimmedWord, normalizedContext)
-                    _offlineWordSaved.tryEmit(Unit)
+                    try {
+                        offlineQueueRepository.add(trimmedWord, normalizedContext)
+                        _offlineWordSaved.tryEmit(generation)
+                    } catch (error: Exception) {
+                        if (error is CancellationException) throw error
+                        if (generation == sessionGeneration) {
+                            offlineQueued = false
+                            _offlineQueueError.value = true
+                        }
+                    }
                 }
                 return
             }
-            _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext, language))
+            _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext, language, sessionGeneration))
         }
 
         /** Called when the user picks a language chip (EN/ES/DE) on a capture screen. */
@@ -118,6 +218,7 @@ class MainViewModel
                     is AppState.Screen.ContextReview -> current.copy(selectedLanguage = code)
                     else -> current
                 }
+            (_state.value as? AppState.Screen.SharedContextCapture)?.let { workspace = it }
         }
 
         /** Reads the language selected on whichever capture screen is currently displayed. */
@@ -145,6 +246,12 @@ class MainViewModel
          * - Multi-token text → SharedContextCapture with tokenised list.
          */
         fun startSharedTextCapture(sharedText: String) {
+            fromExternalShare = true
+            sessionGeneration++
+            completedOperations.clear()
+            offlineQueued = false
+            workspace = null
+            preferredDeckId = null
             val trimmed = sharedText.trim()
             if (trimmed.isBlank()) {
                 _state.value = AppState.Screen.ManualCapture()
@@ -156,8 +263,11 @@ class MainViewModel
                 val wordToUse = cleanWord.ifEmpty { trimmed }
                 _state.value = AppState.Screen.SharedWordCapture(word = wordToUse)
             } else {
-                val tokens = EntryValidator.splitIntoTokens(trimmed)
-                _state.value = AppState.Screen.SharedContextCapture(tokens = tokens, rawContext = trimmed)
+                val tokens = EntryValidator.splitIntoTokens(sharedText)
+                val current = AppState.Screen.SharedContextCapture(tokens = tokens, rawContext = sharedText)
+                workspace = current
+                _state.value = current
+                loadSavedVocabulary()
             }
         }
 
@@ -169,13 +279,17 @@ class MainViewModel
          */
         fun onWordTokenTapped(index: Int) {
             val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
+            if (current.completed.any { index in it.indices }) {
+                _state.value = current.copy(inspectedIndex = index).also { workspace = it }
+                return
+            }
             val updatedSelection =
                 ExpressionSpanSelector.onWordTapped(
                     tokens = current.tokens,
                     currentSelection = current.selectedIndices,
                     tappedIndex = index,
                 )
-            _state.value = current.copy(selectedIndices = updatedSelection)
+            _state.value = current.copy(selectedIndices = updatedSelection, inspectedIndex = index).also { workspace = it }
         }
 
         /**
@@ -208,7 +322,30 @@ class MainViewModel
          */
         fun confirmTruncation() {
             val current = _state.value as? AppState.Screen.ContextReview ?: return
-            val sentence = EntryValidator.extractSentenceContaining(current.targetWord, current.context)
+            val selection = workspace
+            val index = selection?.selectedIndices?.firstOrNull()
+            val offset =
+                if (selection != null && index != null) {
+                    selection.tokens.take(index).sumOf { token ->
+                        when (token) {
+                            is com.example.langueedroid.core.domain.Token.Word -> token.text.length
+                            is com.example.langueedroid.core.domain.Token.Separator -> token.text.length
+                        }
+                    }
+                } else {
+                    null
+                }
+            val sentence =
+                if (offset == null) {
+                    EntryValidator.extractSentenceContaining(current.targetWord, current.context)
+                } else {
+                    val start = current.context.lastIndexOfAny(charArrayOf('.', '!', '?'), (offset - 1).coerceAtLeast(0)) + 1
+                    val end =
+                        current.context.indexOfAny(charArrayOf('.', '!', '?'), offset).let {
+                            if (it < 0) current.context.length else it + 1
+                        }
+                    current.context.substring(start, end).trim()
+                }
             if (sentence == null) {
                 _state.value = current.copy(isMultiSentence = false)
                 return
@@ -230,7 +367,47 @@ class MainViewModel
 
         /** Cancel any active capture flow and return to the decks screen. */
         fun dismissCapture() {
+            fromExternalShare = false
+            sessionGeneration++
+            completedOperations.clear()
+            statusJob?.cancel()
+            workspace = null
+            preferredDeckId = null
             _state.value = AppState.Screen.Decks
+        }
+
+        private fun loadSavedVocabulary() {
+            statusJob?.cancel()
+            val generation = sessionGeneration
+            statusJob =
+                viewModelScope.launch {
+                    cardRepository.savedVocabulary().fold(
+                        onSuccess = { saved -> if (generation == sessionGeneration) updateWorkspaceStatus(saved, false) },
+                        onFailure = { error ->
+                            if (generation == sessionGeneration) {
+                                if (error is UnauthorizedException) {
+                                    _unauthorizedEvent.tryEmit(Unit)
+                                } else {
+                                    updateWorkspaceStatus(emptyList(), true)
+                                }
+                            }
+                        },
+                    )
+                }
+        }
+
+        fun dismissOfflineQueueError() {
+            _offlineQueueError.value = false
+        }
+
+        private fun updateWorkspaceStatus(
+            saved: List<com.example.langueedroid.core.data.SavedVocabulary>,
+            unavailable: Boolean,
+        ) {
+            val current = workspace ?: return
+            val updated = current.copy(savedVocabulary = saved, savedStatusUnavailable = unavailable)
+            workspace = updated
+            if (_state.value is AppState.Screen.SharedContextCapture) _state.value = updated
         }
 
         /** Navigate to the context edit screen for an existing targetWord and context. */
@@ -251,7 +428,7 @@ class MainViewModel
         /**
          * Called when the user saves the edited context.
          * - blank context → EmptyContextPendingConfirmation (ask for confirmation)
-         * - non-blank context containing targetWord → Valid (triggers card creation, returns to decks)
+         * - non-blank context containing targetWord → Valid (opens card creation)
          * - non-blank context missing targetWord → InvalidContextBlockedSave (blocked)
          * targetWord is read from the current ContextEdit state.
          */
@@ -268,7 +445,7 @@ class MainViewModel
             }
         }
 
-        /** Save entry without context after user confirms the empty-context dialog. */
+        /** Continue without context after the empty-context confirmation. */
         fun confirmSaveWithoutContext(targetWord: String) {
             addEntry(targetWord, null)
         }
