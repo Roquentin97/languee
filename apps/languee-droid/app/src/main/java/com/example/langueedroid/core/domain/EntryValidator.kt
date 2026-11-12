@@ -1,5 +1,9 @@
 package com.example.langueedroid.core.domain
 
+import java.nio.charset.StandardCharsets
+import java.text.Normalizer
+import java.util.Locale
+
 sealed class Token {
     data class Word(
         val text: String,
@@ -11,6 +15,199 @@ sealed class Token {
 }
 
 object EntryValidator {
+    const val MAX_CAPTURE_TEXT_BYTES = 1024
+    const val MAX_MEANINGFUL_CAPTURE_WORDS = 15
+
+    // Keep this explicit list in sync with the backend capture-input module.
+    private val englishFunctionWords =
+        setOf(
+            "a",
+            "about",
+            "above",
+            "after",
+            "again",
+            "against",
+            "all",
+            "am",
+            "an",
+            "and",
+            "any",
+            "are",
+            "aren",
+            "as",
+            "at",
+            "be",
+            "because",
+            "been",
+            "before",
+            "being",
+            "below",
+            "between",
+            "both",
+            "but",
+            "by",
+            "can",
+            "could",
+            "did",
+            "do",
+            "does",
+            "doing",
+            "down",
+            "during",
+            "each",
+            "few",
+            "for",
+            "from",
+            "further",
+            "had",
+            "has",
+            "have",
+            "having",
+            "he",
+            "her",
+            "here",
+            "hers",
+            "herself",
+            "him",
+            "himself",
+            "his",
+            "how",
+            "i",
+            "if",
+            "in",
+            "into",
+            "is",
+            "it",
+            "its",
+            "itself",
+            "just",
+            "me",
+            "more",
+            "most",
+            "my",
+            "myself",
+            "no",
+            "nor",
+            "not",
+            "now",
+            "of",
+            "off",
+            "on",
+            "once",
+            "only",
+            "or",
+            "other",
+            "our",
+            "ours",
+            "ourselves",
+            "out",
+            "over",
+            "own",
+            "same",
+            "she",
+            "should",
+            "so",
+            "some",
+            "such",
+            "than",
+            "that",
+            "the",
+            "their",
+            "theirs",
+            "them",
+            "themselves",
+            "then",
+            "there",
+            "these",
+            "they",
+            "this",
+            "those",
+            "through",
+            "to",
+            "too",
+            "under",
+            "until",
+            "up",
+            "very",
+            "was",
+            "we",
+            "were",
+            "what",
+            "when",
+            "where",
+            "which",
+            "while",
+            "who",
+            "whom",
+            "why",
+            "will",
+            "with",
+            "would",
+            "you",
+            "your",
+            "yours",
+            "yourself",
+            "yourselves",
+            "ain",
+            "aren",
+            "couldn",
+            "didn",
+            "doesn",
+            "don",
+            "hadn",
+            "hasn",
+            "haven",
+            "isn",
+            "mightn",
+            "mustn",
+            "needn",
+            "shan",
+            "shouldn",
+            "wasn",
+            "weren",
+            "won",
+            "wouldn",
+            "t",
+            "s",
+            "d",
+            "ll",
+            "re",
+            "ve",
+            "m",
+        )
+
+    data class CaptureTextValidation(
+        val meaningfulWordCount: Int,
+        val byteCount: Int,
+        val error: CaptureTextError? = null,
+    ) {
+        val isValid: Boolean get() = error == null
+    }
+
+    enum class CaptureTextError { TOO_LONG, TOO_MANY_MEANINGFUL_WORDS }
+
+    fun normalizedSurfaceTokens(text: String): List<String> =
+        splitIntoTokens(Normalizer.normalize(text, Normalizer.Form.NFC))
+            .filterIsInstance<Token.Word>()
+            .map { it.text.lowercase(Locale.US) }
+
+    fun distinctSurfaceTokens(text: String): List<String> = normalizedSurfaceTokens(text).distinct()
+
+    fun validateCaptureText(text: String): CaptureTextValidation {
+        val byteCount = text.toByteArray(StandardCharsets.UTF_8).size
+        val meaningfulWordCount = normalizedSurfaceTokens(text).filterNot { it in englishFunctionWords }.toSet().size
+        val error =
+            when {
+                byteCount > MAX_CAPTURE_TEXT_BYTES -> CaptureTextError.TOO_LONG
+                meaningfulWordCount > MAX_MEANINGFUL_CAPTURE_WORDS -> CaptureTextError.TOO_MANY_MEANINGFUL_WORDS
+                else -> null
+            }
+        return CaptureTextValidation(meaningfulWordCount, byteCount, error)
+    }
+
+    fun isContextWithinLimit(context: String?): Boolean =
+        context == null || context.toByteArray(StandardCharsets.UTF_8).size <= MAX_CAPTURE_TEXT_BYTES
+
     /**
      * Returns true when [word] appears at least once in [context] as a standalone token.
      * Standalone means the characters immediately before and after the match are non-letters

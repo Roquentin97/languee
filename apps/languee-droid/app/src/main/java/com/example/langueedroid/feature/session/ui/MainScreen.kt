@@ -359,6 +359,7 @@ private fun NavGraphBuilder.captureRoute(
             },
             onSelectLanguage = { code -> mainViewModel.selectLanguage(code) },
             onStartTextWorkspace = { text -> mainViewModel.startTextWorkspace(text) },
+            onRetrySavedVocabulary = { mainViewModel.retrySavedVocabulary() },
         )
     }
 }

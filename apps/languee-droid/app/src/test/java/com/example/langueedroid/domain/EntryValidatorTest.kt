@@ -285,4 +285,28 @@ class EntryValidatorTest {
         assertEquals(1, tokens.size)
         assertTrue(tokens[0] is Token.Separator)
     }
+
+    @Test
+    fun `capture validation counts distinct meaningful normalized surface tokens`() {
+        val result = EntryValidator.validateCaptureText("The Café cafe\u0301 expressways expressways")
+        assertEquals(2, result.meaningfulWordCount)
+        assertTrue(result.isValid)
+        assertEquals(listOf("the", "café", "expressways"), EntryValidator.distinctSurfaceTokens("The Café cafe\u0301 expressways"))
+    }
+
+    @Test
+    fun `capture validation accepts fifteen and rejects sixteen meaningful words`() {
+        val fifteen = (0 until 15).joinToString(" ") { "term${('a'.code + it).toChar()}" }
+        val sixteen = (0 until 16).joinToString(" ") { "term${('a'.code + it).toChar()}" }
+        assertTrue(EntryValidator.validateCaptureText(fifteen).isValid)
+        assertEquals(EntryValidator.CaptureTextError.TOO_MANY_MEANINGFUL_WORDS, EntryValidator.validateCaptureText(sixteen).error)
+    }
+
+    @Test
+    fun `context byte limit accepts exactly 1024 UTF-8 bytes`() {
+        assertTrue(EntryValidator.isContextWithinLimit("a".repeat(1024)))
+        assertFalse(EntryValidator.isContextWithinLimit("a".repeat(1025)))
+        assertTrue(EntryValidator.isContextWithinLimit("😀".repeat(256)))
+        assertFalse(EntryValidator.isContextWithinLimit("😀".repeat(257)))
+    }
 }

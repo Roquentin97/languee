@@ -3,7 +3,9 @@ package com.example.langueedroid.core.data
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.data.mapper.toLookupResult
 import com.example.langueedroid.core.domain.CreatedUserDefinition
+import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
+import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionLimits
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
@@ -11,12 +13,50 @@ import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.VocabularyApi
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
+import com.example.langueedroid.core.network.dto.SavedMatchesRequestDto
 import com.example.langueedroid.core.telemetry.Logger
 
 class VocabularyRepository(
     private val vocabularyApi: VocabularyApi,
     private val logger: Logger,
 ) {
+    suspend fun savedMatches(
+        text: String,
+        language: String,
+    ): Result<List<SavedVocabulary>> =
+        runCatching {
+            val validation = EntryValidator.validateCaptureText(text)
+            require(validation.isValid) { "Invalid capture text" }
+            val response =
+                vocabularyApi.savedMatches(
+                    SavedMatchesRequestDto(
+                        language = language,
+                        text = text,
+                        tokens = EntryValidator.distinctSurfaceTokens(text),
+                    ),
+                )
+            when {
+                response.isSuccessful ->
+                    response.body()?.matches.orEmpty().flatMap { match ->
+                        match.headwords.flatMap { headword ->
+                            headword.definitions.map { definition ->
+                                SavedVocabulary(
+                                    surface = match.surface,
+                                    headword = headword.lemma,
+                                    wordId = headword.wordId,
+                                    definitionId = definition.definitionId,
+                                    partOfSpeech = definition.partOfSpeech,
+                                    definition = definition.definition,
+                                    decks = definition.decks.map { Deck(it.id, it.name) },
+                                )
+                            }
+                        }
+                    }
+                response.code() == 401 -> throw UnauthorizedException()
+                else -> throw Exception("Failed to find saved vocabulary: HTTP ${response.code()}")
+            }
+        }
+
     suspend fun lookup(
         word: String,
         language: String? = null,

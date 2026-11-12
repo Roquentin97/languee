@@ -34,6 +34,18 @@ export type CardWithAnkiDroidExport = CardWithRelations & {
 
 export type SavedSense = { definitionId: string; definition: string };
 
+export type SavedVocabularyCandidate = {
+  definitionId: string;
+  partOfSpeech: string;
+  definition: string;
+  word: {
+    id: string;
+    lemma: string;
+    forms: Array<{ form: string; partOfSpeech: string }>;
+  };
+  decks: DeckRef[];
+};
+
 /** Fields written back to a card by the review scheduler. */
 export type CardSchedulingUpdate = {
   state: Card['state'];
@@ -385,6 +397,73 @@ export class CardsService {
         deck: cardDeck.deck,
       })),
     );
+  }
+
+  async findSavedVocabularyCandidates(
+    userId: string,
+    language: string,
+    tokens: string[],
+  ): Promise<SavedVocabularyCandidate[]> {
+    if (!tokens.length) return [];
+    const cards = await this.prisma.card.findMany({
+      where: this.savedVocabularyWhere(userId, language, tokens),
+      select: {
+        definition: {
+          select: {
+            id: true,
+            partOfSpeech: true,
+            definition: true,
+            word: {
+              select: {
+                id: true,
+                lemma: true,
+                forms: {
+                  where: { form: { in: tokens, mode: 'insensitive' } },
+                  select: { form: true, partOfSpeech: true },
+                },
+              },
+            },
+          },
+        },
+        decks: { select: { deck: { select: { id: true, name: true } } } },
+      },
+    });
+    return cards.flatMap((card) => {
+      if (!card.definition) return [];
+      return [
+        {
+          definitionId: card.definition.id,
+          partOfSpeech: card.definition.partOfSpeech,
+          definition: card.definition.definition,
+          word: card.definition.word,
+          decks: card.decks.map((entry) => entry.deck),
+        },
+      ];
+    });
+  }
+
+  private savedVocabularyWhere(
+    userId: string,
+    language: string,
+    tokens: string[],
+  ): Prisma.CardWhereInput {
+    return {
+      userId,
+      type: CardType.cloze,
+      definition: {
+        is: {
+          word: {
+            language,
+            OR: [
+              { lemma: { in: tokens, mode: 'insensitive' } },
+              {
+                forms: { some: { form: { in: tokens, mode: 'insensitive' } } },
+              },
+            ],
+          },
+        },
+      },
+    };
   }
 
   /** Cards due for review now, ordered soonest-first. */

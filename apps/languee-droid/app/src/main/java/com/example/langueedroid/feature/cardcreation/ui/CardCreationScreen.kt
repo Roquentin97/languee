@@ -258,7 +258,18 @@ private fun ContextInput(
             isError = invalid,
         )
     }
-    if (invalid) Text(stringResource(R.string.validation_context_must_contain_word), color = MaterialTheme.colorScheme.error)
+    if (invalid) {
+        Text(
+            if (state.contextTooLong) {
+                "Context must be 1,024 UTF-8 bytes or less."
+            } else {
+                stringResource(
+                    R.string.validation_context_must_contain_word,
+                )
+            },
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

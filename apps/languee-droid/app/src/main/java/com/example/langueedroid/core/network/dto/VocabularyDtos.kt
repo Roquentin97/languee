@@ -79,3 +79,36 @@ data class CreateUserDefinitionResponseDto(
     val example: String?,
     val provider: String,
 )
+
+data class SavedMatchesRequestDto(
+    val language: String,
+    val text: String,
+    val tokens: List<String>,
+)
+
+data class SavedMatchDeckDto(
+    val id: String,
+    val name: String,
+)
+
+data class SavedMatchDefinitionDto(
+    val definitionId: String,
+    val partOfSpeech: String,
+    val definition: String,
+    val decks: List<SavedMatchDeckDto>,
+)
+
+data class SavedMatchHeadwordDto(
+    val wordId: String,
+    val lemma: String,
+    val definitions: List<SavedMatchDefinitionDto>,
+)
+
+data class SavedMatchDto(
+    val surface: String,
+    val headwords: List<SavedMatchHeadwordDto>,
+)
+
+data class SavedMatchesResponseDto(
+    val matches: List<SavedMatchDto>,
+)

@@ -5,6 +5,8 @@ sealed class ContextEditSaveResult {
 
     object EmptyContextPendingConfirmation : ContextEditSaveResult()
 
+    object ContextTooLong : ContextEditSaveResult()
+
     data class InvalidContextBlockedSave(
         val targetWord: String,
     ) : ContextEditSaveResult()

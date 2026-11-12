@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.ExportStatusNotifier
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
+import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.Deck
@@ -61,7 +61,7 @@ class MainViewModel
         private val ankiDroidPreferencesStore: AnkiDroidPreferencesStore,
         private val offlineStateManager: OfflineStateManager,
         private val offlineQueueRepository: OfflineQueueRepository,
-        private val cardRepository: CardRepository,
+        private val vocabularyRepository: VocabularyRepository,
         exportStatusNotifier: ExportStatusNotifier,
     ) : ViewModel() {
         private val _state = MutableStateFlow<AppState>(AppState.Screen.Decks)
@@ -169,7 +169,7 @@ class MainViewModel
         }
 
         fun startTextWorkspace(text: String) {
-            if (text.isBlank()) return
+            if (text.isBlank() || !EntryValidator.validateCaptureText(text).isValid) return
             lookupSelection = null
             fromExternalShare = false
             sessionGeneration++
@@ -197,6 +197,7 @@ class MainViewModel
             val trimmedWord = word.trim()
             if (trimmedWord.isEmpty()) return
             val normalizedContext = context?.trim()?.ifBlank { null }
+            if (!EntryValidator.isContextWithinLimit(normalizedContext)) return
             val review = _state.value as? AppState.Screen.ContextReview
             if (review?.selection != null) {
                 val range = review.selection
@@ -291,7 +292,9 @@ class MainViewModel
                 return
             }
 
-            if (EntryValidator.isLikelySingleWord(trimmed)) {
+            if (!EntryValidator.validateCaptureText(sharedText).isValid) {
+                _state.value = AppState.Screen.SharedTextPreview(sharedText)
+            } else if (EntryValidator.isLikelySingleWord(trimmed)) {
                 val cleanWord = trimmed.trimStart { !it.isLetter() }.trimEnd { !it.isLetter() }
                 val wordToUse = cleanWord.ifEmpty { trimmed }
                 _state.value = AppState.Screen.SharedWordCapture(word = wordToUse)
@@ -437,19 +440,31 @@ class MainViewModel
             _state.value = AppState.Screen.Decks
         }
 
+        fun retrySavedVocabulary() {
+            loadSavedVocabulary()
+        }
+
         private fun loadSavedVocabulary() {
             statusJob?.cancel()
             val generation = sessionGeneration
+            val current = workspace ?: return
+            updateWorkspaceStatus(current.savedVocabulary, SavedVocabularyStatus.Loading)
             statusJob =
                 viewModelScope.launch {
-                    cardRepository.savedVocabulary().fold(
-                        onSuccess = { saved -> if (generation == sessionGeneration) updateWorkspaceStatus(saved, false) },
+                    vocabularyRepository.savedMatches(current.rawContext, current.selectedLanguage).fold(
+                        onSuccess = { saved ->
+                            if (generation ==
+                                sessionGeneration
+                            ) {
+                                updateWorkspaceStatus(saved, SavedVocabularyStatus.Available)
+                            }
+                        },
                         onFailure = { error ->
                             if (generation == sessionGeneration) {
                                 if (error is UnauthorizedException) {
                                     _unauthorizedEvent.tryEmit(Unit)
                                 } else {
-                                    updateWorkspaceStatus(emptyList(), true)
+                                    updateWorkspaceStatus(emptyList(), SavedVocabularyStatus.Unavailable)
                                 }
                             }
                         },
@@ -463,10 +478,10 @@ class MainViewModel
 
         private fun updateWorkspaceStatus(
             saved: List<com.example.langueedroid.core.data.SavedVocabulary>,
-            unavailable: Boolean,
+            status: SavedVocabularyStatus,
         ) {
             val current = workspace ?: return
-            val updated = current.copy(savedVocabulary = saved, savedStatusUnavailable = unavailable)
+            val updated = current.copy(savedVocabulary = saved, savedStatus = status)
             workspace = updated
             if (_state.value is AppState.Screen.SharedContextCapture) _state.value = updated
         }
@@ -510,6 +525,8 @@ class MainViewModel
             val targetWord = current.targetWord
             return if (editedContext.isBlank()) {
                 ContextEditSaveResult.EmptyContextPendingConfirmation
+            } else if (!EntryValidator.isContextWithinLimit(editedContext)) {
+                ContextEditSaveResult.ContextTooLong
             } else if (EntryValidator.isContextValid(targetWord, editedContext)) {
                 addEntry(targetWord, editedContext)
                 ContextEditSaveResult.Valid

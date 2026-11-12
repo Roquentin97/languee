@@ -10,6 +10,11 @@ sealed class AppState {
 
         object TextInput : Screen()
 
+        /** Editable validation preview for oversized or over-complex shared text. */
+        data class SharedTextPreview(
+            val text: String,
+        ) : Screen()
+
         /**
          * Manual capture: two text fields (target word, optional context).
          * [prefilledWord] carries a word pre-populated from a single-word share intent.
@@ -41,7 +46,7 @@ sealed class AppState {
             val selectedLanguage: String = "en",
             val completed: kotlin.collections.List<CompletedTarget> = emptyList(),
             val savedVocabulary: kotlin.collections.List<SavedVocabulary> = emptyList(),
-            val savedStatusUnavailable: Boolean = false,
+            val savedStatus: SavedVocabularyStatus = SavedVocabularyStatus.Loading,
             val inspectedIndex: Int? = null,
         ) : Screen()
 
@@ -71,6 +76,14 @@ sealed class AppState {
             val selectedLanguage: String = "en",
         ) : Screen()
     }
+}
+
+sealed class SavedVocabularyStatus {
+    object Loading : SavedVocabularyStatus()
+
+    object Available : SavedVocabularyStatus()
+
+    object Unavailable : SavedVocabularyStatus()
 }
 
 data class CompletedTarget(

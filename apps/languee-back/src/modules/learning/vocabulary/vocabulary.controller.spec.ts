@@ -19,6 +19,7 @@ import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 
 const mockVocabularyService = {
   lookup: jest.fn(),
+  savedMatches: jest.fn(),
 };
 
 const mockUser: CurrentUserPayload = {
@@ -246,6 +247,40 @@ describe('VocabularyController', () => {
       await expect(
         controller.lookup({ word: 'walk', language: 'en' }, mockUser),
       ).rejects.toThrow('Unexpected failure');
+    });
+  });
+
+  describe('savedMatches()', () => {
+    it('rejects malformed client tokens before the service is called', async () => {
+      await expect(
+        controller.savedMatches(
+          {
+            language: 'en',
+            text: 'The expressways connect.',
+            tokens: ['expressways'],
+          },
+          mockUser,
+        ),
+      ).rejects.toMatchObject({
+        response: { message: 'CAPTURE_TOKENS_INVALID' },
+      });
+      expect(mockVocabularyService.savedMatches).not.toHaveBeenCalled();
+    });
+
+    it('rejects an oversized capture before the service is called', async () => {
+      await expect(
+        controller.savedMatches(
+          {
+            language: 'en',
+            text: 'a'.repeat(1025),
+            tokens: ['a'],
+          },
+          mockUser,
+        ),
+      ).rejects.toMatchObject({
+        response: { message: 'CAPTURE_TEXT_TOO_LONG' },
+      });
+      expect(mockVocabularyService.savedMatches).not.toHaveBeenCalled();
     });
   });
 });

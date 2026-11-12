@@ -18,7 +18,8 @@ export class CreateCardDto {
   definitionId!: string;
 
   @ApiPropertyOptional({
-    description: 'User-provided context for the card',
+    description:
+      'User-provided context for the card, limited to 1,024 UTF-8 bytes.',
     example: 'She walked to the store.',
   })
   @IsOptional()

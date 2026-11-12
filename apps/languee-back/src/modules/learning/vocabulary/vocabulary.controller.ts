@@ -46,6 +46,15 @@ import { CreateUserDefinitionResponseDto } from './dto/create-user-definition-re
 import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
 import type { CreateUserDefinitionOutput } from './types/create-user-definition.types';
 import { VocabularyService } from './vocabulary.service';
+import {
+  captureInputError,
+  contextInputError,
+  distinctSurfaceTokens,
+} from './capture-input';
+import {
+  SavedMatchesDto,
+  SavedMatchesResponseDto,
+} from './dto/saved-matches.dto';
 
 @ApiTags('vocabulary')
 @ApiBearerAuth('access-token')
@@ -115,6 +124,7 @@ export class VocabularyController {
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<LookupVocabularyOutput> {
     try {
+      this.throwIfContextTooLong(query.context);
       this.validateSelection(query);
       const { selectionStart, selectionEnd } = query;
       return await this.vocabularyService.lookup({
@@ -143,6 +153,33 @@ export class VocabularyController {
       }
       throw err;
     }
+  }
+
+  @Post('saved-matches')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Find the current user's saved vocabulary in capture text",
+  })
+  @ApiOkResponse({ type: SavedMatchesResponseDto })
+  @ApiBadRequestResponse({
+    description:
+      'CAPTURE_TEXT_TOO_LONG, CAPTURE_TOO_MANY_MEANINGFUL_WORDS, CAPTURE_TOKENS_INVALID, or UNSUPPORTED_LANGUAGE',
+  })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  async savedMatches(
+    @Body() body: SavedMatchesDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<SavedMatchesResponseDto> {
+    const inputError = captureInputError(body.text);
+    if (inputError) throw new BadRequestException(inputError);
+    const expectedTokens = distinctSurfaceTokens(body.text);
+    if (
+      expectedTokens.length !== body.tokens.length ||
+      expectedTokens.some((token, index) => token !== body.tokens[index])
+    ) {
+      throw new BadRequestException('CAPTURE_TOKENS_INVALID');
+    }
+    return this.vocabularyService.savedMatches(body, user.userId);
   }
 
   @Post('definitions')
@@ -216,5 +253,10 @@ export class VocabularyController {
       )
         throw new BadRequestException('INPUT_INVALID');
     }
+  }
+
+  private throwIfContextTooLong(context: string | undefined): void {
+    const error = contextInputError(context);
+    if (error) throw new BadRequestException(error);
   }
 }

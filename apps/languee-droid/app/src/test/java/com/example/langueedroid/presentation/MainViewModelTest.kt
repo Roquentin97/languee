@@ -2,15 +2,16 @@ package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
-import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
+import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
+import com.example.langueedroid.feature.capture.presentation.SavedVocabularyStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
@@ -43,7 +45,7 @@ class MainViewModelTest {
     private lateinit var ankiDroidPreferencesStore: AnkiDroidPreferencesStore
     private lateinit var offlineStateManager: OfflineStateManager
     private lateinit var offlineQueueRepository: OfflineQueueRepository
-    private lateinit var cards: CardRepository
+    private lateinit var vocabulary: VocabularyRepository
 
     @Before
     fun setUp() {
@@ -58,15 +60,15 @@ class MainViewModelTest {
             mock {
                 on { count() } doReturn flowOf(0)
             }
-        cards = mock()
-        runBlocking { whenever(cards.savedVocabulary()).thenReturn(Result.success(emptyList())) }
+        vocabulary = mock()
+        runBlocking { whenever(vocabulary.savedMatches(any(), any())).thenReturn(Result.success(emptyList())) }
         viewModel =
             MainViewModel(
                 ankiDroidExportService,
                 ankiDroidPreferencesStore,
                 offlineStateManager,
                 offlineQueueRepository,
-                cards,
+                vocabulary,
                 com.example.langueedroid.core.data
                     .ExportStatusNotifier(),
             )
@@ -222,11 +224,11 @@ class MainViewModelTest {
     @Test
     fun `saved vocabulary failure leaves capture usable without unverified marks`() =
         runTest {
-            whenever(cards.savedVocabulary()).thenReturn(Result.failure(IllegalStateException("unavailable")))
+            whenever(vocabulary.savedMatches(any(), any())).thenReturn(Result.failure(IllegalStateException("unavailable")))
             viewModel.startTextWorkspace("A bank opened.")
             advanceUntilIdle()
             val state = currentState as AppState.Screen.SharedContextCapture
-            assertTrue(state.savedStatusUnavailable)
+            assertTrue(state.savedStatus is SavedVocabularyStatus.Unavailable)
             assertTrue(state.savedVocabulary.isEmpty())
             viewModel.onWordTokenTapped(2)
             assertEquals(listOf(2), (currentState as AppState.Screen.SharedContextCapture).selectedIndices)

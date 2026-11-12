@@ -30,6 +30,7 @@ const mockDictionaryService = {
 
 const mockCardsService = {
   findCardsByDefinitionIdsAndUserId: jest.fn(),
+  findSavedVocabularyCandidates: jest.fn(),
 };
 
 const mockNlpService = {
@@ -1147,6 +1148,68 @@ describe('VocabularyService', () => {
         );
         expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('savedMatches()', () => {
+    it('matches a stored form only for the saved definition POS and keeps all decks', async () => {
+      mockCardsService.findSavedVocabularyCandidates.mockResolvedValue([
+        {
+          definitionId: 'definition-1',
+          partOfSpeech: 'noun',
+          definition: 'A high-speed road.',
+          word: {
+            id: 'word-1',
+            lemma: 'expressway',
+            forms: [
+              { form: 'expressways', partOfSpeech: 'noun' },
+              { form: 'expressways', partOfSpeech: 'verb' },
+            ],
+          },
+          decks: [
+            { id: 'deck-1', name: 'English' },
+            { id: 'deck-1', name: 'English' },
+            { id: 'deck-2', name: 'Roads' },
+          ],
+        },
+      ]);
+
+      await expect(
+        service.savedMatches(
+          {
+            language: 'en',
+            text: 'The expressways connect.',
+            tokens: ['the', 'expressways', 'connect'],
+          },
+          'user-1',
+        ),
+      ).resolves.toEqual({
+        matches: [
+          {
+            surface: 'expressways',
+            headwords: [
+              {
+                wordId: 'word-1',
+                lemma: 'expressway',
+                definitions: [
+                  {
+                    definitionId: 'definition-1',
+                    partOfSpeech: 'noun',
+                    definition: 'A high-speed road.',
+                    decks: [
+                      { id: 'deck-1', name: 'English' },
+                      { id: 'deck-2', name: 'Roads' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      expect(
+        mockCardsService.findSavedVocabularyCandidates,
+      ).toHaveBeenCalledWith('user-1', 'en', ['the', 'expressways', 'connect']);
     });
   });
 
