@@ -42,6 +42,7 @@ object StorageModule {
             .addMigrations(
                 object : Migration(1, 2) {
                     override fun migrate(db: SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE offline_entries ADD COLUMN language TEXT")
                         db.execSQL("ALTER TABLE offline_entries ADD COLUMN lookupContext TEXT")
                         db.execSQL("ALTER TABLE offline_entries ADD COLUMN selectionStart INTEGER")
                         db.execSQL("ALTER TABLE offline_entries ADD COLUMN selectionEnd INTEGER")

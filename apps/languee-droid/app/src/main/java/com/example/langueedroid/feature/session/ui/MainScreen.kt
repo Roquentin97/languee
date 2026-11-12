@@ -603,6 +603,7 @@ private fun NavGraphBuilder.offlineQueueRoute(navController: NavHostController) 
                         word = request.word,
                         context = request.context,
                         offlineEntryId = request.entryId,
+                        language = request.language ?: "en",
                         lookupContext = request.lookupContext,
                         selectionStart = request.selectionStart,
                         selectionEnd = request.selectionEnd,

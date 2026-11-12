@@ -40,6 +40,7 @@ class OfflineQueueViewModel
                     word = entry.word,
                     context = entry.context,
                     entryId = entry.id,
+                    language = entry.language,
                     lookupContext = entry.lookupContext,
                     selectionStart = entry.selectionStart,
                     selectionEnd = entry.selectionEnd,

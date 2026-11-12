@@ -97,6 +97,7 @@ class OfflineQueueViewModelTest {
             val entry =
                 sampleEntry.copy(
                     context = "Edited example",
+                    language = "en",
                     lookupContext = "I saw the saw.",
                     selectionStart = 10,
                     selectionEnd = 13,
@@ -106,6 +107,7 @@ class OfflineQueueViewModelTest {
             advanceUntilIdle()
             viewModel.onEntrySelected(entry)
             advanceUntilIdle()
+            assertEquals("en", received?.language)
             assertEquals("Edited example", received?.context)
             assertEquals("I saw the saw.", received?.lookupContext)
             assertEquals(10, received?.selectionStart)

@@ -224,6 +224,7 @@ class MainViewModel
                             selection?.context,
                             selection?.start,
                             selection?.end,
+                            language,
                         )
                         _offlineWordSaved.tryEmit(generation)
                     } catch (error: Exception) {

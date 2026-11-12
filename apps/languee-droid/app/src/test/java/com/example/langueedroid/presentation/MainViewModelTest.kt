@@ -264,7 +264,7 @@ class MainViewModelTest {
             viewModel.addEntry("bank", "The bank is open.")
             viewModel.addEntry("bank", "The bank is open.")
             advanceUntilIdle()
-            verify(offlineQueueRepository, times(1)).add("bank", "The bank is open.", "The bank is open.", 4, 8)
+            verify(offlineQueueRepository, times(1)).add("bank", "The bank is open.", "The bank is open.", 4, 8, "en")
             assertTrue(viewModel.returnToCapture())
             assertTrue((currentState as AppState.Screen.SharedContextCapture).completed.isEmpty())
         }
