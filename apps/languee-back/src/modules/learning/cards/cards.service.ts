@@ -217,12 +217,7 @@ export class CardsService {
         inflectionForms: snapshot,
       });
 
-      const alreadyInDeck = await tx.cardDeck.findUnique({
-        where: { cardId_deckId: { cardId: clozeCard.id, deckId } },
-      });
-      if (alreadyInDeck) {
-        throw new CardAlreadyExistsError();
-      }
+      await this.addClozeMembership(tx, clozeCard.id, deckId);
 
       const definitionCard = await this.findOrCreateSenseCard(tx, {
         userId,
@@ -242,12 +237,29 @@ export class CardsService {
       });
 
       await tx.cardDeck.createMany({
-        data: ids.map((cardId) => ({ cardId, deckId })),
+        data: ids.slice(1).map((cardId) => ({ cardId, deckId })),
         skipDuplicates: true,
       });
 
       return ids;
     });
+  }
+
+  private async addClozeMembership(
+    tx: TxClient,
+    cardId: string,
+    deckId: string,
+  ): Promise<void> {
+    const alreadyInDeck = await tx.cardDeck.findUnique({
+      where: { cardId_deckId: { cardId, deckId } },
+    });
+    if (alreadyInDeck) throw new CardAlreadyExistsError();
+
+    const membership = await tx.cardDeck.createMany({
+      data: [{ cardId, deckId }],
+      skipDuplicates: true,
+    });
+    if (membership.count === 0) throw new CardAlreadyExistsError();
   }
 
   private async addInflectionCard(
