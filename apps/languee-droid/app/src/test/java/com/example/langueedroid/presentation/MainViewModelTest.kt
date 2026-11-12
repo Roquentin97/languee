@@ -2,6 +2,7 @@ package com.example.langueedroid.presentation
 
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
+import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
@@ -10,13 +11,19 @@ import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -25,6 +32,9 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModelTest {
@@ -33,9 +43,11 @@ class MainViewModelTest {
     private lateinit var ankiDroidPreferencesStore: AnkiDroidPreferencesStore
     private lateinit var offlineStateManager: OfflineStateManager
     private lateinit var offlineQueueRepository: OfflineQueueRepository
+    private lateinit var cards: CardRepository
 
     @Before
     fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         ankiDroidExportService = mock()
         ankiDroidPreferencesStore = mock()
         offlineStateManager =
@@ -46,14 +58,150 @@ class MainViewModelTest {
             mock {
                 on { count() } doReturn flowOf(0)
             }
+        cards = mock()
+        runBlocking { whenever(cards.savedVocabulary()).thenReturn(Result.success(emptyList())) }
         viewModel =
             MainViewModel(
                 ankiDroidExportService,
                 ankiDroidPreferencesStore,
                 offlineStateManager,
                 offlineQueueRepository,
+                cards,
+                com.example.langueedroid.core.data
+                    .ExportStatusNotifier(),
             )
     }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `completed occurrences remain distinct and canceled selections do not count`() {
+        viewModel.startTextWorkspace("Bank here. Bank there.")
+        viewModel.onWordTokenTapped(0)
+        viewModel.confirmWordSelection()
+        assertTrue(
+            viewModel.captureCompleted(
+                "A financial institution",
+                com.example.langueedroid.core.domain
+                    .Deck("d1", "English"),
+            ),
+        )
+        var state = currentState as AppState.Screen.SharedContextCapture
+        assertEquals(1, state.completed.size)
+        assertEquals("Bank here. Bank there.", state.rawContext)
+        assertEquals("d1", viewModel.preferredDeckId)
+        val second =
+            state.tokens
+                .withIndex()
+                .filter { it.value == Token.Word("Bank") }
+                .last()
+                .index
+        viewModel.onWordTokenTapped(second)
+        viewModel.confirmWordSelection()
+        assertTrue(viewModel.returnToCapture())
+        state = currentState as AppState.Screen.SharedContextCapture
+        assertEquals(1, state.completed.size)
+        assertTrue(state.selectedIndices.isEmpty())
+        viewModel.onWordTokenTapped(second)
+        viewModel.confirmWordSelection()
+        assertTrue(
+            viewModel.captureCompleted(
+                "A river edge",
+                com.example.langueedroid.core.domain
+                    .Deck("d2", "Nature"),
+            ),
+        )
+        state = currentState as AppState.Screen.SharedContextCapture
+        assertEquals(2, state.completed.size)
+        assertEquals("d2", viewModel.preferredDeckId)
+        viewModel.onWordTokenTapped(0)
+        assertTrue((currentState as AppState.Screen.SharedContextCapture).selectedIndices.isEmpty())
+        assertFalse(
+            viewModel.captureCompleted(
+                "Duplicate",
+                com.example.langueedroid.core.domain
+                    .Deck("d2", "Nature"),
+            ),
+        )
+    }
+
+    @Test
+    fun `shared capture retains its external origin until the flow ends`() {
+        viewModel.startSharedTextCapture("The bank is open.")
+        assertTrue(viewModel.fromExternalShare)
+        viewModel.onWordTokenTapped(2)
+        viewModel.confirmWordSelection()
+        assertTrue(viewModel.fromExternalShare)
+        viewModel.dismissCapture()
+        assertFalse(viewModel.fromExternalShare)
+    }
+
+    @Test
+    fun `context truncation uses the sentence containing the selected occurrence`() {
+        viewModel.startTextWorkspace("The bank opened. The bank flooded.")
+        val capture = currentState as AppState.Screen.SharedContextCapture
+        val second =
+            capture.tokens
+                .withIndex()
+                .last { it.value == Token.Word("bank") }
+                .index
+        viewModel.onWordTokenTapped(second)
+        viewModel.confirmWordSelection()
+        viewModel.confirmTruncation()
+        assertEquals("The bank flooded.", (currentState as AppState.Screen.ContextReview).context)
+    }
+
+    @Test
+    fun `saved vocabulary failure leaves capture usable without unverified marks`() =
+        runTest {
+            whenever(cards.savedVocabulary()).thenReturn(Result.failure(IllegalStateException("unavailable")))
+            viewModel.startTextWorkspace("A bank opened.")
+            advanceUntilIdle()
+            val state = currentState as AppState.Screen.SharedContextCapture
+            assertTrue(state.savedStatusUnavailable)
+            assertTrue(state.savedVocabulary.isEmpty())
+            viewModel.onWordTokenTapped(2)
+            assertEquals(listOf(2), (currentState as AppState.Screen.SharedContextCapture).selectedIndices)
+        }
+
+    @Test
+    fun `replayed completion does not mark another selected occurrence`() {
+        val deck =
+            com.example.langueedroid.core.domain
+                .Deck("d1", "English")
+        viewModel.startTextWorkspace("Bank here. Bank there.")
+        viewModel.onWordTokenTapped(0)
+        assertTrue(viewModel.captureCompleted("Institution", deck, "card1"))
+        val state = currentState as AppState.Screen.SharedContextCapture
+        val second =
+            state.tokens
+                .withIndex()
+                .last { it.value == Token.Word("Bank") }
+                .index
+        viewModel.onWordTokenTapped(second)
+        assertTrue(viewModel.captureCompleted("Institution", deck, "card1"))
+        val after = currentState as AppState.Screen.SharedContextCapture
+        assertEquals(1, after.completed.size)
+        assertEquals(listOf(second), after.selectedIndices)
+    }
+
+    @Test
+    fun `offline capture queues word and context once without marking session complete`() =
+        runTest {
+            (offlineStateManager.isOffline as MutableStateFlow<Boolean>).value = true
+            viewModel.startTextWorkspace("The bank is open.")
+            viewModel.onWordTokenTapped(2)
+            viewModel.confirmWordSelection()
+            viewModel.addEntry("bank", "The bank is open.")
+            viewModel.addEntry("bank", "The bank is open.")
+            advanceUntilIdle()
+            verify(offlineQueueRepository, times(1)).add("bank", "The bank is open.")
+            assertTrue(viewModel.returnToCapture())
+            assertTrue((currentState as AppState.Screen.SharedContextCapture).completed.isEmpty())
+        }
 
     private val currentState get() = viewModel.state.value
 

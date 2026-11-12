@@ -2,6 +2,7 @@ package com.example.langueedroid.feature.cardcreation.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.langueedroid.ankidroid.AnkiDroidExportResult
 import com.example.langueedroid.ankidroid.AnkiDroidExportService
 import com.example.langueedroid.ankidroid.AnkiDroidNoteBuilder
 import com.example.langueedroid.ankidroid.NoteTypeTemplates
@@ -10,21 +11,26 @@ import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.data.ExportStatusNotifier
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
+import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExportPreference
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.di.ApplicationScope
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +39,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+data class CardCreatedEvent(
+    val cardId: String,
+    val definition: String,
+    val deck: Deck,
+)
 
 @HiltViewModel(assistedFactory = CardCreationViewModel.Factory::class)
 class CardCreationViewModel
@@ -48,6 +60,8 @@ class CardCreationViewModel
         private val ankiDroidExportService: AnkiDroidExportService,
         private val prefsStore: AnkiDroidPreferencesStore,
         val speaker: Speaker,
+        @ApplicationScope private val appScope: CoroutineScope,
+        private val exportStatusNotifier: ExportStatusNotifier,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -67,11 +81,17 @@ class CardCreationViewModel
         private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
 
-        private val _cardCreatedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-        val cardCreatedEvent: SharedFlow<Unit> = _cardCreatedEvent.asSharedFlow()
+        private val _cardCreatedEvent = MutableSharedFlow<CardCreatedEvent>(replay = 1)
+        val cardCreatedEvent: SharedFlow<CardCreatedEvent> = _cardCreatedEvent.asSharedFlow()
 
         private var createCardJob: Job? = null
-        private var manualDefinitionJob: Job? = null
+        private var initialDeckId: String? = null
+
+        fun setInitialDeck(id: String?) {
+            initialDeckId = id
+            val loaded = _state.value.deckSelectionState as? DeckSelectionState.Loaded ?: return
+            if (loaded.selectedDeck == null) loaded.decks.firstOrNull { it.id == id }?.let(::onDeckSelected)
+        }
 
         init {
             loadDecks()
@@ -92,6 +112,7 @@ class CardCreationViewModel
                                         DeckSelectionState.Loaded(decks = decks, selectedDeck = null)
                                     },
                             )
+                        decks.firstOrNull { it.id == initialDeckId }?.let(::onDeckSelected)
                     },
                     onFailure = { error ->
                         if (error is UnauthorizedException) {
@@ -140,6 +161,24 @@ class CardCreationViewModel
                 }
                 else -> Unit
             }
+        }
+
+        fun onContextChanged(value: String) {
+            val updated = value.ifBlank { null }
+            val current = _state.value
+            val flow = current.flowState as? CardCreationFlowState.DefinitionsLoaded
+            val updatedFlow =
+                if (flow?.exampleConfirmed == true && flow.confirmedExample == current.context) {
+                    flow.copy(confirmedExample = updated)
+                } else {
+                    current.flowState
+                }
+            _state.value =
+                current.copy(
+                    context = updated,
+                    contextValid = updated == null || updated == context || EntryValidator.isContextValid(targetWord, updated),
+                    flowState = updatedFlow,
+                )
         }
 
         private fun lookupVocabulary(notice: CardCreationError? = null) {
@@ -209,72 +248,29 @@ class CardCreationViewModel
             _state.value = _state.value.copy(flowState = current.copy(exampleText = text, error = null))
         }
 
-        /**
-         * Submits the manual definition entered by the user for an expression the dictionary
-         * provider does not know. On success, the returned definition becomes the selected
-         * definition and the flow proceeds to example selection exactly as if it had been
-         * picked from a provider-returned list. On 409 (an identical definition already
-         * exists), surfaces a notice and re-fetches the lookup so the existing definition
-         * appears in the normal definitions list.
-         */
         fun submitManualDefinition() {
-            if (manualDefinitionJob?.isActive == true) return
-
             val current = _state.value.flowState as? CardCreationFlowState.ManualDefinition ?: return
-            val definitionText = current.definitionText.trim()
-            if (definitionText.isEmpty()) return
-            val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
-
-            manualDefinitionJob =
-                viewModelScope.launch {
-                    _state.value = _state.value.copy(flowState = current.copy(isSubmitting = true, error = null))
-                    vocabularyRepository
-                        .createUserDefinition(
-                            text = targetWord,
-                            definition = definitionText,
-                            language = language,
-                            example = current.exampleText.trim().ifBlank { null },
-                        ).fold(
-                            onSuccess = { created ->
-                                val definitionResult =
-                                    DefinitionResult(
-                                        id = created.id,
-                                        partOfSpeech = created.partOfSpeech,
-                                        definition = created.definition,
-                                        example = created.example,
-                                        provider = created.provider,
-                                        decks = emptyList(),
-                                    )
-                                _state.value =
-                                    _state.value.copy(
-                                        kind = created.kind,
-                                        flowState =
-                                            CardCreationFlowState.SelectingExample(
-                                                definitions = listOf(definitionResult),
-                                                lemma = created.lemma,
-                                                selectedDefinition = definitionResult,
-                                                definitionState = resolveDefinitionState(definitionResult, selectedDeck),
-                                            ),
-                                    )
-                            },
-                            onFailure = { error ->
-                                when (error) {
-                                    is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
-                                    is DefinitionAlreadyExistsException ->
-                                        lookupVocabulary(notice = CardCreationError.DEFINITION_ALREADY_EXISTS)
-                                    else ->
-                                        _state.value =
-                                            _state.value.copy(
-                                                flowState =
-                                                    current.copy(
-                                                        isSubmitting = false,
-                                                        error = CardCreationError.MANUAL_DEFINITION_FAILED,
-                                                    ),
-                                            )
-                                }
-                            },
-                        )
-                }
+            val definition = current.definitionText.trim()
+            if (definition.isEmpty()) return
+            val draft =
+                DefinitionResult(
+                    id = "",
+                    partOfSpeech = "phrase",
+                    definition = definition,
+                    example = current.exampleText.trim().ifBlank { null },
+                    provider = "user",
+                    decks = emptyList(),
+                )
+            _state.value =
+                _state.value.copy(
+                    flowState =
+                        CardCreationFlowState.SelectingExample(
+                            definitions = listOf(draft),
+                            lemma = targetWord,
+                            selectedDefinition = draft,
+                            definitionState = DefinitionState.Available,
+                        ),
+                )
         }
 
         fun onDefinitionSelected(definition: DefinitionResult) {
@@ -290,6 +286,7 @@ class CardCreationViewModel
                                 selectedDefinition = definition,
                                 definitionState = definitionState,
                                 confirmedExample = null,
+                                exampleConfirmed = false,
                             ),
                     )
             } else {
@@ -301,6 +298,7 @@ class CardCreationViewModel
                                 lemma = currentFlowState.lemma,
                                 selectedDefinition = definition,
                                 definitionState = definitionState,
+                                previous = currentFlowState,
                             ),
                     )
             }
@@ -317,6 +315,7 @@ class CardCreationViewModel
                             selectedDefinition = currentFlowState.selectedDefinition,
                             definitionState = currentFlowState.definitionState,
                             confirmedExample = example,
+                            exampleConfirmed = true,
                         ),
                 )
         }
@@ -326,7 +325,7 @@ class CardCreationViewModel
             _state.value =
                 _state.value.copy(
                     flowState =
-                        CardCreationFlowState.DefinitionsLoaded(
+                        currentFlowState.previous ?: CardCreationFlowState.DefinitionsLoaded(
                             definitions = currentFlowState.definitions,
                             lemma = currentFlowState.lemma,
                             selectedDefinition = null,
@@ -354,57 +353,90 @@ class CardCreationViewModel
             val currentFlowState = _state.value.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
             val selectedDefinition = currentFlowState.selectedDefinition ?: return
             val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
+            val draftContext = _state.value.context
+            if (!_state.value.contextValid) return
 
             if (currentFlowState.definitionState == DefinitionState.AlreadyInSelectedDeck) return
+            if (!currentFlowState.exampleConfirmed) return
 
             val confirmedExample = currentFlowState.confirmedExample
             createCardJob =
-                viewModelScope.launch {
+                appScope.launch {
                     _state.value = _state.value.copy(flowState = CardCreationFlowState.CreatingCard)
+                    val resolvedDefinition = resolveDraftDefinition(selectedDefinition, currentFlowState) ?: return@launch
+                    val resolvedFlow =
+                        currentFlowState.copy(
+                            definitions = currentFlowState.definitions.map { if (it == selectedDefinition) resolvedDefinition else it },
+                            selectedDefinition = resolvedDefinition,
+                        )
                     cardRepository
                         .createCard(
                             deckId = selectedDeck.id,
-                            definitionId = selectedDefinition.id,
-                            context = context,
-                            inflectionForms = selectedDefinition.inflectionForms,
+                            definitionId = resolvedDefinition.id,
+                            context = confirmedExample ?: draftContext,
+                            inflectionForms = resolvedDefinition.inflectionForms,
                         ).fold(
                             onSuccess = { cardId ->
+                                _state.value = _state.value.copy(flowState = CardCreationFlowState.CardCreated())
+                                _cardCreatedEvent.tryEmit(CardCreatedEvent(cardId, resolvedDefinition.definition, selectedDeck))
                                 triggerAnkiExportIfConfigured(
                                     cardId = cardId,
-                                    selectedDefinition = selectedDefinition,
-                                    currentFlowState = currentFlowState,
+                                    selectedDefinition = resolvedDefinition,
+                                    currentFlowState = resolvedFlow,
                                     selectedDeck = selectedDeck,
                                     confirmedExample = confirmedExample,
                                 )
                             },
-                            onFailure = { error ->
-                                when (error) {
-                                    is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
-                                    is CardAlreadyExistsException ->
-                                        _state.value =
-                                            _state.value.copy(
-                                                flowState =
-                                                    currentFlowState.copy(
-                                                        selectedDefinition = selectedDefinition,
-                                                        definitionState = DefinitionState.AlreadyInSelectedDeck,
-                                                    ),
-                                            )
-                                    is StaleReferenceException -> {
-                                        _state.value =
-                                            _state.value.copy(
-                                                flowState = CardCreationFlowState.CreateCardError(CardCreationError.STALE_REFERENCE),
-                                            )
-                                        loadDecks()
-                                    }
-                                    else ->
-                                        _state.value =
-                                            _state.value.copy(
-                                                flowState = CardCreationFlowState.CreateCardError(CardCreationError.CREATE_CARD_FAILED),
-                                            )
-                                }
-                            },
+                            onFailure = { error -> handleCreateFailure(error, resolvedFlow) },
                         )
                 }
+        }
+
+        private fun handleCreateFailure(
+            error: Throwable,
+            flow: CardCreationFlowState.DefinitionsLoaded,
+        ) {
+            when (error) {
+                is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
+                is CardAlreadyExistsException ->
+                    _state.value =
+                        _state.value.copy(
+                            flowState = flow.copy(definitionState = DefinitionState.AlreadyInSelectedDeck),
+                        )
+                is StaleReferenceException -> {
+                    initialDeckId = null
+                    _state.value = _state.value.copy(flowState = flow.copy(notice = CardCreationError.STALE_REFERENCE))
+                    loadDecks()
+                }
+                else -> _state.value = _state.value.copy(flowState = flow.copy(notice = CardCreationError.CREATE_CARD_FAILED))
+            }
+        }
+
+        private suspend fun resolveDraftDefinition(
+            definition: DefinitionResult,
+            flow: CardCreationFlowState.DefinitionsLoaded,
+        ): DefinitionResult? {
+            if (definition.id.isNotEmpty()) return definition
+            val result =
+                vocabularyRepository.createUserDefinition(
+                    text = targetWord,
+                    definition = definition.definition,
+                    language = language,
+                    example = definition.example,
+                )
+            return result.fold(
+                onSuccess = { created ->
+                    definition.copy(id = created.id, partOfSpeech = created.partOfSpeech, provider = created.provider)
+                },
+                onFailure = { error ->
+                    when (error) {
+                        is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
+                        is DefinitionAlreadyExistsException -> lookupVocabulary(notice = CardCreationError.DEFINITION_ALREADY_EXISTS)
+                        else -> _state.value = _state.value.copy(flowState = flow.copy(notice = CardCreationError.MANUAL_DEFINITION_FAILED))
+                    }
+                    null
+                },
+            )
         }
 
         private fun triggerAnkiExportIfConfigured(
@@ -414,7 +446,11 @@ class CardCreationViewModel
             selectedDeck: Deck,
             confirmedExample: String?,
         ) {
-            viewModelScope.launch {
+            val errorHandler =
+                CoroutineExceptionHandler { _, _ ->
+                    finishExport(AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED))
+                }
+            appScope.launch(errorHandler) {
                 val setupResult = ankiDroidExportService.checkSetup(prefsStore)
                 if (!setupResult.isReady) {
                     finishExport(AnkiExportTriggerStatus.NotTriggered)
@@ -458,16 +494,7 @@ class CardCreationViewModel
 
                 noteResult.fold(
                     onSuccess = { result ->
-                        ankiDroidExportRepository.recordAttemptCompleted(
-                            exportId = exportRecord.id,
-                            ankiNoteId = result.noteId,
-                            ankiDeckId = result.deckId,
-                            ankiDeckNameSnapshot = selectedDeck.name,
-                            ankiModelId = result.modelId,
-                            ankiModelNameSnapshot = prefs.noteTypeName,
-                            templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
-                        )
-                        finishExport(AnkiExportTriggerStatus.Success)
+                        recordSuccessfulExport(exportRecord.id, result, selectedDeck.name, prefs.noteTypeName)
                     },
                     onFailure = { error ->
                         ankiDroidExportRepository.recordAttemptFailed(
@@ -481,6 +508,31 @@ class CardCreationViewModel
             }
         }
 
+        private suspend fun recordSuccessfulExport(
+            exportId: String,
+            result: AnkiDroidExportResult,
+            deckName: String,
+            modelName: String,
+        ) {
+            val recorded =
+                ankiDroidExportRepository.recordAttemptCompleted(
+                    exportId = exportId,
+                    ankiNoteId = result.noteId,
+                    ankiDeckId = result.deckId,
+                    ankiDeckNameSnapshot = deckName,
+                    ankiModelId = result.modelId,
+                    ankiModelNameSnapshot = modelName,
+                    templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
+                )
+            finishExport(
+                if (recorded.isSuccess) {
+                    AnkiExportTriggerStatus.Success
+                } else {
+                    AnkiExportTriggerStatus.Failed(CardCreationError.EXPORT_RECORD_FAILED)
+                },
+            )
+        }
+
         private fun buildExportFields(
             cardId: String,
             selectedDefinition: DefinitionResult,
@@ -492,14 +544,14 @@ class CardCreationViewModel
             lemma = currentFlowState.lemma,
             partOfSpeech = selectedDefinition.partOfSpeech,
             definition = selectedDefinition.definition,
-            context = context,
+            context = _state.value.context,
             example = confirmedExample,
             inflectionForms = selectedDefinition.inflectionForms,
         )
 
         private fun finishExport(status: AnkiExportTriggerStatus) {
             _state.value = _state.value.copy(flowState = CardCreationFlowState.CardCreated(ankiExportStatus = status))
-            _cardCreatedEvent.tryEmit(Unit)
+            if (status is AnkiExportTriggerStatus.Failed) exportStatusNotifier.reportFailure()
         }
 
         fun retryLookup() {

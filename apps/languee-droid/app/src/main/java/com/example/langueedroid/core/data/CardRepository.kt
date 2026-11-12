@@ -6,6 +6,7 @@ import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.CardsApi
+import com.example.langueedroid.core.network.dto.CardResponseDto
 import com.example.langueedroid.core.network.dto.CreateCardRequest
 import com.example.langueedroid.core.telemetry.Logger
 
@@ -13,6 +14,16 @@ class CardRepository(
     private val cardsApi: CardsApi,
     private val logger: Logger,
 ) {
+    suspend fun savedVocabulary(): Result<List<SavedVocabulary>> =
+        runCatching {
+            val response = cardsApi.listCards(null)
+            when {
+                response.code() == 401 -> throw UnauthorizedException()
+                !response.isSuccessful -> throw Exception("Failed to list saved vocabulary: HTTP ${response.code()}")
+                else -> savedSenses(response.body() ?: throw Exception("Empty response body from listCards"))
+            }
+        }
+
     suspend fun createCard(
         deckId: String,
         definitionId: String,
@@ -80,3 +91,26 @@ class CardRepository(
             }
         }
 }
+
+private fun savedSenses(cards: List<CardResponseDto>): List<SavedVocabulary> =
+    cards
+        .filter { it.definition != null && it.decks.isNotEmpty() }
+        .groupBy { it.definition?.id }
+        .values
+        .map { group ->
+            val card = group.first()
+            val definition = requireNotNull(card.definition)
+            SavedVocabulary(
+                card.word.lemma,
+                definition.partOfSpeech,
+                definition.definition,
+                group.flatMap { it.decks }.distinctBy { it.id }.map { it.name },
+            )
+        }
+
+data class SavedVocabulary(
+    val headword: String,
+    val partOfSpeech: String,
+    val definition: String,
+    val decks: List<String>,
+)

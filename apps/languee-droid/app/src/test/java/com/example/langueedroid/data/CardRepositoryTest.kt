@@ -135,6 +135,27 @@ class CardRepositoryTest {
     // -------------------------------------------------------------------------
 
     @Test
+    fun `saved vocabulary uses one cloze per sense and preserves deck membership`() =
+        runTest {
+            val cloze = aCardResponseDto().copy(decks = listOf(CardDeckDto("d1", "English"), CardDeckDto("d2", "Animals")))
+            whenever(cardsApi.listCards(null)).thenReturn(
+                Response.success(listOf(cloze, aCardResponseDto(type = "definition"), aCardResponseDto(type = "inflection"))),
+            )
+            val saved = repository.savedVocabulary().getOrThrow().single()
+            org.junit.Assert.assertEquals("cat", saved.headword)
+            org.junit.Assert.assertEquals("noun", saved.partOfSpeech)
+            org.junit.Assert.assertEquals("A small animal", saved.definition)
+            org.junit.Assert.assertEquals(listOf("English", "Animals"), saved.decks)
+        }
+
+    @Test
+    fun `saved vocabulary propagates unauthorized status`() =
+        runTest {
+            whenever(cardsApi.listCards(null)).thenReturn(Response.error(401, "{}".toResponseBody()))
+            assertTrue(repository.savedVocabulary().exceptionOrNull() is UnauthorizedException)
+        }
+
+    @Test
     fun `listCards success returns mapped domain cards`() =
         runTest {
             whenever(cardsApi.listCards("d1")).thenReturn(

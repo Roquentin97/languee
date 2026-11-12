@@ -88,6 +88,8 @@ fun DecksScreen(
     isOffline: Boolean = false,
     offlineQueueCount: Int = 0,
     onOfflineStripClick: (() -> Unit)? = null,
+    onAddWord: () -> Unit = {},
+    onCaptureText: () -> Unit = {},
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -97,18 +99,7 @@ fun DecksScreen(
             DecksTopBar(onReviewClick, dueReviewCount, onIntegrationsClick, onSyncClick, onLogout, logoutInProgress)
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                shape = RoundedCornerShape(18.dp),
-                containerColor = GreenPrimary,
-                elevation = FloatingActionButtonDefaults.elevation(6.dp, 8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.decks_create_deck_button),
-                    tint = Color.White,
-                )
-            }
+            AddMenu(onAddWord, onCaptureText) { showCreateDialog = true }
         },
         modifier = modifier,
     ) { innerPadding ->
@@ -140,6 +131,37 @@ fun DecksScreen(
             isLoadingAnkiDecks = isLoadingAnkiDecks,
             onLoadAnkiDecks = onLoadAnkiDecks,
         )
+    }
+}
+
+@Composable
+private fun AddMenu(
+    onAddWord: () -> Unit,
+    onCaptureText: () -> Unit,
+    onCreateDeck: () -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Box {
+        FloatingActionButton(
+            onClick = { expanded = true },
+            shape = RoundedCornerShape(18.dp),
+            containerColor = GreenPrimary,
+            elevation = FloatingActionButtonDefaults.elevation(6.dp, 8.dp),
+        ) { Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White) }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("Add word") }, onClick = {
+                expanded = false
+                onAddWord()
+            })
+            DropdownMenuItem(text = { Text("Capture from text") }, onClick = {
+                expanded = false
+                onCaptureText()
+            })
+            DropdownMenuItem(text = { Text(stringResource(R.string.decks_create_deck_button)) }, onClick = {
+                expanded = false
+                onCreateDeck()
+            })
+        }
     }
 }
 

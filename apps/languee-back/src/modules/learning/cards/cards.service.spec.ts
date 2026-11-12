@@ -209,10 +209,11 @@ describe('CardsService', () => {
         'user-id-1',
       );
       expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
-        data: [
-          { cardId: 'card-id-cloze', deckId: 'deck-id-1' },
-          { cardId: 'card-id-definition', deckId: 'deck-id-1' },
-        ],
+        data: [{ cardId: 'card-id-cloze', deckId: 'deck-id-1' }],
+        skipDuplicates: true,
+      });
+      expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
+        data: [{ cardId: 'card-id-definition', deckId: 'deck-id-1' }],
         skipDuplicates: true,
       });
     });
@@ -349,7 +350,6 @@ describe('CardsService', () => {
       expect(mockTx.card.create).toHaveBeenCalledTimes(2);
       expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
         data: [
-          { cardId: 'card-id-cloze', deckId: 'deck-id-2' },
           { cardId: 'card-id-definition', deckId: 'deck-id-2' },
           { cardId: 'card-id-inflection', deckId: 'deck-id-2' },
         ],
@@ -374,10 +374,11 @@ describe('CardsService', () => {
 
       expect(mockTx.card.create).not.toHaveBeenCalled();
       expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
-        data: [
-          { cardId: 'card-id-cloze', deckId: 'deck-id-2' },
-          { cardId: 'card-id-definition', deckId: 'deck-id-2' },
-        ],
+        data: [{ cardId: 'card-id-cloze', deckId: 'deck-id-2' }],
+        skipDuplicates: true,
+      });
+      expect(mockTx.cardDeck.createMany).toHaveBeenCalledWith({
+        data: [{ cardId: 'card-id-definition', deckId: 'deck-id-2' }],
         skipDuplicates: true,
       });
     });
@@ -491,6 +492,19 @@ describe('CardsService', () => {
       ).rejects.toBeInstanceOf(CardAlreadyExistsError);
 
       expect(mockTx.card.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a concurrent duplicate when the membership was inserted after the initial check', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockTx.card.findUnique.mockResolvedValueOnce(mockClozeCard);
+      mockTx.cardDeck.findUnique.mockResolvedValueOnce(null);
+      mockTx.cardDeck.createMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.create('user-id-1', 'deck-id-1', 'def-id-1'),
+      ).rejects.toBeInstanceOf(CardAlreadyExistsError);
+      expect(mockTx.cardDeck.createMany).toHaveBeenCalledTimes(1);
     });
   });
 

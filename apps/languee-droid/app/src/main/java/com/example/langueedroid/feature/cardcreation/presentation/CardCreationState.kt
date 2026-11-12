@@ -41,6 +41,7 @@ sealed class AnkiExportTriggerStatus {
 data class CardCreationState(
     val targetWord: String,
     val context: String?,
+    val contextValid: Boolean = true,
     val language: String = "en",
     val deckSelectionState: DeckSelectionState = DeckSelectionState.Loading,
     val flowState: CardCreationFlowState = CardCreationFlowState.LookingUp,
@@ -78,6 +79,7 @@ sealed class CardCreationFlowState {
         val definitionState: DefinitionState?,
         val lemma: String,
         val confirmedExample: String? = null,
+        val exampleConfirmed: Boolean = false,
         val notice: CardCreationError? = null,
     ) : CardCreationFlowState()
 
@@ -87,6 +89,7 @@ sealed class CardCreationFlowState {
         val lemma: String,
         val selectedDefinition: DefinitionResult,
         val definitionState: DefinitionState,
+        val previous: DefinitionsLoaded? = null,
     ) : CardCreationFlowState()
 
     /** No definitions were returned for the given word. */

@@ -19,6 +19,7 @@ import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -27,6 +28,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -35,6 +37,7 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -143,6 +146,10 @@ class CardCreationViewModelAnkiTest {
             ankiDroidExportService = exportService,
             prefsStore = prefsStore,
             speaker = speaker,
+            appScope = kotlinx.coroutines.CoroutineScope(Dispatchers.Main),
+            exportStatusNotifier =
+                com.example.langueedroid.core.data
+                    .ExportStatusNotifier(),
         )
 
     private suspend fun TestScope.reachDefinitionsLoaded(): Pair<CardCreationViewModel, DefinitionResult> {
@@ -231,18 +238,12 @@ class CardCreationViewModelAnkiTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `cardCreatedEvent emitted after successful auto-export`() =
+    fun `cardCreatedEvent emitted before export finishes`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
             whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
-            whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
-            whenever(prefsStore.read()).thenReturn(autoExportPrefs())
-            whenever(exportRepository.createOrGetExportRecord("c-abc"))
-                .thenReturn(Result.success(aExportRecord(cardId = "c-abc")))
-            whenever(exportService.exportNote(any(), any(), any(), any()))
-                .thenReturn(Result.success(AnkiDroidExportResult(noteId = 999L, deckId = 1L, modelId = 1L)))
-            whenever(exportRepository.recordAttemptCompleted(any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(Result.success(Unit))
+            val gate = CompletableDeferred<AnkiDroidSetupCheckResult>()
+            whenever(exportService.checkSetup(prefsStore)).doSuspendableAnswer { gate.await() }
 
             var cardCreatedCalled = false
             val job =
@@ -251,10 +252,12 @@ class CardCreationViewModelAnkiTest {
                     cardCreatedCalled = true
                 }
             vm.createCard()
+            runCurrent()
+            assertTrue(cardCreatedCalled)
+            assertTrue(!gate.isCompleted)
+            gate.complete(setupNotReady())
             advanceUntilIdle()
             job.cancel()
-
-            assertTrue(cardCreatedCalled)
         }
 
     // -------------------------------------------------------------------------

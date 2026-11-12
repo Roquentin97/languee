@@ -1,13 +1,14 @@
 package com.example.langueedroid.feature.capture.ui
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -45,12 +48,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.example.langueedroid.core.data.SavedVocabulary
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
@@ -65,6 +78,7 @@ import com.example.langueedroid.core.ui.theme.TextMuted
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.capture.presentation.AppState
+import com.example.langueedroid.feature.capture.presentation.CompletedTarget
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
 import com.languee.droid.R
 
@@ -82,10 +96,13 @@ fun CaptureScreen(
     onContextEditSave: (String) -> ContextEditSaveResult,
     onConfirmSaveWithoutContext: () -> Unit,
     onSelectLanguage: (String) -> Unit,
+    onStartTextWorkspace: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val workspaceScroll = rememberScrollState()
     Box(modifier = modifier.fillMaxSize()) {
         when (state) {
+            is AppState.Screen.TextInput -> TextInputContent(onStartTextWorkspace, onDismiss)
             is AppState.Screen.ManualCapture ->
                 ManualCaptureContent(
                     prefilledWord = state.prefilledWord,
@@ -107,6 +124,11 @@ fun CaptureScreen(
                 SharedContextCaptureContent(
                     tokens = state.tokens,
                     selectedIndices = state.selectedIndices,
+                    completed = state.completed,
+                    savedVocabulary = state.savedVocabulary,
+                    statusUnavailable = state.savedStatusUnavailable,
+                    inspectedIndex = state.inspectedIndex,
+                    scrollState = workspaceScroll,
                     selectedLanguage = state.selectedLanguage,
                     onSelectLanguage = onSelectLanguage,
                     onWordTapped = onWordTokenTapped,
@@ -135,6 +157,22 @@ fun CaptureScreen(
 
             else -> Unit
         }
+    }
+}
+
+@Composable
+private fun TextInputContent(
+    onContinue: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf("") }
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Capture from text", style = MaterialTheme.typography.titleLarge)
+        OutlinedTextField(value = text, onValueChange = {
+            text = it
+        }, label = { Text("Paste or type text") }, modifier = Modifier.fillMaxWidth().weight(1f))
+        Button(onClick = { onContinue(text) }, enabled = text.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Continue") }
+        TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
     }
 }
 
@@ -215,6 +253,7 @@ private fun ManualCaptureContent(
 ) {
     var word by rememberSaveable(prefilledWord) { mutableStateOf(prefilledWord) }
     var context by rememberSaveable { mutableStateOf("") }
+    var showContext by rememberSaveable { mutableStateOf(false) }
 
     val contextIsNonBlank = context.isNotBlank()
     val contextIsValid = !contextIsNonBlank || EntryValidator.isContextValid(word.trim(), context)
@@ -249,7 +288,8 @@ private fun ManualCaptureContent(
 
             CaptureWordField(word) { word = it }
 
-            CaptureContextField(context) { context = it }
+            TextButton(onClick = { showContext = !showContext }) { Text(if (showContext) "Hide context" else "Add context (optional)") }
+            if (showContext) CaptureContextField(context) { context = it }
 
             if (contextIsNonBlank && !contextIsValid) {
                 Text(
@@ -380,25 +420,9 @@ private fun ManualCaptureActions(
             colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
         ) {
             Text(
-                text = stringResource(R.string.btn_save),
+                text = "Continue",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
-            )
-        }
-        OutlinedButton(
-            onClick = { onSave(word, null) },
-            enabled = word.isNotBlank(),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-            shape = RoundedCornerShape(14.dp),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, GreenBorder),
-        ) {
-            Text(
-                text = stringResource(R.string.btn_save_without_context),
-                style = MaterialTheme.typography.labelLarge,
-                color = GreenPrimary,
             )
         }
         TextButton(
@@ -518,6 +542,11 @@ private fun SharedWordActions(
 private fun SharedContextCaptureContent(
     tokens: List<Token>,
     selectedIndices: List<Int>,
+    completed: List<CompletedTarget>,
+    savedVocabulary: List<SavedVocabulary>,
+    statusUnavailable: Boolean,
+    inspectedIndex: Int?,
+    scrollState: ScrollState,
     selectedLanguage: String,
     onSelectLanguage: (String) -> Unit,
     onWordTapped: (Int) -> Unit,
@@ -550,8 +579,23 @@ private fun SharedContextCaptureContent(
                 onLanguageSelected = onSelectLanguage,
             )
             Spacer(modifier = Modifier.height(16.dp))
-            SelectableTokens(tokens, selectedIndices, onWordTapped, Modifier.weight(1f))
-            SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
+            Text("${completed.size} added", style = MaterialTheme.typography.labelMedium)
+            if (statusUnavailable) Text("Saved vocabulary is unavailable", color = TextSecondary)
+            SelectableTokens(tokens, selectedIndices, completed, savedVocabulary, onWordTapped, scrollState, Modifier.weight(1f))
+            val handled = completed.firstOrNull { inspectedIndex != null && inspectedIndex in it.indices }
+            val inspected =
+                if (selectedIndices.size > 1) {
+                    ExpressionSpanSelector.joinSelection(tokens, selectedIndices)
+                } else {
+                    (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
+                }
+            val saved = savedVocabulary.filter { it.headword.equals(inspected, ignoreCase = true) }
+            if (handled != null) {
+                Text("Added: ${handled.definition} · ${handled.deckName}")
+            } else {
+                SavedVocabularyInfo(saved)
+                SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
+            }
             TextButton(
                 onClick = onCancel,
                 modifier =
@@ -560,7 +604,7 @@ private fun SharedContextCaptureContent(
                         .height(44.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.btn_cancel),
+                    text = "Done",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted,
                 )
@@ -632,44 +676,128 @@ private fun SelectionConfirmation(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SelectableTokens(
     tokens: List<Token>,
     selectedIndices: List<Int>,
+    completed: List<CompletedTarget>,
+    savedVocabulary: List<SavedVocabulary>,
     onWordTapped: (Int) -> Unit,
+    scrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = modifier,
-    ) {
-        tokens.forEachIndexed { index, token ->
-            when (token) {
-                is Token.Word -> {
-                    val isSelected = index in selectedIndices
-                    Text(
-                        text = "${token.text} ",
-                        style =
-                            MaterialTheme.typography.bodyLarge.copy(
-                                color = if (isSelected) GreenPrimaryDark else TextPrimary,
-                            ),
-                        modifier =
-                            Modifier
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(if (isSelected) GreenHighlight else Color.Transparent)
-                                .clickable { onWordTapped(index) }
-                                .padding(horizontal = 3.dp, vertical = 1.dp),
-                    )
-                }
+    var layout by androidx.compose.runtime.remember { mutableStateOf<TextLayoutResult?>(null) }
+    val (text, spans) = captureText(tokens, selectedIndices, completed, savedVocabulary)
+    BasicText(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+        onTextLayout = { layout = it },
+        modifier =
+            modifier
+                .verticalScroll(scrollState)
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = "${text.text}. ${completed.size} selections added."
+                    customActions = tokenAccessibilityActions(tokens, completed, savedVocabulary, onWordTapped)
+                }.drawWithContent {
+                    drawContent()
+                    val result = layout ?: return@drawWithContent
+                    spans.forEach { (start, end, handled) ->
+                        for (offset in start until end) {
+                            val box = result.getBoundingBox(offset)
+                            drawLine(
+                                color = if (handled) GreenPrimary else Color.Gray,
+                                start = Offset(box.left, box.bottom - 1.dp.toPx()),
+                                end = Offset(box.right, box.bottom - 1.dp.toPx()),
+                                strokeWidth = 1.dp.toPx(),
+                                pathEffect = if (handled) null else PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())),
+                            )
+                        }
+                    }
+                }.pointerInput(text) {
+                    detectTapGestures { position ->
+                        val offset = layout?.getOffsetForPosition(position) ?: return@detectTapGestures
+                        text
+                            .getStringAnnotations("token", offset, offset)
+                            .firstOrNull()
+                            ?.item
+                            ?.toIntOrNull()
+                            ?.let(onWordTapped)
+                    }
+                },
+    )
+}
 
-                is Token.Separator -> {
-                    Text(
-                        text = token.text,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary,
-                    )
+private fun captureText(
+    tokens: List<Token>,
+    selectedIndices: List<Int>,
+    completed: List<CompletedTarget>,
+    savedVocabulary: List<SavedVocabulary>,
+): Pair<androidx.compose.ui.text.AnnotatedString, List<Triple<Int, Int, Boolean>>> {
+    val spans = mutableListOf<Triple<Int, Int, Boolean>>()
+    val completedIndices = completed.flatMap { it.indices }.toSet()
+    val savedHeadwords = savedVocabulary.map { it.headword.lowercase() }.toSet()
+    val text =
+        buildAnnotatedString {
+            tokens.forEachIndexed { index, token ->
+                val value =
+                    when (token) {
+                        is Token.Word -> token.text
+                        is Token.Separator -> token.text
+                    }
+                val start = length
+                if (token is Token.Word) {
+                    val marker = captureMarker(index, value, completedIndices, savedHeadwords)
+                    if (marker != CaptureMarker.NONE) spans.add(Triple(start, start + value.length, marker == CaptureMarker.COMPLETED))
+                    pushStringAnnotation("token", index.toString())
+                    withStyle(SpanStyle(background = if (index in selectedIndices) GreenHighlight else Color.Transparent)) { append(value) }
+                    pop()
+                } else {
+                    append(value)
                 }
+            }
+        }
+    return text to spans
+}
+
+private fun tokenAccessibilityActions(
+    tokens: List<Token>,
+    completed: List<CompletedTarget>,
+    saved: List<SavedVocabulary>,
+    onWordTapped: (Int) -> Unit,
+): List<CustomAccessibilityAction> =
+    tokens.mapIndexedNotNull { index, token ->
+        if (token !is Token.Word) {
+            null
+        } else {
+            val status =
+                when {
+                    completed.any { index in it.indices } -> "added in this session"
+                    saved.any { it.headword.equals(token.text, ignoreCase = true) } -> "saved vocabulary"
+                    else -> "not marked"
+                }
+            CustomAccessibilityAction("${token.text}, $status, position ${index + 1}") {
+                onWordTapped(index)
+                true
+            }
+        }
+    }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SavedVocabularyInfo(saved: List<SavedVocabulary>) {
+    if (saved.isEmpty()) return
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    TextButton(onClick = { expanded = true }) {
+        val noun = if (saved.size == 1) "definition" else "definitions"
+        Text("${saved.size} saved $noun · Details")
+    }
+    if (expanded) {
+        ModalBottomSheet(onDismissRequest = { expanded = false }) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Saved definitions", style = MaterialTheme.typography.titleMedium)
+                saved.forEach { Text("${it.partOfSpeech}: ${it.definition}\n${it.decks.joinToString()}") }
+                TextButton(onClick = { expanded = false }) { Text("Close") }
             }
         }
     }
@@ -836,7 +964,7 @@ private fun ContextReviewActions(
             colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
         ) {
             Text(
-                text = "Save and create card",
+                text = "Continue",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
             )
