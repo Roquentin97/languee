@@ -87,6 +87,7 @@ import com.example.langueedroid.core.ui.theme.TextSecondary
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CompletedTarget
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
+import com.example.langueedroid.feature.capture.presentation.SavedVocabularyStatus
 import com.languee.droid.R
 
 @Composable
@@ -104,12 +105,14 @@ fun CaptureScreen(
     onConfirmSaveWithoutContext: () -> Unit,
     onSelectLanguage: (String) -> Unit,
     onStartTextWorkspace: (String) -> Unit = {},
+    onRetrySavedVocabulary: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workspaceScroll = rememberScrollState()
     Box(modifier = modifier.fillMaxSize()) {
         when (state) {
-            is AppState.Screen.TextInput -> TextInputContent(onStartTextWorkspace, onDismiss)
+            is AppState.Screen.TextInput -> TextInputContent("", onStartTextWorkspace, onDismiss)
+            is AppState.Screen.SharedTextPreview -> TextInputContent(state.text, onStartTextWorkspace, onDismiss)
             is AppState.Screen.ManualCapture ->
                 ManualCaptureContent(
                     prefilledWord = state.prefilledWord,
@@ -133,13 +136,14 @@ fun CaptureScreen(
                     selectedIndices = state.selectedIndices,
                     completed = state.completed,
                     savedVocabulary = state.savedVocabulary,
-                    statusUnavailable = state.savedStatusUnavailable,
+                    savedStatus = state.savedStatus,
                     inspectedIndex = state.inspectedIndex,
                     scrollState = workspaceScroll,
                     selectedLanguage = state.selectedLanguage,
                     onSelectLanguage = onSelectLanguage,
                     onWordTapped = onWordTokenTapped,
                     onConfirmSelection = onConfirmWordSelection,
+                    onRetrySavedVocabulary = onRetrySavedVocabulary,
                     onCancel = onDismiss,
                 )
 
@@ -169,16 +173,38 @@ fun CaptureScreen(
 
 @Composable
 private fun TextInputContent(
+    initialText: String,
     onContinue: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
-    var text by rememberSaveable { mutableStateOf("") }
+    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
+    val validation = EntryValidator.validateCaptureText(text)
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Capture from text", style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(value = text, onValueChange = {
             text = it
         }, label = { Text("Paste or type text") }, modifier = Modifier.fillMaxWidth().weight(1f))
-        Button(onClick = { onContinue(text) }, enabled = text.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Continue") }
+        Text(
+            "${validation.meaningfulWordCount} / ${EntryValidator.MAX_MEANINGFUL_CAPTURE_WORDS} meaningful words",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+        )
+        if (validation.error == EntryValidator.CaptureTextError.TOO_LONG) {
+            Text(
+                "Text must be 1,024 UTF-8 bytes or less.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else if (validation.error == EntryValidator.CaptureTextError.TOO_MANY_MEANINGFUL_WORDS) {
+            Text(
+                "Text can contain up to 15 meaningful words.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Button(onClick = {
+            onContinue(text)
+        }, enabled = text.isNotBlank() && validation.isValid, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
         TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
     }
 }
@@ -263,7 +289,8 @@ private fun ManualCaptureContent(
     var showContext by rememberSaveable { mutableStateOf(false) }
 
     val contextIsNonBlank = context.isNotBlank()
-    val contextIsValid = !contextIsNonBlank || EntryValidator.isContextValid(word.trim(), context)
+    val contextWithinLimit = EntryValidator.isContextWithinLimit(context)
+    val contextIsValid = contextWithinLimit && (!contextIsNonBlank || EntryValidator.isContextValid(word.trim(), context))
     val canSave = word.isNotBlank() && contextIsValid
 
     Scaffold(
@@ -299,7 +326,14 @@ private fun ManualCaptureContent(
 
             if (contextIsNonBlank && !contextIsValid) {
                 Text(
-                    text = stringResource(R.string.validation_context_must_contain_word),
+                    text =
+                        if (!contextWithinLimit) {
+                            "Context must be 1,024 UTF-8 bytes or less."
+                        } else {
+                            stringResource(
+                                R.string.validation_context_must_contain_word,
+                            )
+                        },
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -550,13 +584,14 @@ private fun SharedContextCaptureContent(
     selectedIndices: List<Int>,
     completed: List<CompletedTarget>,
     savedVocabulary: List<SavedVocabulary>,
-    statusUnavailable: Boolean,
+    savedStatus: SavedVocabularyStatus,
     inspectedIndex: Int?,
     scrollState: ScrollState,
     selectedLanguage: String,
     onSelectLanguage: (String) -> Unit,
     onWordTapped: (Int) -> Unit,
     onConfirmSelection: () -> Unit,
+    onRetrySavedVocabulary: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -591,13 +626,14 @@ private fun SharedContextCaptureContent(
             selectedIndices = selectedIndices,
             completed = completed,
             savedVocabulary = savedVocabulary,
-            statusUnavailable = statusUnavailable,
+            savedStatus = savedStatus,
             inspectedIndex = inspectedIndex,
             scrollState = scrollState,
             selectedLanguage = selectedLanguage,
             onSelectLanguage = onSelectLanguage,
             onWordTapped = onWordTapped,
             onConfirmSelection = onConfirmSelection,
+            onRetrySavedVocabulary = onRetrySavedVocabulary,
             innerPadding = innerPadding,
         )
     }
@@ -609,13 +645,14 @@ private fun SharedContextCaptureBody(
     selectedIndices: List<Int>,
     completed: List<CompletedTarget>,
     savedVocabulary: List<SavedVocabulary>,
-    statusUnavailable: Boolean,
+    savedStatus: SavedVocabularyStatus,
     inspectedIndex: Int?,
     scrollState: ScrollState,
     selectedLanguage: String,
     onSelectLanguage: (String) -> Unit,
     onWordTapped: (Int) -> Unit,
     onConfirmSelection: () -> Unit,
+    onRetrySavedVocabulary: () -> Unit,
     innerPadding: androidx.compose.foundation.layout.PaddingValues,
 ) {
     Column(
@@ -629,7 +666,16 @@ private fun SharedContextCaptureBody(
         Spacer(Modifier.height(8.dp))
         LanguageSelector(selectedLanguage, onSelectLanguage)
         Spacer(Modifier.height(8.dp))
-        if (statusUnavailable) Text("Saved vocabulary is unavailable", color = TextSecondary)
+        when (savedStatus) {
+            SavedVocabularyStatus.Loading ->
+                Text(
+                    "Checking saved words…",
+                    color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            SavedVocabularyStatus.Unavailable -> TextButton(onClick = onRetrySavedVocabulary) { Text("Couldn't check saved words · Retry") }
+            SavedVocabularyStatus.Available -> Unit
+        }
         CaptureWorkspaceScrollAreas(
             tokens = tokens,
             selectedIndices = selectedIndices,
@@ -694,7 +740,7 @@ private fun CaptureWorkspaceSelectionInfo(
         } else {
             (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
         }
-    val saved = savedVocabulary.filter { it.headword.equals(inspected, ignoreCase = true) }
+    val saved = savedVocabulary.filter { it.surface.equals(inspected, ignoreCase = true) }
     if (handled != null) {
         HandledVocabularyInfo(handled, tokens)
     } else {
@@ -935,7 +981,7 @@ private fun captureText(
 ): Pair<androidx.compose.ui.text.AnnotatedString, List<Triple<Int, Int, Boolean>>> {
     val spans = mutableListOf<Triple<Int, Int, Boolean>>()
     val completedIndices = completed.flatMap { it.indices }.toSet()
-    val savedHeadwords = savedVocabulary.map { it.headword.lowercase() }.toSet()
+    val savedSurfaces = savedVocabulary.map { it.surface.lowercase() }.toSet()
     val text =
         buildAnnotatedString {
             tokens.forEachIndexed { index, token ->
@@ -946,7 +992,7 @@ private fun captureText(
                     }
                 val start = length
                 if (token is Token.Word) {
-                    val marker = captureMarker(index, value, completedIndices, savedHeadwords)
+                    val marker = captureMarker(index, value, completedIndices, savedSurfaces)
                     if (marker != CaptureMarker.NONE) spans.add(Triple(start, start + value.length, marker == CaptureMarker.COMPLETED))
                     pushStringAnnotation("token", index.toString())
                     withStyle(SpanStyle(background = if (index in selectedIndices) GreenHighlight else Color.Transparent)) { append(value) }
@@ -972,7 +1018,7 @@ private fun tokenAccessibilityActions(
             val status =
                 when {
                     completed.any { index in it.indices } -> "added in this session"
-                    saved.any { it.headword.equals(token.text, ignoreCase = true) } -> "saved vocabulary"
+                    saved.any { it.surface.equals(token.text, ignoreCase = true) } -> "saved vocabulary"
                     else -> "not marked"
                 }
             CustomAccessibilityAction("${token.text}, $status, position ${index + 1}") {
@@ -995,7 +1041,13 @@ private fun SavedVocabularyInfo(saved: List<SavedVocabulary>) {
         ModalBottomSheet(onDismissRequest = { expanded = false }) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Saved definitions", style = MaterialTheme.typography.titleMedium)
-                saved.forEach { Text("${it.partOfSpeech}: ${it.definition}\n${it.decks.joinToString()}") }
+                saved.forEach {
+                    Text(
+                        "${it.headword} · ${it.partOfSpeech}: ${it.definition}\n${it.decks.joinToString { deck ->
+                            deck.name
+                        }}",
+                    )
+                }
                 TextButton(onClick = { expanded = false }) { Text("Close") }
             }
         }

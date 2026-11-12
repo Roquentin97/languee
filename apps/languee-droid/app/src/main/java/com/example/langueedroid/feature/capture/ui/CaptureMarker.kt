@@ -6,10 +6,10 @@ internal fun captureMarker(
     index: Int,
     word: String,
     completedIndices: Set<Int>,
-    savedHeadwords: Set<String>,
+    savedSurfaces: Set<String>,
 ): CaptureMarker =
     when {
         index in completedIndices -> CaptureMarker.COMPLETED
-        word.lowercase() in savedHeadwords -> CaptureMarker.SAVED
+        word.lowercase() in savedSurfaces -> CaptureMarker.SAVED
         else -> CaptureMarker.NONE
     }

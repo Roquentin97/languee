@@ -23,6 +23,12 @@ import type {
 } from './types/lookup-vocabulary.types';
 import type { LookupWordOutput } from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
 import type { InflectionForms } from '../../lexicon/types/inflection-forms.types';
+import type { SavedVocabularyCandidate } from '../cards/cards.service';
+import type {
+  SavedMatchDefinitionDto,
+  SavedMatchesDto,
+  SavedMatchesResponseDto,
+} from './dto/saved-matches.dto';
 
 const USER_DEFINITION_PROVIDER = 'user';
 
@@ -55,6 +61,69 @@ export class VocabularyService {
     }
 
     return this.lookupExpression(input, analysis);
+  }
+
+  async savedMatches(
+    input: SavedMatchesDto,
+    userId: string,
+  ): Promise<SavedMatchesResponseDto> {
+    const candidates = await this.cardsService.findSavedVocabularyCandidates(
+      userId,
+      input.language,
+      input.tokens,
+    );
+    const matched = new Map<
+      string,
+      Map<string, Map<string, SavedMatchDefinitionDto>>
+    >();
+    const lemmas = new Map<string, string>(
+      candidates.map((candidate) => [candidate.word.id, candidate.word.lemma]),
+    );
+    for (const candidate of candidates)
+      for (const surface of input.tokens)
+        this.recordSavedMatch(matched, candidate, surface);
+    return {
+      matches: [...matched].map(([surface, headwords]) => ({
+        surface,
+        headwords: [...headwords].map(([wordId, definitions]) => ({
+          wordId,
+          lemma: lemmas.get(wordId) ?? '',
+          definitions: [...definitions.values()],
+        })),
+      })),
+    };
+  }
+
+  private recordSavedMatch(
+    matched: Map<string, Map<string, Map<string, SavedMatchDefinitionDto>>>,
+    candidate: SavedVocabularyCandidate,
+    surface: string,
+  ): void {
+    const direct =
+      candidate.word.lemma.normalize('NFC').toLocaleLowerCase('en-US') ===
+      surface;
+    const form = candidate.word.forms.some(
+      (entry) =>
+        entry.partOfSpeech === candidate.partOfSpeech &&
+        entry.form.normalize('NFC').toLocaleLowerCase('en-US') === surface,
+    );
+    if (!direct && !form) return;
+    const byHeadword =
+      matched.get(surface) ??
+      new Map<string, Map<string, SavedMatchDefinitionDto>>();
+    const byDefinition =
+      byHeadword.get(candidate.word.id) ??
+      new Map<string, SavedMatchDefinitionDto>();
+    byDefinition.set(candidate.definitionId, {
+      definitionId: candidate.definitionId,
+      partOfSpeech: candidate.partOfSpeech,
+      definition: candidate.definition,
+      decks: [
+        ...new Map(candidate.decks.map((deck) => [deck.id, deck])).values(),
+      ],
+    });
+    byHeadword.set(candidate.word.id, byDefinition);
+    matched.set(surface, byHeadword);
   }
 
   private async lookupSingleWord(

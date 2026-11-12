@@ -33,7 +33,8 @@ export class LookupVocabularyDto {
 
   @ApiPropertyOptional({
     example: 'She runs every morning.',
-    description: 'Sentence or phrase used to infer part of speech',
+    description:
+      'Sentence or phrase used to infer part of speech, limited to 1,024 UTF-8 bytes.',
   })
   @IsOptional()
   @IsString()

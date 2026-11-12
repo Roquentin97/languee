@@ -42,6 +42,7 @@ data class CardCreationState(
     val targetWord: String,
     val context: String?,
     val contextValid: Boolean = true,
+    val contextTooLong: Boolean = false,
     val language: String = "en",
     val deckSelectionState: DeckSelectionState = DeckSelectionState.Loading,
     val flowState: CardCreationFlowState = CardCreationFlowState.LookingUp,

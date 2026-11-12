@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -10,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
@@ -42,6 +44,7 @@ import {
   serializeCardListItem,
   serializeCards,
 } from './serializers/card.serializer';
+import { contextInputError } from '../vocabulary/capture-input';
 
 @ApiTags('cards')
 @ApiBearerAuth('access-token')
@@ -91,6 +94,7 @@ export class CardsController {
   })
   @ApiBody({ type: CreateCardDto })
   @ApiCreatedResponse({ type: CreateCardsResponseDto })
+  @ApiBadRequestResponse({ description: 'CONTEXT_TOO_LONG or invalid request' })
   @ApiConflictResponse({ description: 'This deck already holds this card' })
   @ApiNotFoundResponse({ description: 'Deck or definition not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
@@ -99,6 +103,8 @@ export class CardsController {
     @Body() dto: CreateCardDto,
   ): Promise<CreateCardsResponseDto> {
     try {
+      const contextError = contextInputError(dto.context);
+      if (contextError) throw new BadRequestException(contextError);
       const cards = await this.cardsService.create(
         user.userId,
         dto.deckId,

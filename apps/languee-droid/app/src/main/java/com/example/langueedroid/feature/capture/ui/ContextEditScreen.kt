@@ -58,7 +58,8 @@ fun ContextEditScreen(
 
     val isBlank = editedContext.isBlank()
     val containsWord = EntryValidator.isContextValid(state.targetWord, editedContext)
-    val saveEnabled = isBlank || containsWord
+    val contextWithinLimit = EntryValidator.isContextWithinLimit(editedContext)
+    val saveEnabled = contextWithinLimit && (isBlank || containsWord)
 
     Scaffold(
         modifier = modifier,
@@ -80,18 +81,13 @@ fun ContextEditScreen(
 
             EditableContextField(editedContext) { editedContext = it }
 
-            if (!isBlank && !containsWord) {
-                Text(
-                    text = stringResource(R.string.context_edit_word_missing, state.targetWord),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+            ContextValidationMessages(isBlank, containsWord, contextWithinLimit, state.targetWord)
 
             SaveContextButton(saveEnabled) {
                 when (onSave(editedContext)) {
                     is ContextEditSaveResult.Valid -> Unit
                     is ContextEditSaveResult.EmptyContextPendingConfirmation -> showConfirmDialog = true
+                    is ContextEditSaveResult.ContextTooLong -> Unit
                     is ContextEditSaveResult.InvalidContextBlockedSave -> Unit
                 }
             }
@@ -117,6 +113,29 @@ fun ContextEditScreen(
             showConfirmDialog = false
             onConfirmSaveWithoutContext()
         })
+    }
+}
+
+@Composable
+private fun ContextValidationMessages(
+    isBlank: Boolean,
+    containsWord: Boolean,
+    contextWithinLimit: Boolean,
+    targetWord: String,
+) {
+    if (!isBlank && !containsWord) {
+        Text(
+            text = stringResource(R.string.context_edit_word_missing, targetWord),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    if (!contextWithinLimit) {
+        Text(
+            text = "Context must be 1,024 UTF-8 bytes or less.",
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

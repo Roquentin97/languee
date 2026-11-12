@@ -80,7 +80,13 @@ class CardCreationViewModel
 
         private val _state =
             MutableStateFlow(
-                CardCreationState(targetWord = targetWord, context = context, language = language),
+                CardCreationState(
+                    targetWord = targetWord,
+                    context = context,
+                    contextValid = context == null || EntryValidator.isContextWithinLimit(context),
+                    contextTooLong = !EntryValidator.isContextWithinLimit(context),
+                    language = language,
+                ),
             )
         val state: StateFlow<CardCreationState> = _state.asStateFlow()
 
@@ -191,7 +197,13 @@ class CardCreationViewModel
             _state.value =
                 current.copy(
                     context = updated,
-                    contextValid = updated == null || updated == context || EntryValidator.isContextValid(targetWord, updated),
+                    contextValid =
+                        updated == null ||
+                            (
+                                EntryValidator.isContextWithinLimit(updated) &&
+                                    (updated == context || EntryValidator.isContextValid(targetWord, updated))
+                            ),
+                    contextTooLong = !EntryValidator.isContextWithinLimit(updated),
                     flowState = updatedFlow,
                 )
         }
@@ -203,7 +215,7 @@ class CardCreationViewModel
                     .lookup(
                         word = targetWord,
                         language = language,
-                        context = lookupContext ?: context,
+                        context = (lookupContext ?: context)?.takeIf(EntryValidator::isContextWithinLimit),
                         selectionStart = selectionStart,
                         selectionEnd = selectionEnd,
                     ).fold(
