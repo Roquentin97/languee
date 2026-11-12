@@ -102,3 +102,10 @@ query parameters. Supply both as inclusive-start, exclusive-end Unicode code-poi
 offsets into the exact `context` value. The selected standalone word must match
 `word` case-insensitively and under Unicode canonical equivalence. Invalid spans
 return `INPUT_INVALID`; omitting both preserves the default contextual lookup.
+
+For the cross-service occurrence regression, start the NLP service with the
+`en_core_web_md` model and test credentials `test` / `test`, then run:
+
+```sh
+NLP_CROSS_SERVICE_URL=http://127.0.0.1:18087 yarn jest --config ./test/jest-e2e.json selected-occurrence.e2e-spec.ts --runInBand
+```
