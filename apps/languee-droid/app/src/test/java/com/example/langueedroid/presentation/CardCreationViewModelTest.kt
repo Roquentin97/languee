@@ -178,6 +178,64 @@ class CardCreationViewModelTest {
         }
 
     @Test
+    fun `sole deck is selected after the initial load`() =
+        runTest {
+            val onlyDeck = aDeck("only")
+            stubDecks(onlyDeck)
+            stubLookup()
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+
+            val loaded = vm.state.value.deckSelectionState as DeckSelectionState.Loaded
+            assertEquals(onlyDeck, loaded.selectedDeck)
+        }
+
+    @Test
+    fun `preferred deck is selected when multiple decks load`() =
+        runTest {
+            val preferred = aDeck("preferred")
+            stubDecks(aDeck("other"), preferred)
+            stubLookup()
+
+            val vm = buildViewModel()
+            vm.setInitialDeck(preferred.id)
+            advanceUntilIdle()
+
+            val loaded = vm.state.value.deckSelectionState as DeckSelectionState.Loaded
+            assertEquals(preferred, loaded.selectedDeck)
+        }
+
+    @Test
+    fun `refresh selects the new sole deck and reevaluates duplicate state`() =
+        runTest {
+            val firstDeck = aDeck("first")
+            val secondDeck = aDeck("second")
+            val definition = aDefinition(deckRefs = listOf(DeckRef(id = "first", name = "MyDeck")))
+            stubDecks(firstDeck)
+            stubLookup(aLookupResult(definitions = listOf(definition)))
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            assertEquals(firstDeck, (vm.state.value.deckSelectionState as DeckSelectionState.Loaded).selectedDeck)
+            vm.onDefinitionSelected(definition)
+            assertEquals(
+                DefinitionState.AlreadyInSelectedDeck,
+                (vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded).definitionState,
+            )
+
+            whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(secondDeck)))
+            vm.loadDecks()
+            advanceUntilIdle()
+
+            assertEquals(secondDeck, (vm.state.value.deckSelectionState as DeckSelectionState.Loaded).selectedDeck)
+            assertEquals(
+                DefinitionState.ExistsInAnotherDeck,
+                (vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded).definitionState,
+            )
+        }
+
+    @Test
     fun `lookup runs even when no decks exist — definitions are shown before deck choice`() =
         runTest {
             stubDecks()
@@ -423,7 +481,7 @@ class CardCreationViewModelTest {
         runTest {
             val deck = aDeck(id = "d1")
             val definition = aDefinition(deckRefs = listOf(DeckRef(id = "d1", name = "MyDeck")))
-            stubDecks(deck)
+            stubDecks(deck, aDeck(id = "d2"))
             stubLookup(aLookupResult(definitions = listOf(definition)))
 
             val vm = buildViewModel()
@@ -607,7 +665,7 @@ class CardCreationViewModelTest {
     @Test
     fun `createCard without a selected deck is a no-op`() =
         runTest {
-            stubDecks(aDeck())
+            stubDecks(aDeck(), aDeck(id = "d2"))
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
 
             val vm = buildViewModel()

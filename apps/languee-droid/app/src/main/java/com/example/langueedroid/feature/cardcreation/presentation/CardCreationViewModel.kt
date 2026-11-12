@@ -100,19 +100,28 @@ class CardCreationViewModel
 
         internal fun loadDecks() {
             viewModelScope.launch {
+                val previouslySelectedDeckId =
+                    (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck?.id
                 _state.value = _state.value.copy(deckSelectionState = DeckSelectionState.Loading)
                 deckRepository.getDecks().fold(
                     onSuccess = { decks ->
+                        val selectedDeck =
+                            when {
+                                decks.size == 1 -> decks.single()
+                                else ->
+                                    decks.firstOrNull { it.id == previouslySelectedDeckId }
+                                        ?: decks.firstOrNull { it.id == initialDeckId }
+                            }
                         _state.value =
                             _state.value.copy(
                                 deckSelectionState =
                                     if (decks.isEmpty()) {
                                         DeckSelectionState.Empty
                                     } else {
-                                        DeckSelectionState.Loaded(decks = decks, selectedDeck = null)
+                                        DeckSelectionState.Loaded(decks = decks, selectedDeck = selectedDeck)
                                     },
                             )
-                        decks.firstOrNull { it.id == initialDeckId }?.let(::onDeckSelected)
+                        selectedDeck?.let(::onDeckSelected)
                     },
                     onFailure = { error ->
                         if (error is UnauthorizedException) {

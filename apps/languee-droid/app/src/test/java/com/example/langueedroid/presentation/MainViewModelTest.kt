@@ -79,7 +79,7 @@ class MainViewModelTest {
 
     @Test
     fun `completed occurrences remain distinct and canceled selections do not count`() {
-        viewModel.startTextWorkspace("Bank here. Bank there.")
+        viewModel.startTextWorkspace("Bank here. Bank there. Bank again.")
         viewModel.onWordTokenTapped(0)
         viewModel.confirmWordSelection()
         assertTrue(
@@ -91,13 +91,14 @@ class MainViewModelTest {
         )
         var state = currentState as AppState.Screen.SharedContextCapture
         assertEquals(1, state.completed.size)
-        assertEquals("Bank here. Bank there.", state.rawContext)
+        assertEquals("Bank here. Bank there. Bank again.", state.rawContext)
         assertEquals("d1", viewModel.preferredDeckId)
         val second =
             state.tokens
                 .withIndex()
                 .filter { it.value == Token.Word("Bank") }
-                .last()
+                .drop(1)
+                .first()
                 .index
         viewModel.onWordTokenTapped(second)
         viewModel.confirmWordSelection()
@@ -117,8 +118,26 @@ class MainViewModelTest {
         state = currentState as AppState.Screen.SharedContextCapture
         assertEquals(2, state.completed.size)
         assertEquals("d2", viewModel.preferredDeckId)
+        val third =
+            state.tokens
+                .withIndex()
+                .filter { it.value == Token.Word("Bank") }
+                .last()
+                .index
+        viewModel.onWordTokenTapped(third)
+        assertTrue(
+            viewModel.captureCompleted(
+                "A financial institution again",
+                com.example.langueedroid.core.domain
+                    .Deck("d3", "Reference"),
+            ),
+        )
+        assertEquals(3, (currentState as AppState.Screen.SharedContextCapture).completed.size)
         viewModel.onWordTokenTapped(0)
-        assertTrue((currentState as AppState.Screen.SharedContextCapture).selectedIndices.isEmpty())
+        state = currentState as AppState.Screen.SharedContextCapture
+        assertTrue(state.selectedIndices.isEmpty())
+        assertEquals(3, state.completed.size)
+        assertEquals(0, state.inspectedIndex)
         assertFalse(
             viewModel.captureCompleted(
                 "Duplicate",

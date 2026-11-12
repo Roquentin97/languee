@@ -7,15 +7,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -36,6 +40,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -53,6 +58,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -61,6 +67,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.langueedroid.core.data.SavedVocabulary
@@ -280,7 +287,6 @@ private fun ManualCaptureContent(
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
             )
-
             LanguageSelector(
                 selectedLanguage = selectedLanguage,
                 onLanguageSelected = onSelectLanguage,
@@ -537,7 +543,7 @@ private fun SharedWordActions(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SharedContextCaptureContent(
     tokens: List<Token>,
@@ -560,55 +566,247 @@ private fun SharedContextCaptureContent(
         topBar = {
             SharedContextTopBar(onCancel)
         },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 24.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.label_tap_word_to_learn),
-                style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            LanguageSelector(
-                selectedLanguage = selectedLanguage,
-                onLanguageSelected = onSelectLanguage,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("${completed.size} added", style = MaterialTheme.typography.labelMedium)
-            if (statusUnavailable) Text("Saved vocabulary is unavailable", color = TextSecondary)
-            SelectableTokens(tokens, selectedIndices, completed, savedVocabulary, onWordTapped, scrollState, Modifier.weight(1f))
-            val handled = completed.firstOrNull { inspectedIndex != null && inspectedIndex in it.indices }
-            val inspected =
-                if (selectedIndices.size > 1) {
-                    ExpressionSpanSelector.joinSelection(tokens, selectedIndices)
-                } else {
-                    (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
+        bottomBar = {
+            Surface(color = Color.White, shadowElevation = 4.dp) {
+                Button(
+                    onClick = onCancel,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = 24.dp,
+                                vertical = 8.dp,
+                            ).navigationBarsPadding()
+                            .heightIn(min = 56.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                ) {
+                    Text("Done", style = MaterialTheme.typography.labelLarge, color = Color.White)
                 }
-            val saved = savedVocabulary.filter { it.headword.equals(inspected, ignoreCase = true) }
-            if (handled != null) {
-                Text("Added: ${handled.definition} · ${handled.deckName}")
-            } else {
-                SavedVocabularyInfo(saved)
-                SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
             }
-            TextButton(
-                onClick = onCancel,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
+        },
+    ) { innerPadding ->
+        SharedContextCaptureBody(
+            tokens = tokens,
+            selectedIndices = selectedIndices,
+            completed = completed,
+            savedVocabulary = savedVocabulary,
+            statusUnavailable = statusUnavailable,
+            inspectedIndex = inspectedIndex,
+            scrollState = scrollState,
+            selectedLanguage = selectedLanguage,
+            onSelectLanguage = onSelectLanguage,
+            onWordTapped = onWordTapped,
+            onConfirmSelection = onConfirmSelection,
+            innerPadding = innerPadding,
+        )
+    }
+}
+
+@Composable
+private fun SharedContextCaptureBody(
+    tokens: List<Token>,
+    selectedIndices: List<Int>,
+    completed: List<CompletedTarget>,
+    savedVocabulary: List<SavedVocabulary>,
+    statusUnavailable: Boolean,
+    inspectedIndex: Int?,
+    scrollState: ScrollState,
+    selectedLanguage: String,
+    onSelectLanguage: (String) -> Unit,
+    onWordTapped: (Int) -> Unit,
+    onConfirmSelection: () -> Unit,
+    innerPadding: androidx.compose.foundation.layout.PaddingValues,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp),
+    ) {
+        Text(text = stringResource(R.string.label_tap_word_to_learn), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Spacer(Modifier.height(8.dp))
+        LanguageSelector(selectedLanguage, onSelectLanguage)
+        Spacer(Modifier.height(8.dp))
+        if (statusUnavailable) Text("Saved vocabulary is unavailable", color = TextSecondary)
+        CaptureWorkspaceScrollAreas(
+            tokens = tokens,
+            selectedIndices = selectedIndices,
+            completed = completed,
+            savedVocabulary = savedVocabulary,
+            scrollState = scrollState,
+            onWordTapped = onWordTapped,
+            modifier = Modifier.weight(1f),
+        )
+        CaptureWorkspaceSelectionInfo(
+            tokens = tokens,
+            selectedIndices = selectedIndices,
+            completed = completed,
+            savedVocabulary = savedVocabulary,
+            inspectedIndex = inspectedIndex,
+            onConfirmSelection = onConfirmSelection,
+        )
+    }
+}
+
+@Composable
+private fun CaptureWorkspaceScrollAreas(
+    tokens: List<Token>,
+    selectedIndices: List<Int>,
+    completed: List<CompletedTarget>,
+    savedVocabulary: List<SavedVocabulary>,
+    scrollState: ScrollState,
+    onWordTapped: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val historyHeight = maxHeight * 0.28f
+        Column(Modifier.fillMaxSize()) {
+            SelectableTokens(
+                tokens,
+                selectedIndices,
+                completed,
+                savedVocabulary,
+                onWordTapped,
+                scrollState,
+                Modifier.weight(1f),
+            )
+            Spacer(Modifier.height(8.dp))
+            SessionHistory(tokens, completed, historyHeight)
+        }
+    }
+}
+
+@Composable
+private fun CaptureWorkspaceSelectionInfo(
+    tokens: List<Token>,
+    selectedIndices: List<Int>,
+    completed: List<CompletedTarget>,
+    savedVocabulary: List<SavedVocabulary>,
+    inspectedIndex: Int?,
+    onConfirmSelection: () -> Unit,
+) {
+    val handled = completed.firstOrNull { inspectedIndex != null && inspectedIndex in it.indices }
+    val inspected =
+        if (selectedIndices.size > 1) {
+            ExpressionSpanSelector.joinSelection(tokens, selectedIndices)
+        } else {
+            (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
+        }
+    val saved = savedVocabulary.filter { it.headword.equals(inspected, ignoreCase = true) }
+    if (handled != null) {
+        HandledVocabularyInfo(handled, tokens)
+    } else {
+        SavedVocabularyInfo(saved)
+        SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
+    }
+}
+
+@Composable
+private fun SessionHistory(
+    tokens: List<Token>,
+    completed: List<CompletedTarget>,
+    maxHeight: androidx.compose.ui.unit.Dp,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            text = "Added this session (${completed.size})",
+            style = MaterialTheme.typography.titleSmall,
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        if (completed.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight).testTag("capture-session-history"),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
-                    text = "Done",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted,
-                )
+                itemsIndexed(completed.asReversed()) { index, item ->
+                    SessionHistoryRow(
+                        target = ExpressionSpanSelector.joinSelection(tokens, item.indices),
+                        item = item,
+                        key = "${item.indices.joinToString("-")}:$index",
+                        modifier = Modifier.testTag("capture-history-item-$index"),
+                    )
+                }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SessionHistoryRow(
+    target: String,
+    item: CompletedTarget,
+    key: String,
+    modifier: Modifier = Modifier,
+) {
+    var showFullDefinition by rememberSaveable(key) { mutableStateOf(false) }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceWarm),
+        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(target, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Text(
+                text = item.definition,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (item.definition.length > 100) {
+                TextButton(
+                    onClick = { showFullDefinition = true },
+                    contentPadding =
+                        androidx.compose.foundation.layout
+                            .PaddingValues(0.dp),
+                ) {
+                    Text("Read full definition", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Text(item.deckName, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        }
+    }
+    if (showFullDefinition) {
+        ModalBottomSheet(onDismissRequest = { showFullDefinition = false }) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp)) {
+                Text(target, style = MaterialTheme.typography.titleMedium)
+                Text(item.definition, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodyLarge)
+                Text(item.deckName, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = TextMuted)
+                TextButton(onClick = { showFullDefinition = false }) { Text("Close") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HandledVocabularyInfo(
+    item: CompletedTarget,
+    tokens: List<Token>,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = GreenContainer),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                ExpressionSpanSelector.joinSelection(tokens, item.indices),
+                style = MaterialTheme.typography.titleSmall,
+                color = TextPrimary,
+            )
+            Text(
+                item.definition,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(item.deckName, style = MaterialTheme.typography.labelSmall, color = TextMuted)
         }
     }
 }
@@ -696,6 +894,7 @@ private fun SelectableTokens(
             modifier
                 .verticalScroll(scrollState)
                 .fillMaxWidth()
+                .testTag("capture-source-text")
                 .semantics {
                     contentDescription = "${text.text}. ${completed.size} selections added."
                     customActions = tokenAccessibilityActions(tokens, completed, savedVocabulary, onWordTapped)
