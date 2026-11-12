@@ -2,6 +2,8 @@ package com.example.langueedroid.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.ConnectivityObserver
 import com.example.langueedroid.core.data.OfflineQueueRepository
@@ -34,7 +36,18 @@ object StorageModule {
     @Singleton
     fun provideAppDatabase(
         @ApplicationContext context: Context,
-    ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "languee_droid.db").build()
+    ): AppDatabase =
+        Room
+            .databaseBuilder(context, AppDatabase::class.java, "languee_droid.db")
+            .addMigrations(
+                object : Migration(1, 2) {
+                    override fun migrate(db: SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE offline_entries ADD COLUMN lookupContext TEXT")
+                        db.execSQL("ALTER TABLE offline_entries ADD COLUMN selectionStart INTEGER")
+                        db.execSQL("ALTER TABLE offline_entries ADD COLUMN selectionEnd INTEGER")
+                    }
+                },
+            ).build()
 
     @Provides
     @Singleton

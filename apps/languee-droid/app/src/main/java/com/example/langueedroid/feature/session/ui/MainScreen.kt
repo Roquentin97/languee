@@ -138,7 +138,15 @@ private fun ObserveMainNavigation(
     LaunchedEffect(mainViewModel) {
         mainViewModel.cardCreationRequest.collect { request ->
             if (request.sessionId != mainViewModel.sessionId) return@collect
-            val route = MainNavRoutes.cardCreation(request.targetWord, request.context, language = request.language)
+            val route =
+                MainNavRoutes.cardCreation(
+                    request.targetWord,
+                    request.context,
+                    language = request.language,
+                    lookupContext = request.selection?.context,
+                    selectionStart = request.selection?.start,
+                    selectionEnd = request.selection?.end,
+                )
             navController.navigate(route) {
                 popUpTo(MainNavRoutes.CAPTURE) { inclusive = false }
             }
@@ -355,6 +363,17 @@ private fun NavGraphBuilder.captureRoute(
     }
 }
 
+private fun cardCreationArguments() =
+    listOf(
+        navArgument("word") { type = NavType.StringType },
+        navArgument("context") { type = NavType.StringType },
+        navArgument("offlineEntryId") { type = NavType.StringType },
+        navArgument("language") { type = NavType.StringType },
+        navArgument("lookupContext") { type = NavType.StringType },
+        navArgument("selectionStart") { type = NavType.IntType },
+        navArgument("selectionEnd") { type = NavType.IntType },
+    )
+
 private fun NavGraphBuilder.cardCreationRoute(
     navController: NavHostController,
     mainViewModel: MainViewModel,
@@ -363,13 +382,7 @@ private fun NavGraphBuilder.cardCreationRoute(
 ) {
     composable(
         route = MainNavRoutes.CARD_CREATION,
-        arguments =
-            listOf(
-                navArgument("word") { type = NavType.StringType },
-                navArgument("context") { type = NavType.StringType },
-                navArgument("offlineEntryId") { type = NavType.StringType },
-                navArgument("language") { type = NavType.StringType },
-            ),
+        arguments = cardCreationArguments(),
     ) { backStackEntry ->
         val encodedWord = backStackEntry.arguments?.getString("word") ?: ""
         val encodedContext = backStackEntry.arguments?.getString("context") ?: ""
@@ -380,11 +393,22 @@ private fun NavGraphBuilder.cardCreationRoute(
         val offlineEntryId = URLDecoder.decode(encodedOfflineEntryId, "UTF-8").ifEmpty { null }
         val language = URLDecoder.decode(encodedLanguage, "UTF-8").ifEmpty { "en" }
 
+        val lookupContext = URLDecoder.decode(backStackEntry.arguments?.getString("lookupContext") ?: "", "UTF-8").ifEmpty { null }
+        val selectionStart = backStackEntry.arguments?.getInt("selectionStart")?.takeIf { it >= 0 }
+        val selectionEnd = backStackEntry.arguments?.getInt("selectionEnd")?.takeIf { it >= 0 }
+
         val cardCreationViewModel: CardCreationViewModel =
             hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
-                key = "$targetWord:$context:$language",
+                key = "$targetWord:$context:$language:$lookupContext:$selectionStart:$selectionEnd",
             ) { factory ->
-                factory.create(targetWord = targetWord, context = context, language = language)
+                factory.create(
+                    targetWord = targetWord,
+                    context = context,
+                    language = language,
+                    lookupContext = lookupContext,
+                    selectionStart = selectionStart,
+                    selectionEnd = selectionEnd,
+                )
             }
         val captureSessionId = remember(cardCreationViewModel) { mainViewModel.sessionId }
         LaunchedEffect(cardCreationViewModel) {
@@ -579,6 +603,9 @@ private fun NavGraphBuilder.offlineQueueRoute(navController: NavHostController) 
                         word = request.word,
                         context = request.context,
                         offlineEntryId = request.entryId,
+                        lookupContext = request.lookupContext,
+                        selectionStart = request.selectionStart,
+                        selectionEnd = request.selectionEnd,
                     )
                 navController.navigate(route)
             }

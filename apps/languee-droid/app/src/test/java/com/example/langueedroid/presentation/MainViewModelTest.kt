@@ -78,6 +78,53 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `review highlights only the selected occurrence and rebases after truncation`() {
+        val source = "😀 The bank opened.  The bank flooded."
+        viewModel.startTextWorkspace(source)
+        val state = currentState as AppState.Screen.SharedContextCapture
+        val second =
+            state.tokens
+                .withIndex()
+                .filter { it.value == Token.Word("bank") }[1]
+                .index
+        viewModel.onWordTokenTapped(second)
+        viewModel.confirmWordSelection()
+        val review = currentState as AppState.Screen.ContextReview
+        assertEquals(listOf(source.lastIndexOf("bank") until source.lastIndexOf("bank") + 4), review.highlightRanges)
+        viewModel.confirmTruncation()
+        val truncated = currentState as AppState.Screen.ContextReview
+        assertEquals("The bank flooded.", truncated.context)
+        assertEquals(listOf(4 until 8), truncated.highlightRanges)
+    }
+
+    @Test
+    fun `edited example keeps the original selected lookup occurrence`() =
+        runTest {
+            val source = "😀 I saw the saw."
+            viewModel.startTextWorkspace(source)
+            val state = currentState as AppState.Screen.SharedContextCapture
+            val second =
+                state.tokens
+                    .withIndex()
+                    .filter { it.value == Token.Word("saw") }[1]
+                    .index
+            viewModel.onWordTokenTapped(second)
+            viewModel.confirmWordSelection()
+            viewModel.startContextEdit("saw", source)
+            var request: CardCreationRequest? = null
+            launch { request = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
+            viewModel.onContextEditSave("A saw cuts wood.")
+            advanceUntilIdle()
+            assertEquals("A saw cuts wood.", request?.context)
+            assertEquals(source, request?.selection?.context)
+            assertEquals(12, request?.selection?.start)
+            assertEquals(15, request?.selection?.end)
+            assertTrue(viewModel.returnToCapture())
+            assertEquals(source, (currentState as AppState.Screen.SharedContextCapture).rawContext)
+        }
+
+    @Test
     fun `completed occurrences remain distinct and canceled selections do not count`() {
         viewModel.startTextWorkspace("Bank here. Bank there. Bank again.")
         viewModel.onWordTokenTapped(0)
@@ -217,7 +264,7 @@ class MainViewModelTest {
             viewModel.addEntry("bank", "The bank is open.")
             viewModel.addEntry("bank", "The bank is open.")
             advanceUntilIdle()
-            verify(offlineQueueRepository, times(1)).add("bank", "The bank is open.")
+            verify(offlineQueueRepository, times(1)).add("bank", "The bank is open.", "The bank is open.", 4, 8)
             assertTrue(viewModel.returnToCapture())
             assertTrue((currentState as AppState.Screen.SharedContextCapture).completed.isEmpty())
         }

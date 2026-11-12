@@ -80,19 +80,30 @@ object EntryValidator {
         if (text.isEmpty()) return emptyList()
         val result = mutableListOf<Token>()
         val buffer = StringBuilder()
-        var inWord = text.first().isLetter()
 
-        for (ch in text) {
-            val isLetter = ch.isLetter()
+        fun isWordCodePoint(codePoint: Int): Boolean =
+            Character.isLetter(codePoint) ||
+                Character.getType(codePoint) in
+                listOf(
+                    Character.NON_SPACING_MARK.toInt(),
+                    Character.COMBINING_SPACING_MARK.toInt(),
+                    Character.ENCLOSING_MARK.toInt(),
+                )
+        var inWord = isWordCodePoint(text.codePointAt(0))
+        var offset = 0
+        while (offset < text.length) {
+            val codePoint = text.codePointAt(offset)
+            val isLetter = isWordCodePoint(codePoint)
             if (isLetter == inWord) {
-                buffer.append(ch)
+                buffer.appendCodePoint(codePoint)
             } else {
                 val segment = buffer.toString()
                 result.add(if (inWord) Token.Word(segment) else Token.Separator(segment))
                 buffer.clear()
-                buffer.append(ch)
+                buffer.appendCodePoint(codePoint)
                 inWord = isLetter
             }
+            offset += Character.charCount(codePoint)
         }
         if (buffer.isNotEmpty()) {
             result.add(if (inWord) Token.Word(buffer.toString()) else Token.Separator(buffer.toString()))

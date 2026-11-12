@@ -45,6 +45,9 @@ export class VocabularyService {
       input.word,
       input.context,
       input.language,
+      ...(input.selectionStart === undefined
+        ? []
+        : [{ start: input.selectionStart, end: input.selectionEnd! }]),
     );
 
     if (analysis.kind === 'word') {

@@ -5,4 +5,7 @@ data class OfflineEntry(
     val word: String,
     val context: String?,
     val capturedAt: Long,
+    val lookupContext: String? = null,
+    val selectionStart: Int? = null,
+    val selectionEnd: Int? = null,
 )

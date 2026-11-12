@@ -730,6 +730,37 @@ describe('VocabularyService', () => {
       );
     });
 
+    it('uses the selected occurrence analysis for the preferred part of speech', async () => {
+      mockNlpService.analyze.mockResolvedValue({
+        ...defaultNlpAnalysis,
+        lemma: 'saw',
+        pos: PartOfSpeech.NOUN,
+      });
+      mockDictionaryService.lookup.mockResolvedValue({
+        ...baseOutput,
+        lemma: 'saw',
+        definitions: [{ ...baseDefinition, partOfSpeech: PartOfSpeech.NOUN }],
+      });
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+      const result = await service.lookup({
+        word: 'saw',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'I saw the saw.',
+        selectionStart: 10,
+        selectionEnd: 13,
+      });
+      expect(mockNlpService.analyze).toHaveBeenCalledWith(
+        'saw',
+        'I saw the saw.',
+        'en',
+        { start: 10, end: 13 },
+      );
+      expect(result.meta.analyzedLemma).toBe('saw');
+      expect(result.preferred?.partOfSpeech).toBe(PartOfSpeech.NOUN);
+      expect(result.headwords).toHaveLength(1);
+    });
+
     it('passes optional context to NLP analyze()', async () => {
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);

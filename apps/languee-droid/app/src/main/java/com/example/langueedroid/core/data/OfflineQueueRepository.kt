@@ -18,6 +18,9 @@ class OfflineQueueRepository(
     suspend fun add(
         word: String,
         context: String?,
+        lookupContext: String? = null,
+        selectionStart: Int? = null,
+        selectionEnd: Int? = null,
     ) {
         dao.insert(
             OfflineEntryEntity(
@@ -25,6 +28,9 @@ class OfflineQueueRepository(
                 word = word,
                 context = context,
                 capturedAt = System.currentTimeMillis(),
+                lookupContext = lookupContext,
+                selectionStart = selectionStart,
+                selectionEnd = selectionEnd,
             ),
         )
     }

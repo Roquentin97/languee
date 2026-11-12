@@ -1,0 +1,17 @@
+meta {
+  name: 08 Selected Occurrence
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{base_url}}/api/v1/vocabulary/lookup?word=saw&language=en&context=I%20saw%20the%20saw.&selectionStart=10&selectionEnd=13
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("expected status", function() {
+    expect(res.status).to.equal(200);
+  });
+}

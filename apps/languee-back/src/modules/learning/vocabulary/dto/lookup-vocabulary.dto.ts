@@ -41,6 +41,22 @@ export class LookupVocabularyDto {
   context?: string;
 
   @ApiPropertyOptional({
+    type: Number,
+    description: 'Inclusive Unicode code-point offset in context',
+  })
+  @IsOptional()
+  @IsString()
+  selectionStart?: string;
+
+  @ApiPropertyOptional({
+    type: Number,
+    description: 'Exclusive Unicode code-point offset in context',
+  })
+  @IsOptional()
+  @IsString()
+  selectionEnd?: string;
+
+  @ApiPropertyOptional({
     enum: ['true', 'false'],
     example: 'false',
     description:

@@ -16,6 +16,8 @@ interface VocabularyApi {
         @Query("language") language: String? = null,
         @Query("context") context: String? = null,
         @Query("disablePosFiltering") disablePosFiltering: Boolean? = null,
+        @Query("selectionStart") selectionStart: Int? = null,
+        @Query("selectionEnd") selectionEnd: Int? = null,
     ): Response<LookupVocabularyResponseDto>
 
     @POST("/api/v1/vocabulary/definitions")

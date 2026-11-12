@@ -49,7 +49,9 @@ class VocabularyRepositoryTest {
     fun `lookup success returns mapped LookupResult`() =
         runTest {
             val dto = aLookupResponseDto()
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Response.success(dto))
+            whenever(
+                vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Response.success(dto))
 
             val result = repository.lookup(word = "cat", language = "en", context = "I have a cat")
 
@@ -71,7 +73,9 @@ class VocabularyRepositoryTest {
             val deckRefDto = DeckRefDto(id = "d1", name = "French")
             val definition = aDefinitionDto(deckRefs = listOf(deckRefDto))
             val dto = aLookupResponseDto(definitions = listOf(definition))
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Response.success(dto))
+            whenever(
+                vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Response.success(dto))
 
             val result = repository.lookup(word = "cat", language = "en", context = null)
 
@@ -89,7 +93,7 @@ class VocabularyRepositoryTest {
     @Test
     fun `lookup 401 throws UnauthorizedException`() =
         runTest {
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.error(401, "{}".toResponseBody()))
 
             val result = repository.lookup(word = "cat")
@@ -105,7 +109,7 @@ class VocabularyRepositoryTest {
     @Test
     fun `lookup 404 returns failure with message containing 404`() =
         runTest {
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.error(404, "{}".toResponseBody()))
 
             val result = repository.lookup(word = "cat")
@@ -121,7 +125,7 @@ class VocabularyRepositoryTest {
     @Test
     fun `lookup 422 returns failure`() =
         runTest {
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.error(422, "{}".toResponseBody()))
 
             val result = repository.lookup(word = "some words")
@@ -137,7 +141,7 @@ class VocabularyRepositoryTest {
     @Test
     fun `lookup 502 returns failure`() =
         runTest {
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.error(502, "{}".toResponseBody()))
 
             val result = repository.lookup(word = "cat")
@@ -153,7 +157,7 @@ class VocabularyRepositoryTest {
     @Test
     fun `lookup null body returns failure`() =
         runTest {
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.success(null))
 
             val result = repository.lookup(word = "cat")
@@ -168,7 +172,7 @@ class VocabularyRepositoryTest {
     @Test
     fun `lookup network exception returns failure`() =
         runTest {
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenThrow(RuntimeException("timeout"))
 
             val result = repository.lookup(word = "cat")
@@ -184,7 +188,9 @@ class VocabularyRepositoryTest {
     fun `lookup returns 200 with empty definitions list`() =
         runTest {
             val dto = aLookupResponseDto(definitions = emptyList())
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Response.success(dto))
+            whenever(
+                vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Response.success(dto))
 
             val result = repository.lookup(word = "cat")
 
@@ -205,27 +211,27 @@ class VocabularyRepositoryTest {
 
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull() is ExpressionTooLongException)
-            verify(vocabularyApi, never()).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull())
+            verify(vocabularyApi, never()).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     @Test
     fun `lookup at exactly the word cap calls the API`() =
         runTest {
             val atCap = (1..ExpressionLimits.MAX_WORDS).joinToString(" ") { "w$it" }
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.success(aLookupResponseDto()))
 
             val result = repository.lookup(word = atCap)
 
             assertTrue(result.isSuccess)
-            verify(vocabularyApi).lookup(eq(atCap), anyOrNull(), anyOrNull(), anyOrNull())
+            verify(vocabularyApi).lookup(eq(atCap), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     @Test
     fun `lookup 400 with INPUT_INVALID body throws LookupInputInvalidException`() =
         runTest {
             val body = """{"message":"INPUT_INVALID","error":"Bad Request","statusCode":400}"""
-            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(vocabularyApi.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Response.error(400, body.toResponseBody()))
 
             val result = repository.lookup(word = "state-of-the-art-like-hyphen-chain")

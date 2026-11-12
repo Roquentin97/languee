@@ -48,6 +48,7 @@ export class NlpService {
     text: string,
     context?: string,
     language = 'en',
+    selection?: { start: number; end: number },
   ): Promise<NlpAnalyzeResult> {
     this.logger.debug({
       message: 'request',
@@ -57,7 +58,7 @@ export class NlpService {
     });
 
     const start = Date.now();
-    const body = await this.requestAnalysis(text, context, language);
+    const body = await this.requestAnalysis(text, context, language, selection);
     const durationMs = Date.now() - start;
 
     return this.mapAnalysis(body, text, language, durationMs);
@@ -67,9 +68,14 @@ export class NlpService {
     text: string,
     context: string | undefined,
     language: string,
+    selection?: { start: number; end: number },
   ): Promise<NlpAnalyzeResponse> {
     const params: Record<string, string> = { text, language };
     if (context?.trim()) params.input_text = context;
+    if (selection) {
+      params.selection_start = String(selection.start);
+      params.selection_end = String(selection.end);
+    }
     return this.protectedRequest<NlpAnalyzeResponse>(
       'analyze',
       params,
