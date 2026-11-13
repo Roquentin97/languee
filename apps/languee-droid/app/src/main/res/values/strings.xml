@@ -1,6 +1,4 @@
 <resources>
-    <string name="offline_queue_retry_failed">Could not save this card. Please try again.</string>
-    <string name="offline_queue_saving">Saving…</string>
     <string name="card_creation_preferred_interpretation">Suggested</string>
     <string name="app_name">Languee</string>
 

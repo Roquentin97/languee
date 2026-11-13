@@ -16,6 +16,8 @@ class OfflineQueueRepository(
 
     fun count(): Flow<Int> = dao.count()
 
+    suspend fun find(id: String): OfflineEntry? = dao.find(id)?.toDomain()
+
     suspend fun add(
         word: String,
         context: String?,
@@ -51,6 +53,9 @@ class OfflineQueueRepository(
         deckId: String,
         inflectionForms: Map<String, String>?,
         entryId: String? = null,
+        lookupContext: String? = null,
+        selectionStart: Int? = null,
+        selectionEnd: Int? = null,
     ) {
         dao.insert(
             OfflineEntryEntity(
@@ -59,6 +64,9 @@ class OfflineQueueRepository(
                 context = context,
                 capturedAt = System.currentTimeMillis(),
                 language = language,
+                lookupContext = lookupContext,
+                selectionStart = selectionStart,
+                selectionEnd = selectionEnd,
                 pendingDefinitionId = definitionId,
                 pendingLookupId = lookupId,
                 pendingDeckId = deckId,

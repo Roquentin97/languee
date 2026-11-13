@@ -25,6 +25,9 @@ class OfflineQueueRepositoryTest {
                 "deck",
                 mapOf("base" to "saw"),
                 "existing-entry",
+                "I saw the saw",
+                2,
+                5,
             )
             val entry = argumentCaptor<OfflineEntryEntity>()
             verify(dao).insert(entry.capture())
@@ -32,6 +35,9 @@ class OfflineQueueRepositoryTest {
             assertEquals("definition", entry.firstValue.pendingDefinitionId)
             assertEquals("lookup", entry.firstValue.pendingLookupId)
             assertEquals("deck", entry.firstValue.pendingDeckId)
+            assertEquals("I saw the saw", entry.firstValue.lookupContext)
+            assertEquals(2, entry.firstValue.selectionStart)
+            assertEquals(5, entry.firstValue.selectionEnd)
             assertEquals("{\"base\":\"saw\"}", entry.firstValue.pendingInflectionForms)
         }
 }

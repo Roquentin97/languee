@@ -36,6 +36,7 @@ import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSyncScreen
 import com.example.langueedroid.feature.capture.presentation.AnkiStatusNotification
+import com.example.langueedroid.feature.capture.presentation.LookupSelection
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
@@ -412,6 +413,7 @@ private fun NavGraphBuilder.cardCreationRoute(
                     lookupContext = lookupContext,
                     selectionStart = selectionStart,
                     selectionEnd = selectionEnd,
+                    offlineEntryId = offlineEntryId,
                 )
             }
         val captureSessionId = remember(cardCreationViewModel) { mainViewModel.sessionId }
@@ -524,7 +526,22 @@ private fun queueCurrentSave(
         if (entryId == null) mainViewModel.addEntry(state.targetWord, state.context)
         return
     }
-    mainViewModel.queueFailedSave(state.targetWord, flow.confirmedExample ?: state.context, state.language, definition, deck, entryId)
+    val selection =
+        if (state.lookupContext != null && state.selectionStart != null && state.selectionEnd != null) {
+            LookupSelection(state.lookupContext, state.selectionStart, state.selectionEnd)
+        } else {
+            null
+        }
+    mainViewModel.queueFailedSave(
+        state.targetWord,
+        flow.confirmedExample ?: state.context,
+        state.language,
+        definition,
+        deck,
+        entryId,
+        selection,
+        state.lookupContext,
+    )
 }
 
 private fun NavGraphBuilder.ankiSetupRoute(navController: NavHostController) {

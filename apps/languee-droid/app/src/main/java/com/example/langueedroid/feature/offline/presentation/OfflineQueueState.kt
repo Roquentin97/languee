@@ -5,8 +5,6 @@ import com.example.langueedroid.core.domain.OfflineEntry
 data class OfflineQueueState(
     val entries: List<OfflineEntry> = emptyList(),
     val isOffline: Boolean = true,
-    val retrying: Boolean = false,
-    val retryFailed: Boolean = false,
 )
 
 data class OfflineCardCreationRequest(

@@ -1,6 +1,5 @@
 package com.example.langueedroid.offline
 
-import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.OfflineEntry
@@ -24,8 +23,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -34,7 +31,6 @@ class OfflineQueueViewModelTest {
     private lateinit var viewModel: OfflineQueueViewModel
     private lateinit var repository: OfflineQueueRepository
     private lateinit var offlineStateManager: OfflineStateManager
-    private val cardRepository: CardRepository = mock()
     private val isOfflineFlow = MutableStateFlow(false)
 
     private val sampleEntry =
@@ -53,40 +49,8 @@ class OfflineQueueViewModelTest {
         whenever(offlineStateManager.isOffline).thenReturn(isOfflineFlow)
         whenever(repository.getAll()).thenReturn(flowOf(listOf(sampleEntry)))
         whenever(repository.count()).thenReturn(flowOf(1))
-        viewModel = OfflineQueueViewModel(repository, offlineStateManager, cardRepository)
+        viewModel = OfflineQueueViewModel(repository, offlineStateManager)
     }
-
-    @Test
-    fun `retry sends the stored definition and lookup together`() =
-        runTest {
-            val entry =
-                sampleEntry.copy(
-                    pendingDefinitionId = "def",
-                    pendingLookupId = "lookup",
-                    pendingDeckId = "deck",
-                    pendingInflectionForms = "{\"base\":\"saw\"}",
-                )
-            whenever(
-                cardRepository.createCard("deck", "def", entry.context, mapOf("base" to "saw"), "lookup"),
-            ).thenReturn(Result.success("card"))
-            viewModel.onEntrySelected(entry)
-            advanceUntilIdle()
-            verify(cardRepository).createCard("deck", "def", entry.context, mapOf("base" to "saw"), "lookup")
-            verify(repository).remove(entry.id)
-        }
-
-    @Test
-    fun `failed retry keeps the queued choice`() =
-        runTest {
-            val entry = sampleEntry.copy(pendingDefinitionId = "def", pendingLookupId = "lookup", pendingDeckId = "deck")
-            whenever(
-                cardRepository.createCard("deck", "def", entry.context, null, "lookup"),
-            ).thenReturn(Result.failure(IllegalStateException("unavailable")))
-            viewModel.onEntrySelected(entry)
-            advanceUntilIdle()
-            verify(repository, never()).remove(entry.id)
-            assertTrue(viewModel.state.value.retryFailed)
-        }
 
     @After
     fun tearDown() {
@@ -186,7 +150,7 @@ class OfflineQueueViewModelTest {
     fun `onStartReviewing when queue is empty does nothing`() =
         runTest {
             whenever(repository.getAll()).thenReturn(flowOf(emptyList()))
-            viewModel = OfflineQueueViewModel(repository, offlineStateManager, cardRepository)
+            viewModel = OfflineQueueViewModel(repository, offlineStateManager)
             isOfflineFlow.value = false
             advanceUntilIdle()
 

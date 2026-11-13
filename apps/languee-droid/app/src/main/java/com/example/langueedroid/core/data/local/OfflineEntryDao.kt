@@ -14,6 +14,9 @@ interface OfflineEntryDao {
     @Query("SELECT * FROM offline_entries ORDER BY capturedAt DESC")
     fun getAll(): Flow<List<OfflineEntryEntity>>
 
+    @Query("SELECT * FROM offline_entries WHERE id = :id")
+    suspend fun find(id: String): OfflineEntryEntity?
+
     @Query("DELETE FROM offline_entries WHERE id = :id")
     suspend fun delete(id: String)
 

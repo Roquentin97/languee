@@ -6,6 +6,7 @@ import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.DeckRepository
+import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.AnkiDroidSetupCheckResult
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
@@ -19,6 +20,7 @@ import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
+import com.example.langueedroid.core.domain.OfflineEntry
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
@@ -82,10 +84,14 @@ class CardCreationViewModelTest {
         targetWord: String = "cat",
         context: String? = "I have a cat",
         language: String = "en",
+        offlineEntryId: String? = null,
+        offlineQueueRepository: OfflineQueueRepository = mock(),
     ) = CardCreationViewModel(
         targetWord = targetWord,
         context = context,
         language = language,
+        offlineEntryId = offlineEntryId,
+        offlineQueueRepository = offlineQueueRepository,
         deckRepository = deckRepository,
         vocabularyRepository = vocabularyRepository,
         cardRepository = cardRepository,
@@ -626,6 +632,74 @@ class CardCreationViewModelTest {
     // -------------------------------------------------------------------------
     // createCard — happy path
     // -------------------------------------------------------------------------
+
+    @Test
+    fun `queued retry restores its definition and original lookup for the normal save flow`() =
+        runTest {
+            val deck = aDeck()
+            val chosen = aDefinition().copy(id = "chosen", lookupId = "new-lookup")
+            val queue: OfflineQueueRepository = mock()
+            whenever(
+                queue.find("entry"),
+            ).thenReturn(
+                OfflineEntry(
+                    id = "entry",
+                    word = "cat",
+                    context = "I have a cat",
+                    capturedAt = 1,
+                    lookupContext = "I have a cat",
+                    selectionStart = 9,
+                    selectionEnd = 12,
+                    pendingDefinitionId = "chosen",
+                    pendingLookupId = "old-lookup",
+                    pendingDeckId = deck.id,
+                    pendingInflectionForms = "{\"singular\":\"cat\"}",
+                ),
+            )
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(chosen)))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            stubAnkiSetupNotReady()
+            val vm = buildViewModel(offlineEntryId = "entry", offlineQueueRepository = queue)
+            advanceUntilIdle()
+            verify(vocabularyRepository).lookup(eq("cat"), eq("en"), eq("I have a cat"), eq(9), eq(12))
+            val flow = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            assertEquals("chosen", flow.selectedDefinition?.id)
+            assertEquals("old-lookup", flow.selectedDefinition?.lookupId)
+            vm.createCard()
+            advanceUntilIdle()
+            verify(cardRepository).createCard(eq(deck.id), eq("chosen"), anyOrNull(), eq(mapOf("singular" to "cat")), eq("old-lookup"))
+        }
+
+    @Test
+    fun `a fresh lookup clears the restored queued selection`() =
+        runTest {
+            val deck = aDeck()
+            val chosen = aDefinition().copy(id = "chosen", lookupId = "new-lookup")
+            val queue: OfflineQueueRepository = mock()
+            whenever(
+                queue.find("entry"),
+            ).thenReturn(
+                OfflineEntry(
+                    id = "entry",
+                    word = "cat",
+                    context = null,
+                    capturedAt = 1,
+                    pendingDefinitionId = "chosen",
+                    pendingLookupId = "old-lookup",
+                    pendingDeckId = deck.id,
+                ),
+            )
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(chosen)))
+            val vm = buildViewModel(offlineEntryId = "entry", offlineQueueRepository = queue)
+            advanceUntilIdle()
+            vm.retryLookup()
+            advanceUntilIdle()
+            val flow = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            assertNull(flow.selectedDefinition)
+            assertEquals("new-lookup", flow.definitions.single().lookupId)
+        }
 
     @Test
     fun `saving a nonpreferred definition carries its lookup ID`() =

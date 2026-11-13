@@ -139,6 +139,7 @@ class CardCreationViewModelAnkiTest {
             targetWord = "cat",
             context = "I have a cat",
             language = "en",
+            offlineQueueRepository = mock(),
             deckRepository = deckRepository,
             vocabularyRepository = vocabularyRepository,
             cardRepository = cardRepository,

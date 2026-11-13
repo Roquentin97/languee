@@ -250,6 +250,8 @@ class MainViewModel
             definition: com.example.langueedroid.core.domain.DefinitionResult,
             deck: Deck,
             entryId: String? = null,
+            selection: LookupSelection? = null,
+            lookupContext: String? = null,
         ) {
             val key = listOf(entryId, definition.id, definition.lookupId, deck.id).joinToString(":")
             if (lastPendingSaveKey == key) return
@@ -266,6 +268,9 @@ class MainViewModel
                         deck.id,
                         definition.inflectionForms,
                         entryId,
+                        selection?.context ?: lookupContext,
+                        selection?.start,
+                        selection?.end,
                     )
                     _offlineWordSaved.tryEmit(generation)
                 } catch (error: Exception) {
