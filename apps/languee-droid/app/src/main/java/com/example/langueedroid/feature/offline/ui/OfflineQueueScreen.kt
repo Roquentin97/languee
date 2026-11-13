@@ -79,6 +79,14 @@ fun OfflineQueueScreen(
                 OnlineBanner()
             }
 
+            if (state.retryFailed) {
+                Text(
+                    text = stringResource(R.string.offline_queue_retry_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+
             if (state.entries.isEmpty()) {
                 Box(
                     modifier =
@@ -103,7 +111,7 @@ fun OfflineQueueScreen(
                         OfflineEntryCard(
                             entry = entry,
                             onClick = { onEntryClick(entry) },
-                            enabled = !state.isOffline,
+                            enabled = !state.isOffline && !state.retrying,
                         )
                     }
                 }
@@ -169,7 +177,7 @@ private fun OfflineReviewButton(
     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
         Button(
             onClick = onStartReviewing,
-            enabled = !state.isOffline && state.entries.isNotEmpty(),
+            enabled = !state.isOffline && !state.retrying && state.entries.isNotEmpty(),
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -185,7 +193,9 @@ private fun OfflineReviewButton(
         ) {
             Text(
                 text =
-                    if (state.isOffline) {
+                    if (state.retrying) {
+                        stringResource(R.string.offline_queue_saving)
+                    } else if (state.isOffline) {
                         stringResource(R.string.offline_queue_reconnect_to_review)
                     } else {
                         stringResource(R.string.offline_queue_start_reviewing)

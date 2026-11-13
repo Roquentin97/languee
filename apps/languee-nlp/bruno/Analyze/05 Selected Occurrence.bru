@@ -13,5 +13,8 @@ get {
 tests {
   test("expected status", function() {
     expect(res.status).to.equal(200);
+    expect(res.body.model_version).to.be.a("string");
+    expect(res.body.tokens[0].lemma).to.be.a("string");
+    expect(res.body.tokens[0].pos).to.be.a("string");
   });
 }

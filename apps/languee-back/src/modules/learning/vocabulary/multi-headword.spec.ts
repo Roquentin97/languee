@@ -5,6 +5,8 @@ import { NlpService } from '../../lexicon/enrichment/nlp/nlp.service';
 import { WordsService } from '../../lexicon/entries/words/words.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
+import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
+import type { LexicalEvaluationService } from './lexical-evaluation.service';
 
 const def = (id: string, partOfSpeech: PartOfSpeech) => ({
   id,
@@ -14,6 +16,40 @@ const def = (id: string, partOfSpeech: PartOfSpeech) => ({
   provider: 'fixture',
   inflectionForms: null,
   hasIrregularForms: false,
+});
+
+it('persists an empty contextual miss before returning the dictionary error', async () => {
+  const error = new DefinitionsNotFoundException('missing', 'en');
+  const record = jest.fn().mockResolvedValue('lookup');
+  const service = new VocabularyService(
+    {
+      lookup: jest.fn().mockRejectedValue(error),
+    } as unknown as DictionaryService,
+    {} as CardsService,
+    {
+      analyze: jest.fn().mockResolvedValue({
+        kind: 'word',
+        lemma: 'missing',
+        pos: PartOfSpeech.NOUN,
+      }),
+    } as unknown as NlpService,
+    {} as WordsService,
+    {} as DefinitionService,
+    { record } as unknown as LexicalEvaluationService,
+  );
+  await expect(
+    service.lookup({
+      word: 'missing',
+      language: 'en',
+      userId: 'user',
+      context: 'missing word',
+    }),
+  ).rejects.toBe(error);
+  expect(record).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.anything(),
+    expect.objectContaining({ headwords: [] }),
+  );
 });
 const result = {
   input: 'better',
@@ -53,6 +89,43 @@ const result = {
   ],
 };
 
+it('returns definitions without an ID when snapshot storage fails', async () => {
+  const service = new VocabularyService(
+    {
+      lookup: jest.fn().mockResolvedValue(result),
+    } as unknown as DictionaryService,
+    {
+      findCardsByDefinitionIdsAndUserId: jest.fn().mockResolvedValue([]),
+    } as unknown as CardsService,
+    {
+      analyze: jest
+        .fn()
+        .mockResolvedValue({
+          kind: 'word',
+          lemma: 'good',
+          pos: PartOfSpeech.ADJECTIVE,
+        }),
+    } as unknown as NlpService,
+    {} as WordsService,
+    {} as DefinitionService,
+    {
+      record: jest.fn().mockRejectedValue(new Error('storage unavailable')),
+    } as unknown as LexicalEvaluationService,
+  );
+  const response = await service.lookup({
+    word: 'better',
+    language: 'en',
+    userId: 'user',
+    context: 'It is better',
+  });
+  expect(response.lookupId).toBeUndefined();
+  expect(response.orderedGroups).toHaveLength(3);
+  expect(response.preferred).toEqual({
+    wordId: 'good',
+    partOfSpeech: PartOfSpeech.ADJECTIVE,
+  });
+});
+
 describe('multi-headword vocabulary lookup', () => {
   const lookup = jest.fn().mockResolvedValue(result);
   const cards = jest
@@ -84,8 +157,8 @@ describe('multi-headword vocabulary lookup', () => {
     {
       context: 'It is better',
       pos: PartOfSpeech.VERB,
-      preferred: null,
-      unmatched: true,
+      preferred: PartOfSpeech.VERB,
+      unmatched: false,
     },
   ])(
     'preserves alternatives with context $context and POS $pos',
@@ -103,10 +176,13 @@ describe('multi-headword vocabulary lookup', () => {
         userId: 'user',
         context,
       });
-      expect(output.preferred).toEqual({
-        wordId: 'good',
-        partOfSpeech: preferred,
-      });
+      const expectedPreferred = preferred
+        ? {
+            wordId: pos === PartOfSpeech.VERB ? 'better' : 'good',
+            partOfSpeech: preferred,
+          }
+        : null;
+      expect(output.preferred).toEqual(expectedPreferred);
       expect(output.meta.unmatchedPos).toBe(unmatched);
       expect(output.headwords).toHaveLength(2);
       expect(output.headwords[1].partsOfSpeech).toHaveLength(2);
@@ -116,7 +192,7 @@ describe('multi-headword vocabulary lookup', () => {
       expect(cards).toHaveBeenLastCalledWith(['verb', 'adj', 'noun'], 'user');
       expect(JSON.parse(JSON.stringify(output))).toMatchObject({
         input: 'better',
-        preferred: { wordId: 'good', partOfSpeech: preferred },
+        preferred: expectedPreferred,
         headwords: [
           {
             wordId: 'better',

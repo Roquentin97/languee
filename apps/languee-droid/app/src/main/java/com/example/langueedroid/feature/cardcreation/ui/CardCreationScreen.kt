@@ -843,7 +843,7 @@ private fun DefinitionHeader(
                     .padding(horizontal = 8.dp, vertical = 2.dp),
         ) {
             Text(
-                text = definition.partOfSpeech.uppercase(),
+                text = listOfNotNull(definition.lemma, definition.partOfSpeech.uppercase()).joinToString(" · "),
                 style = MaterialTheme.typography.labelSmall,
                 color = if (isSelected) GreenPrimary else TextSecondary,
             )
@@ -853,6 +853,13 @@ private fun DefinitionHeader(
             style = MaterialTheme.typography.labelSmall,
             color = TextSecondary,
         )
+        if (definition.preferred) {
+            Text(
+                text = stringResource(R.string.card_creation_preferred_interpretation),
+                style = MaterialTheme.typography.labelSmall,
+                color = GreenPrimary,
+            )
+        }
     }
 }
 

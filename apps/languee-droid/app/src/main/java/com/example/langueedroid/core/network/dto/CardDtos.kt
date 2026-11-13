@@ -5,6 +5,7 @@ data class CreateCardRequest(
     val definitionId: String,
     val context: String? = null,
     val inflectionForms: Map<String, String>?,
+    val lookupId: String? = null,
 )
 
 data class CardDefinitionDto(

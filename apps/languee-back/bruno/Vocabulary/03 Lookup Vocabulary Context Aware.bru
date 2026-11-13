@@ -8,9 +8,21 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?word=saw&language=en&context=The%20saw%20was%20sharp%20enough%20to%20cut%20oak
+  url: {{base_url}}/api/v1/vocabulary/lookup?word=saw&language=en&context=The%20saw%20was%20sharp%20enough%20to%20cut%20oak&selectionStart=4&selectionEnd=7
   body: none
   auth: inherit
+}
+
+script:post-response {
+  if (res.status === 200 && res.body.lookupId && res.body.orderedGroups.length) {
+    const first = res.body.orderedGroups[0];
+    const headword = res.body.headwords.find(h => h.wordId === first.wordId);
+    const group = headword?.partsOfSpeech.find(g => g.partOfSpeech === first.partOfSpeech);
+    if (group?.definitions.length) {
+      bru.setVar("lookup_id", res.body.lookupId);
+      bru.setVar("definition_id", group.definitions[0].id);
+    }
+  }
 }
 
 tests {
@@ -19,8 +31,10 @@ tests {
     expect(res.body.input).to.equal("saw");
     expect(res.body.context).to.equal("The saw was sharp enough to cut oak");
     expect(res.body.headwords).to.be.an("array");
+    expect(res.body.orderedGroups).to.be.an("array");
+    expect(res.body.lookupId).to.be.a("string");
     if (res.body.preferred) {
-      expect(res.body.headwords.some(h => h.wordId === res.body.preferred.wordId)).to.equal(true);
+      expect(res.body.orderedGroups.some(g => g.wordId === res.body.preferred.wordId && g.partOfSpeech === res.body.preferred.partOfSpeech)).to.equal(true);
     }
     expect(res.body.meta.availablePartsOfSpeech).to.be.an("array");
   });

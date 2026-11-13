@@ -35,13 +35,16 @@ export type NlpToken = {
 export type NlpWordResponse = {
   kind: 'word';
   tokens: NlpToken[];
-} & Record<'input_text', string> &
+} & Partial<Record<'model_version', string>> &
+  Record<'input_text', string> &
   Record<'is_multi_word', boolean> &
   Partial<Record<'language', string>>;
 
 export type NlpAnalysis = {
   lemma: string;
   pos: PartOfSpeech | null;
+  rawPos?: string;
+  modelVersion?: string;
   isIrregular: boolean;
   inflectionForms: InflectionForms | null;
 };

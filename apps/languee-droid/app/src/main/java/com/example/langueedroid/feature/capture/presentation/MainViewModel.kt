@@ -241,6 +241,43 @@ class MainViewModel
             _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext, language, sessionGeneration, selection))
         }
 
+        private var lastPendingSaveKey: String? = null
+
+        fun queueFailedSave(
+            word: String,
+            context: String?,
+            language: String,
+            definition: com.example.langueedroid.core.domain.DefinitionResult,
+            deck: Deck,
+            entryId: String? = null,
+        ) {
+            val key = listOf(entryId, definition.id, definition.lookupId, deck.id).joinToString(":")
+            if (lastPendingSaveKey == key) return
+            lastPendingSaveKey = key
+            val generation = sessionGeneration
+            viewModelScope.launch {
+                try {
+                    offlineQueueRepository.addPendingSave(
+                        word,
+                        context,
+                        language,
+                        definition.id,
+                        definition.lookupId,
+                        deck.id,
+                        definition.inflectionForms,
+                        entryId,
+                    )
+                    _offlineWordSaved.tryEmit(generation)
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    if (generation == sessionGeneration) {
+                        lastPendingSaveKey = null
+                        _offlineQueueError.value = true
+                    }
+                }
+            }
+        }
+
         /** Called when the user picks a language chip (EN/ES/DE) on a capture screen. */
         fun selectLanguage(code: String) {
             _state.value =

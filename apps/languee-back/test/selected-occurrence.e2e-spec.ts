@@ -10,6 +10,15 @@ const integration = nlpUrl ? describe : describe.skip;
 
 integration('selected occurrence across backend and NLP', () => {
   it('selects the contextual lemma and POS while retaining both headwords', async () => {
+    const definition = (id: string, partOfSpeech: PartOfSpeech) => ({
+      id,
+      partOfSpeech,
+      definition: id,
+      example: null,
+      provider: 'fixture',
+      hasIrregularForms: false,
+      inflectionForms: null,
+    });
     const nlp = new NlpService(
       new RequestService(),
       new ConfigService({
@@ -26,14 +35,28 @@ integration('selected occurrence across backend and NLP', () => {
         lemma: 'see',
         language: 'en',
         relations: [],
-        partsOfSpeech: [{ partOfSpeech: PartOfSpeech.VERB, definitions: [] }],
+        partsOfSpeech: [
+          {
+            partOfSpeech: PartOfSpeech.VERB,
+            definitions: [definition('see-verb', PartOfSpeech.VERB)],
+          },
+        ],
       },
       {
         wordId: 'saw',
         lemma: 'saw',
         language: 'en',
         relations: [],
-        partsOfSpeech: [{ partOfSpeech: PartOfSpeech.NOUN, definitions: [] }],
+        partsOfSpeech: [
+          {
+            partOfSpeech: PartOfSpeech.NOUN,
+            definitions: [definition('saw-noun', PartOfSpeech.NOUN)],
+          },
+          {
+            partOfSpeech: PartOfSpeech.VERB,
+            definitions: [definition('saw-verb', PartOfSpeech.VERB)],
+          },
+        ],
       },
     ];
     const dictionary = {

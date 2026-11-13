@@ -32,6 +32,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 
 data class CardCreatedEvent(
     val cardId: String,
@@ -97,6 +99,7 @@ class CardCreationViewModel
         val cardCreatedEvent: SharedFlow<CardCreatedEvent> = _cardCreatedEvent.asSharedFlow()
 
         private var createCardJob: Job? = null
+        private var lookupJob: Job? = null
         private var initialDeckId: String? = null
 
         fun setInitialDeck(id: String?) {
@@ -209,16 +212,21 @@ class CardCreationViewModel
         }
 
         private fun lookupVocabulary(notice: CardCreationError? = null) {
-            viewModelScope.launch {
-                _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
-                vocabularyRepository
-                    .lookup(
-                        word = targetWord,
-                        language = language,
-                        context = (lookupContext ?: context)?.takeIf(EntryValidator::isContextWithinLimit),
-                        selectionStart = selectionStart,
-                        selectionEnd = selectionEnd,
-                    ).fold(
+            lookupJob?.cancel()
+            lookupJob =
+                viewModelScope.launch {
+                    _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
+                    val lookupResult =
+                        vocabularyRepository
+                            .lookup(
+                                word = targetWord,
+                                language = language,
+                                context = (lookupContext ?: context)?.takeIf(EntryValidator::isContextWithinLimit),
+                                selectionStart = selectionStart,
+                                selectionEnd = selectionEnd,
+                            )
+                    coroutineContext.ensureActive()
+                    lookupResult.fold(
                         onSuccess = { result ->
                             _state.value =
                                 _state.value.copy(
@@ -241,28 +249,23 @@ class CardCreationViewModel
                                         },
                                 )
                         },
-                        onFailure = { error ->
-                            when (error) {
-                                is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
-                                is ExpressionTooLongException ->
-                                    _state.value =
-                                        _state.value.copy(
-                                            flowState = CardCreationFlowState.LookupError(CardCreationError.EXPRESSION_TOO_LONG),
-                                        )
-                                is LookupInputInvalidException ->
-                                    _state.value =
-                                        _state.value.copy(
-                                            flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_INPUT_INVALID),
-                                        )
-                                else ->
-                                    _state.value =
-                                        _state.value.copy(
-                                            flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_FAILED),
-                                        )
-                            }
-                        },
+                        onFailure = ::handleLookupFailure,
                     )
+                }
+        }
+
+        private fun handleLookupFailure(error: Throwable) {
+            if (error is UnauthorizedException) {
+                _unauthorizedEvent.tryEmit(Unit)
+                return
             }
+            val reason =
+                when (error) {
+                    is ExpressionTooLongException -> CardCreationError.EXPRESSION_TOO_LONG
+                    is LookupInputInvalidException -> CardCreationError.LOOKUP_INPUT_INVALID
+                    else -> CardCreationError.LOOKUP_FAILED
+                }
+            _state.value = _state.value.copy(flowState = CardCreationFlowState.LookupError(reason))
         }
 
         /** Called when the user edits the definition text in the manual-definition form. */
@@ -404,6 +407,7 @@ class CardCreationViewModel
                             definitionId = resolvedDefinition.id,
                             context = confirmedExample ?: draftContext,
                             inflectionForms = resolvedDefinition.inflectionForms,
+                            lookupId = resolvedDefinition.lookupId,
                         ).fold(
                             onSuccess = { cardId ->
                                 _state.value = _state.value.copy(flowState = CardCreationFlowState.CardCreated())
@@ -569,8 +573,8 @@ class CardCreationViewModel
             confirmedExample: String?,
         ) = AnkiDroidNoteBuilder.buildFields(
             cardId = cardId,
-            word = currentFlowState.lemma,
-            lemma = currentFlowState.lemma,
+            word = selectedDefinition.lemma ?: currentFlowState.lemma,
+            lemma = selectedDefinition.lemma ?: currentFlowState.lemma,
             partOfSpeech = selectedDefinition.partOfSpeech,
             definition = selectedDefinition.definition,
             context = _state.value.context,

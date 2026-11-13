@@ -30,6 +30,18 @@ const text = (n: Node): string =>
     .join('')
     .replace(/\s+/g, ' ')
     .trim();
+const textWithoutPosAnnotations = (n: Node): string =>
+  n.children
+    .map((c) =>
+      typeof c === 'string'
+        ? c
+        : cls(c, 'ann-pos')
+          ? ''
+          : textWithoutPosAnnotations(c),
+    )
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
 const walk = (n: Node): Node[] => [
   n,
   ...n.children.flatMap((c) => (typeof c === 'string' ? [] : walk(c))),
@@ -128,6 +140,25 @@ function extractTargets(links: Node[]): string[] | null {
   return targets;
 }
 
+function validPosAnnotation(link: Node, annotation: Node): boolean {
+  const parent = walk(link).find((node) => node.children.includes(annotation));
+  if (!parent) return false;
+  const siblings = parent.children.filter(
+    (child) => typeof child !== 'string' || child.trim() !== '',
+  );
+  const index = siblings.indexOf(annotation);
+  const before = siblings[index - 1];
+  const after = siblings[index + 1];
+  return (
+    typeof before === 'object' &&
+    typeof after === 'object' &&
+    cls(before, 'mention-gloss-paren') &&
+    cls(after, 'mention-gloss-paren') &&
+    text(before) === '(' &&
+    text(after) === ')'
+  );
+}
+
 export function classifyReference(
   html: string,
   source: string,
@@ -149,11 +180,21 @@ export function classifyReference(
   if (!markers.length) return classifyUnmarked(nodes, fullText, base);
   if (broken || stack.length !== 1 || markers.length !== 1) return base;
   const marker = markers[0];
-  const phrase = text(marker).toLowerCase();
+  const phrase = textWithoutPosAnnotations(marker).toLowerCase();
   const links = walk(marker).filter((n) => cls(n, 'form-of-definition-link'));
   const targets = extractTargets(links);
   if (!targets?.length) return base;
   const result = { ...base, targets: [...new Set(targets)] };
+  const annotations = walk(marker).filter((n) => cls(n, 'ann-pos'));
+  if (
+    annotations.length > 1 ||
+    annotations.some(
+      (n) =>
+        !links.some((link) => validPosAnnotation(link, n)) ||
+        text(n).toLowerCase() !== String(sourcePos),
+    )
+  )
+    return result;
   return classifyPhrase(phrase, sourcePos, result);
 }
 

@@ -13,4 +13,7 @@ data class DefinitionResult(
     val provider: String,
     val decks: List<DeckRef>,
     val inflectionForms: Map<String, String>? = null,
+    val lemma: String? = null,
+    val lookupId: String? = null,
+    val preferred: Boolean = false,
 )

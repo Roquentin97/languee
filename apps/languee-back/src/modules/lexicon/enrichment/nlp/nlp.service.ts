@@ -340,6 +340,8 @@ export class NlpService {
       kind: 'word',
       lemma: token.lemma,
       pos: mapSpacyPos(token.pos),
+      rawPos: token.pos,
+      modelVersion: body.model_version,
       isIrregular: token['is_irregular'],
       inflectionForms,
     };

@@ -4,6 +4,7 @@ import com.example.langueedroid.core.data.local.OfflineEntryDao
 import com.example.langueedroid.core.data.local.OfflineEntryEntity
 import com.example.langueedroid.core.data.local.toDomain
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -39,5 +40,30 @@ class OfflineQueueRepository(
 
     suspend fun remove(id: String) {
         dao.delete(id)
+    }
+
+    suspend fun addPendingSave(
+        word: String,
+        context: String?,
+        language: String,
+        definitionId: String,
+        lookupId: String?,
+        deckId: String,
+        inflectionForms: Map<String, String>?,
+        entryId: String? = null,
+    ) {
+        dao.insert(
+            OfflineEntryEntity(
+                id = entryId ?: UUID.randomUUID().toString(),
+                word = word,
+                context = context,
+                capturedAt = System.currentTimeMillis(),
+                language = language,
+                pendingDefinitionId = definitionId,
+                pendingLookupId = lookupId,
+                pendingDeckId = deckId,
+                pendingInflectionForms = inflectionForms?.let { Gson().toJson(it) },
+            ),
+        )
     }
 }

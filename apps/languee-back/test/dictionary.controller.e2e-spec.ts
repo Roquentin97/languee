@@ -68,9 +68,11 @@ describe('DictionaryController (e2e)', () => {
   beforeAll(async () => {
     app = await createApp();
     accessToken = await getAccessToken(app, testEmail, testPassword);
-    // The cache-miss assertions require 'despite' to be absent from the
-    // shared dev database; previous runs of this suite leave it cached.
+    // Clear this fixture and its discovery state before testing a cold lookup.
     const prisma = app.get(PrismaService);
+    await prisma.lookupState.deleteMany({
+      where: { term: 'despite', language: 'en' },
+    });
     await prisma.definition.deleteMany({
       where: { word: { lemma: 'despite', language: 'en' } },
     });

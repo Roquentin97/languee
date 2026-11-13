@@ -18,6 +18,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VocabularyMapperTest {
+    @Test
+    fun `server ordering and unmatched POS preserve all selectable definitions`() {
+        val first = aDefinitionDto().copy(id = "first", partOfSpeech = "verb")
+        val second = aDefinitionDto().copy(id = "second", partOfSpeech = "noun")
+        val dto =
+            aResponseDto().copy(
+                preferred = null,
+                lookupId = "lookup-id",
+                meta = aMetaDto().copy(unmatchedPos = true),
+                headwords =
+                    listOf(
+                        VocabularyHeadwordDto("one", "see", "en", emptyList(), listOf(VocabularyPosGroupDto("verb", listOf(first)))),
+                        VocabularyHeadwordDto("two", "saw", "en", emptyList(), listOf(VocabularyPosGroupDto("noun", listOf(second)))),
+                    ),
+                orderedGroups = listOf(PreferredInterpretationDto("two", "noun"), PreferredInterpretationDto("one", "verb")),
+            )
+        val result = dto.toLookupResult()
+        assertEquals(listOf("second", "first"), result.definitions.map { it.id })
+        assertEquals(listOf("saw", "see"), result.definitions.map { it.lemma })
+        assertTrue(result.definitions.all { it.lookupId == "lookup-id" && !it.preferred })
+    }
+
     private fun aDefinitionDto() =
         EnrichedDefinitionDto(
             id = "def1",
@@ -128,7 +150,7 @@ class VocabularyMapperTest {
     }
 
     @Test
-    fun `parses alternatives and projects preferred POS with stable definition ID`() {
+    fun `parses alternatives and retains all groups with stable definition IDs`() {
         val json =
             """
             {"input":"better","context":"It is better","language":"en","kind":"word","source":"cache",
@@ -146,8 +168,9 @@ class VocabularyMapperTest {
         assertEquals("comparative", dto.headwords[1].relations[0].relationType)
         val result = dto.toLookupResult()
         assertEquals("good", result.lemma)
-        assertEquals(listOf("a"), result.definitions.map { it.id })
-        assertEquals("deck", result.definitions[0].decks[0].id)
+        assertEquals(listOf("v", "a"), result.definitions.map { it.id })
+        assertEquals("deck", result.definitions[1].decks[0].id)
+        assertEquals(listOf(false, true), result.definitions.map { it.preferred })
     }
 
     // -------------------------------------------------------------------------

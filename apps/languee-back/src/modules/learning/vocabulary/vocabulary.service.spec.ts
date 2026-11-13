@@ -80,9 +80,10 @@ const baseOutput = {
 };
 
 function preferredDefinitions(result: LookupVocabularyOutput) {
-  const word = result.headwords.find(
-    (entry) => entry.wordId === result.preferred?.wordId,
-  );
+  const word =
+    result.headwords.find(
+      (entry) => entry.wordId === result.preferred?.wordId,
+    ) ?? result.headwords[0];
   if (result.meta.unmatchedPos) return [];
   return (word?.partsOfSpeech ?? [])
     .filter(

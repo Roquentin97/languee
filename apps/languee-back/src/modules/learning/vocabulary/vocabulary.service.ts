@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { LexicalKind } from '@prisma/client';
 import { DictionaryService } from '../../lexicon/enrichment/dictionary/dictionary.service';
 import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
@@ -8,6 +8,8 @@ import { WordsService } from '../../lexicon/entries/words/words.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { PartOfSpeechRequiredError } from './vocabulary.errors';
+import { rankLexicalGroups } from './lexical-ranking';
+import { LexicalEvaluationService } from './lexical-evaluation.service';
 import type {
   NlpExpressionAnalysis,
   NlpWordAnalysis,
@@ -42,6 +44,7 @@ export class VocabularyService {
     private readonly nlpService: NlpService,
     private readonly wordsService: WordsService,
     private readonly definitionService: DefinitionService,
+    @Optional() private readonly evaluation?: LexicalEvaluationService,
   ) {}
 
   async lookup(input: LookupVocabularyInput): Promise<LookupVocabularyOutput> {
@@ -130,18 +133,8 @@ export class VocabularyService {
     input: LookupVocabularyInput,
     analysis: NlpWordAnalysis,
   ): Promise<LookupVocabularyOutput> {
-    const base = await this.dictionaryService.lookup({
-      word: input.word,
-      lemma: analysis.lemma,
-      language: input.language,
-      kind: LexicalKind.word,
-      pos: analysis.pos ?? undefined,
-    });
-    const selected = base.headwords.find(
-      (word) => word.wordId === base.preferred?.wordId,
-    );
-    const availablePartsOfSpeech =
-      selected?.partsOfSpeech.map((group) => group.partOfSpeech) ?? [];
+    const base = await this.lookupWordBase(input, analysis);
+    const availablePartsOfSpeech = this.availablePartsOfSpeech(base);
     const filteredByPos =
       Boolean(input.context?.trim()) &&
       !input.disablePosFiltering &&
@@ -149,14 +142,22 @@ export class VocabularyService {
     const unmatchedPos =
       filteredByPos &&
       !availablePartsOfSpeech.includes(analysis.pos as PartOfSpeech);
-    const preferred = base.preferred && {
-      ...base.preferred,
-      partOfSpeech: filteredByPos && !unmatchedPos ? analysis.pos : null,
-    };
+    const ranked = rankLexicalGroups(
+      base.headwords,
+      analysis.lemma,
+      analysis.pos,
+      filteredByPos,
+    );
+    const lookupId = await this.recordLookup(input, analysis, base);
     return {
       ...base,
       context: input.context,
-      preferred,
+      preferred: this.preferredPair(ranked.preferred),
+      ...(lookupId ? { lookupId } : {}),
+      orderedGroups: ranked.groups.map(({ wordId, partOfSpeech }) => ({
+        wordId,
+        partOfSpeech,
+      })),
       headwords: await this.enrichHeadwords(base, input.userId),
       meta: {
         analyzedLemma: analysis.lemma,
@@ -169,6 +170,71 @@ export class VocabularyService {
         expressionContextFound: null,
       },
     };
+  }
+
+  private preferredPair(
+    group: ReturnType<typeof rankLexicalGroups>['preferred'],
+  ) {
+    return group
+      ? { wordId: group.wordId, partOfSpeech: group.partOfSpeech }
+      : null;
+  }
+
+  private async lookupWordBase(
+    input: LookupVocabularyInput,
+    analysis: NlpWordAnalysis,
+  ): Promise<LookupWordOutput> {
+    try {
+      return await this.dictionaryService.lookup({
+        word: input.word,
+        lemma: analysis.lemma,
+        language: input.language,
+        kind: LexicalKind.word,
+        pos: analysis.pos ?? undefined,
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof DefinitionsNotFoundException &&
+        input.context?.trim() &&
+        analysis.pos
+      ) {
+        await this.recordLookup(input, analysis, {
+          input: input.word,
+          language: input.language,
+          kind: LexicalKind.word,
+          source: 'provider',
+          preferred: null,
+          headwords: [],
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async recordLookup(
+    input: LookupVocabularyInput,
+    analysis: NlpWordAnalysis,
+    base: LookupWordOutput,
+  ): Promise<string | null> {
+    try {
+      return (await this.evaluation?.record(input, analysis, base)) ?? null;
+    } catch {
+      this.logger.error({
+        message: 'lexical evaluation persistence failed',
+        event: 'vocabulary.evaluation_failed',
+      });
+      return null;
+    }
+  }
+
+  private availablePartsOfSpeech(base: LookupWordOutput): PartOfSpeech[] {
+    return [
+      ...new Set(
+        base.headwords.flatMap((word) =>
+          word.partsOfSpeech.map((group) => group.partOfSpeech),
+        ),
+      ),
+    ];
   }
 
   private async lookupExpression(

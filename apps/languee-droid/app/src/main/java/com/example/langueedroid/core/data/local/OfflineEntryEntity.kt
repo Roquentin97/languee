@@ -14,6 +14,10 @@ data class OfflineEntryEntity(
     val lookupContext: String? = null,
     val selectionStart: Int? = null,
     val selectionEnd: Int? = null,
+    val pendingDefinitionId: String? = null,
+    val pendingLookupId: String? = null,
+    val pendingDeckId: String? = null,
+    val pendingInflectionForms: String? = null,
 )
 
 fun OfflineEntryEntity.toDomain() =
@@ -26,4 +30,8 @@ fun OfflineEntryEntity.toDomain() =
         lookupContext = lookupContext,
         selectionStart = selectionStart,
         selectionEnd = selectionEnd,
+        pendingDefinitionId = pendingDefinitionId,
+        pendingLookupId = pendingLookupId,
+        pendingDeckId = pendingDeckId,
+        pendingInflectionForms = pendingInflectionForms,
     )

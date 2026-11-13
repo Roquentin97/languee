@@ -96,6 +96,14 @@ export class VocabularyHeadwordDto {
   partsOfSpeech!: VocabularyPosGroupDto[];
 }
 
+export class OrderedVocabularyGroupDto {
+  @ApiProperty({ format: 'uuid' })
+  wordId!: string;
+
+  @ApiProperty({ enum: PartOfSpeech })
+  partOfSpeech!: PartOfSpeech;
+}
+
 export class LookupVocabularyResponseDto {
   @ApiProperty({ example: 'better' })
   input!: string;
@@ -117,6 +125,12 @@ export class LookupVocabularyResponseDto {
 
   @ApiProperty({ type: [VocabularyHeadwordDto] })
   headwords!: VocabularyHeadwordDto[];
+
+  @ApiPropertyOptional({ type: [OrderedVocabularyGroupDto] })
+  orderedGroups?: OrderedVocabularyGroupDto[];
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  lookupId?: string;
 
   @ApiProperty({ type: LookupVocabularyMetaDto })
   meta!: LookupVocabularyMetaDto;

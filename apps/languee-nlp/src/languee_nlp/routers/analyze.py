@@ -107,7 +107,7 @@ def _find_word_span(input_text: str, word: str) -> tuple[str, int, int]:
 
 
 def _analyze_isolated_word(
-    doc: spacy.tokens.Doc, sanitized: str, language: str
+    doc: spacy.tokens.Doc, sanitized: str, language: str, model_version: str
 ) -> JSONResponse:
     token_result = analyze_single_token(doc[0])
     return _serialize_word_response(
@@ -115,12 +115,14 @@ def _analyze_isolated_word(
             input_text=sanitized,
             is_multi_word=False,
             language=language,
+            model_version=model_version,
             tokens=[token_result],
         )
     )
 
 
 def _analyze_word_in_input_text(
+    nlp: spacy.language.Language,
     word: str,
     input_text: str,
     language: str,
@@ -132,7 +134,7 @@ def _analyze_word_in_input_text(
     else:
         context = input_text
     result = resolve_token_from_context(
-        get_nlp(language),
+        nlp,
         word,
         context,
         selection_start,
@@ -165,10 +167,16 @@ def _analyze_word_in_input_text(
             input_text=word,
             is_multi_word=False,
             language=language,
+            model_version=_model_version(nlp),
             tokens=[token_result],
             input_text_analysis=input_text_analysis,
         )
     )
+
+
+def _model_version(nlp: spacy.language.Language) -> str:
+    meta = nlp.meta
+    return f"{meta['lang']}_{meta['name']}@{meta['version']}"
 
 
 def _validate_selection(
@@ -323,9 +331,16 @@ def analyze(
 
     if len(doc) == 1:
         if input_text is None or not input_text.strip():
-            return _analyze_isolated_word(doc, sanitized, validated_language)
+            return _analyze_isolated_word(
+                doc, sanitized, validated_language, _model_version(nlp)
+            )
         return _analyze_word_in_input_text(
-            sanitized, input_text, validated_language, selection_start, selection_end
+            nlp,
+            sanitized,
+            input_text,
+            validated_language,
+            selection_start,
+            selection_end,
         )
 
     return _analyze_expression(nlp, doc, sanitized, input_text, validated_language)

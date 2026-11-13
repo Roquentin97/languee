@@ -1,0 +1,26 @@
+meta {
+  name: Create Tracked Card
+  type: http
+  seq: 2
+  tags: [cards]
+}
+
+post {
+  url: {{base_url}}/api/v1/cards
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "deckId": "{{deck_id}}",
+    "definitionId": "{{definition_id}}",
+    "lookupId": "{{lookup_id}}"
+  }
+}
+
+tests {
+  test("validates the tracked save", function() {
+    expect(res.status).to.be.oneOf([201, 409]);
+  });
+}

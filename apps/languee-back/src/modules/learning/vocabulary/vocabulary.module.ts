@@ -7,6 +7,7 @@ import { WordsModule } from '../../lexicon/entries/words/words.module';
 import { DefinitionsModule } from '../../lexicon/entries/definitions/definitions.module';
 import { VocabularyService } from './vocabulary.service';
 import { VocabularyController } from './vocabulary.controller';
+import { LexicalEvaluationService } from './lexical-evaluation.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { VocabularyController } from './vocabulary.controller';
     WordsModule,
     DefinitionsModule,
   ],
-  providers: [VocabularyService],
+  providers: [VocabularyService, LexicalEvaluationService],
   controllers: [VocabularyController],
 })
 export class VocabularyModule {}

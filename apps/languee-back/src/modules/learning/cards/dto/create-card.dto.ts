@@ -3,6 +3,10 @@ import { IsUUID, IsOptional, IsString } from 'class-validator';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 
 export class CreateCardDto {
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  lookupId?: string;
   @ApiProperty({
     format: 'uuid',
     example: '1db3f769-e154-44c6-9b98-87de1037a395',

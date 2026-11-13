@@ -628,13 +628,33 @@ class CardCreationViewModelTest {
     // -------------------------------------------------------------------------
 
     @Test
+    fun `saving a nonpreferred definition carries its lookup ID`() =
+        runTest {
+            val deck = aDeck()
+            val first = aDefinition().copy(id = "first", preferred = true, lookupId = "lookup")
+            val chosen = aDefinition().copy(id = "chosen", preferred = false, lookupId = "lookup")
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(first, chosen)))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+            stubAnkiSetupNotReady()
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.onDefinitionSelected(chosen)
+            vm.onExampleConfirmed(null)
+            vm.onDeckSelected(deck)
+            vm.createCard()
+            advanceUntilIdle()
+            verify(cardRepository).createCard(eq(deck.id), eq("chosen"), anyOrNull(), anyOrNull(), eq("lookup"))
+        }
+
+    @Test
     fun `createCard success — CardCreated state and cardCreatedEvent emitted`() =
         runTest {
             val deck = aDeck()
             val definition = aDefinition()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(definition)))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
             stubAnkiSetupNotReady()
 
             val vm = buildViewModel()
@@ -677,7 +697,7 @@ class CardCreationViewModelTest {
             vm.createCard()
             advanceUntilIdle()
 
-            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull())
+            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -690,7 +710,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
             stubAnkiSetupNotReady()
 
             val vm = buildViewModel()
@@ -707,7 +727,7 @@ class CardCreationViewModelTest {
             advanceUntilIdle()
 
             // createCard should only be called once in the repository
-            verify(cardRepository, times(1)).createCard(any(), any(), anyOrNull(), anyOrNull())
+            verify(cardRepository, times(1)).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -720,7 +740,7 @@ class CardCreationViewModelTest {
             val deck = aDeck(id = "d1")
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(CardAlreadyExistsException()))
 
             val vm = buildViewModel()
@@ -751,7 +771,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(StaleReferenceException()))
 
             val vm = buildViewModel()
@@ -783,7 +803,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(UnauthorizedException()))
 
             val vm = buildViewModel()
@@ -816,7 +836,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("HTTP 500")))
 
             val vm = buildViewModel()
@@ -842,7 +862,7 @@ class CardCreationViewModelTest {
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
             stubAnkiSetupNotReady()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("temporary")), Result.success("card"))
             val vm = buildViewModel()
             advanceUntilIdle()
@@ -854,7 +874,7 @@ class CardCreationViewModelTest {
             advanceUntilIdle()
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository, times(2)).createCard(eq(deck.id), any(), eq("I have a cat"), anyOrNull())
+            verify(cardRepository, times(2)).createCard(eq(deck.id), any(), eq("I have a cat"), anyOrNull(), anyOrNull())
             assertTrue(vm.state.value.flowState is CardCreationFlowState.CardCreated)
         }
 
@@ -865,7 +885,7 @@ class CardCreationViewModelTest {
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
             stubAnkiSetupNotReady()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
             val vm = buildViewModel(targetWord = "looked up", context = "He looked the word up.")
             advanceUntilIdle()
             val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
@@ -874,7 +894,7 @@ class CardCreationViewModelTest {
             vm.onDeckSelected(deck)
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository).createCard(eq(deck.id), any(), eq("He looked the word up."), anyOrNull())
+            verify(cardRepository).createCard(eq(deck.id), any(), eq("He looked the word up."), anyOrNull(), anyOrNull())
         }
 
     @Test
@@ -884,7 +904,7 @@ class CardCreationViewModelTest {
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
             stubAnkiSetupNotReady()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
             val vm = buildViewModel()
             advanceUntilIdle()
             val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
@@ -893,7 +913,7 @@ class CardCreationViewModelTest {
             vm.onDeckSelected(deck)
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository).createCard(eq(deck.id), any(), eq("The cat slept."), anyOrNull())
+            verify(cardRepository).createCard(eq(deck.id), any(), eq("The cat slept."), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -918,7 +938,7 @@ class CardCreationViewModelTest {
             vm.createCard()
             advanceUntilIdle()
 
-            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull())
+            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -1011,7 +1031,7 @@ class CardCreationViewModelTest {
             val flowState = vm.state.value.flowState as CardCreationFlowState.SelectingExample
             assertEquals("", flowState.selectedDefinition.id)
             verify(vocabularyRepository, never()).createUserDefinition(any(), any(), anyOrNull(), anyOrNull())
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
             stubAnkiSetupNotReady()
             vm.onExampleConfirmed(null)
             vm.onDeckSelected(aDeck())
@@ -1040,7 +1060,7 @@ class CardCreationViewModelTest {
             vm.submitManualDefinition()
             vm.onExampleConfirmed(null)
             vm.onDeckSelected(aDeck())
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
             stubAnkiSetupNotReady()
             vm.createCard()
             advanceUntilIdle()

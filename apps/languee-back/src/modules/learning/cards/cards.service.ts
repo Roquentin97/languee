@@ -1,6 +1,11 @@
 import type { LexicalParadigm } from '../../lexicon/enrichment/morphology/morphology.types';
 import { MorphologyService } from '../../lexicon/enrichment/morphology/morphology.service';
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CardType, Prisma } from '@prisma/client';
 import type {
   Card,
@@ -76,6 +81,7 @@ type RawCardWithExport = Prisma.CardGetPayload<{
 }>;
 
 type CreateDeckCardsInput = {
+  lookupId?: string;
   userId: string;
   deckId: string;
   definition: Definition & { word: Word };
@@ -133,6 +139,7 @@ export class CardsService {
     definitionId: string,
     context?: string,
     inflectionForms?: InflectionForms | null,
+    lookupId?: string,
   ): Promise<CardWithRelations[]> {
     await this.decksService.findOneOrThrow(deckId, userId);
 
@@ -165,6 +172,7 @@ export class CardsService {
       snapshot,
       paradigm,
       lexicalSnapshot,
+      lookupId,
     });
 
     const result = await this.findCardsInOrder(cardIds);
@@ -219,8 +227,10 @@ export class CardsService {
     snapshot,
     paradigm,
     lexicalSnapshot,
+    lookupId,
   }: CreateDeckCardsInput): Promise<string[]> {
     return this.prisma.$transaction(async (tx) => {
+      if (lookupId) await this.recordChoice(tx, lookupId, userId, definition);
       const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.cloze,
@@ -254,6 +264,41 @@ export class CardsService {
       });
 
       return ids;
+    });
+  }
+
+  private async recordChoice(
+    tx: TxClient,
+    lookupId: string,
+    userId: string,
+    definition: Definition & { word: Word },
+  ): Promise<void> {
+    const lookup = await tx.evalLexicalLookup.findFirst({
+      where: { id: lookupId, userId },
+    });
+    if (!lookup) throw new NotFoundException('LOOKUP_NOT_FOUND');
+    const candidates: unknown = lookup.candidates;
+    const offered =
+      Array.isArray(candidates) &&
+      candidates.some((item: unknown) => {
+        if (!item || typeof item !== 'object' || !('definitionIds' in item))
+          return false;
+        return (
+          Array.isArray(item.definitionIds) &&
+          item.definitionIds.includes(definition.id)
+        );
+      });
+    if (!offered) throw new BadRequestException('DEFINITION_NOT_IN_LOOKUP');
+    await tx.evalLexicalLearnerChoice.upsert({
+      where: { lookupId },
+      update: {},
+      create: {
+        lookupId,
+        chosenDefinitionId: definition.id,
+        chosenWordId: definition.wordId,
+        chosenLemma: definition.word.lemma,
+        chosenPos: definition.partOfSpeech,
+      },
     });
   }
 

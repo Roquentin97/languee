@@ -69,6 +69,48 @@ const link = (target: string) =>
   `<span class="form-of-definition-link"><a href="/wiki/${encodeURIComponent(target)}" title="${target}">${target}</a></span>`;
 const marked = (s: string) => `<span class="form-of-definition">${s}</span>`;
 describe('conservative reference classification', () => {
+  it('resolves the annotated comparative in the saved worse response', () => {
+    const result = parseWiktionaryEntry(fixture('worse'), 'en', 'worse');
+    expect(result.references).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourcePos: PartOfSpeech.ADVERB,
+          targetPos: PartOfSpeech.ADVERB,
+          targets: ['badly'],
+          category: 'morphological_reference',
+          relationTypes: ['comparative'],
+        }),
+      ]),
+    );
+  });
+  it.each(['noun', 'unknown'])(
+    'rejects a conflicting or unsupported target POS %s',
+    (pos) => {
+      const html = marked(
+        `comparative form of <span class="form-of-definition-link"><a href="/wiki/badly" title="badly">badly</a> <span class="mention-gloss-paren annotation-paren">(</span><span class="ann-pos">${pos}</span><span class="mention-gloss-paren annotation-paren">)</span></span>`,
+      );
+      expect(
+        classifyReference(html, 'worse', PartOfSpeech.ADVERB)?.category,
+      ).toBe('unresolved');
+    },
+  );
+  it('rejects an annotation missing its structural delimiters', () => {
+    const html = marked(
+      'comparative form of <span class="form-of-definition-link"><a href="/wiki/badly" title="badly">badly</a> <span class="ann-pos">adverb</span></span>',
+    );
+    expect(
+      classifyReference(html, 'worse', PartOfSpeech.ADVERB)?.category,
+    ).toBe('unresolved');
+  });
+  it('accepts an unannotated superlative', () => {
+    expect(
+      classifyReference(
+        marked(`superlative of ${link('badly')}`),
+        'worst',
+        PartOfSpeech.ADVERB,
+      )?.category,
+    ).toBe('morphological_reference');
+  });
   it.each([
     ['R01', 'A tool to <a href="/wiki/cut">cut</a> wood.', 'noun', null],
     [

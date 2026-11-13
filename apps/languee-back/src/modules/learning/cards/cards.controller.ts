@@ -94,9 +94,14 @@ export class CardsController {
   })
   @ApiBody({ type: CreateCardDto })
   @ApiCreatedResponse({ type: CreateCardsResponseDto })
-  @ApiBadRequestResponse({ description: 'CONTEXT_TOO_LONG or invalid request' })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid request, CONTEXT_TOO_LONG, or DEFINITION_NOT_IN_LOOKUP',
+  })
   @ApiConflictResponse({ description: 'This deck already holds this card' })
-  @ApiNotFoundResponse({ description: 'Deck or definition not found' })
+  @ApiNotFoundResponse({
+    description: 'Deck, definition, or owned lookup not found',
+  })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async create(
     @CurrentUser() user: CurrentUserPayload,
@@ -111,6 +116,7 @@ export class CardsController {
         dto.definitionId,
         dto.context,
         dto.inflectionForms,
+        dto.lookupId,
       );
       return serializeCards(cards);
     } catch (err: unknown) {

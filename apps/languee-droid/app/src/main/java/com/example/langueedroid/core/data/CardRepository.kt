@@ -19,6 +19,7 @@ class CardRepository(
         definitionId: String,
         context: String? = null,
         inflectionForms: Map<String, String>? = null,
+        lookupId: String? = null,
     ): Result<String> =
         runCatching {
             val response =
@@ -28,6 +29,7 @@ class CardRepository(
                         definitionId = definitionId,
                         context = context,
                         inflectionForms = inflectionForms,
+                        lookupId = lookupId,
                     ),
                 )
             when {
