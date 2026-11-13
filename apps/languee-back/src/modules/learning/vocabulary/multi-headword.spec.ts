@@ -98,13 +98,11 @@ it('returns definitions without an ID when snapshot storage fails', async () => 
       findCardsByDefinitionIdsAndUserId: jest.fn().mockResolvedValue([]),
     } as unknown as CardsService,
     {
-      analyze: jest
-        .fn()
-        .mockResolvedValue({
-          kind: 'word',
-          lemma: 'good',
-          pos: PartOfSpeech.ADJECTIVE,
-        }),
+      analyze: jest.fn().mockResolvedValue({
+        kind: 'word',
+        lemma: 'good',
+        pos: PartOfSpeech.ADJECTIVE,
+      }),
     } as unknown as NlpService,
     {} as WordsService,
     {} as DefinitionService,
