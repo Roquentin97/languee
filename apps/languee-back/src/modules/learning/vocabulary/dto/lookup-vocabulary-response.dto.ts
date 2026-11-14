@@ -129,7 +129,11 @@ export class LookupVocabularyResponseDto {
   @ApiPropertyOptional({ type: [OrderedVocabularyGroupDto] })
   orderedGroups?: OrderedVocabularyGroupDto[];
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Correlation ID for best-effort evaluation of a single-word lookup.',
+  })
   lookupId?: string;
 
   @ApiProperty({ type: LookupVocabularyMetaDto })

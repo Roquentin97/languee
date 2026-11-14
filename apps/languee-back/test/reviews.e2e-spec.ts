@@ -591,7 +591,7 @@ describe('tracked card saves (e2e)', () => {
   afterAll(async () => {
     await app.close();
   });
-  it('validates tracked card saves at the API boundary', async () => {
+  it('accepts correlation IDs without requiring evaluation records', async () => {
     const surface = randomWord('tracked');
     const definitionId = await seedDefinitionId(
       app,
@@ -625,7 +625,7 @@ describe('tracked card saves (e2e)', () => {
       .post('/api/v1/cards')
       .set('Authorization', `Bearer ${otherAccessToken}`)
       .send({ deckId: foreignDeck, definitionId, lookupId })
-      .expect(404);
+      .expect(201);
     await request(app.getHttpServer())
       .post('/api/v1/cards')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -635,7 +635,7 @@ describe('tracked card saves (e2e)', () => {
       .post('/api/v1/cards')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ deckId, definitionId: outsideId, lookupId })
-      .expect(400);
+      .expect(201);
     const first = await request(app.getHttpServer())
       .post('/api/v1/cards')
       .set('Authorization', `Bearer ${accessToken}`)

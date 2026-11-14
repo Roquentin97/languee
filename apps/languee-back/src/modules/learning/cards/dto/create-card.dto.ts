@@ -6,7 +6,7 @@ export class CreateCardDto {
   @ApiPropertyOptional({
     format: 'uuid',
     description:
-      'Tracked lookup whose offered definition is being saved. Retrying the same save returns the existing cards.',
+      'Lookup correlation ID for evaluation. Retrying the same save returns the existing cards.',
   })
   @IsOptional()
   @IsUUID()

@@ -534,10 +534,11 @@ it('C20 NFC and case-normalized selected spelling share state and mappings', asy
   ).toHaveLength(1);
 });
 
+import { rankLexicalGroups } from '../src/modules/learning/vocabulary/lexical-ranking';
 import { CardsService } from '../src/modules/learning/cards/cards.service';
 import { DecksService } from '../src/modules/learning/decks/decks.service';
-import { LexicalEvaluationService } from '../src/modules/learning/vocabulary/lexical-evaluation.service';
-it('validates tracked saves and retains the first learner choice', async () => {
+import { LexicalEvaluationService } from '../src/modules/learning/lexical-evaluation/lexical-evaluation.service';
+it('records a disagreement after a tracked card save', async () => {
   const userId = '00000000-0000-0000-0000-000000000001';
   const deck = await prisma.deck.findFirstOrThrow({ where: { userId } });
   const base = await new DictionaryService(service).lookup({
@@ -547,7 +548,9 @@ it('validates tracked saves and retains the first learner choice', async () => {
     kind: 'word',
   });
   const evaluation = new LexicalEvaluationService(prisma);
-  const lookupId = await evaluation.record(
+  const lookupId = '00000000-0000-7000-8000-000000000010';
+  evaluation.scheduleLookup(
+    lookupId,
     { word: 'saw', language: 'en', userId, context: 'They saw wood' },
     {
       kind: 'word',
@@ -559,13 +562,15 @@ it('validates tracked saves and retains the first learner choice', async () => {
       inflectionForms: null,
     },
     base,
+    rankLexicalGroups(base.headwords, 'see', PartOfSpeech.VERB, true),
   );
+  for (let i = 0; i < 50; i++) {
+    if (await prisma.evalLexicalLookup.findUnique({ where: { id: lookupId } }))
+      break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
   const saw = base.headwords
     .find((w) => w.lemma === 'saw')!
-    .partsOfSpeech.find((g) => g.partOfSpeech === PartOfSpeech.VERB)!
-    .definitions[0];
-  const see = base.headwords
-    .find((w) => w.lemma === 'see')!
     .partsOfSpeech.find((g) => g.partOfSpeech === PartOfSpeech.VERB)!
     .definitions[0];
   const cards = new CardsService(
@@ -573,40 +578,8 @@ it('validates tracked saves and retains the first learner choice', async () => {
     new DecksService(prisma),
     new DefinitionService(prisma),
     morphologyService,
+    evaluation,
   );
-  const foreign = await prisma.user.create({
-    data: { email: 'foreign@example.com', passwordHash: 'hash' },
-  });
-  const foreignDeck = await prisma.deck.create({
-    data: { userId: foreign.id, name: 'Foreign' },
-  });
-  await expect(
-    cards.create(foreign.id, foreignDeck.id, saw.id, undefined, null, lookupId),
-  ).rejects.toThrow('LOOKUP_NOT_FOUND');
-  const outsideWord = await prisma.word.create({
-    data: { lemma: 'outside', language: 'en' },
-  });
-  const outside = await prisma.definition.create({
-    data: {
-      wordId: outsideWord.id,
-      partOfSpeech: 'noun',
-      definition: 'Outside.',
-      provider: 'fixture',
-    },
-  });
-  await expect(
-    cards.create(userId, deck.id, outside.id, undefined, null, lookupId),
-  ).rejects.toThrow('DEFINITION_NOT_IN_LOOKUP');
-  await expect(
-    cards.create(
-      userId,
-      deck.id,
-      saw.id,
-      undefined,
-      null,
-      '00000000-0000-4000-8000-000000000000',
-    ),
-  ).rejects.toThrow('LOOKUP_NOT_FOUND');
   const first = await cards.create(
     userId,
     deck.id,
@@ -624,12 +597,18 @@ it('validates tracked saves and retains the first learner choice', async () => {
     lookupId,
   );
   expect(retry.map((card) => card.id)).toEqual(first.map((card) => card.id));
-  await cards.create(userId, deck.id, see.id, undefined, null, lookupId);
-  const choice = await prisma.evalLexicalLearnerChoice.findUniqueOrThrow({
+  let choice = await prisma.evalLexicalLearnerChoice.findUnique({
     where: { lookupId },
   });
-  expect(choice.chosenDefinitionId).toBe(saw.id);
-  expect(choice.chosenLemma).toBe('saw');
+  for (let i = 0; !choice && i < 20; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    choice = await prisma.evalLexicalLearnerChoice.findUnique({
+      where: { lookupId },
+    });
+  }
+  expect(choice).not.toBeNull();
+  expect(choice?.chosenDefinitionId).toBe(saw.id);
+  expect(choice?.chosenLemma).toBe('saw');
 });
 it('creates a card from a definition in the hierarchical lookup response', async () => {
   const dictionaryService = new DictionaryService(service);

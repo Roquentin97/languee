@@ -32,7 +32,7 @@ tests {
     expect(res.body.context).to.equal("The saw was sharp enough to cut oak");
     expect(res.body.headwords).to.be.an("array");
     expect(res.body.orderedGroups).to.be.an("array");
-    expect(res.body.lookupId).to.be.a("string");
+    expect(res.body.lookupId).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     if (res.body.preferred) {
       expect(res.body.orderedGroups.some(g => g.wordId === res.body.preferred.wordId && g.partOfSpeech === res.body.preferred.partOfSpeech)).to.equal(true);
     }

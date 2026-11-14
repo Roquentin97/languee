@@ -6,7 +6,7 @@ import { WordsService } from '../../lexicon/entries/words/words.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
-import type { LexicalEvaluationService } from './lexical-evaluation.service';
+import type { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
 
 const def = (id: string, partOfSpeech: PartOfSpeech) => ({
   id,
@@ -18,39 +18,44 @@ const def = (id: string, partOfSpeech: PartOfSpeech) => ({
   hasIrregularForms: false,
 });
 
-it('persists an empty contextual miss before returning the dictionary error', async () => {
-  const error = new DefinitionsNotFoundException('missing', 'en');
-  const record = jest.fn().mockResolvedValue('lookup');
-  const service = new VocabularyService(
-    {
-      lookup: jest.fn().mockRejectedValue(error),
-    } as unknown as DictionaryService,
-    {} as CardsService,
-    {
-      analyze: jest.fn().mockResolvedValue({
-        kind: 'word',
-        lemma: 'missing',
-        pos: PartOfSpeech.NOUN,
+it.each([undefined, 'missing word'])(
+  'schedules an empty miss with context %s',
+  async (context) => {
+    const error = new DefinitionsNotFoundException('missing', 'en');
+    const record = jest.fn();
+    const service = new VocabularyService(
+      {
+        lookup: jest.fn().mockRejectedValue(error),
+      } as unknown as DictionaryService,
+      {} as CardsService,
+      {
+        analyze: jest.fn().mockResolvedValue({
+          kind: 'word',
+          lemma: 'missing',
+          pos: PartOfSpeech.NOUN,
+        }),
+      } as unknown as NlpService,
+      {} as WordsService,
+      {} as DefinitionService,
+      { scheduleLookup: record } as unknown as LexicalEvaluationService,
+    );
+    await expect(
+      service.lookup({
+        word: 'missing',
+        language: 'en',
+        userId: 'user',
+        context,
       }),
-    } as unknown as NlpService,
-    {} as WordsService,
-    {} as DefinitionService,
-    { record } as unknown as LexicalEvaluationService,
-  );
-  await expect(
-    service.lookup({
-      word: 'missing',
-      language: 'en',
-      userId: 'user',
-      context: 'missing word',
-    }),
-  ).rejects.toBe(error);
-  expect(record).toHaveBeenCalledWith(
-    expect.anything(),
-    expect.anything(),
-    expect.objectContaining({ headwords: [] }),
-  );
-});
+    ).rejects.toBe(error);
+    expect(record).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ headwords: [] }),
+      expect.anything(),
+    );
+  },
+);
 const result = {
   input: 'better',
   language: 'en',
@@ -89,7 +94,7 @@ const result = {
   ],
 };
 
-it('returns definitions without an ID when snapshot storage fails', async () => {
+it('returns definitions with a correlation ID without waiting for storage', async () => {
   const service = new VocabularyService(
     {
       lookup: jest.fn().mockResolvedValue(result),
@@ -107,7 +112,7 @@ it('returns definitions without an ID when snapshot storage fails', async () => 
     {} as WordsService,
     {} as DefinitionService,
     {
-      record: jest.fn().mockRejectedValue(new Error('storage unavailable')),
+      scheduleLookup: jest.fn(),
     } as unknown as LexicalEvaluationService,
   );
   const response = await service.lookup({
@@ -116,7 +121,9 @@ it('returns definitions without an ID when snapshot storage fails', async () => 
     userId: 'user',
     context: 'It is better',
   });
-  expect(response.lookupId).toBeUndefined();
+  expect(response.lookupId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
   expect(response.orderedGroups).toHaveLength(3);
   expect(response.preferred).toEqual({
     wordId: 'good',

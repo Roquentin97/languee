@@ -95,12 +95,11 @@ export class CardsController {
   @ApiBody({ type: CreateCardDto })
   @ApiCreatedResponse({ type: CreateCardsResponseDto })
   @ApiBadRequestResponse({
-    description:
-      'Invalid request, CONTEXT_TOO_LONG, or DEFINITION_NOT_IN_LOOKUP',
+    description: 'Invalid request or CONTEXT_TOO_LONG',
   })
   @ApiConflictResponse({ description: 'This deck already holds this card' })
   @ApiNotFoundResponse({
-    description: 'Deck, definition, or owned lookup not found',
+    description: 'Deck or definition not found',
   })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async create(

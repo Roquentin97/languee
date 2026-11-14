@@ -1,7 +1,8 @@
 import { LexicalKind } from '@prisma/client';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import type { PrismaService } from '../../system/core/prisma/prisma.service';
-import { LexicalEvaluationService } from './lexical-evaluation.service';
+import { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
+import { rankLexicalGroups } from './lexical-ranking';
 
 describe('lexical evaluation snapshots', () => {
   const create = jest.fn();
@@ -39,9 +40,30 @@ describe('lexical evaluation snapshots', () => {
       },
     ],
   };
+  const record = async (
+    input: Parameters<typeof service.scheduleLookup>[1],
+    analysis: Parameters<typeof service.scheduleLookup>[2],
+    output: Parameters<typeof service.scheduleLookup>[3],
+  ) => {
+    service.scheduleLookup(
+      'lookup-id',
+      input,
+      analysis,
+      output,
+      rankLexicalGroups(
+        output.headwords,
+        analysis.lemma,
+        analysis.pos,
+        Boolean(input.context?.trim()) &&
+          !input.disablePosFiltering &&
+          analysis.pos !== null,
+      ),
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  };
   beforeEach(() => create.mockReset().mockResolvedValue({}));
   it('records a dictionary override and its supporting relationship', async () => {
-    await service.record(
+    await record(
       {
         word: 'oxen',
         language: 'en',
@@ -81,7 +103,7 @@ describe('lexical evaluation snapshots', () => {
     });
   });
   it('records disagreement even when contextual presentation is disabled', async () => {
-    await service.record(
+    await record(
       {
         word: 'oxen',
         language: 'en',
@@ -114,7 +136,7 @@ describe('lexical evaluation snapshots', () => {
     });
   });
   it('records an empty contextual miss for later review', async () => {
-    await service.record(
+    await record(
       { word: 'oxen', language: 'en', userId: 'user', context: 'Two oxen' },
       {
         kind: 'word',
@@ -138,7 +160,7 @@ describe('lexical evaluation snapshots', () => {
     });
   });
   it('does not compare a manual lookup', async () => {
-    await service.record(
+    await record(
       { word: 'oxen', language: 'en', userId: 'user' },
       {
         kind: 'word',

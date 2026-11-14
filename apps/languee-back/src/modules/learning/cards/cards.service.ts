@@ -1,11 +1,7 @@
 import type { LexicalParadigm } from '../../lexicon/enrichment/morphology/morphology.types';
 import { MorphologyService } from '../../lexicon/enrichment/morphology/morphology.service';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
 import { CardType, Prisma } from '@prisma/client';
 import type {
   Card,
@@ -127,6 +123,7 @@ export class CardsService {
     private readonly decksService: DecksService,
     private readonly definitionService: DefinitionService,
     private readonly morphology: MorphologyService,
+    @Optional() private readonly evaluation?: LexicalEvaluationService,
   ) {}
 
   /**
@@ -175,11 +172,28 @@ export class CardsService {
       lookupId,
     });
 
+    this.recordEvaluation(lookupId, userId, definition);
     const result = await this.findCardsInOrder(cardIds);
 
     this.logCreatedCards(userId, deckId, definitionId, cardIds, result);
 
     return this.withLexicalMorphology(result);
+  }
+
+  private recordEvaluation(
+    lookupId: string | undefined,
+    userId: string,
+    definition: Definition & { word: Word },
+  ): void {
+    if (!lookupId) return;
+    this.evaluation?.scheduleChoice({
+      lookupId,
+      userId,
+      definitionId: definition.id,
+      wordId: definition.wordId,
+      lemma: definition.word.lemma,
+      pos: definition.partOfSpeech,
+    });
   }
 
   private logCreatedCards(
@@ -301,48 +315,8 @@ export class CardsService {
     deckId: string,
     definition: Definition & { word: Word },
   ): Promise<string[] | null> {
-    if (
-      !lookupId ||
-      !(await this.recordChoice(tx, lookupId, userId, definition))
-    )
-      return null;
+    if (!lookupId) return null;
     return this.findTrackedRetry(tx, userId, deckId, definition);
-  }
-
-  private async recordChoice(
-    tx: TxClient,
-    lookupId: string,
-    userId: string,
-    definition: Definition & { word: Word },
-  ): Promise<boolean> {
-    const lookup = await tx.evalLexicalLookup.findFirst({
-      where: { id: lookupId, userId },
-    });
-    if (!lookup) throw new NotFoundException('LOOKUP_NOT_FOUND');
-    const candidates: unknown = lookup.candidates;
-    const offered =
-      Array.isArray(candidates) &&
-      candidates.some((item: unknown) => {
-        if (!item || typeof item !== 'object' || !('definitionIds' in item))
-          return false;
-        return (
-          Array.isArray(item.definitionIds) &&
-          item.definitionIds.includes(definition.id)
-        );
-      });
-    if (!offered) throw new BadRequestException('DEFINITION_NOT_IN_LOOKUP');
-    const choice = await tx.evalLexicalLearnerChoice.upsert({
-      where: { lookupId },
-      update: {},
-      create: {
-        lookupId,
-        chosenDefinitionId: definition.id,
-        chosenWordId: definition.wordId,
-        chosenLemma: definition.word.lemma,
-        chosenPos: definition.partOfSpeech,
-      },
-    });
-    return choice.chosenDefinitionId === definition.id;
   }
 
   private async findTrackedRetry(

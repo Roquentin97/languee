@@ -20,7 +20,7 @@ body:json {
 }
 
 tests {
-  test("validates the tracked save", function() {
+  test("saves a card with a lookup correlation ID", function() {
     expect(res.status).to.equal(201);
   });
 }

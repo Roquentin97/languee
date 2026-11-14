@@ -9,7 +9,8 @@ import { DefinitionService } from '../../lexicon/entries/definitions/definitions
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { PartOfSpeechRequiredError } from './vocabulary.errors';
 import { rankLexicalGroups } from './lexical-ranking';
-import { LexicalEvaluationService } from './lexical-evaluation.service';
+import { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
+import { v7 as uuidv7 } from 'uuid';
 import type {
   NlpExpressionAnalysis,
   NlpWordAnalysis,
@@ -133,7 +134,8 @@ export class VocabularyService {
     input: LookupVocabularyInput,
     analysis: NlpWordAnalysis,
   ): Promise<LookupVocabularyOutput> {
-    const base = await this.lookupWordBase(input, analysis);
+    const lookupId = uuidv7();
+    const base = await this.lookupWordBase(input, analysis, lookupId);
     const availablePartsOfSpeech = this.availablePartsOfSpeech(base);
     const filteredByPos =
       Boolean(input.context?.trim()) &&
@@ -148,12 +150,12 @@ export class VocabularyService {
       analysis.pos,
       filteredByPos,
     );
-    const lookupId = await this.recordLookup(input, analysis, base);
+    this.evaluation?.scheduleLookup(lookupId, input, analysis, base, ranked);
     return {
       ...base,
       context: input.context,
       preferred: this.preferredPair(ranked.preferred),
-      ...(lookupId ? { lookupId } : {}),
+      lookupId,
       orderedGroups: ranked.groups.map(({ wordId, partOfSpeech }) => ({
         wordId,
         partOfSpeech,
@@ -183,6 +185,7 @@ export class VocabularyService {
   private async lookupWordBase(
     input: LookupVocabularyInput,
     analysis: NlpWordAnalysis,
+    lookupId: string,
   ): Promise<LookupWordOutput> {
     try {
       return await this.dictionaryService.lookup({
@@ -193,37 +196,21 @@ export class VocabularyService {
         pos: analysis.pos ?? undefined,
       });
     } catch (error: unknown) {
-      if (
-        error instanceof DefinitionsNotFoundException &&
-        input.context?.trim() &&
-        analysis.pos
-      ) {
-        await this.recordLookup(input, analysis, {
+      if (error instanceof DefinitionsNotFoundException) {
+        const empty: LookupWordOutput = {
           input: input.word,
           language: input.language,
           kind: LexicalKind.word,
           source: 'provider',
           preferred: null,
           headwords: [],
+        };
+        this.evaluation?.scheduleLookup(lookupId, input, analysis, empty, {
+          groups: [],
+          preferred: null,
         });
       }
       throw error;
-    }
-  }
-
-  private async recordLookup(
-    input: LookupVocabularyInput,
-    analysis: NlpWordAnalysis,
-    base: LookupWordOutput,
-  ): Promise<string | null> {
-    try {
-      return (await this.evaluation?.record(input, analysis, base)) ?? null;
-    } catch {
-      this.logger.error({
-        message: 'lexical evaluation persistence failed',
-        event: 'vocabulary.evaluation_failed',
-      });
-      return null;
     }
   }
 
