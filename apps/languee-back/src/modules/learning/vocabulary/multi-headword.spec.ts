@@ -6,7 +6,7 @@ import { WordsService } from '../../lexicon/entries/words/words.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
-import type { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
+import type { LexicalEvaluationService } from '../../evaluation/lexical/lexical-evaluation.service';
 
 const def = (id: string, partOfSpeech: PartOfSpeech) => ({
   id,

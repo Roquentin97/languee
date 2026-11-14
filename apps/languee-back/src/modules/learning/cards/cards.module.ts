@@ -1,4 +1,4 @@
-import { LexicalEvaluationModule } from '../lexical-evaluation/lexical-evaluation.module';
+import { LexicalEvaluationModule } from '../../evaluation/lexical/lexical-evaluation.module';
 import { MorphologyModule } from '../../lexicon/enrichment/morphology/morphology.module';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../system/core/prisma/prisma.module';

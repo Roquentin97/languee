@@ -9,7 +9,7 @@ import { DefinitionService } from '../../lexicon/entries/definitions/definitions
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { PartOfSpeechRequiredError } from './vocabulary.errors';
 import { rankLexicalGroups } from './lexical-ranking';
-import { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
+import { LexicalEvaluationService } from '../../evaluation/lexical/lexical-evaluation.service';
 import { v7 as uuidv7 } from 'uuid';
 import type {
   NlpExpressionAnalysis,

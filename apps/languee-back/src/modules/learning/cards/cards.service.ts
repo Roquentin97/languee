@@ -1,7 +1,7 @@
 import type { LexicalParadigm } from '../../lexicon/enrichment/morphology/morphology.types';
 import { MorphologyService } from '../../lexicon/enrichment/morphology/morphology.service';
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { LexicalEvaluationService } from '../lexical-evaluation/lexical-evaluation.service';
+import { LexicalEvaluationService } from '../../evaluation/lexical/lexical-evaluation.service';
 import { CardType, Prisma } from '@prisma/client';
 import type {
   Card,

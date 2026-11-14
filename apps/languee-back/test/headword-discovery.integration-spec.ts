@@ -537,7 +537,7 @@ it('C20 NFC and case-normalized selected spelling share state and mappings', asy
 import { rankLexicalGroups } from '../src/modules/learning/vocabulary/lexical-ranking';
 import { CardsService } from '../src/modules/learning/cards/cards.service';
 import { DecksService } from '../src/modules/learning/decks/decks.service';
-import { LexicalEvaluationService } from '../src/modules/learning/lexical-evaluation/lexical-evaluation.service';
+import { LexicalEvaluationService } from '../src/modules/evaluation/lexical/lexical-evaluation.service';
 it('records a disagreement after a tracked card save', async () => {
   const userId = '00000000-0000-0000-0000-000000000001';
   const deck = await prisma.deck.findFirstOrThrow({ where: { userId } });
