@@ -253,7 +253,7 @@ class MainViewModel
             selection: LookupSelection? = null,
             lookupContext: String? = null,
         ) {
-            val key = listOf(entryId, definition.id, definition.lookupId, deck.id).joinToString(":")
+            val key = listOf(sessionGeneration, entryId, definition.id, definition.lookupId, deck.id).joinToString(":")
             if (lastPendingSaveKey == key) return
             lastPendingSaveKey = key
             val generation = sessionGeneration

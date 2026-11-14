@@ -3,7 +3,11 @@ import { IsUUID, IsOptional, IsString } from 'class-validator';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 
 export class CreateCardDto {
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Tracked lookup whose offered definition is being saved. Retrying the same save returns the existing cards.',
+  })
   @IsOptional()
   @IsUUID()
   lookupId?: string;

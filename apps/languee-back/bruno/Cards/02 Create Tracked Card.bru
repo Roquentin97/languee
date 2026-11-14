@@ -21,6 +21,6 @@ body:json {
 
 tests {
   test("validates the tracked save", function() {
-    expect(res.status).to.be.oneOf([201, 409]);
+    expect(res.status).to.equal(201);
   });
 }

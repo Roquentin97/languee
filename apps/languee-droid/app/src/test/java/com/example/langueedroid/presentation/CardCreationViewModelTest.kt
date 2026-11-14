@@ -637,7 +637,7 @@ class CardCreationViewModelTest {
     fun `queued retry restores its definition and original lookup for the normal save flow`() =
         runTest {
             val deck = aDeck()
-            val chosen = aDefinition().copy(id = "chosen", lookupId = "new-lookup")
+            val chosen = aDefinition(deckRefs = listOf(DeckRef(deck.id, deck.name))).copy(id = "chosen", lookupId = "new-lookup")
             val queue: OfflineQueueRepository = mock()
             whenever(
                 queue.find("entry"),
@@ -669,6 +669,7 @@ class CardCreationViewModelTest {
             vm.createCard()
             advanceUntilIdle()
             verify(cardRepository).createCard(eq(deck.id), eq("chosen"), anyOrNull(), eq(mapOf("singular" to "cat")), eq("old-lookup"))
+            verify(ankiDroidExportService).checkSetup(prefsStore)
         }
 
     @Test
@@ -699,6 +700,33 @@ class CardCreationViewModelTest {
             val flow = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
             assertNull(flow.selectedDefinition)
             assertEquals("new-lookup", flow.definitions.single().lookupId)
+        }
+
+    @Test
+    fun `a queued definition absent from a fresh lookup is not replaced silently`() =
+        runTest {
+            val deck = aDeck()
+            val queue: OfflineQueueRepository = mock()
+            whenever(
+                queue.find("entry"),
+            ).thenReturn(
+                OfflineEntry(
+                    id = "entry",
+                    word = "cat",
+                    context = null,
+                    capturedAt = 1,
+                    pendingDefinitionId = "missing",
+                    pendingLookupId = "old",
+                    pendingDeckId = deck.id,
+                ),
+            )
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(aDefinition().copy(id = "other", lookupId = "new"))))
+            val vm = buildViewModel(offlineEntryId = "entry", offlineQueueRepository = queue)
+            advanceUntilIdle()
+            val flow = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            assertNull(flow.selectedDefinition)
+            assertEquals("new", flow.definitions.single().lookupId)
         }
 
     @Test

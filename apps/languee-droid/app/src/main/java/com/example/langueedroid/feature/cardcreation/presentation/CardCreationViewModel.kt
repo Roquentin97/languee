@@ -306,7 +306,12 @@ class CardCreationViewModel
                 pending.pendingInflectionForms?.let {
                     Gson().fromJson(it, object : TypeToken<Map<String, String>>() {}.type)
                 }
-            val restored = chosen.copy(lookupId = pending.pendingLookupId, inflectionForms = forms ?: chosen.inflectionForms)
+            val restored =
+                chosen.copy(
+                    lookupId = pending.pendingLookupId,
+                    inflectionForms = forms ?: chosen.inflectionForms,
+                    queuedRetry = true,
+                )
             return result.definitions.map { if (it.id == restored.id) restored else it } to restored
         }
 
@@ -427,6 +432,7 @@ class CardCreationViewModel
             definition: DefinitionResult,
             deck: Deck?,
         ): DefinitionState {
+            if (definition.queuedRetry && definition.lookupId != null) return DefinitionState.Available
             val deckIds = definition.decks.map { it.id }
             return when {
                 deck != null && deck.id in deckIds -> DefinitionState.AlreadyInSelectedDeck

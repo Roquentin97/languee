@@ -230,7 +230,14 @@ export class CardsService {
     lookupId,
   }: CreateDeckCardsInput): Promise<string[]> {
     return this.prisma.$transaction(async (tx) => {
-      if (lookupId) await this.recordChoice(tx, lookupId, userId, definition);
+      const existing = await this.resolveTrackedRetry(
+        tx,
+        lookupId,
+        userId,
+        deckId,
+        definition,
+      );
+      if (existing) return existing;
       const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.cloze,
@@ -241,13 +248,11 @@ export class CardsService {
 
       await this.addClozeMembership(tx, clozeCard.id, deckId);
 
-      const definitionCard = await this.findOrCreateSenseCard(tx, {
+      const definitionCard = await this.findOrCreateDefinitionCard(
+        tx,
         userId,
-        type: CardType.definition,
-        definitionId: definition.id,
-        context: null,
-        inflectionForms: null,
-      });
+        definition.id,
+      );
 
       const ids = [clozeCard.id, definitionCard.id];
 
@@ -258,13 +263,50 @@ export class CardsService {
         lexicalSnapshot,
       });
 
-      await tx.cardDeck.createMany({
-        data: ids.slice(1).map((cardId) => ({ cardId, deckId })),
-        skipDuplicates: true,
-      });
+      await this.addRemainingMemberships(tx, ids, deckId);
 
       return ids;
     });
+  }
+
+  private async findOrCreateDefinitionCard(
+    tx: TxClient,
+    userId: string,
+    definitionId: string,
+  ) {
+    return this.findOrCreateSenseCard(tx, {
+      userId,
+      type: CardType.definition,
+      definitionId,
+      context: null,
+      inflectionForms: null,
+    });
+  }
+
+  private async addRemainingMemberships(
+    tx: TxClient,
+    ids: string[],
+    deckId: string,
+  ): Promise<void> {
+    await tx.cardDeck.createMany({
+      data: ids.slice(1).map((cardId) => ({ cardId, deckId })),
+      skipDuplicates: true,
+    });
+  }
+
+  private async resolveTrackedRetry(
+    tx: TxClient,
+    lookupId: string | undefined,
+    userId: string,
+    deckId: string,
+    definition: Definition & { word: Word },
+  ): Promise<string[] | null> {
+    if (
+      !lookupId ||
+      !(await this.recordChoice(tx, lookupId, userId, definition))
+    )
+      return null;
+    return this.findTrackedRetry(tx, userId, deckId, definition);
   }
 
   private async recordChoice(
@@ -272,7 +314,7 @@ export class CardsService {
     lookupId: string,
     userId: string,
     definition: Definition & { word: Word },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const lookup = await tx.evalLexicalLookup.findFirst({
       where: { id: lookupId, userId },
     });
@@ -289,7 +331,7 @@ export class CardsService {
         );
       });
     if (!offered) throw new BadRequestException('DEFINITION_NOT_IN_LOOKUP');
-    await tx.evalLexicalLearnerChoice.upsert({
+    const choice = await tx.evalLexicalLearnerChoice.upsert({
       where: { lookupId },
       update: {},
       create: {
@@ -300,6 +342,38 @@ export class CardsService {
         chosenPos: definition.partOfSpeech,
       },
     });
+    return choice.chosenDefinitionId === definition.id;
+  }
+
+  private async findTrackedRetry(
+    tx: TxClient,
+    userId: string,
+    deckId: string,
+    definition: Definition,
+  ): Promise<string[] | null> {
+    const cards = await tx.card.findMany({
+      where: {
+        userId,
+        decks: { some: { deckId } },
+        OR: [
+          {
+            definitionId: definition.id,
+            type: { in: [CardType.cloze, CardType.definition] },
+          },
+          {
+            wordId: definition.wordId,
+            partOfSpeech: definition.partOfSpeech,
+            type: CardType.inflection,
+          },
+        ],
+      },
+      select: { id: true, type: true },
+    });
+    const cloze = cards.find((card) => card.type === CardType.cloze);
+    const sense = cards.find((card) => card.type === CardType.definition);
+    if (!cloze || !sense) return null;
+    const inflection = cards.find((card) => card.type === CardType.inflection);
+    return [cloze.id, sense.id, ...(inflection ? [inflection.id] : [])];
   }
 
   private async addClozeMembership(

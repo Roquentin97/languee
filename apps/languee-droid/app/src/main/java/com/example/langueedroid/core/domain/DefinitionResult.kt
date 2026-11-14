@@ -16,4 +16,5 @@ data class DefinitionResult(
     val lemma: String? = null,
     val lookupId: String? = null,
     val preferred: Boolean = false,
+    val queuedRetry: Boolean = false,
 )

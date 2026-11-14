@@ -607,7 +607,23 @@ it('validates tracked saves and retains the first learner choice', async () => {
       '00000000-0000-4000-8000-000000000000',
     ),
   ).rejects.toThrow('LOOKUP_NOT_FOUND');
-  await cards.create(userId, deck.id, saw.id, undefined, null, lookupId);
+  const first = await cards.create(
+    userId,
+    deck.id,
+    saw.id,
+    undefined,
+    null,
+    lookupId,
+  );
+  const retry = await cards.create(
+    userId,
+    deck.id,
+    saw.id,
+    undefined,
+    null,
+    lookupId,
+  );
+  expect(retry.map((card) => card.id)).toEqual(first.map((card) => card.id));
   await cards.create(userId, deck.id, see.id, undefined, null, lookupId);
   const choice = await prisma.evalLexicalLearnerChoice.findUniqueOrThrow({
     where: { lookupId },
