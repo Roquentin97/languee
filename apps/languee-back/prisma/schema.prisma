@@ -14,8 +14,62 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
   decks        Deck[]
   cards        Card[]
+  lexicalLookups EvalLexicalLookup[]
 
   @@map("users")
+}
+
+enum EvalDisagreementOutcome {
+  resolved_override
+  unresolved
+}
+
+enum EvalDisagreementReason {
+  unique_pos_candidate
+  no_pos_candidate
+  multiple_pos_candidates
+}
+
+model EvalLexicalLookup {
+  id                   String @id @db.Uuid
+  userId               String @map("user_id") @db.Uuid
+  user                 User @relation(fields: [userId], references: [id])
+  language             String
+  surface              String
+  context              String?
+  selectionStart       Int? @map("selection_start")
+  selectionEnd         Int? @map("selection_end")
+  nlpLemma             String? @map("nlp_lemma")
+  nlpPos               String? @map("nlp_pos")
+  nlpModelVersion      String @map("nlp_model_version")
+  rankingPolicyVersion String @map("ranking_policy_version")
+  candidates           Json @db.JsonB
+  preferredWordId      String? @map("preferred_word_id") @db.Uuid
+  preferredPos         String? @map("preferred_pos")
+  disagreement         EvalLexicalDictionaryDisagreement?
+  choice               EvalLexicalLearnerChoice?
+
+  @@map("eval_lexical_lookups")
+}
+
+model EvalLexicalDictionaryDisagreement {
+  lookupId String @id @map("lookup_id") @db.Uuid
+  lookup   EvalLexicalLookup @relation(fields: [lookupId], references: [id])
+  outcome  EvalDisagreementOutcome
+  reason   EvalDisagreementReason
+
+  @@map("eval_lexical_dictionary_disagreements")
+}
+
+model EvalLexicalLearnerChoice {
+  lookupId           String @id @map("lookup_id") @db.Uuid
+  lookup             EvalLexicalLookup @relation(fields: [lookupId], references: [id])
+  chosenDefinitionId String @map("chosen_definition_id") @db.Uuid
+  chosenWordId       String @map("chosen_word_id") @db.Uuid
+  chosenLemma        String @map("chosen_lemma")
+  chosenPos          String @map("chosen_pos")
+
+  @@map("eval_lexical_learner_choices")
 }
 
 enum LexicalKind {

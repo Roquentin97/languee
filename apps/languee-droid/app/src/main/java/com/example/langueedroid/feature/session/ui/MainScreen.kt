@@ -30,16 +30,20 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.langueedroid.core.domain.LexicalKind
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSyncScreen
 import com.example.langueedroid.feature.capture.presentation.AnkiStatusNotification
+import com.example.langueedroid.feature.capture.presentation.LookupSelection
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
+import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
 import com.example.langueedroid.feature.decks.presentation.DeckDetailViewModel
 import com.example.langueedroid.feature.decks.presentation.DecksViewModel
@@ -409,6 +413,7 @@ private fun NavGraphBuilder.cardCreationRoute(
                     lookupContext = lookupContext,
                     selectionStart = selectionStart,
                     selectionEnd = selectionEnd,
+                    offlineEntryId = offlineEntryId,
                 )
             }
         val captureSessionId = remember(cardCreationViewModel) { mainViewModel.sessionId }
@@ -452,14 +457,7 @@ private fun CardCreationRouteContent(
 ) {
     val cardCreationState by cardCreationViewModel.state.collectAsState()
     val offline by mainViewModel.isOffline.collectAsState()
-    LaunchedEffect(offline, cardCreationState.flowState) {
-        val flow = cardCreationState.flowState as? CardCreationFlowState.DefinitionsLoaded
-        if (offline &&
-            (flow?.notice == CardCreationError.CREATE_CARD_FAILED || cardCreationState.flowState is CardCreationFlowState.LookupError)
-        ) {
-            mainViewModel.addEntry(cardCreationState.targetWord, cardCreationState.context)
-        }
-    }
+    QueueFailedCard(offline, cardCreationState, offlineEntryId, mainViewModel)
     val navigateBack = {
         if (offlineEntryId != null) {
             navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
@@ -481,10 +479,9 @@ private fun CardCreationRouteContent(
         onExampleConfirmed = { example -> cardCreationViewModel.onExampleConfirmed(example) },
         onBackFromExampleSelection = { cardCreationViewModel.onBackFromExampleSelection() },
         onCreateCard = {
-            val context = cardCreationState.context
             if (cardCreationState.contextValid) {
                 if (mainViewModel.isOffline.value) {
-                    mainViewModel.addEntry(cardCreationState.targetWord, context)
+                    queueCurrentSave(cardCreationState, offlineEntryId, mainViewModel)
                 } else {
                     cardCreationViewModel.createCard()
                 }
@@ -497,6 +494,53 @@ private fun CardCreationRouteContent(
         onManualDefinitionTextChanged = { text -> cardCreationViewModel.onManualDefinitionTextChanged(text) },
         onManualExampleTextChanged = { text -> cardCreationViewModel.onManualExampleTextChanged(text) },
         onSubmitManualDefinition = { cardCreationViewModel.submitManualDefinition() },
+    )
+}
+
+@Composable
+private fun QueueFailedCard(
+    offline: Boolean,
+    state: CardCreationState,
+    entryId: String?,
+    mainViewModel: MainViewModel,
+) {
+    LaunchedEffect(offline, state.flowState) {
+        val flow = state.flowState as? CardCreationFlowState.DefinitionsLoaded
+        if (offline && flow?.notice == CardCreationError.CREATE_CARD_FAILED) {
+            queueCurrentSave(state, entryId, mainViewModel)
+        } else if (offline && entryId == null && state.flowState is CardCreationFlowState.LookupError) {
+            mainViewModel.addEntry(state.targetWord, state.context)
+        }
+    }
+}
+
+private fun queueCurrentSave(
+    state: CardCreationState,
+    entryId: String?,
+    mainViewModel: MainViewModel,
+) {
+    val flow = state.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
+    val definition = flow.selectedDefinition ?: return
+    val deck = (state.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
+    if (state.kind != LexicalKind.WORD || definition.id.isBlank()) {
+        if (entryId == null) mainViewModel.addEntry(state.targetWord, state.context)
+        return
+    }
+    val selection =
+        if (state.lookupContext != null && state.selectionStart != null && state.selectionEnd != null) {
+            LookupSelection(state.lookupContext, state.selectionStart, state.selectionEnd)
+        } else {
+            null
+        }
+    mainViewModel.queueFailedSave(
+        state.targetWord,
+        flow.confirmedExample ?: state.context,
+        state.language,
+        definition,
+        deck,
+        entryId,
+        selection,
+        state.lookupContext,
     )
 }
 

@@ -93,8 +93,11 @@ export class HeadwordDiscoveryService {
   ): Promise<DiscoveryResult> {
     const key = { term_language: { term, language } };
     const state = await this.prisma.lookupState.findUnique({ where: key });
-    if (state?.discoveryCompletedAt)
+    if (state?.discoveryCompletedAt) {
+      if (kind === LexicalKind.word && contextualLemma)
+        await this.processCohort([contextualLemma], language, kind);
       return { source: 'cache', headwords: await this.resolve(term, language) };
+    }
     const seeds = [term];
     if (kind === LexicalKind.word) {
       let candidates: Awaited<

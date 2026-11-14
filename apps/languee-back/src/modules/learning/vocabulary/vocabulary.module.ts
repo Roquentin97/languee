@@ -7,9 +7,11 @@ import { WordsModule } from '../../lexicon/entries/words/words.module';
 import { DefinitionsModule } from '../../lexicon/entries/definitions/definitions.module';
 import { VocabularyService } from './vocabulary.service';
 import { VocabularyController } from './vocabulary.controller';
+import { LexicalEvaluationModule } from '../../evaluation/lexical/lexical-evaluation.module';
 
 @Module({
   imports: [
+    LexicalEvaluationModule,
     DictionaryModule,
     CardsModule,
     AuthModule,

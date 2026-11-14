@@ -20,6 +20,7 @@ function makeVerbResponse(
   return {
     kind: 'word',
     input_text: 'walk',
+    model_version: 'en_core_web_md@3.8.0',
     is_multi_word: false,
     tokens: [
       {
@@ -225,6 +226,8 @@ describe('NlpService', () => {
       if (result.kind !== 'word') throw new Error('expected word result');
       expect(result.lemma).toBe('walk');
       expect(result.pos).toBe(PartOfSpeech.VERB);
+      expect(result.rawPos).toBe('VERB');
+      expect(result.modelVersion).toBe('en_core_web_md@3.8.0');
       expect(result.isIrregular).toBe(false);
       expect(result.inflectionForms).toEqual({
         type: 'verb',

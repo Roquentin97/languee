@@ -1,6 +1,7 @@
 import type { LexicalParadigm } from '../../lexicon/enrichment/morphology/morphology.types';
 import { MorphologyService } from '../../lexicon/enrichment/morphology/morphology.service';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { LexicalEvaluationService } from '../../evaluation/lexical/lexical-evaluation.service';
 import { CardType, Prisma } from '@prisma/client';
 import type {
   Card,
@@ -76,6 +77,7 @@ type RawCardWithExport = Prisma.CardGetPayload<{
 }>;
 
 type CreateDeckCardsInput = {
+  lookupId?: string;
   userId: string;
   deckId: string;
   definition: Definition & { word: Word };
@@ -121,6 +123,7 @@ export class CardsService {
     private readonly decksService: DecksService,
     private readonly definitionService: DefinitionService,
     private readonly morphology: MorphologyService,
+    @Optional() private readonly evaluation?: LexicalEvaluationService,
   ) {}
 
   /**
@@ -133,6 +136,7 @@ export class CardsService {
     definitionId: string,
     context?: string,
     inflectionForms?: InflectionForms | null,
+    lookupId?: string,
   ): Promise<CardWithRelations[]> {
     await this.decksService.findOneOrThrow(deckId, userId);
 
@@ -165,13 +169,31 @@ export class CardsService {
       snapshot,
       paradigm,
       lexicalSnapshot,
+      lookupId,
     });
 
+    this.recordEvaluation(lookupId, userId, definition);
     const result = await this.findCardsInOrder(cardIds);
 
     this.logCreatedCards(userId, deckId, definitionId, cardIds, result);
 
     return this.withLexicalMorphology(result);
+  }
+
+  private recordEvaluation(
+    lookupId: string | undefined,
+    userId: string,
+    definition: Definition & { word: Word },
+  ): void {
+    if (!lookupId) return;
+    this.evaluation?.scheduleChoice({
+      lookupId,
+      userId,
+      definitionId: definition.id,
+      wordId: definition.wordId,
+      lemma: definition.word.lemma,
+      pos: definition.partOfSpeech,
+    });
   }
 
   private logCreatedCards(
@@ -219,8 +241,17 @@ export class CardsService {
     snapshot,
     paradigm,
     lexicalSnapshot,
+    lookupId,
   }: CreateDeckCardsInput): Promise<string[]> {
     return this.prisma.$transaction(async (tx) => {
+      const existing = await this.resolveTrackedRetry(
+        tx,
+        lookupId,
+        userId,
+        deckId,
+        definition,
+      );
+      if (existing) return existing;
       const clozeCard = await this.findOrCreateSenseCard(tx, {
         userId,
         type: CardType.cloze,
@@ -231,13 +262,11 @@ export class CardsService {
 
       await this.addClozeMembership(tx, clozeCard.id, deckId);
 
-      const definitionCard = await this.findOrCreateSenseCard(tx, {
+      const definitionCard = await this.findOrCreateDefinitionCard(
+        tx,
         userId,
-        type: CardType.definition,
-        definitionId: definition.id,
-        context: null,
-        inflectionForms: null,
-      });
+        definition.id,
+      );
 
       const ids = [clozeCard.id, definitionCard.id];
 
@@ -248,13 +277,77 @@ export class CardsService {
         lexicalSnapshot,
       });
 
-      await tx.cardDeck.createMany({
-        data: ids.slice(1).map((cardId) => ({ cardId, deckId })),
-        skipDuplicates: true,
-      });
+      await this.addRemainingMemberships(tx, ids, deckId);
 
       return ids;
     });
+  }
+
+  private async findOrCreateDefinitionCard(
+    tx: TxClient,
+    userId: string,
+    definitionId: string,
+  ) {
+    return this.findOrCreateSenseCard(tx, {
+      userId,
+      type: CardType.definition,
+      definitionId,
+      context: null,
+      inflectionForms: null,
+    });
+  }
+
+  private async addRemainingMemberships(
+    tx: TxClient,
+    ids: string[],
+    deckId: string,
+  ): Promise<void> {
+    await tx.cardDeck.createMany({
+      data: ids.slice(1).map((cardId) => ({ cardId, deckId })),
+      skipDuplicates: true,
+    });
+  }
+
+  private async resolveTrackedRetry(
+    tx: TxClient,
+    lookupId: string | undefined,
+    userId: string,
+    deckId: string,
+    definition: Definition & { word: Word },
+  ): Promise<string[] | null> {
+    if (!lookupId) return null;
+    return this.findTrackedRetry(tx, userId, deckId, definition);
+  }
+
+  private async findTrackedRetry(
+    tx: TxClient,
+    userId: string,
+    deckId: string,
+    definition: Definition,
+  ): Promise<string[] | null> {
+    const cards = await tx.card.findMany({
+      where: {
+        userId,
+        decks: { some: { deckId } },
+        OR: [
+          {
+            definitionId: definition.id,
+            type: { in: [CardType.cloze, CardType.definition] },
+          },
+          {
+            wordId: definition.wordId,
+            partOfSpeech: definition.partOfSpeech,
+            type: CardType.inflection,
+          },
+        ],
+      },
+      select: { id: true, type: true },
+    });
+    const cloze = cards.find((card) => card.type === CardType.cloze);
+    const sense = cards.find((card) => card.type === CardType.definition);
+    if (!cloze || !sense) return null;
+    const inflection = cards.find((card) => card.type === CardType.inflection);
+    return [cloze.id, sense.id, ...(inflection ? [inflection.id] : [])];
   }
 
   private async addClozeMembership(

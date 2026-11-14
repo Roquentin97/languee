@@ -139,6 +139,7 @@ class CardCreationViewModelAnkiTest {
             targetWord = "cat",
             context = "I have a cat",
             language = "en",
+            offlineQueueRepository = mock(),
             deckRepository = deckRepository,
             vocabularyRepository = vocabularyRepository,
             cardRepository = cardRepository,
@@ -181,7 +182,7 @@ class CardCreationViewModelAnkiTest {
             whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
             whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.success(aLookupResult()))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-1"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-1"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupNotReady())
 
             val vm = buildViewModel()
@@ -216,7 +217,7 @@ class CardCreationViewModelAnkiTest {
     fun `auto-export succeeds — CardCreated with Success status`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
             whenever(prefsStore.read()).thenReturn(autoExportPrefs())
             whenever(exportRepository.createOrGetExportRecord("c-abc"))
@@ -241,7 +242,7 @@ class CardCreationViewModelAnkiTest {
     fun `cardCreatedEvent emitted before export finishes`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
             val gate = CompletableDeferred<AnkiDroidSetupCheckResult>()
             whenever(exportService.checkSetup(prefsStore)).doSuspendableAnswer { gate.await() }
 
@@ -269,7 +270,7 @@ class CardCreationViewModelAnkiTest {
     fun `auto-export note creation failure — CardCreated with Failed status and attempt recorded`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
             whenever(prefsStore.read()).thenReturn(autoExportPrefs())
             whenever(exportRepository.createOrGetExportRecord("c-abc"))
@@ -301,7 +302,7 @@ class CardCreationViewModelAnkiTest {
     fun `auto-export skipped when setup is not ready — CardCreated with NotTriggered`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupNotReady())
             whenever(prefsStore.read()).thenReturn(autoExportPrefs())
 
@@ -324,7 +325,7 @@ class CardCreationViewModelAnkiTest {
     fun `manual export preference — export record created but note never exported`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
             whenever(prefsStore.read()).thenReturn(manualExportPrefs())
             whenever(exportRepository.createOrGetExportRecord("c-abc"))
@@ -345,7 +346,7 @@ class CardCreationViewModelAnkiTest {
     fun `auto-export fails when export record creation fails — CardCreated with Failed`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("c-abc"))
             whenever(exportService.checkSetup(prefsStore)).thenReturn(setupReady())
             whenever(prefsStore.read()).thenReturn(autoExportPrefs())
             whenever(exportRepository.createOrGetExportRecord("c-abc"))
@@ -369,7 +370,7 @@ class CardCreationViewModelAnkiTest {
     fun `card creation failure prevents any AnkiDroid export`() =
         runTest {
             val (vm, _) = reachDefinitionsLoaded()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("server error")))
 
             vm.createCard()

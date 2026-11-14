@@ -32,6 +32,8 @@ export type EnrichedDefinitionResult = {
 
 export type LookupVocabularyOutput = Omit<LookupWordOutput, 'headwords'> & {
   context?: string;
+  orderedGroups?: { wordId: string; partOfSpeech: PartOfSpeech }[];
+  lookupId?: string;
   headwords: (Omit<LookupWordOutput['headwords'][number], 'partsOfSpeech'> & {
     partsOfSpeech: {
       partOfSpeech: PartOfSpeech;

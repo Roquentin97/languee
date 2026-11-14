@@ -1,4 +1,5 @@
 <resources>
+    <string name="card_creation_preferred_interpretation">Suggested</string>
     <string name="app_name">Languee</string>
 
     <!-- Button labels -->

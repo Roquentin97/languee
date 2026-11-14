@@ -14,7 +14,10 @@ interface LoginApiResponse {
 }
 
 interface LookupApiResponse {
-  definitions: Array<{ id: string }>;
+  headwords: Array<{
+    partsOfSpeech: Array<{ definitions: Array<{ id: string }> }>;
+  }>;
+  lookupId?: string;
 }
 
 interface DeckApiResponse {
@@ -155,7 +158,8 @@ async function seedDefinitionId(
     .set('Authorization', `Bearer ${accessToken}`)
     .expect(200);
 
-  return (res.body as LookupApiResponse).definitions[0].id;
+  return (res.body as LookupApiResponse).headwords[0].partsOfSpeech[0]
+    .definitions[0].id;
 }
 
 async function createDeck(
@@ -564,5 +568,88 @@ describe('ReviewsController (e2e)', () => {
         .send({ deckId, definitionId })
         .expect(409);
     });
+  });
+});
+
+describe('tracked card saves (e2e)', () => {
+  let app: INestApplication<App>;
+  let accessToken: string;
+  let otherAccessToken: string;
+  beforeAll(async () => {
+    app = await createApp();
+    accessToken = await getAccessToken(
+      app,
+      `${randomWord('trackedowner')}@example.com`,
+      'Test1234!',
+    );
+    otherAccessToken = await getAccessToken(
+      app,
+      `${randomWord('trackedother')}@example.com`,
+      'Test1234!',
+    );
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  it('accepts correlation IDs without requiring evaluation records', async () => {
+    const surface = randomWord('tracked');
+    const definitionId = await seedDefinitionId(
+      app,
+      accessToken,
+      surface,
+      'A tracked meaning.',
+    );
+    const lookup = await request(app.getHttpServer())
+      .get(`/api/v1/vocabulary/lookup?word=${surface}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    const lookupId = (lookup.body as LookupApiResponse).lookupId;
+    expect(lookupId).toBeDefined();
+    const deckId = await createDeck(
+      app,
+      accessToken,
+      randomWord('trackeddeck'),
+    );
+    const foreignDeck = await createDeck(
+      app,
+      otherAccessToken,
+      randomWord('foreigndeck'),
+    );
+    const outsideId = await seedDefinitionId(
+      app,
+      accessToken,
+      randomWord('outside'),
+      'An outside meaning.',
+    );
+    await request(app.getHttpServer())
+      .post('/api/v1/cards')
+      .set('Authorization', `Bearer ${otherAccessToken}`)
+      .send({ deckId: foreignDeck, definitionId, lookupId })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/cards')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ deckId, definitionId, lookupId: 'invalid' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/v1/cards')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ deckId, definitionId: outsideId, lookupId })
+      .expect(201);
+    const first = await request(app.getHttpServer())
+      .post('/api/v1/cards')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ deckId, definitionId, lookupId })
+      .expect(201);
+    const retry = await request(app.getHttpServer())
+      .post('/api/v1/cards')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ deckId, definitionId, lookupId })
+      .expect(201);
+    expect(
+      (retry.body as CreateCardsApiResponse).cards.map((card) => card.id),
+    ).toEqual(
+      (first.body as CreateCardsApiResponse).cards.map((card) => card.id),
+    );
   });
 });

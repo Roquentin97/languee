@@ -97,6 +97,19 @@ const dictionary = {
   providerName: 'fixture',
   fetch: jest.fn(() => Promise.resolve([])),
   fetchEntry: jest.fn(async (lemma: string) => {
+    if (lemma === 'worse')
+      return parseWiktionaryEntry(
+        JSON.parse(await readFile(join(fixtures, 'worse.json'), 'utf8')),
+        'en',
+        lemma,
+      );
+    if (lemma === 'badly')
+      return {
+        definitions: [
+          { partOfSpeech: PartOfSpeech.ADVERB, definition: 'In a bad manner.' },
+        ],
+        references: [],
+      };
     const known = corpus.dictionary_cases.find((c) => c.surface === lemma);
     if (known)
       return parseWiktionaryEntry(
@@ -214,6 +227,25 @@ beforeEach(async () => {
   jest.setSystemTime(new Date('2026-11-08T00:00:00Z'));
 });
 afterEach(() => jest.useRealTimers());
+
+it('resolves the annotated worse reference on cold and warm lookup', async () => {
+  const cold = await lookup('worse');
+  expect(pairs(cold)).toContain('badly/adverb');
+  expect(await rows('worse')).toContain('badly/adverb/comparative');
+  const warm = await lookup('worse');
+  expect(pairs(warm)).toEqual(pairs(cold));
+});
+
+it('keeps saw candidates independent of the first contextual lemma', async () => {
+  const first = await lookup('saw', 'see');
+  const warm = await lookup('saw', 'saw');
+  expect(pairs(warm)).toEqual(pairs(first));
+  await raw.query('TRUNCATE words, lookup_states CASCADE');
+  const reverse = await lookup('saw', 'saw');
+  const reverseWarm = await lookup('saw', 'see');
+  expect(pairs(reverse)).toEqual(pairs(first));
+  expect(pairs(reverseWarm)).toEqual(pairs(first));
+});
 
 it('C01/C02/C12 well → good → better → better keeps discovery independent of reverse mappings', async () => {
   await lookup('well');
@@ -447,7 +479,7 @@ it.each(corpus.context_semantics_cases)(
     expect(pairs(cached)).toEqual(pairs(result));
     expect(
       dictionary.fetchEntry.mock.calls.some((call) => call[0] === 'unrelated'),
-    ).toBe(false);
+    ).toBe(true);
   },
 );
 
@@ -502,8 +534,82 @@ it('C20 NFC and case-normalized selected spelling share state and mappings', asy
   ).toHaveLength(1);
 });
 
+import { rankLexicalGroups } from '../src/modules/learning/vocabulary/lexical-ranking';
 import { CardsService } from '../src/modules/learning/cards/cards.service';
 import { DecksService } from '../src/modules/learning/decks/decks.service';
+import { LexicalEvaluationService } from '../src/modules/evaluation/lexical/lexical-evaluation.service';
+it('records a disagreement after a tracked card save', async () => {
+  const userId = '00000000-0000-0000-0000-000000000001';
+  const deck = await prisma.deck.findFirstOrThrow({ where: { userId } });
+  const base = await new DictionaryService(service).lookup({
+    word: 'saw',
+    lemma: 'see',
+    language: 'en',
+    kind: 'word',
+  });
+  const evaluation = new LexicalEvaluationService(prisma);
+  const lookupId = '00000000-0000-7000-8000-000000000010';
+  evaluation.scheduleLookup(
+    lookupId,
+    { word: 'saw', language: 'en', userId, context: 'They saw wood' },
+    {
+      kind: 'word',
+      lemma: 'see',
+      pos: PartOfSpeech.VERB,
+      rawPos: 'VERB',
+      modelVersion: 'fixture@1',
+      isIrregular: false,
+      inflectionForms: null,
+    },
+    base,
+    rankLexicalGroups(base.headwords, 'see', PartOfSpeech.VERB, true),
+  );
+  for (let i = 0; i < 50; i++) {
+    if (await prisma.evalLexicalLookup.findUnique({ where: { id: lookupId } }))
+      break;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const saw = base.headwords
+    .find((w) => w.lemma === 'saw')!
+    .partsOfSpeech.find((g) => g.partOfSpeech === PartOfSpeech.VERB)!
+    .definitions[0];
+  const cards = new CardsService(
+    prisma,
+    new DecksService(prisma),
+    new DefinitionService(prisma),
+    morphologyService,
+    evaluation,
+  );
+  const first = await cards.create(
+    userId,
+    deck.id,
+    saw.id,
+    undefined,
+    null,
+    lookupId,
+  );
+  const retry = await cards.create(
+    userId,
+    deck.id,
+    saw.id,
+    undefined,
+    null,
+    lookupId,
+  );
+  expect(retry.map((card) => card.id)).toEqual(first.map((card) => card.id));
+  let choice = await prisma.evalLexicalLearnerChoice.findUnique({
+    where: { lookupId },
+  });
+  for (let i = 0; !choice && i < 20; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    choice = await prisma.evalLexicalLearnerChoice.findUnique({
+      where: { lookupId },
+    });
+  }
+  expect(choice).not.toBeNull();
+  expect(choice?.chosenDefinitionId).toBe(saw.id);
+  expect(choice?.chosenLemma).toBe('saw');
+});
 it('creates a card from a definition in the hierarchical lookup response', async () => {
   const dictionaryService = new DictionaryService(service);
   const response = await dictionaryService.lookup({

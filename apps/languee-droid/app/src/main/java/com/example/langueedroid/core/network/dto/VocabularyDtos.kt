@@ -59,6 +59,8 @@ data class LookupVocabularyResponseDto(
     val preferred: PreferredInterpretationDto?,
     val headwords: List<VocabularyHeadwordDto>,
     val meta: LookupMetaDto,
+    val orderedGroups: List<PreferredInterpretationDto>? = null,
+    val lookupId: String? = null,
 )
 
 data class CreateUserDefinitionRequestDto(

@@ -25,6 +25,7 @@ import com.example.langueedroid.core.network.dto.DeckResponseDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
+import com.example.langueedroid.core.network.dto.PreferredInterpretationDto
 import com.example.langueedroid.core.network.dto.RevealedWordDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
@@ -71,17 +72,31 @@ fun EnrichedDefinitionDto.toDomain(): DefinitionResult =
 
 fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
     val headword = headwords.firstOrNull { it.wordId == preferred?.wordId }
-    val groups = headword?.partsOfSpeech.orEmpty()
-    val selectedGroups =
-        when {
-            meta.unmatchedPos -> emptyList()
-            preferred?.partOfSpeech != null -> groups.filter { it.partOfSpeech == preferred.partOfSpeech }
-            else -> groups
+    val groups =
+        if (meta.isExpression == true) {
+            headword
+                ?.partsOfSpeech
+                .orEmpty()
+                .filter {
+                    preferred?.partOfSpeech == null || it.partOfSpeech == preferred.partOfSpeech
+                }.map { PreferredInterpretationDto(headword?.wordId.orEmpty(), it.partOfSpeech) }
+        } else {
+            orderedGroups ?: headwords.flatMap { word ->
+                word.partsOfSpeech.map { PreferredInterpretationDto(word.wordId, it.partOfSpeech) }
+            }
+        }
+    val definitions =
+        groups.flatMap { group ->
+            val word = headwords.firstOrNull { it.wordId == group.wordId }
+            val pos = word?.partsOfSpeech?.firstOrNull { it.partOfSpeech == group.partOfSpeech }
+            pos?.definitions.orEmpty().map {
+                it.toDomain().copy(lemma = word?.lemma, lookupId = lookupId, preferred = group == preferred)
+            }
         }
     return LookupResult(
         input = input,
-        lemma = headword?.lemma ?: meta.analyzedLemma ?: input,
-        definitions = selectedGroups.flatMap { it.definitions }.map { it.toDomain() },
+        lemma = headword?.lemma ?: input,
+        definitions = definitions,
         context = context,
         kind = kind.toLexicalKind(),
         isExpression = meta.isExpression ?: false,

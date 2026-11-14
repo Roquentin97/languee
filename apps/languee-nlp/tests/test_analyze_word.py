@@ -40,6 +40,7 @@ def _make_mock_nlp(
     mock_doc.__getitem__ = MagicMock(return_value=mock_token)
 
     mock_nlp = MagicMock()
+    mock_nlp.meta = {"lang": "en", "name": "core_web_sm", "version": "3.8.0"}
     mock_nlp.return_value = mock_doc
     return mock_nlp
 
@@ -61,6 +62,7 @@ def test_words_returns_analysis_for_single_word():
     assert body["kind"] == "word"
     assert body["input_text"] == "running"
     assert body["is_multi_word"] is False
+    assert body["model_version"] == "en_core_web_sm@3.8.0"
     assert len(body["tokens"]) == 1
     token = body["tokens"][0]
     assert token["text"] == "running"

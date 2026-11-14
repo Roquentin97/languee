@@ -9,4 +9,8 @@ data class OfflineEntry(
     val lookupContext: String? = null,
     val selectionStart: Int? = null,
     val selectionEnd: Int? = null,
+    val pendingDefinitionId: String? = null,
+    val pendingLookupId: String? = null,
+    val pendingDeckId: String? = null,
+    val pendingInflectionForms: String? = null,
 )

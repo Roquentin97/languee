@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class HealthResponse(BaseModel):
@@ -78,6 +78,9 @@ class WordAnalysisResponse(BaseModel):
     input_text: str
     is_multi_word: bool
     language: str
+    model_version: str = Field(
+        description="Loaded spaCy model package and version, joined by @."
+    )
     tokens: list[TokenResult]
     input_text_analysis: InputTextAnalysis | None = None
 

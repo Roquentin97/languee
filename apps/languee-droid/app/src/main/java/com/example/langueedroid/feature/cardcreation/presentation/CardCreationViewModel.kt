@@ -12,6 +12,7 @@ import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.data.ExportStatusNotifier
+import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.Deck
@@ -22,9 +23,13 @@ import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExportPreference
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
+import com.example.langueedroid.core.domain.LookupResult
+import com.example.langueedroid.core.domain.OfflineEntry
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.di.ApplicationScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -32,6 +37,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 
 data class CardCreatedEvent(
     val cardId: String,
@@ -56,6 +63,7 @@ class CardCreationViewModel
         @Assisted("lookupContext") private val lookupContext: String? = null,
         @Assisted("selectionStart") private val selectionStart: Int? = null,
         @Assisted("selectionEnd") private val selectionEnd: Int? = null,
+        @Assisted("offlineEntryId") private val offlineEntryId: String? = null,
         private val deckRepository: DeckRepository,
         private val vocabularyRepository: VocabularyRepository,
         private val cardRepository: CardRepository,
@@ -65,6 +73,7 @@ class CardCreationViewModel
         val speaker: Speaker,
         @ApplicationScope private val appScope: CoroutineScope,
         private val exportStatusNotifier: ExportStatusNotifier,
+        private val offlineQueueRepository: OfflineQueueRepository,
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
@@ -75,6 +84,7 @@ class CardCreationViewModel
                 @Assisted("lookupContext") lookupContext: String?,
                 @Assisted("selectionStart") selectionStart: Int?,
                 @Assisted("selectionEnd") selectionEnd: Int?,
+                @Assisted("offlineEntryId") offlineEntryId: String?,
             ): CardCreationViewModel
         }
 
@@ -86,6 +96,9 @@ class CardCreationViewModel
                     contextValid = context == null || EntryValidator.isContextWithinLimit(context),
                     contextTooLong = !EntryValidator.isContextWithinLimit(context),
                     language = language,
+                    lookupContext = lookupContext ?: context,
+                    selectionStart = selectionStart,
+                    selectionEnd = selectionEnd,
                 ),
             )
         val state: StateFlow<CardCreationState> = _state.asStateFlow()
@@ -97,17 +110,31 @@ class CardCreationViewModel
         val cardCreatedEvent: SharedFlow<CardCreatedEvent> = _cardCreatedEvent.asSharedFlow()
 
         private var createCardJob: Job? = null
+        private var lookupJob: Job? = null
         private var initialDeckId: String? = null
+        private var restoredDeckId: String? = null
+        private var pendingEntry: OfflineEntry? = null
 
         fun setInitialDeck(id: String?) {
-            initialDeckId = id
+            initialDeckId = restoredDeckId ?: id
             val loaded = _state.value.deckSelectionState as? DeckSelectionState.Loaded ?: return
-            if (loaded.selectedDeck == null) loaded.decks.firstOrNull { it.id == id }?.let(::onDeckSelected)
+            if (loaded.selectedDeck == null) loaded.decks.firstOrNull { it.id == initialDeckId }?.let(::onDeckSelected)
         }
 
         init {
-            loadDecks()
-            lookupVocabulary()
+            viewModelScope.launch {
+                try {
+                    pendingEntry = offlineEntryId?.let { offlineQueueRepository.find(it) }
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    handleLookupFailure(error)
+                    return@launch
+                }
+                restoredDeckId = pendingEntry?.pendingDeckId
+                initialDeckId = restoredDeckId ?: initialDeckId
+                loadDecks()
+                lookupVocabulary()
+            }
         }
 
         internal fun loadDecks() {
@@ -119,6 +146,7 @@ class CardCreationViewModel
                     onSuccess = { decks ->
                         val selectedDeck =
                             when {
+                                restoredDeckId != null -> decks.firstOrNull { it.id == restoredDeckId }
                                 decks.size == 1 -> decks.single()
                                 else ->
                                     decks.firstOrNull { it.id == previouslySelectedDeckId }
@@ -209,60 +237,96 @@ class CardCreationViewModel
         }
 
         private fun lookupVocabulary(notice: CardCreationError? = null) {
-            viewModelScope.launch {
-                _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
-                vocabularyRepository
-                    .lookup(
-                        word = targetWord,
-                        language = language,
-                        context = (lookupContext ?: context)?.takeIf(EntryValidator::isContextWithinLimit),
-                        selectionStart = selectionStart,
-                        selectionEnd = selectionEnd,
-                    ).fold(
-                        onSuccess = { result ->
-                            _state.value =
-                                _state.value.copy(
-                                    kind = result.kind,
-                                    expressionContextFound = result.expressionContextFound,
-                                    flowState =
-                                        when {
-                                            result.definitions.isEmpty() && result.providerMiss ->
-                                                CardCreationFlowState.ManualDefinition()
-                                            result.definitions.isEmpty() ->
-                                                CardCreationFlowState.NoDefinitions(lemma = result.lemma)
-                                            else ->
-                                                CardCreationFlowState.DefinitionsLoaded(
-                                                    definitions = result.definitions,
-                                                    selectedDefinition = null,
-                                                    definitionState = null,
-                                                    lemma = result.lemma,
-                                                    notice = notice,
-                                                )
-                                        },
-                                )
-                        },
-                        onFailure = { error ->
-                            when (error) {
-                                is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
-                                is ExpressionTooLongException ->
-                                    _state.value =
-                                        _state.value.copy(
-                                            flowState = CardCreationFlowState.LookupError(CardCreationError.EXPRESSION_TOO_LONG),
-                                        )
-                                is LookupInputInvalidException ->
-                                    _state.value =
-                                        _state.value.copy(
-                                            flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_INPUT_INVALID),
-                                        )
-                                else ->
-                                    _state.value =
-                                        _state.value.copy(
-                                            flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_FAILED),
-                                        )
-                            }
-                        },
+            lookupJob?.cancel()
+            lookupJob =
+                viewModelScope.launch {
+                    _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
+                    val lookupResult =
+                        vocabularyRepository
+                            .lookup(
+                                word = targetWord,
+                                language = language,
+                                context =
+                                    (
+                                        if (pendingEntry?.pendingDefinitionId !=
+                                            null
+                                        ) {
+                                            pendingEntry?.lookupContext
+                                        } else {
+                                            lookupContext ?: context
+                                        }
+                                    )?.takeIf(EntryValidator::isContextWithinLimit),
+                                selectionStart =
+                                    if (pendingEntry?.pendingDefinitionId !=
+                                        null
+                                    ) {
+                                        pendingEntry?.selectionStart
+                                    } else {
+                                        selectionStart
+                                    },
+                                selectionEnd = if (pendingEntry?.pendingDefinitionId != null) pendingEntry?.selectionEnd else selectionEnd,
+                            )
+                    coroutineContext.ensureActive()
+                    lookupResult.fold(
+                        onSuccess = { result -> handleLookupSuccess(result, notice) },
+                        onFailure = ::handleLookupFailure,
                     )
+                }
+        }
+
+        private fun handleLookupSuccess(
+            result: LookupResult,
+            notice: CardCreationError?,
+        ) {
+            val (definitions, selected) = restorePending(result)
+            if (result.definitions.isNotEmpty()) pendingEntry = null
+            val deck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
+            val flow =
+                when {
+                    result.definitions.isEmpty() && result.providerMiss -> CardCreationFlowState.ManualDefinition()
+                    result.definitions.isEmpty() -> CardCreationFlowState.NoDefinitions(lemma = result.lemma)
+                    else ->
+                        CardCreationFlowState.DefinitionsLoaded(
+                            definitions = definitions,
+                            selectedDefinition = selected,
+                            definitionState = selected?.let { resolveDefinitionState(it, deck) },
+                            lemma = result.lemma,
+                            confirmedExample = if (selected != null) context else null,
+                            exampleConfirmed = selected != null,
+                            notice = notice,
+                        )
+                }
+            _state.value = _state.value.copy(kind = result.kind, expressionContextFound = result.expressionContextFound, flowState = flow)
+        }
+
+        private fun restorePending(result: LookupResult): Pair<List<DefinitionResult>, DefinitionResult?> {
+            val pending = pendingEntry ?: return result.definitions to null
+            val chosen = result.definitions.firstOrNull { it.id == pending.pendingDefinitionId } ?: return result.definitions to null
+            val forms: Map<String, String>? =
+                pending.pendingInflectionForms?.let {
+                    Gson().fromJson(it, object : TypeToken<Map<String, String>>() {}.type)
+                }
+            val restored =
+                chosen.copy(
+                    lookupId = pending.pendingLookupId,
+                    inflectionForms = forms ?: chosen.inflectionForms,
+                    queuedRetry = true,
+                )
+            return result.definitions.map { if (it.id == restored.id) restored else it } to restored
+        }
+
+        private fun handleLookupFailure(error: Throwable) {
+            if (error is UnauthorizedException) {
+                _unauthorizedEvent.tryEmit(Unit)
+                return
             }
+            val reason =
+                when (error) {
+                    is ExpressionTooLongException -> CardCreationError.EXPRESSION_TOO_LONG
+                    is LookupInputInvalidException -> CardCreationError.LOOKUP_INPUT_INVALID
+                    else -> CardCreationError.LOOKUP_FAILED
+                }
+            _state.value = _state.value.copy(flowState = CardCreationFlowState.LookupError(reason))
         }
 
         /** Called when the user edits the definition text in the manual-definition form. */
@@ -368,6 +432,7 @@ class CardCreationViewModel
             definition: DefinitionResult,
             deck: Deck?,
         ): DefinitionState {
+            if (definition.queuedRetry && definition.lookupId != null) return DefinitionState.Available
             val deckIds = definition.decks.map { it.id }
             return when {
                 deck != null && deck.id in deckIds -> DefinitionState.AlreadyInSelectedDeck
@@ -404,6 +469,7 @@ class CardCreationViewModel
                             definitionId = resolvedDefinition.id,
                             context = confirmedExample ?: draftContext,
                             inflectionForms = resolvedDefinition.inflectionForms,
+                            lookupId = resolvedDefinition.lookupId,
                         ).fold(
                             onSuccess = { cardId ->
                                 _state.value = _state.value.copy(flowState = CardCreationFlowState.CardCreated())
@@ -569,8 +635,8 @@ class CardCreationViewModel
             confirmedExample: String?,
         ) = AnkiDroidNoteBuilder.buildFields(
             cardId = cardId,
-            word = currentFlowState.lemma,
-            lemma = currentFlowState.lemma,
+            word = selectedDefinition.lemma ?: currentFlowState.lemma,
+            lemma = selectedDefinition.lemma ?: currentFlowState.lemma,
             partOfSpeech = selectedDefinition.partOfSpeech,
             definition = selectedDefinition.definition,
             context = _state.value.context,
