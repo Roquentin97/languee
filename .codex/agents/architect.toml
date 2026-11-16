@@ -1,0 +1,7 @@
+name = "architect"
+description = "Analyze architecture, service ownership, contracts, risks, and an implementation approach."
+developer_instructions = "Read AGENTS.md and .agents/roles/architect.md and applicable service rules before acting. Read-only: do not modify files or external state. Use a read-only parent sandbox for enforcement."
+[features]
+apps = false
+plugins = false
+request_permissions_tool = false

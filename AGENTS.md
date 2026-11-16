@@ -1,17 +1,15 @@
-# Project instructions
+# Languee engineering policy
 
-Read `CLAUDE.md` for project conventions and applicable workflows.
+Languee is a monorepo: `apps/languee-back` is the NestJS API, `apps/languee-nlp` the FastAPI NLP service, and `apps/languee-droid` the Android client. Root Docker Compose and Makefile orchestrate services. Identify affected services from the task and changes; work within their boundaries and inspect full source before changing behavior.
 
-When a change raises a backward-compatibility or existing-data concern, flag it
-in the conversation and ask whether compatibility must be preserved or test
-data can be recreated from scratch. Do not assume either choice or implement a
-compatibility layer, migration, or data wipe before the answer.
+Resolve significant product, data compatibility, ownership and cross-service contract ambiguities with the user. When a change raises a backward-compatibility or existing-data concern, ask whether compatibility must be preserved or test data recreated; do not implement a compatibility layer, migration, or wipe before the answer. Never invent business behavior or contracts. Archived external workspace integrations are inactive.
 
-Write comments and documentation for readers of the current code, not as a
-retrospective of the change. Do not add change history, redundant narration,
-or explanations that merely restate clear code or duplicate nearby docs. Keep
-non-obvious constraints, invariants, reasons, useful public behavior, and
-operational procedures. Review new and modified comments and docs for relevance
-and concision before finishing.
+Read only applicable rules under `.agents/rules/`: backend: `nestjs.md`, tests: `jest.md`, persistence: `prisma.md`; NLP: `fastapi.md`, model work: `spacy.md`, tests: `pytest.md`; Android: `android-kotlin.md`; cross-service contracts: `boundary.md` and rules for affected services. These paths are repository conventions and are not automatically discovered by every harness.
 
-Keep production functions within the target service’s configured maintainability limits and run lint early. Test files are excluded from lint checks.
+Keep production functions within configured maintainability limits and run lint early. Add relevant tests and run lint and tests for applicable changes. Determine affected application services from changed behavior and the dependencies that consume the changed files, not their location. Investigate uncertain impact before selecting checks. Run `make cc <service>` for each affected service, including every service affected by shared runtime/build dependencies or cross-service contracts. Agent instructions, definitions, skills, and their tests alone affect no application service and need no application `make cc`. Validate database migrations against a fresh schema. Update Swagger/OpenAPI and Bruno for changed endpoints. Verify final-head CI for delivery. Use `sh scripts/load-env.sh <command>` for commands requiring environment variables. `forge/services.toml` documents service commands and ports; `forge/command_summary.py` can summarize noisy commands with task-local logs.
+
+Write concise current documentation and comments explaining useful behavior and non-obvious constraints, not change history or obvious code. Do not commit TODOs or secrets. Explain any new package and its purpose before installing it.
+
+Use conventionally named branches with prefixes `feature/`, `fix/`, `chore/`, `docs/`, `refactor/`, `test/`, `ci/`, or `deps/`; use Conventional Commits (`type(scope): description`). Never push to environment branches. Publish local commits using native git push, and use GitHub MCP for PR and issue metadata. Never force-push a branch not created for the task or merge a PR without explicit authorization. Read `.agents/skills/open-pr/SKILL.md` for PR creation. Do not bump versions or changelogs solely for development build identity.
+
+Execute tasks directly by default. Delegate bounded subtasks only when context isolation, independent review, safe parallelism, or a cheaper suitable model clearly helps. Prefer Explorer for substantial codebase investigation, CI Investigator for diagnosis using coordinator-supplied CI evidence, and Reviewer for significant correctness risks. Do not delegate trivial edits, routine linting, deterministic checks, or straightforward PR preparation. No role is a mandatory stage; do not impose a fixed chain or recursively delegate without specific justification. Give each subagent an explicit objective, scope, relevant rules, required evidence, and concise return format; avoid forwarding bulk logs. Coordinate overlapping edits. The coordinator retains responsibility for integration, validation, and delivery.
