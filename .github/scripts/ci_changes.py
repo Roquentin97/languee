@@ -43,6 +43,8 @@ def select_checks(paths, base_workflow, head_workflow):
         path in {'AGENTS.md', 'CLAUDE.md', WORKFLOW, '.github/scripts/ci_changes.py',
                  'tests/test_agent_infrastructure.py', 'tests/test_ci_changes.py'}
         or path.startswith(('.agents/', '.claude/', '.codex/'))
+        or path in {'scripts/dev_delivery.py', 'scripts/delivery_pr.py', 'tests/test_dev_delivery.py'}
+        or path.startswith('docs/agent-infrastructure/')
         for path in paths
     )
     selected['deploy'] = any(
