@@ -1,6 +1,6 @@
 # Local delivery
 
-Run from the repository root. Python 3 and Git are required; PR inspection also requires an authenticated `gh`.
+Run from the repository root. Python 3 and Git are required. Git preflight is independent of GitHub CLI; `pr watch` and gated `pr publish` require an authenticated `gh`.
 
 ```sh
 python3 scripts/dev_delivery.py impact --base origin/develop --working-tree --json
@@ -17,14 +17,14 @@ python3 scripts/dev_delivery.py pr preflight --base origin/develop --title 'feat
 python3 scripts/dev_delivery.py pr body --trello-url 'https://trello.com/c/example' --summary-file /tmp/pr-summary.md --check-results /tmp/languee-checks.json --output /tmp/pr-body.md --json
 ```
 
-The summary file must describe the change, components, release impact and limitations. Push the validated branch separately. GitHub MCP remains the PR creation mechanism until the `gh` transition is verified. The `pr publish` command fails closed until evidence for creation, update, watch and an operational comparison is recorded in `gh-transition-verified.json`; do not create that file without performing the gate. An existing PR is returned without overwriting its body. To monitor an existing PR:
+The summary file must describe the change, components, release impact and limitations. Preflight compares the live remote head and may fetch a missing commit object; a local-ahead branch passes but must be pushed separately before publication. Remote-ahead, diverged and unverifiable branches block preflight. GitHub MCP remains the PR creation mechanism until the `gh` transition is verified. The `pr publish` command fails closed until evidence for creation, update, watch and an operational comparison is recorded in `gh-transition-verified.json`; do not create that file without performing the gate. An existing PR is returned without overwriting its body. To monitor an existing PR:
 
 ```sh
 python3 scripts/dev_delivery.py pr watch --pr 256 --head db66646a43a75e38fd0de2e9436da084354a9c1e --timeout 60 --json
 ```
 
-The watcher requires a nonempty required-check set and verifies the head before polling and again before reporting success. Failures and timeouts do not trigger repair or merging. Logs can contain sensitive output; inspect them locally and share only relevant redacted excerpts.
+The watcher requires a nonempty required-check set and verifies the head before polling and again before reporting success. Failures and timeouts do not trigger repair or merging. Failure results include bounded excerpts and local log paths; credential detection is heuristic and can withhold excerpts. Logs can contain sensitive output, so inspect them locally and share only relevant redacted excerpts.
 
 ## Reproducible checks
 
-`python3 -m unittest discover -s tests -p 'test_dev_delivery.py'` exercises agent-only and backend-only selection, body construction, a changed head, missing required checks, and the publication gate. The real read-only watcher example above reported `required: SUCCESS` for the stated SHA on 2026-11-16. A live creation/update comparison is not yet established. CI-only deploy checks and full failure diagnostics require further validation; do not treat the examples as proof that the transition gate passed.
+`python3 -m unittest discover -s tests -p 'test_dev_delivery.py'` exercises selection, remote ancestry, diagnostics, body construction, CI monitoring and the publication gate. The read-only watcher example above reported `required: SUCCESS` for the stated SHA on 2026-11-16. A live creation/update comparison is not yet established; the example does not establish the transition gate.

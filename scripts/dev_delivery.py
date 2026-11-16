@@ -71,19 +71,43 @@ def check(base, working_tree):
         invocation = [sys.executable, str(ROOT / 'forge/command_summary.py'), '--label', name,
                       '--cwd', str(ROOT), '--log-dir', str(log_dir), '--max-tail-chars', '1000',
                       '--max-diagnostics', '5', '--', *command]
-        completed = subprocess.run(invocation, cwd=ROOT, capture_output=True, text=True, check=False)
+        try:
+            completed = subprocess.run(invocation, cwd=ROOT, capture_output=True, text=True, check=False)
+        except OSError:
+            result['outcomes'].append({'target': name, 'status': 'failed', 'exit_code': 1,
+                                       'error': 'Could not start command summarizer'})
+            result['status'] = 'failed'
+            break
         try:
             summary = json.loads(completed.stdout)
-        except json.JSONDecodeError:
-            summary = {'status': 'failed', 'exit_code': completed.returncode, 'diagnostics': ['Command summarizer failed']}
-        # Raw output may contain credentials; inspect the local logs deliberately.
-        summary.pop('stdout_tail', None)
-        summary.pop('stderr_tail', None)
-        summary.pop('diagnostics', None)
-        summary['target'] = name
-        result['outcomes'].append(summary)
-        if completed.returncode or summary['status'] != 'passed':
+            if (not isinstance(summary, dict) or summary.get('status') not in ('passed', 'failed')
+                    or any(key not in summary for key in ('exit_code', 'stdout_log', 'stderr_log'))):
+                raise ValueError('Invalid summary')
+        except (json.JSONDecodeError, ValueError):
+            path = log_dir / f'{name}.summarizer.log'
+            path.write_text(completed.stdout + completed.stderr, encoding='utf-8')
+            outcome = {'target': name, 'status': 'failed', 'exit_code': completed.returncode or 1,
+                       'error': 'Command summarizer failed or returned invalid output', 'log': str(path)}
+            for stream in ('stdout', 'stderr'):
+                log = log_dir / f'{name}.{stream}.log'
+                if log.exists():
+                    outcome[f'{stream}_log'] = str(log)
+            result['outcomes'].append(outcome)
             result['status'] = 'failed'
+            break
+        outcome = {key: summary[key] for key in ('status', 'exit_code', 'duration_seconds', 'stdout_log', 'stderr_log') if key in summary}
+        outcome['target'] = name
+        if completed.returncode or summary['status'] != 'passed':
+            outcome['status'] = 'failed'
+            if summary['status'] == 'passed':
+                outcome['exit_code'] = completed.returncode or 1
+                outcome['error'] = 'Command summarizer returned an inconsistent status'
+            outcome['diagnostics'], withheld = delivery_pr.safe_diagnostics(summary.get('diagnostics', []))
+            if withheld or not outcome['diagnostics']:
+                outcome['diagnostics_withheld'] = True
+            result['status'] = 'failed'
+        result['outcomes'].append(outcome)
+        if result['status'] == 'failed':
             break
     return result
 

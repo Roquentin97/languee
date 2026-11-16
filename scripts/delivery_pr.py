@@ -1,6 +1,7 @@
 """Read-only PR safety checks and final-head CI monitoring."""
 
 import json
+import importlib.util
 from pathlib import Path
 import re
 import subprocess
@@ -10,6 +11,31 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED = ('feature/', 'fix/', 'chore/', 'docs/', 'refactor/', 'test/', 'ci/', 'deps/')
 TITLE = re.compile(r'^(feat|fix|deps|chore|docs|refactor|test|ci)\([a-z0-9][a-z0-9-]*\): \S.*$')
+FAILED_STATES = {'FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'SKIPPED', 'STALE', 'NEUTRAL'}
+SENSITIVE = re.compile(r'(?i)authorization|password|passwd|secret|token|api[_-]?key|cookie|credential|private.key|\b[a-z_]*(?:key|auth|pass)[a-z_]*\s*[:=]')
+TOKEN = re.compile(r'(?i)\b(?:gh[opsu]_[a-z0-9_]+|github_pat_[a-z0-9_]+|sk-[a-z0-9_-]+|eyJ[a-z0-9_-]+\.[a-z0-9_.-]+)\b')
+
+
+def safe_diagnostics(lines):
+    """Bound excerpts and withhold lines likely to contain credentials."""
+    excerpts = []
+    withheld = False
+    for line in lines[:5]:
+        line = re.sub(r'\x1b\[[0-9;]*m', '', str(line)).strip()
+        if (SENSITIVE.search(line) or TOKEN.search(line) or re.search(r'://[^/\s]+@', line)
+                or re.search(r'\b[A-Za-z0-9_+/=-]{40,}\b', line)):
+            withheld = True
+            continue
+        if line:
+            excerpts.append(line[:300])
+    return excerpts, withheld
+
+
+def extract_ci_diagnostics(output):
+    spec = importlib.util.spec_from_file_location('command_summary', ROOT / 'forge/command_summary.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return safe_diagnostics(module.extract_diagnostics(output, 5))
 
 
 def run(*command, check=True):
@@ -21,6 +47,48 @@ def run(*command, check=True):
 
 def git(*args):
     return run('git', *args).stdout.strip()
+
+
+def remote_relationship(branch, head):
+    ref = f'refs/heads/{branch}'
+    remote = run('git', 'ls-remote', '--heads', 'origin', ref, check=False)
+    if remote.returncode:
+        return None, 'unknown', 'Could not inspect remote branch'
+    lines = remote.stdout.strip().splitlines()
+    if not lines:
+        return None, 'absent', None
+    fields = lines[0].split()
+    if len(lines) != 1 or len(fields) != 2 or fields[1] != ref or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', fields[0]):
+        return None, 'unknown', 'Remote branch lookup returned an ambiguous result'
+    remote_sha = fields[0]
+    if remote_sha == head:
+        return remote_sha, 'equal', None
+    shallow = run('git', 'rev-parse', '--is-shallow-repository', check=False)
+    if shallow.returncode or shallow.stdout.strip() != 'false':
+        return remote_sha, 'unknown', 'Cannot verify ancestry in a shallow or unavailable repository'
+    if run('git', 'cat-file', '-e', f'{remote_sha}^{{commit}}', check=False).returncode:
+        fetched = run('git', 'fetch', '--no-tags', '--no-write-fetch-head', 'origin', remote_sha, check=False)
+        if fetched.returncode:
+            return remote_sha, 'unknown', 'Could not fetch remote commit for ancestry comparison'
+    remote_ancestor = run('git', 'merge-base', '--is-ancestor', remote_sha, head, check=False).returncode
+    local_ancestor = run('git', 'merge-base', '--is-ancestor', head, remote_sha, check=False).returncode
+    if remote_ancestor not in (0, 1) or local_ancestor not in (0, 1) or (remote_ancestor == 0 and local_ancestor == 0):
+        return remote_sha, 'unknown', 'Remote ancestry comparison failed or was ambiguous'
+    if remote_ancestor == 0:
+        return remote_sha, 'local-ahead', None
+    if local_ancestor == 0:
+        return remote_sha, 'remote-ahead', 'Remote branch is ahead; synchronize before publishing'
+    return remote_sha, 'diverged', 'Local and remote branches diverged; reconcile before publishing'
+
+
+def gh_ready(operation):
+    try:
+        result = run('gh', 'auth', 'status', check=False)
+    except OSError:
+        return {'operation': operation, 'status': 'blocked', 'issues': ['GitHub CLI is not installed or accessible']}
+    if result.returncode:
+        return {'operation': operation, 'status': 'blocked', 'issues': ['GitHub CLI authentication is unavailable']}
+    return None
 
 
 def preflight(args):
@@ -36,14 +104,9 @@ def preflight(args):
     if git('status', '--porcelain', '--untracked-files=normal'):
         issues.append('Working tree is not clean')
     upstream = run('git', 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}', check=False)
-    remote = run('git', 'ls-remote', '--heads', 'origin', f'refs/heads/{branch}', check=False)
-    if remote.returncode:
-        issues.append('Could not inspect remote branch')
-    remote_sha = remote.stdout.split()[0] if remote.stdout.strip() else None
-    if remote_sha and remote_sha != head:
-        issues.append('Remote branch head differs from local head')
-    if run('gh', 'auth', 'status', check=False).returncode:
-        issues.append('GitHub CLI is unavailable or unauthenticated')
+    remote_sha, relationship, remote_issue = remote_relationship(branch, head)
+    if remote_issue:
+        issues.append(remote_issue)
     try:
         checks = json.loads(Path(args.check_results).read_text()) if args.check_results else {}
     except (OSError, ValueError):
@@ -60,7 +123,8 @@ def preflight(args):
         issues.append('Required local validations are missing or have not passed')
     return {'operation': 'pr preflight', 'status': 'blocked' if issues else 'passed',
             'branch': branch, 'base': args.base, 'head_sha': head,
-            'upstream': upstream.stdout.strip() or None, 'remote_sha': remote_sha, 'issues': issues}
+            'upstream': upstream.stdout.strip() or None, 'remote_sha': remote_sha,
+            'remote_relationship': relationship, 'issues': issues}
 
 
 def pr_info(pr):
@@ -70,19 +134,40 @@ def pr_info(pr):
 
 def failure_evidence(checks):
     evidence = []
+    runs = {}
     for check in checks:
         match = re.search(r'/actions/runs/(\d+)', check.get('link', ''))
         if not match:
+            evidence.append({'check': check['name'], 'link': check.get('link'),
+                             'retrieval': 'unavailable', 'reason': 'No workflow run link'})
             continue
-        output = run('gh', 'run', 'view', match.group(1), '--log-failed', check=False)
-        directory = Path(tempfile.mkdtemp(prefix='languee-ci-'))
-        path = directory / 'failed.log'
-        path.write_text(output.stdout + output.stderr, encoding='utf-8')
-        evidence.append({'check': check['name'], 'log': str(path), 'exit_code': output.returncode})
+        run_id = match.group(1)
+        if run_id not in runs:
+            try:
+                output = run('gh', 'run', 'view', run_id, '--log-failed', check=False)
+            except OSError:
+                runs[run_id] = {'retrieval': 'failed', 'reason': 'GitHub CLI log retrieval is unavailable'}
+                evidence.append({'check': check['name'], 'link': check.get('link'), 'run_id': run_id, **runs[run_id]})
+                continue
+            directory = Path(tempfile.mkdtemp(prefix='languee-ci-'))
+            path = directory / 'failed.log'
+            path.write_text(output.stdout + output.stderr, encoding='utf-8')
+            excerpts, withheld = extract_ci_diagnostics(output.stdout)
+            available = output.returncode == 0 and bool(output.stdout.strip())
+            runs[run_id] = {'log': str(path), 'exit_code': output.returncode,
+                            'retrieval': 'passed' if available else 'failed',
+                            'diagnostics': excerpts if available else [],
+                            'diagnostics_withheld': withheld or (available and not excerpts),
+                            **({'reason': 'Log retrieval failed or returned no output'} if not available else
+                               {'reason': 'No safe diagnostic excerpt; inspect the local log'} if not excerpts else {})}
+        evidence.append({'check': check['name'], 'link': check.get('link'), 'run_id': run_id, **runs[run_id]})
     return evidence
 
 
 def watch(args):
+    unavailable = gh_ready('pr watch')
+    if unavailable:
+        return unavailable
     if args.timeout <= 0 or args.interval <= 0:
         raise ValueError('Timeout and interval must be positive')
     deadline = time.monotonic() + args.timeout
@@ -96,6 +181,7 @@ def watch(args):
         except ValueError:
             checks = []
         result = {'operation': 'pr watch', 'head_sha': args.head, 'url': info['url'], 'checks': checks}
+        failures = [c for c in checks if c['state'].upper() in FAILED_STATES]
         no_checks = not checks and (check.returncode == 0 or 'no required checks reported' in check.stderr.lower())
         if no_checks:
             if time.monotonic() >= deadline:
@@ -108,9 +194,8 @@ def watch(args):
             issue = ('GitHub rate limit encountered' if 'rate limit' in message else
                      'GitHub authentication failed' if 'authentication' in message or '401' in message else
                      'Unable to retrieve required checks or a required check failed; inspect linked jobs')
-            result.update(status='failed', issues=[issue], evidence=failure_evidence(checks))
+            result.update(status='failed', issues=[issue], evidence=failure_evidence(failures))
             return result
-        failures = [c for c in checks if c['state'].upper() in ('FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'SKIPPED', 'STALE', 'NEUTRAL')]
         pending = [c for c in checks if c['state'].upper() not in ('SUCCESS', 'PASS')]
         if failures:
             result.update(status='failed', issues=['Required checks failed or were skipped'], evidence=failure_evidence(failures))
@@ -134,6 +219,9 @@ def publish(args):
     evidence = json.loads(gate.read_text())
     if not all(evidence.get(key) for key in ('creation', 'update', 'watch', 'comparison')):
         return {'operation': 'pr publish', 'status': 'blocked', 'issues': ['Transition evidence is incomplete']}
+    unavailable = gh_ready('pr publish')
+    if unavailable:
+        return unavailable
     if args.base != 'develop':
         raise ValueError('PR base must be develop')
     args.base = 'origin/develop'
@@ -151,6 +239,10 @@ def publish(args):
             result.update(status='blocked', issues=['Existing PR head differs from the validated head'])
             return result
         result.update(existing[0], existing=True)
+        return result
+    remote_sha, relationship, issue = remote_relationship(result['branch'], result['head_sha'])
+    if issue or relationship != 'equal' or remote_sha != result['head_sha']:
+        result.update(status='blocked', issues=['Remote head changed; push or reconcile before publication'])
         return result
     run('gh', 'pr', 'create', '--base', 'develop', '--head', result['branch'],
         '--title', args.title, '--body-file', args.body_file)
