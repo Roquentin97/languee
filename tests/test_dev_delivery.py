@@ -84,6 +84,7 @@ class DeliveryTest(unittest.TestCase):
         args = SimpleNamespace(pr=1, head='abc', timeout=1, interval=1)
         info = {'headRefOid': 'abc', 'url': 'https://example.test/pr/1'}
         with patch.object(delivery.delivery_pr, 'pr_info', return_value=info), \
+             patch.object(delivery.delivery_pr.time, 'monotonic', side_effect=[0, 2]), \
              patch.object(delivery.delivery_pr, 'run', return_value=CompletedProcess([], 0, '[]', '')):
             result = delivery.delivery_pr.watch(args)
         self.assertEqual(result['status'], 'blocked')

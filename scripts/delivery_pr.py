@@ -96,11 +96,15 @@ def watch(args):
         except ValueError:
             checks = []
         result = {'operation': 'pr watch', 'head_sha': args.head, 'url': info['url'], 'checks': checks}
+        no_checks = not checks and (check.returncode == 0 or 'no required checks reported' in check.stderr.lower())
+        if no_checks:
+            if time.monotonic() >= deadline:
+                result.update(status='blocked', issues=['Required checks are missing or unavailable'])
+                return result
+            time.sleep(min(args.interval, max(0, deadline - time.monotonic())))
+            continue
         if check.returncode not in (0, 8):
             result.update(status='failed', issues=['Unable to retrieve required checks or a required check failed; inspect linked jobs'], evidence=failure_evidence(checks))
-            return result
-        if not checks:
-            result.update(status='blocked', issues=['Required checks are missing or unavailable'])
             return result
         failures = [c for c in checks if c['state'].upper() in ('FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'SKIPPED', 'STALE', 'NEUTRAL')]
         pending = [c for c in checks if c['state'].upper() not in ('SUCCESS', 'PASS')]
