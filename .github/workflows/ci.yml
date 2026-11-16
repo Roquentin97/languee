@@ -27,23 +27,14 @@ jobs:
       nlp: ${{ steps.detect.outputs.nlp }}
       droid: ${{ steps.detect.outputs.droid }}
       deploy: ${{ steps.detect.outputs.deploy }}
+      agents: ${{ steps.detect.outputs.agents }}
     steps:
       - uses: actions/checkout@v7
         with:
           # The default PR ref is a merge commit: its first parent is the base.
           fetch-depth: 2
       - id: detect
-        run: |
-          files=$(git diff --name-only HEAD^1 HEAD)
-          flag() { # flag <output> <extended-regex>
-            if printf '%s\n' "$files" | grep -Eq "$2"; then v=true; else v=false; fi
-            echo "$1=$v" >> "$GITHUB_OUTPUT"
-          }
-          # Root lock/tooling files are shared build inputs; be conservative.
-          flag back '^(apps/languee-back/|package\.json$|yarn\.lock$|\.dockerignore$|\.github/workflows/ci\.yml$)'
-          flag nlp '^(apps/languee-nlp/|package\.json$|yarn\.lock$|\.dockerignore$|\.github/workflows/ci\.yml$)'
-          flag droid '^(apps/languee-droid/|\.github/workflows/ci\.yml$)'
-          flag deploy '^(deploy/|docker-compose(\.prod)?\.yml$|\.github/workflows/)'
+        run: python3 .github/scripts/ci_changes.py
 
   pr-title:
     name: PR title
@@ -173,6 +164,23 @@ jobs:
       - name: Build
         run: ./gradlew assembleDebug
 
+  agent-infrastructure:
+    name: Agent infrastructure
+    needs: changes
+    if: needs.changes.outputs.agents == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Validate agent structure
+        run: python -m unittest discover -s tests -p 'test_agent_infrastructure.py'
+      - name: Validate CI change selection
+        run: python -m unittest discover -s tests -p 'test_ci_changes.py'
+      - name: Validate local delivery
+        run: python -m unittest discover -s tests -p 'test_dev_delivery.py'
+
   deploy-tooling:
     name: Workflows and deploy scripts
     needs: changes
@@ -227,7 +235,7 @@ jobs:
     name: required
     # Single stable check name for the branch ruleset: "PR CI / required".
     if: always()
-    needs: [changes, pr-title, back, nlp, droid, deploy-tooling]
+    needs: [changes, pr-title, back, nlp, droid, deploy-tooling, agent-infrastructure]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every needed job passed or was legitimately skipped
@@ -239,4 +247,11 @@ jobs:
           # because `changes` reported no relevant files.
           echo "$RESULTS" | jq -e '
             (.changes.result == "success") and (.["pr-title"].result == "success")
-            and ([.[] | .result] | all(. == "success" or . == "skipped"))' > /dev/null
+            and ([
+              ["back", .changes.outputs.back], ["nlp", .changes.outputs.nlp],
+              ["droid", .changes.outputs.droid], ["deploy-tooling", .changes.outputs.deploy],
+              ["agent-infrastructure", .changes.outputs.agents]
+            ] | all(. as [$job, $enabled] |
+              if $enabled == "true" then $results[$job].result == "success"
+              elif $enabled == "false" then $results[$job].result == "skipped"
+              else false end))' --argjson results "$RESULTS" > /dev/null

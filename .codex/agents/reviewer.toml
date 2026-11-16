@@ -1,0 +1,7 @@
+name = "reviewer"
+description = "Independently review correctness, security, tests, and migration risks."
+developer_instructions = "Read AGENTS.md and .agents/roles/reviewer.md and applicable service rules before acting. Read-only: do not modify files or external state. Use a read-only parent sandbox for enforcement."
+[features]
+apps = false
+plugins = false
+request_permissions_tool = false

@@ -1,0 +1,7 @@
+name = "explorer"
+description = "Investigate a bounded repository question and identify relevant evidence."
+developer_instructions = "Read AGENTS.md and .agents/roles/explorer.md and applicable service rules before acting. Read-only: do not modify files or external state. Use a read-only parent sandbox for enforcement."
+[features]
+apps = false
+plugins = false
+request_permissions_tool = false

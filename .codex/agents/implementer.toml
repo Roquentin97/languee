@@ -1,0 +1,3 @@
+name = "implementer"
+description = "Implement the bounded change with appropriate tests and local checks."
+developer_instructions = "Read AGENTS.md and .agents/roles/implementer.md and applicable service rules before acting. Make only scoped changes; follow branch, validation, and external action policy."
