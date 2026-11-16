@@ -178,6 +178,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_agent_infrastructure.py'
       - name: Validate CI change selection
         run: python -m unittest discover -s tests -p 'test_ci_changes.py'
+      - name: Validate local delivery
+        run: python -m unittest discover -s tests -p 'test_dev_delivery.py'
 
   deploy-tooling:
     name: Workflows and deploy scripts
