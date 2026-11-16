@@ -113,6 +113,27 @@ class DeliveryTest(unittest.TestCase):
             result = delivery.delivery_pr.watch(args)
         self.assertEqual(result['status'], 'blocked')
 
+    def test_preflight_rejects_results_for_another_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checks = Path(directory) / 'checks.json'
+            checks.write_text(json.dumps({'operation': 'check', 'status': 'passed', 'head_sha': 'old',
+                                          'working_tree': False, 'checks': [], 'merge_base': 'base', 'outcomes': []}))
+            args = SimpleNamespace(title='feat(agents): example', base='origin/develop', check_results=checks,
+                                   expected_impact={'checks': [], 'merge_base': 'base',
+                                                    'affected_services': [], 'unresolved_impact': []})
+            def fake_git(*command):
+                if command[:2] == ('branch', '--show-current'):
+                    return 'feature/example'
+                if command[:2] == ('rev-parse', 'HEAD'):
+                    return 'new'
+                return ''
+            success = CompletedProcess([], 0, '', '')
+            with patch.object(delivery.delivery_pr, 'git', side_effect=fake_git), \
+                 patch.object(delivery.delivery_pr, 'run', return_value=success):
+                result = delivery.delivery_pr.preflight(args)
+            self.assertEqual(result['status'], 'blocked')
+            self.assertIn('Passing committed-head check results are required', result['issues'])
+
 
 if __name__ == '__main__':
     unittest.main()

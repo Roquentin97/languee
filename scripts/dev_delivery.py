@@ -82,7 +82,7 @@ def check(base, working_tree):
         summary.pop('diagnostics', None)
         summary['target'] = name
         result['outcomes'].append(summary)
-        if completed.returncode:
+        if completed.returncode or summary['status'] != 'passed':
             result['status'] = 'failed'
             break
     return result

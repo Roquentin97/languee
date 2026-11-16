@@ -104,7 +104,11 @@ def watch(args):
             time.sleep(min(args.interval, max(0, deadline - time.monotonic())))
             continue
         if check.returncode not in (0, 8):
-            result.update(status='failed', issues=['Unable to retrieve required checks or a required check failed; inspect linked jobs'], evidence=failure_evidence(checks))
+            message = check.stderr.lower()
+            issue = ('GitHub rate limit encountered' if 'rate limit' in message else
+                     'GitHub authentication failed' if 'authentication' in message or '401' in message else
+                     'Unable to retrieve required checks or a required check failed; inspect linked jobs')
+            result.update(status='failed', issues=[issue], evidence=failure_evidence(checks))
             return result
         failures = [c for c in checks if c['state'].upper() in ('FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'SKIPPED', 'STALE', 'NEUTRAL')]
         pending = [c for c in checks if c['state'].upper() not in ('SUCCESS', 'PASS')]
