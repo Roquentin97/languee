@@ -1,7 +1,7 @@
 # Cross-Service Boundary Rules
 
-If a feature crosses service boundaries, the spec must explicitly describe the contract
-between services. The Architect must halt with `pending_more_info` when the service
+If a feature crosses service boundaries, the task must explicitly describe the contract
+between services. Ask the user when the service
 contract, ownership boundary, request shape, response shape, timeout behavior, or error
 mapping is unspecified.
 
@@ -13,7 +13,7 @@ service's generated Swagger/OpenAPI docs before designing or verifying the contr
 
 These are default local ports. If the service defines a port environment variable in
 `forge/services.toml` (for example `LANGUEE_NLP_PORT` or `LANGUEE_BACK_API_PORT`), the
-actual docs URL may be environment-dependent. Check the generated service instructions
+actual docs URL may be environment-dependent. Check the service configuration
 and prefer the environment-adjusted port when it is available.
 
 If the service is unavailable or the docs endpoint cannot be reached, note that explicitly

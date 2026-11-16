@@ -16,10 +16,10 @@ Both paths are relative to the monorepo root. Create the directories if missing.
 
 ## Workflow
 
-1. Load the `artifact-design` skill first (via the Skill tool) to calibrate how much
+1. Load the `artifact-design` skill first (if available in the current environment) to calibrate how much
    design investment the request warrants - exactly as the Artifact tool requires. If
    the content includes any chart, graph, or data visualization, also load `dataviz`
-   before writing chart code.
+   before writing chart code. These skills are environment-specific prerequisites; if unavailable, report the limitation and use the applicable available design guidance.
 2. Choose a short, stable kebab-case slug describing the deliverable
    (e.g. `competitor-report`, `srs-flow-diagram`). The slug names both files.
 3. Write the HTML file, then the Markdown file.
