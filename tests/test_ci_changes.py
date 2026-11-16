@@ -42,6 +42,21 @@ class ChangeSelectionTest(unittest.TestCase):
                 self.assertEqual({name for name in ci_changes.SERVICES if result[name]}, {job})
                 self.assertFalse(result['agents'])
 
+    def test_shared_root_inputs_select_back_and_nlp(self):
+        for path in ('package.json', 'yarn.lock', '.dockerignore'):
+            with self.subTest(path=path):
+                result = self.select([path])
+                self.assertEqual({name for name in ci_changes.SERVICES if result[name]}, {'back', 'nlp'})
+
+    def test_agent_only_paths_do_not_select_services(self):
+        for path in ('AGENTS.md', 'CLAUDE.md', '.agents/roles/explorer.md',
+                     '.claude/agents/explorer.md', '.codex/agents/explorer.toml',
+                     'tests/test_agent_infrastructure.py'):
+            with self.subTest(path=path):
+                result = self.select([path])
+                self.assertTrue(result['agents'])
+                self.assertFalse(any(result[name] for name in ci_changes.SERVICES))
+
     def test_changed_service_job_selects_that_service(self):
         for job in ci_changes.SERVICES:
             with self.subTest(job=job):

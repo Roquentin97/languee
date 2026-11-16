@@ -7,6 +7,7 @@ import subprocess
 
 WORKFLOW = '.github/workflows/ci.yml'
 SERVICES = {'back': 'languee-back', 'nlp': 'languee-nlp', 'droid': 'languee-droid'}
+SHARED_ROOT_INPUTS = {'package.json', 'yarn.lock', '.dockerignore'}
 
 
 def workflow_sections(text):
@@ -35,6 +36,7 @@ def select_checks(paths, base_workflow, head_workflow):
     for job, service in SERVICES.items():
         selected[job] = (
             any(path.startswith(f'apps/{service}/') for path in paths)
+            or (job in {'back', 'nlp'} and any(path in SHARED_ROOT_INPUTS for path in paths))
             or (workflow_changed and (common_changed or base_jobs[job] != head_jobs[job]))
         )
     selected['agents'] = any(
