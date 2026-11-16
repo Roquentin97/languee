@@ -97,9 +97,15 @@
       "^.+\\.(t|j)s$": [
         "ts-jest",
         {
-          "isolatedModules": false
+          "isolatedModules": false,
+          "useESM": true
         }
       ]
+    },
+    "extensionsToTreatAsEsm": [".ts"],
+    "transformIgnorePatterns": ["/node_modules/(?!(@nestjs/jwt|uuid)/)"],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
