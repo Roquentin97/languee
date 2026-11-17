@@ -37,6 +37,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
@@ -83,6 +85,7 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationEr
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
+import com.example.langueedroid.feature.cardcreation.presentation.groupDefinitionsByDeck
 import com.languee.droid.R
 
 // The state dispatcher keeps screen transitions and their callbacks together.
@@ -510,14 +513,16 @@ private fun DefinitionCards(
     onDefinitionSelected: (DefinitionResult) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val (saved, new) = groupDefinitionsByDeck(definitions, selectedDeckId)
     LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(definitions) { definition ->
-            DefinitionCard(
-                definition = definition,
-                isSelected = definition == selectedDefinition,
-                selectedDeckId = selectedDeckId,
-                onClick = { onDefinitionSelected(definition) },
-            )
+        items(saved) { definition ->
+            DefinitionCard(definition, definition == selectedDefinition, selectedDeckId, { onDefinitionSelected(definition) })
+        }
+        if (saved.isNotEmpty() && new.isNotEmpty()) {
+            item { HorizontalDivider(modifier = Modifier.testTag("definition-group-divider"), color = CardBorder) }
+        }
+        items(new) { definition ->
+            DefinitionCard(definition, definition == selectedDefinition, selectedDeckId, { onDefinitionSelected(definition) })
         }
     }
 }
