@@ -43,7 +43,7 @@ class VocabularyRepository(
                                 SavedVocabulary(
                                     surface = match.surface,
                                     headword = headword.lemma,
-                                    wordId = headword.wordId,
+                                    entryId = headword.entryId,
                                     definitionId = definition.definitionId,
                                     partOfSpeech = definition.partOfSpeech,
                                     definition = definition.definition,
@@ -58,7 +58,7 @@ class VocabularyRepository(
         }
 
     suspend fun lookup(
-        word: String,
+        text: String,
         language: String? = null,
         context: String? = null,
         selectionStart: Int? = null,
@@ -67,13 +67,13 @@ class VocabularyRepository(
         runCatching {
             // Fail fast on obviously-too-long input so the user gets a specific message without a
             // round trip. NLP still owns the real limit — see [ExpressionLimits].
-            if (ExpressionLimits.exceedsMaxWords(word)) {
+            if (ExpressionLimits.exceedsMaxWords(text)) {
                 logger.info("vocabulary.expression_too_long", mapOf("max_words" to ExpressionLimits.MAX_WORDS.toString()))
                 throw ExpressionTooLongException()
             }
             val response =
                 vocabularyApi.lookup(
-                    word = word,
+                    text = text,
                     language = language,
                     context = context,
                     selectionStart = selectionStart,

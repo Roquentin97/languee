@@ -4,7 +4,7 @@ import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerCheck
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.GradeOutcome
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.ReviewSummary
@@ -100,13 +100,13 @@ class ReviewRepository(
             }
         }
 
-    suspend fun revealDefinition(cardId: String): Result<RevealedWord> =
+    suspend fun revealDefinition(cardId: String): Result<RevealedEntry> =
         runCatching {
             val response = reviewsApi.revealDefinition(cardId)
             when {
                 response.isSuccessful -> {
                     val body = response.body() ?: throw Exception("Empty response body from definition reveal")
-                    RevealedWord(
+                    RevealedEntry(
                         lemma = body.lemma,
                         ipa = null,
                         inflectionForms = null,

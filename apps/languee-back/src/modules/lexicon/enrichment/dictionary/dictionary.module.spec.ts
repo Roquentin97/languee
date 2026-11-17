@@ -16,7 +16,7 @@ import {
 } from './constants';
 import { ProviderUnavailableError } from '../../entries/definitions/definitions.errors';
 import { DictionaryService } from './dictionary.service';
-import { WordsService } from '../../entries/words/words.service';
+import { LexicalEntriesService } from '../../entries/lexical-entries/lexical-entries.service';
 import { DefinitionService } from '../../entries/definitions/definitions.service';
 import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { DictionaryController } from './dictionary.controller';
@@ -161,8 +161,8 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
     ensureExistsAndReturn: jest.fn(),
   };
   const definitionServiceMock = {
-    findByWordId: jest.fn(),
-    findByWordIds: jest.fn(),
+    findByEntryId: jest.fn(),
+    findByEntryIds: jest.fn(),
     createMany: jest.fn(),
   };
   const adapterMock: jest.Mocked<IDictionaryApiAdapter> = {
@@ -173,7 +173,7 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
   beforeEach(async () => {
     jest.resetAllMocks();
     wordsServiceMock.findLookupCandidates.mockResolvedValue([]);
-    definitionServiceMock.findByWordIds.mockResolvedValue([]);
+    definitionServiceMock.findByEntryIds.mockResolvedValue([]);
 
     testModule = await Test.createTestingModule({
       providers: [
@@ -204,7 +204,7 @@ describe('DictionaryController — provider failure maps to DICTIONARY_PROVIDER_
             },
           },
         },
-        { provide: WordsService, useValue: wordsServiceMock },
+        { provide: LexicalEntriesService, useValue: wordsServiceMock },
         { provide: DefinitionService, useValue: definitionServiceMock },
         { provide: DICTIONARY_API_ADAPTER, useValue: adapterMock },
       ],

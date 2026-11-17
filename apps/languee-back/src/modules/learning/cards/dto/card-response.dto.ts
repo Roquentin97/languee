@@ -33,7 +33,7 @@ export class CardDefinitionResponseDto {
   inflectionForms!: InflectionForms | null;
 }
 
-export class CardWordResponseDto {
+export class CardEntryResponseDto {
   @ApiProperty({ example: 'word_123' })
   id!: string;
 
@@ -69,7 +69,7 @@ export class CardResponseDto {
     example: 'word_123',
     nullable: true,
   })
-  wordId!: string | null;
+  entryId!: string | null;
 
   @ApiPropertyOptional({
     description: 'Set for `inflection` cards',
@@ -101,8 +101,8 @@ export class CardResponseDto {
   })
   definition!: CardDefinitionResponseDto | null;
 
-  @ApiProperty({ type: CardWordResponseDto })
-  word!: CardWordResponseDto;
+  @ApiProperty({ type: CardEntryResponseDto })
+  entry!: CardEntryResponseDto;
 }
 
 export class CreateCardsResponseDto {

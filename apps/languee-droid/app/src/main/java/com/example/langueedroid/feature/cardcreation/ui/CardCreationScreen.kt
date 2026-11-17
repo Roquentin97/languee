@@ -67,7 +67,7 @@ import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.InflectionFormLabels
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.core.ui.components.SpeakerIconButton
 import com.example.langueedroid.core.ui.theme.AmberBorder
 import com.example.langueedroid.core.ui.theme.AmberContainer
@@ -1005,15 +1005,16 @@ private fun CardCreationError.toStringRes(): Int =
 /** Shows a kind chip ("phrasal verb" / "expression") and, when relevant, a context-not-found warning. */
 @Composable
 private fun ExpressionKindIndicator(
-    kind: LexicalKind,
+    kind: LexicalEntryKind,
     expressionContextFound: Boolean?,
     modifier: Modifier = Modifier,
 ) {
     val kindLabelRes =
         when (kind) {
-            LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
-            LexicalKind.EXPRESSION -> R.string.review_kind_expression
-            LexicalKind.WORD -> null
+            LexicalEntryKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+            LexicalEntryKind.EXPRESSION -> R.string.review_kind_expression
+            LexicalEntryKind.IDIOM -> R.string.review_kind_idiom
+            LexicalEntryKind.WORD -> null
         }
     if (kindLabelRes == null) return
 

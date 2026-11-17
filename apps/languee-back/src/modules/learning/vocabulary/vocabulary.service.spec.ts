@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LexicalKind } from '@prisma/client';
+import { LexicalEntryKind } from '@prisma/client';
 import { VocabularyService } from './vocabulary.service';
 import { DictionaryService } from '../../lexicon/enrichment/dictionary/dictionary.service';
 import { CardsService } from '../cards/cards.service';
 import { NlpService } from '../../lexicon/enrichment/nlp/nlp.service';
-import { WordsService } from '../../lexicon/entries/words/words.service';
+import { LexicalEntriesService } from '../../lexicon/entries/lexical-entries/lexical-entries.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
 import { DefinitionAlreadyExistsError } from '../../lexicon/entries/definitions/definitions.errors';
@@ -20,8 +20,8 @@ import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import type { LookupVocabularyOutput } from './types/lookup-vocabulary.types';
 import type {
   DefinitionResult,
-  LookupWordInput,
-} from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
+  LookupEntryInput,
+} from '../../lexicon/enrichment/dictionary/types/lookup-entry.types';
 import { PartOfSpeechRequiredError } from './vocabulary.errors';
 
 const mockDictionaryService = {
@@ -37,7 +37,7 @@ const mockNlpService = {
   analyze: jest.fn(),
 };
 
-const mockWordsService = {
+const mockLexicalEntriesService = {
   ensureExistsAndReturn: jest.fn(),
 };
 
@@ -82,7 +82,7 @@ const baseOutput = {
 function preferredDefinitions(result: LookupVocabularyOutput) {
   const word =
     result.headwords.find(
-      (entry) => entry.wordId === result.preferred?.wordId,
+      (entry) => entry.entryId === result.preferred?.entryId,
     ) ?? result.headwords[0];
   if (result.meta.unmatchedPos) return [];
   return (word?.partsOfSpeech ?? [])
@@ -107,21 +107,21 @@ describe('VocabularyService', () => {
         {
           provide: DictionaryService,
           useValue: {
-            lookup: async (input: LookupWordInput) => {
+            lookup: async (input: LookupEntryInput) => {
               const old: {
                 lemma: string;
                 source: 'cache' | 'provider';
                 definitions: DefinitionResult[];
               } = await mockDictionaryService.lookup(input);
               return {
-                input: input.word,
+                input: input.text,
                 language: input.language,
                 kind: input.kind,
                 source: old.source,
-                preferred: { wordId: 'word-id', partOfSpeech: null },
+                preferred: { entryId: 'word-id', partOfSpeech: null },
                 headwords: [
                   {
-                    wordId: 'word-id',
+                    entryId: 'word-id',
                     lemma: old.lemma,
                     language: input.language,
                     relations: [],
@@ -141,7 +141,7 @@ describe('VocabularyService', () => {
         },
         { provide: CardsService, useValue: mockCardsService },
         { provide: NlpService, useValue: mockNlpService },
-        { provide: WordsService, useValue: mockWordsService },
+        { provide: LexicalEntriesService, useValue: mockLexicalEntriesService },
         { provide: DefinitionService, useValue: mockDefinitionService },
       ],
     }).compile();
@@ -167,7 +167,7 @@ describe('VocabularyService', () => {
       ]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -196,7 +196,7 @@ describe('VocabularyService', () => {
       ]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -228,7 +228,7 @@ describe('VocabularyService', () => {
       ]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -242,7 +242,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -255,7 +255,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -273,7 +273,7 @@ describe('VocabularyService', () => {
       ]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -295,7 +295,7 @@ describe('VocabularyService', () => {
       );
 
       await expect(
-        service.lookup({ word: 'xyzabc', language: 'en', userId: 'user-id-1' }),
+        service.lookup({ text: 'xyzabc', language: 'en', userId: 'user-id-1' }),
       ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
 
       expect(
@@ -308,7 +308,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -349,7 +349,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -384,7 +384,7 @@ describe('VocabularyService', () => {
 
       // NLP returns VERB but dictionary only has noun
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -430,7 +430,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -468,7 +468,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -506,7 +506,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -553,7 +553,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'fast',
+        text: 'fast',
         language: 'en',
         userId: 'user-id-1',
         context: 'That was a fast train.',
@@ -580,7 +580,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -609,7 +609,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -646,7 +646,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         // no context field
@@ -685,7 +685,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -702,7 +702,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       const result = await service.lookup({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: 'She runs every morning.',
@@ -715,12 +715,12 @@ describe('VocabularyService', () => {
     // NLP integration tests
     // -------------------------------------------------------------------------
 
-    it('NLP analyze() is called with input.word before dictionary lookup', async () => {
+    it('NLP analyze() is called with input.text before dictionary lookup', async () => {
       mockDictionaryService.lookup.mockResolvedValue(baseOutput);
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       await service.lookup({
-        word: 'walked',
+        text: 'walked',
         language: 'en',
         userId: 'user-id-1',
       });
@@ -745,7 +745,7 @@ describe('VocabularyService', () => {
       });
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
       const result = await service.lookup({
-        word: 'saw',
+        text: 'saw',
         language: 'en',
         userId: 'user-id-1',
         context: 'I saw the saw.',
@@ -768,7 +768,7 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       await service.lookup({
-        word: 'saw',
+        text: 'saw',
         language: 'en',
         userId: 'user-id-1',
         context: 'The saw was sharp enough to cut oak.',
@@ -798,14 +798,14 @@ describe('VocabularyService', () => {
       mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
 
       await service.lookup({
-        word: 'walked',
+        text: 'walked',
         language: 'en',
         userId: 'user-id-1',
       });
 
       expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
         expect.objectContaining({
-          word: 'walked',
+          text: 'walked',
           lemma: 'walk',
           pos: PartOfSpeech.VERB,
         }),
@@ -826,7 +826,7 @@ describe('VocabularyService', () => {
       mockNlpService.analyze.mockRejectedValue(new NlpUnavailableError());
 
       await expect(
-        service.lookup({ word: 'walk', language: 'en', userId: 'user-id-1' }),
+        service.lookup({ text: 'walk', language: 'en', userId: 'user-id-1' }),
       ).rejects.toBeInstanceOf(NlpUnavailableError);
 
       expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
@@ -837,7 +837,7 @@ describe('VocabularyService', () => {
 
       await expect(
         service.lookup({
-          word: "don't",
+          text: "don't",
           language: 'en',
           userId: 'user-id-1',
         }),
@@ -881,7 +881,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'run',
+          text: 'run',
           language: 'en',
           userId: 'user-id-1',
         });
@@ -901,7 +901,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
         });
@@ -912,10 +912,10 @@ describe('VocabularyService', () => {
           'en',
         );
         expect(mockDictionaryService.lookup).toHaveBeenCalledWith({
-          word: 'ran into',
+          text: 'ran into',
           lemma: 'run into',
           language: 'en',
-          kind: LexicalKind.phrasal_verb,
+          kind: LexicalEntryKind.phrasal_verb,
         });
         expect(result.headwords[0]?.lemma ?? result.meta.analyzedLemma).toBe(
           'run into',
@@ -925,7 +925,7 @@ describe('VocabularyService', () => {
         expect(result.meta.isExpression).toBe(true);
       });
 
-      it('NLP kind "expression" maps to LexicalKind.expression for the dictionary lookup', async () => {
+      it('NLP kind "expression" maps to LexicalEntryKind.expression for the dictionary lookup', async () => {
         mockNlpService.analyze.mockResolvedValue({
           ...defaultExpressionAnalysis,
           kind: 'expression',
@@ -939,13 +939,13 @@ describe('VocabularyService', () => {
         );
 
         await service.lookup({
-          word: 'kick the bucket',
+          text: 'kick the bucket',
           language: 'en',
           userId: 'user-id-1',
         });
 
         expect(mockDictionaryService.lookup).toHaveBeenCalledWith(
-          expect.objectContaining({ kind: LexicalKind.expression }),
+          expect.objectContaining({ kind: LexicalEntryKind.expression }),
         );
       });
 
@@ -966,7 +966,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
           context: 'I ran into trouble.',
@@ -987,7 +987,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
         });
@@ -1007,7 +1007,7 @@ describe('VocabularyService', () => {
 
         await expect(
           service.lookup({
-            word: 'ran into',
+            text: 'ran into',
             language: 'en',
             userId: 'user-id-1',
           }),
@@ -1029,7 +1029,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
           context: 'I ran into an old friend.',
@@ -1058,7 +1058,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
           context: 'I ran into an old friend.',
@@ -1085,7 +1085,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'run into',
+          text: 'run into',
           language: 'en',
           userId: 'user-id-1',
           context: 'I run into problems daily.',
@@ -1102,7 +1102,7 @@ describe('VocabularyService', () => {
         );
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
         });
@@ -1121,7 +1121,7 @@ describe('VocabularyService', () => {
         ]);
 
         const result = await service.lookup({
-          word: 'ran into',
+          text: 'ran into',
           language: 'en',
           userId: 'user-id-1',
         });
@@ -1136,7 +1136,7 @@ describe('VocabularyService', () => {
 
         await expect(
           service.lookup({
-            word: 'one two three four five six seven',
+            text: 'one two three four five six seven',
             language: 'en',
             userId: 'user-id-1',
           }),
@@ -1159,7 +1159,7 @@ describe('VocabularyService', () => {
           definitionId: 'definition-1',
           partOfSpeech: 'noun',
           definition: 'A high-speed road.',
-          word: {
+          entry: {
             id: 'word-1',
             lemma: 'expressway',
             forms: [
@@ -1190,7 +1190,7 @@ describe('VocabularyService', () => {
             surface: 'expressways',
             headwords: [
               {
-                wordId: 'word-1',
+                entryId: 'word-1',
                 lemma: 'expressway',
                 definitions: [
                   {
@@ -1229,15 +1229,15 @@ describe('VocabularyService', () => {
 
     it('word path — NLP classifies as word, canonical comes from the lemma, persists with provider "user"', async () => {
       mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
-      mockWordsService.ensureExistsAndReturn.mockResolvedValue({
+      mockLexicalEntriesService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-1',
         lemma: 'run',
         language: 'en',
-        kind: LexicalKind.word,
+        kind: LexicalEntryKind.word,
       });
       mockDefinitionService.createOne.mockResolvedValue({
         id: 'def-id-1',
-        wordId: 'word-id-1',
+        entryId: 'word-id-1',
         partOfSpeech: 'verb',
         definition: 'to move fast',
         example: null,
@@ -1256,11 +1256,9 @@ describe('VocabularyService', () => {
         undefined,
         'en',
       );
-      expect(mockWordsService.ensureExistsAndReturn).toHaveBeenCalledWith(
-        'run',
-        'en',
-        LexicalKind.word,
-      );
+      expect(
+        mockLexicalEntriesService.ensureExistsAndReturn,
+      ).toHaveBeenCalledWith('run', 'en', LexicalEntryKind.word);
       expect(mockDefinitionService.createOne).toHaveBeenCalledWith(
         'word-id-1',
         { partOfSpeech: PartOfSpeech.VERB, definition: 'to move fast' },
@@ -1268,9 +1266,9 @@ describe('VocabularyService', () => {
       );
       expect(result).toEqual({
         id: 'def-id-1',
-        wordId: 'word-id-1',
+        entryId: 'word-id-1',
         lemma: 'run',
-        kind: LexicalKind.word,
+        kind: LexicalEntryKind.word,
         partOfSpeech: 'verb',
         definition: 'to move fast',
         example: null,
@@ -1285,15 +1283,15 @@ describe('VocabularyService', () => {
         headLemma: 'kick',
         contextMatch: null,
       });
-      mockWordsService.ensureExistsAndReturn.mockResolvedValue({
+      mockLexicalEntriesService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-2',
         lemma: 'kick the bucket',
         language: 'en',
-        kind: LexicalKind.expression,
+        kind: LexicalEntryKind.expression,
       });
       mockDefinitionService.createOne.mockResolvedValue({
         id: 'def-id-2',
-        wordId: 'word-id-2',
+        entryId: 'word-id-2',
         partOfSpeech: 'phrase',
         definition: 'to die',
         example: null,
@@ -1311,12 +1309,14 @@ describe('VocabularyService', () => {
         undefined,
         'en',
       );
-      expect(mockWordsService.ensureExistsAndReturn).toHaveBeenCalledWith(
+      expect(
+        mockLexicalEntriesService.ensureExistsAndReturn,
+      ).toHaveBeenCalledWith(
         'kick the bucket',
         'en',
-        LexicalKind.expression,
+        LexicalEntryKind.expression,
       );
-      expect(result.kind).toBe(LexicalKind.expression);
+      expect(result.kind).toBe(LexicalEntryKind.expression);
       expect(result.partOfSpeech).toBe('phrase');
     });
 
@@ -1331,7 +1331,9 @@ describe('VocabularyService', () => {
         }),
       ).rejects.toBeInstanceOf(NlpInputInvalidError);
 
-      expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
+      expect(
+        mockLexicalEntriesService.ensureExistsAndReturn,
+      ).not.toHaveBeenCalled();
     });
 
     it('missing partOfSpeech for a single word throws PartOfSpeechRequiredError', async () => {
@@ -1345,7 +1347,9 @@ describe('VocabularyService', () => {
         }),
       ).rejects.toBeInstanceOf(PartOfSpeechRequiredError);
 
-      expect(mockWordsService.ensureExistsAndReturn).not.toHaveBeenCalled();
+      expect(
+        mockLexicalEntriesService.ensureExistsAndReturn,
+      ).not.toHaveBeenCalled();
     });
 
     it('partOfSpeech defaults to PHRASE for expressions when not provided', async () => {
@@ -1355,15 +1359,15 @@ describe('VocabularyService', () => {
         headLemma: 'run',
         contextMatch: null,
       });
-      mockWordsService.ensureExistsAndReturn.mockResolvedValue({
+      mockLexicalEntriesService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-3',
         lemma: 'run into',
         language: 'en',
-        kind: LexicalKind.phrasal_verb,
+        kind: LexicalEntryKind.phrasal_verb,
       });
       mockDefinitionService.createOne.mockResolvedValue({
         id: 'def-id-3',
-        wordId: 'word-id-3',
+        entryId: 'word-id-3',
         partOfSpeech: 'phrase',
         definition: 'to encounter',
         example: null,
@@ -1385,11 +1389,11 @@ describe('VocabularyService', () => {
 
     it('duplicate definition — DefinitionAlreadyExistsError from DefinitionService.createOne propagates', async () => {
       mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
-      mockWordsService.ensureExistsAndReturn.mockResolvedValue({
+      mockLexicalEntriesService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-1',
         lemma: 'run',
         language: 'en',
-        kind: LexicalKind.word,
+        kind: LexicalEntryKind.word,
       });
       mockDefinitionService.createOne.mockRejectedValue(
         new DefinitionAlreadyExistsError(),
@@ -1407,15 +1411,15 @@ describe('VocabularyService', () => {
 
     it('example is forwarded to DefinitionService.createOne when provided, omitted when absent', async () => {
       mockNlpService.analyze.mockResolvedValue(wordAnalysis('run'));
-      mockWordsService.ensureExistsAndReturn.mockResolvedValue({
+      mockLexicalEntriesService.ensureExistsAndReturn.mockResolvedValue({
         id: 'word-id-1',
         lemma: 'run',
         language: 'en',
-        kind: LexicalKind.word,
+        kind: LexicalEntryKind.word,
       });
       mockDefinitionService.createOne.mockResolvedValue({
         id: 'def-id-1',
-        wordId: 'word-id-1',
+        entryId: 'word-id-1',
         partOfSpeech: 'verb',
         definition: 'to move fast',
         example: 'She runs daily.',

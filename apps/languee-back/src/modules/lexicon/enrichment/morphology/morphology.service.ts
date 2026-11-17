@@ -6,7 +6,7 @@ import type { MorphologyProvider, RelationType } from './morphology-provider';
 import type {
   CanonicalEntry,
   FormOrigin,
-  ParadigmsByWord,
+  ParadigmsByEntry,
   LexicalParadigm,
 } from './morphology.types';
 import { projectParadigm, snapshotParadigm } from './paradigm';
@@ -34,11 +34,11 @@ export class MorphologyService {
       entry.language,
     );
     if (!forms.length) return;
-    await this.prisma.wordForm.createMany({
+    await this.prisma.lexicalForm.createMany({
       data: forms
         .filter((f) => f.form.trim() && !/\s/.test(f.form.trim()))
         .map((f) => ({
-          wordId: entry.wordId,
+          entryId: entry.entryId,
           form: normalizeSpelling(f.form),
           partOfSpeech: entry.partOfSpeech,
           relationType: f.formType,
@@ -57,7 +57,7 @@ export class MorphologyService {
     }[] = [];
     for (const entry of entries) {
       const key = JSON.stringify([
-        entry.wordId,
+        entry.entryId,
         entry.partOfSpeech,
         entry.language,
       ]);
@@ -113,27 +113,27 @@ export class MorphologyService {
       return forms
         .filter((f) => f.form.trim() && !/\s/.test(f.form.trim()))
         .map((f) => ({
-          wordId: entry.wordId,
+          entryId: entry.entryId,
           form: normalizeSpelling(f.form),
           partOfSpeech: entry.partOfSpeech,
           relationType: f.formType,
         }));
     });
     if (data.length)
-      await this.prisma.wordForm.createMany({ data, skipDuplicates: true });
+      await this.prisma.lexicalForm.createMany({ data, skipDuplicates: true });
   }
 
   /** Persists explicit relationships only after dictionary target validation. */
   async recordValidatedRelationships(
-    wordId: string,
+    entryId: string,
     surface: string,
     partOfSpeech: PartOfSpeech,
     relationTypes: RelationType[],
   ): Promise<void> {
     if (!relationTypes.length) return;
-    await this.prisma.wordForm.createMany({
+    await this.prisma.lexicalForm.createMany({
       data: relationTypes.map((relationType) => ({
-        wordId,
+        entryId,
         form: normalizeSpelling(surface),
         partOfSpeech,
         relationType,
@@ -143,34 +143,34 @@ export class MorphologyService {
   }
 
   findOrigins(surface: string, language: string): Promise<FormOrigin[]> {
-    return this.prisma.wordForm.findMany({
-      where: { form: normalizeSpelling(surface), word: { language } },
-      select: { wordId: true, partOfSpeech: true, relationType: true },
+    return this.prisma.lexicalForm.findMany({
+      where: { form: normalizeSpelling(surface), entry: { language } },
+      select: { entryId: true, partOfSpeech: true, relationType: true },
     });
   }
 
-  async describeEntries(entries: CanonicalEntry[]): Promise<ParadigmsByWord> {
-    const result: ParadigmsByWord = new Map();
+  async describeEntries(entries: CanonicalEntry[]): Promise<ParadigmsByEntry> {
+    const result: ParadigmsByEntry = new Map();
     if (!entries.length) return result;
-    const forms = await this.prisma.wordForm.findMany({
-      where: { wordId: { in: [...new Set(entries.map((e) => e.wordId))] } },
+    const forms = await this.prisma.lexicalForm.findMany({
+      where: { entryId: { in: [...new Set(entries.map((e) => e.entryId))] } },
     });
     const byWord = new Map<string, typeof forms>();
     for (const form of forms) {
-      const rows = byWord.get(form.wordId) ?? [];
+      const rows = byWord.get(form.entryId) ?? [];
       rows.push(form);
-      byWord.set(form.wordId, rows);
+      byWord.set(form.entryId, rows);
     }
     for (const entry of entries) {
       const paradigms =
-        result.get(entry.wordId) ?? new Map<string, LexicalParadigm>();
+        result.get(entry.entryId) ?? new Map<string, LexicalParadigm>();
       if (paradigms.has(entry.partOfSpeech)) continue;
-      const rows = byWord.get(entry.wordId) ?? [];
+      const rows = byWord.get(entry.entryId) ?? [];
       paradigms.set(entry.partOfSpeech, {
         ...projectParadigm(entry.lemma, entry.partOfSpeech, rows),
         snapshot: snapshotParadigm(entry.lemma, entry.partOfSpeech, rows),
       });
-      result.set(entry.wordId, paradigms);
+      result.set(entry.entryId, paradigms);
     }
     return result;
   }

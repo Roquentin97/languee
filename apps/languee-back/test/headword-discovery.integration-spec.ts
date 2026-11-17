@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../src/modules/system/core/prisma/prisma.service';
-import { WordsService } from '../src/modules/lexicon/entries/words/words.service';
+import { LexicalEntriesService } from '../src/modules/lexicon/entries/lexical-entries/lexical-entries.service';
 import { DefinitionService } from '../src/modules/lexicon/entries/definitions/definitions.service';
 import { HeadwordDiscoveryService } from '../src/modules/lexicon/enrichment/dictionary/headword-discovery.service';
 import { DictionaryService } from '../src/modules/lexicon/enrichment/dictionary/dictionary.service';
@@ -139,7 +139,7 @@ const dictionary = {
   }),
 };
 const morphologyService = new MorphologyService(prisma, morphology);
-const words = new WordsService(prisma);
+const words = new LexicalEntriesService(prisma);
 const service = new HeadwordDiscoveryService(
   prisma,
   words,
@@ -161,8 +161,13 @@ const pairs = (r: Awaited<ReturnType<typeof lookup>>) =>
     ])
     .sort();
 const rows = async (form: string) =>
-  (await prisma.wordForm.findMany({ where: { form }, include: { word: true } }))
-    .map((r) => `${r.word.lemma}/${r.partOfSpeech}/${r.relationType}`)
+  (
+    await prisma.lexicalForm.findMany({
+      where: { form },
+      include: { entry: true },
+    })
+  )
+    .map((r) => `${r.entry.lemma}/${r.partOfSpeech}/${r.relationType}`)
     .sort();
 
 beforeAll(async () => {
@@ -174,7 +179,7 @@ beforeAll(async () => {
     if (m === '20261108000000_headword_discovery') {
       await raw.query(`INSERT INTO users(id,email,password_hash,updated_at) VALUES ('00000000-0000-0000-0000-000000000001','saved@example.com','hash',now());
         INSERT INTO words(id,lemma) VALUES ('00000000-0000-0000-0000-000000000002','historical');
-        INSERT INTO definitions(id,word_id,part_of_speech,definition,provider,inflection_forms,has_irregular_forms,gap_fill_metadata) VALUES ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','noun','Historical sense','fixture','{"type":"noun","plural":"bad"}',true,'{"keep":true}');
+        INSERT INTO definitions(id,entry_id,part_of_speech,definition,provider,inflection_forms,has_irregular_forms,gap_fill_metadata) VALUES ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','noun','Historical sense','fixture','{"type":"noun","plural":"bad"}',true,'{"keep":true}');
         INSERT INTO decks(id,user_id,name,updated_at) VALUES ('00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000001','Saved',now());
         INSERT INTO cards(id,user_id,definition_id,type,inflection_forms,updated_at) VALUES ('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000003','cloze','{"type":"noun","plural":"historicals"}',now());
         INSERT INTO card_ankidroid_exports(card_id,status,updated_at) VALUES ('00000000-0000-0000-0000-000000000005','completed',now());
@@ -315,7 +320,7 @@ it.each([
   expect(pairs(poised)).toEqual(['poise/verb', 'poised/adjective']);
   expect(pairs(await lookup('poise'))).toEqual(['poise/noun', 'poise/verb']);
   expect(
-    await prisma.word.findUnique({
+    await prisma.lexicalEntry.findUnique({
       where: { lemma_language: { lemma: 'children', language: 'en' } },
     }),
   ).toBeNull();
@@ -354,7 +359,7 @@ it('C13/S12 legacy Word without state is safely fetched without duplicating defi
 it('C15 completed negative results do not fabricate words or repeat provider calls', async () => {
   await lookup('qzvxnotaword');
   await lookup('qzvxnotaword');
-  expect(await prisma.word.count()).toBe(0);
+  expect(await prisma.lexicalEntry.count()).toBe(0);
   expect(dictionary.fetchEntry).toHaveBeenCalledTimes(1);
   expect((await state('qzvxnotaword'))?.dictionaryFetchedAt).toEqual(
     new Date(),
@@ -383,16 +388,16 @@ it('C19 concurrent lookups remain idempotent', async () => {
   const [a, b] = await Promise.all([lookup('better'), lookup('better')]);
   expect(pairs(a)).toEqual(pairs(b));
   const before = [
-    await prisma.word.count(),
+    await prisma.lexicalEntry.count(),
     await prisma.definition.count(),
-    await prisma.wordForm.count(),
+    await prisma.lexicalForm.count(),
     await prisma.lookupState.count(),
   ];
   await lookup('better');
   expect([
-    await prisma.word.count(),
+    await prisma.lexicalEntry.count(),
     await prisma.definition.count(),
-    await prisma.wordForm.count(),
+    await prisma.lexicalForm.count(),
     await prisma.lookupState.count(),
   ]).toEqual(before);
 });
@@ -416,11 +421,11 @@ it.each(corpus.reference_morphology_cases)(
   '$id $lemma/$part_of_speech controlled morphology storage and reverse lookup',
   async (c) => {
     await lookup(c.lemma);
-    const word = await prisma.word.findUniqueOrThrow({
+    const word = await prisma.lexicalEntry.findUniqueOrThrow({
       where: { lemma_language: { lemma: c.lemma, language: 'en' } },
     });
-    const forms = await prisma.wordForm.findMany({
-      where: { wordId: word.id },
+    const forms = await prisma.lexicalForm.findMany({
+      where: { entryId: word.id },
     });
     expect(
       forms.map((f) => `${f.form}/${f.partOfSpeech}/${f.relationType}`).sort(),
@@ -516,16 +521,16 @@ it('C18 unresolved references are neither definitions nor validated mappings', a
     ),
   );
   expect(pairs(await lookup('uncertain'))).toEqual([]);
-  expect(await prisma.wordForm.count()).toBe(0);
+  expect(await prisma.lexicalForm.count()).toBe(0);
   expect(await prisma.definition.count()).toBe(0);
   expect((await state('uncertain'))?.dictionaryFetchedAt).toEqual(new Date());
   expect((await state('uncertain'))?.discoveryCompletedAt).toEqual(new Date());
 });
 it('C20 NFC and case-normalized selected spelling share state and mappings', async () => {
   await lookup('BETTER');
-  const first = await prisma.wordForm.count();
+  const first = await prisma.lexicalForm.count();
   await lookup('Better');
-  expect(await prisma.wordForm.count()).toBe(first);
+  expect(await prisma.lexicalForm.count()).toBe(first);
   expect(await prisma.lookupState.count({ where: { term: 'better' } })).toBe(1);
   await lookup('Café');
   await lookup('Cafe\u0301');
@@ -542,7 +547,7 @@ it('records a disagreement after a tracked card save', async () => {
   const userId = '00000000-0000-0000-0000-000000000001';
   const deck = await prisma.deck.findFirstOrThrow({ where: { userId } });
   const base = await new DictionaryService(service).lookup({
-    word: 'saw',
+    text: 'saw',
     lemma: 'see',
     language: 'en',
     kind: 'word',
@@ -551,7 +556,7 @@ it('records a disagreement after a tracked card save', async () => {
   const lookupId = '00000000-0000-7000-8000-000000000010';
   evaluation.scheduleLookup(
     lookupId,
-    { word: 'saw', language: 'en', userId, context: 'They saw wood' },
+    { text: 'saw', language: 'en', userId, context: 'They saw wood' },
     {
       kind: 'word',
       lemma: 'see',
@@ -613,7 +618,7 @@ it('records a disagreement after a tracked card save', async () => {
 it('creates a card from a definition in the hierarchical lookup response', async () => {
   const dictionaryService = new DictionaryService(service);
   const response = await dictionaryService.lookup({
-    word: 'better',
+    text: 'better',
     lemma: 'good',
     language: 'en',
     kind: 'word',
@@ -654,16 +659,16 @@ it.each([
   async (lemma, pos, irregular) => {
     const userId = '00000000-0000-0000-0000-000000000001';
     const deck = await prisma.deck.findFirstOrThrow({ where: { userId } });
-    let word = await prisma.word.findUnique({
+    let word = await prisma.lexicalEntry.findUnique({
       where: { lemma_language: { lemma: lemma, language: 'en' } },
     });
     if (!word)
-      word = await prisma.word.create({
+      word = await prisma.lexicalEntry.create({
         data: { lemma: lemma, language: 'en' },
       });
     const definition = await prisma.definition.create({
       data: {
-        wordId: word.id,
+        entryId: word.id,
         partOfSpeech: pos,
         definition: 'Independent sense.',
         provider: 'fixture',
@@ -674,17 +679,17 @@ it.each([
       pos as PartOfSpeech,
       'en',
     );
-    await prisma.wordForm.createMany({
+    await prisma.lexicalForm.createMany({
       data: forms.map((f) => ({
-        wordId: word.id,
+        entryId: word.id,
         partOfSpeech: pos,
         form: f.form,
         relationType: f.formType,
       })),
     });
-    await prisma.wordForm.create({
+    await prisma.lexicalForm.create({
       data: {
-        wordId: word.id,
+        entryId: word.id,
         partOfSpeech: pos,
         form: 'alias',
         relationType: 'alternative_spelling',

@@ -32,10 +32,10 @@ const successOutput: LookupVocabularyOutput = {
   language: 'en',
   kind: 'word',
   source: 'cache',
-  preferred: { wordId: 'word-1', partOfSpeech: PartOfSpeech.VERB },
+  preferred: { entryId: 'word-1', partOfSpeech: PartOfSpeech.VERB },
   headwords: [
     {
-      wordId: 'word-1',
+      entryId: 'word-1',
       lemma: 'run',
       language: 'en',
       relations: [],
@@ -102,7 +102,7 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
       await controller.lookup(
         {
-          word: 'saw',
+          text: 'saw',
           context: '😀 I saw the saw.',
           selectionStart: '12',
           selectionEnd: '15',
@@ -122,7 +122,7 @@ describe('VocabularyController', () => {
     ])('rejects invalid selections: %j', async (offsets) => {
       await expect(
         controller.lookup(
-          { word: 'saw', context: 'I saw the saw.', ...offsets },
+          { text: 'saw', context: 'I saw the saw.', ...offsets },
           mockUser,
         ),
       ).rejects.toThrow('INPUT_INVALID');
@@ -133,13 +133,13 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
 
       const result = await controller.lookup(
-        { word: 'run', language: 'en' },
+        { text: 'run', language: 'en' },
         mockUser,
       );
 
       expect(result).toEqual(successOutput);
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: undefined,
@@ -150,7 +150,7 @@ describe('VocabularyController', () => {
     it('language defaults to "en" when not provided in query', async () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
 
-      await controller.lookup({ word: 'run' }, mockUser);
+      await controller.lookup({ text: 'run' }, mockUser);
 
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
         expect.objectContaining({ language: 'en' }),
@@ -162,7 +162,7 @@ describe('VocabularyController', () => {
 
       await controller.lookup(
         {
-          word: 'run',
+          text: 'run',
           language: 'en',
           context: 'She runs every morning.',
           disablePosFiltering: 'true',
@@ -182,11 +182,11 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockRejectedValue(new NlpUnavailableError());
 
       await expect(
-        controller.lookup({ word: 'walk', language: 'en' }, mockUser),
+        controller.lookup({ text: 'walk', language: 'en' }, mockUser),
       ).rejects.toBeInstanceOf(BadGatewayException);
 
       const err = await controller
-        .lookup({ word: 'walk', language: 'en' }, mockUser)
+        .lookup({ text: 'walk', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(BadGatewayException);
@@ -201,7 +201,7 @@ describe('VocabularyController', () => {
       );
 
       const err = await controller
-        .lookup({ word: 'walk fast', language: 'en' }, mockUser)
+        .lookup({ text: 'walk fast', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(BadRequestException);
@@ -216,7 +216,7 @@ describe('VocabularyController', () => {
       );
 
       const err = await controller
-        .lookup({ word: 'xyzabc', language: 'en' }, mockUser)
+        .lookup({ text: 'xyzabc', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(NotFoundException);
@@ -231,7 +231,7 @@ describe('VocabularyController', () => {
       );
 
       const err = await controller
-        .lookup({ word: 'walk', language: 'en' }, mockUser)
+        .lookup({ text: 'walk', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(BadGatewayException);
@@ -245,7 +245,7 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockRejectedValue(unknownErr);
 
       await expect(
-        controller.lookup({ word: 'walk', language: 'en' }, mockUser),
+        controller.lookup({ text: 'walk', language: 'en' }, mockUser),
       ).rejects.toThrow('Unexpected failure');
     });
   });

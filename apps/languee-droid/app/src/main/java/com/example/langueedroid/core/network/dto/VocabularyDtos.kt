@@ -33,7 +33,7 @@ data class SurfaceRelationDto(
 )
 
 data class PreferredInterpretationDto(
-    val wordId: String,
+    val entryId: String,
     val partOfSpeech: String?,
 )
 
@@ -43,7 +43,7 @@ data class VocabularyPosGroupDto(
 )
 
 data class VocabularyHeadwordDto(
-    val wordId: String,
+    val entryId: String,
     val lemma: String,
     val language: String,
     val relations: List<SurfaceRelationDto>,
@@ -73,7 +73,7 @@ data class CreateUserDefinitionRequestDto(
 
 data class CreateUserDefinitionResponseDto(
     val id: String,
-    val wordId: String,
+    val entryId: String,
     val lemma: String,
     val kind: String,
     val partOfSpeech: String,
@@ -101,7 +101,7 @@ data class SavedMatchDefinitionDto(
 )
 
 data class SavedMatchHeadwordDto(
-    val wordId: String,
+    val entryId: String,
     val lemma: String,
     val definitions: List<SavedMatchDefinitionDto>,
 )

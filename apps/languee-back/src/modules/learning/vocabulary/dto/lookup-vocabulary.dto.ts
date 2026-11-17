@@ -14,8 +14,8 @@ export class LookupVocabularyDto {
       'Word or expression to look up. Idioms and phrasal verbs are supported; the NLP service owns the token-count limit and rejects inputs above it.',
   })
   @IsString()
-  @IsNotEmpty({ message: 'WORD_REQUIRED' })
-  word!: string;
+  @IsNotEmpty({ message: 'TEXT_REQUIRED' })
+  text!: string;
 
   @ApiPropertyOptional({
     example: 'en',

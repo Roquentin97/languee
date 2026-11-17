@@ -36,7 +36,7 @@ export class SurfaceRelationDto {
 
 export class PreferredInterpretationDto {
   @ApiProperty({ example: 'word_123' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ enum: PartOfSpeech, nullable: true })
   partOfSpeech!: PartOfSpeech | null;
@@ -52,7 +52,7 @@ export class DictionaryPosGroupDto {
 
 export class DictionaryHeadwordDto {
   @ApiProperty({ example: 'word_123' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ example: 'good' })
   lemma!: string;
@@ -67,14 +67,14 @@ export class DictionaryHeadwordDto {
   partsOfSpeech!: DictionaryPosGroupDto[];
 }
 
-export class LookupWordResponseDto {
+export class LookupEntryResponseDto {
   @ApiProperty({ example: 'better' })
   input!: string;
 
   @ApiProperty({ example: 'en' })
   language!: string;
 
-  @ApiProperty({ enum: ['word', 'expression', 'phrasal_verb'] })
+  @ApiProperty({ enum: ['word', 'expression', 'phrasal_verb', 'idiom'] })
   kind!: string;
 
   @ApiProperty({ enum: ['cache', 'provider'], example: 'cache' })

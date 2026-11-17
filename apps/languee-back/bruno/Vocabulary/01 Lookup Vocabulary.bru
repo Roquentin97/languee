@@ -9,7 +9,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?word={{dictionary_word}}&language={{dictionary_language}}
+  url: {{base_url}}/api/v1/vocabulary/lookup?text={{dictionary_word}}&language={{dictionary_language}}
   body: none
   auth: inherit
 }
@@ -20,7 +20,7 @@ tests {
     expect(res.body.input).to.be.a("string");
     expect(res.body.headwords).to.be.an("array");
     if (res.body.preferred) {
-      expect(res.body.headwords.some(h => h.wordId === res.body.preferred.wordId)).to.equal(true);
+      expect(res.body.headwords.some(h => h.entryId === res.body.preferred.entryId)).to.equal(true);
     }
     expect(res.body.meta.filteredByPos).to.be.a("boolean");
     expect(res.body.meta.unmatchedPos).to.be.a("boolean");

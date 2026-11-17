@@ -1,4 +1,4 @@
-import { LexicalKind } from '@prisma/client';
+import { LexicalEntryKind } from '@prisma/client';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import type { PrismaService } from '../../system/core/prisma/prisma.service';
 import { LexicalEvaluationService } from './lexical-evaluation.service';
@@ -12,12 +12,12 @@ describe('lexical evaluation snapshots', () => {
   const base = {
     input: 'oxen',
     language: 'en',
-    kind: LexicalKind.word,
+    kind: LexicalEntryKind.word,
     source: 'provider' as const,
     preferred: null,
     headwords: [
       {
-        wordId: 'ox',
+        entryId: 'ox',
         lemma: 'ox',
         language: 'en',
         relations: [{ partOfSpeech: 'noun', relationType: 'plural' }],
@@ -65,7 +65,7 @@ describe('lexical evaluation snapshots', () => {
   it('records a dictionary override and its supporting relationship', async () => {
     await record(
       {
-        word: 'oxen',
+        text: 'oxen',
         language: 'en',
         userId: 'user',
         context: 'Two oxen',
@@ -86,7 +86,7 @@ describe('lexical evaluation snapshots', () => {
     expect(create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         nlpPos: 'NOUN',
-        preferredWordId: 'ox',
+        preferredEntryId: 'ox',
         candidates: [
           expect.objectContaining({
             definitionIds: ['def'],
@@ -105,7 +105,7 @@ describe('lexical evaluation snapshots', () => {
   it('records disagreement even when contextual presentation is disabled', async () => {
     await record(
       {
-        word: 'oxen',
+        text: 'oxen',
         language: 'en',
         userId: 'user',
         context: 'Two oxen',
@@ -124,7 +124,7 @@ describe('lexical evaluation snapshots', () => {
     );
     expect(create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        preferredWordId: null,
+        preferredEntryId: null,
         preferredPos: null,
         disagreement: {
           create: {
@@ -137,7 +137,7 @@ describe('lexical evaluation snapshots', () => {
   });
   it('records an empty contextual miss for later review', async () => {
     await record(
-      { word: 'oxen', language: 'en', userId: 'user', context: 'Two oxen' },
+      { text: 'oxen', language: 'en', userId: 'user', context: 'Two oxen' },
       {
         kind: 'word',
         lemma: 'oxen',
@@ -152,7 +152,7 @@ describe('lexical evaluation snapshots', () => {
     expect(create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         candidates: [],
-        preferredWordId: null,
+        preferredEntryId: null,
         disagreement: {
           create: { outcome: 'unresolved', reason: 'no_pos_candidate' },
         },
@@ -161,7 +161,7 @@ describe('lexical evaluation snapshots', () => {
   });
   it('does not compare a manual lookup', async () => {
     await record(
-      { word: 'oxen', language: 'en', userId: 'user' },
+      { text: 'oxen', language: 'en', userId: 'user' },
       {
         kind: 'word',
         lemma: 'oxen',
@@ -175,7 +175,7 @@ describe('lexical evaluation snapshots', () => {
     );
     const data = create.mock.calls[0][0].data;
     expect(data.context).toBeNull();
-    expect(data.preferredWordId).toBeNull();
+    expect(data.preferredEntryId).toBeNull();
     expect(data.disagreement).toBeUndefined();
   });
 });
@@ -191,7 +191,7 @@ describe('best-effort lexical evaluation', () => {
     evalLexicalLearnerChoice: { upsert },
   } as unknown as PrismaService);
   const input = {
-    word: 'saw',
+    text: 'saw',
     language: 'en',
     userId: 'user',
     context: 'I saw',
@@ -217,7 +217,7 @@ describe('best-effort lexical evaluation', () => {
     lookupId: 'id',
     userId: 'user',
     definitionId: 'definition',
-    wordId: 'saw',
+    entryId: 'saw',
     lemma: 'saw',
     pos: 'verb',
   };
@@ -236,7 +236,7 @@ describe('best-effort lexical evaluation', () => {
         }),
     );
     findFirst.mockResolvedValue({
-      preferredWordId: 'see',
+      preferredEntryId: 'see',
       preferredPos: 'verb',
       disagreement: null,
       candidates: [{ definitionIds: ['definition'] }],
@@ -255,7 +255,7 @@ describe('best-effort lexical evaluation', () => {
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          chosenWordId: 'saw',
+          chosenEntryId: 'saw',
           lookupId: 'id',
         }),
         update: {},
@@ -265,7 +265,7 @@ describe('best-effort lexical evaluation', () => {
 
   it('does not record a choice that agrees with a preferred pair', async () => {
     findFirst.mockResolvedValue({
-      preferredWordId: 'saw',
+      preferredEntryId: 'saw',
       preferredPos: 'verb',
       disagreement: null,
       candidates: [{ definitionIds: ['definition'] }],
@@ -277,7 +277,7 @@ describe('best-effort lexical evaluation', () => {
 
   it('records a choice for a dictionary disagreement even without a preference', async () => {
     findFirst.mockResolvedValue({
-      preferredWordId: null,
+      preferredEntryId: null,
       preferredPos: null,
       disagreement: { reason: 'multiple_pos_candidates' },
       candidates: [{ definitionIds: ['definition'] }],

@@ -31,7 +31,7 @@ integration('selected occurrence across backend and NLP', () => {
     );
     const headwords = [
       {
-        wordId: 'see',
+        entryId: 'see',
         lemma: 'see',
         language: 'en',
         relations: [],
@@ -43,7 +43,7 @@ integration('selected occurrence across backend and NLP', () => {
         ],
       },
       {
-        wordId: 'saw',
+        entryId: 'saw',
         lemma: 'saw',
         language: 'en',
         relations: [],
@@ -66,7 +66,7 @@ integration('selected occurrence across backend and NLP', () => {
           language: 'en',
           kind: 'word',
           source: 'cache',
-          preferred: { wordId: lemma, partOfSpeech: null },
+          preferred: { entryId: lemma, partOfSpeech: null },
           headwords,
         }),
     };
@@ -84,7 +84,7 @@ integration('selected occurrence across backend and NLP', () => {
     const lookup = (start: string, end: string) =>
       controller.lookup(
         {
-          word: 'saw',
+          text: 'saw',
           context: 'I saw the saw.',
           selectionStart: start,
           selectionEnd: end,
@@ -94,11 +94,11 @@ integration('selected occurrence across backend and NLP', () => {
     const first = await lookup('2', '5');
     const second = await lookup('10', '13');
     expect(first.preferred).toEqual({
-      wordId: 'see',
+      entryId: 'see',
       partOfSpeech: PartOfSpeech.VERB,
     });
     expect(second.preferred).toEqual({
-      wordId: 'saw',
+      entryId: 'saw',
       partOfSpeech: PartOfSpeech.NOUN,
     });
     expect(first.headwords.map((headword) => headword.lemma)).toEqual([

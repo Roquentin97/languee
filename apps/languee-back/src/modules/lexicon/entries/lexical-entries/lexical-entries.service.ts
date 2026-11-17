@@ -1,21 +1,24 @@
 import { Injectable } from '@nestjs/common';
-import { LexicalKind, Prisma } from '@prisma/client';
-import type { Word } from '@prisma/client';
+import { LexicalEntryKind, Prisma } from '@prisma/client';
+import type { LexicalEntry } from '@prisma/client';
 import { PrismaService } from '../../../system/core/prisma/prisma.service';
 
 @Injectable()
-export class WordsService {
+export class LexicalEntriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByLemma(lemma: string, language: string): Promise<Word | null> {
-    return this.prisma.word.findUnique({
+  async findByLemma(
+    lemma: string,
+    language: string,
+  ): Promise<LexicalEntry | null> {
+    return this.prisma.lexicalEntry.findUnique({
       where: { lemma_language: { lemma, language } },
     });
   }
 
-  findByLemmas(lemmas: string[], language: string): Promise<Word[]> {
+  findByLemmas(lemmas: string[], language: string): Promise<LexicalEntry[]> {
     if (!lemmas.length) return Promise.resolve([]);
-    return this.prisma.word.findMany({
+    return this.prisma.lexicalEntry.findMany({
       where: { language, lemma: { in: [...new Set(lemmas)] } },
     });
   }
@@ -23,15 +26,15 @@ export class WordsService {
   async ensureMany(
     lemmas: string[],
     language: string,
-    kind: LexicalKind,
-  ): Promise<Word[]> {
+    kind: LexicalEntryKind,
+  ): Promise<LexicalEntry[]> {
     if (!lemmas.length) return [];
     const unique = [...new Set(lemmas)];
-    await this.prisma.word.createMany({
+    await this.prisma.lexicalEntry.createMany({
       data: unique.map((lemma) => ({ lemma, language, kind })),
       skipDuplicates: true,
     });
-    return this.prisma.word.findMany({
+    return this.prisma.lexicalEntry.findMany({
       where: { language, lemma: { in: unique } },
     });
   }
@@ -39,21 +42,24 @@ export class WordsService {
   findLookupCandidates(
     term: string,
     language: string,
-    originWordIds: string[],
-  ): Promise<Word[]> {
-    return this.prisma.word.findMany({
-      where: { language, OR: [{ lemma: term }, { id: { in: originWordIds } }] },
+    originEntryIds: string[],
+  ): Promise<LexicalEntry[]> {
+    return this.prisma.lexicalEntry.findMany({
+      where: {
+        language,
+        OR: [{ lemma: term }, { id: { in: originEntryIds } }],
+      },
       orderBy: { lemma: 'asc' },
     });
   }
 
   /**
-   * Backfills the phonetic transcription once, first provider wins. A word
+   * Backfills the phonetic transcription once, first provider wins. An entry
    * that already carries an ipa is never overwritten.
    */
-  async setIpaIfMissing(wordId: string, ipa: string): Promise<void> {
-    await this.prisma.word.updateMany({
-      where: { id: wordId, ipa: null },
+  async setIpaIfMissing(entryId: string, ipa: string): Promise<void> {
+    await this.prisma.lexicalEntry.updateMany({
+      where: { id: entryId, ipa: null },
       data: { ipa },
     });
   }
@@ -61,15 +67,15 @@ export class WordsService {
   async ensureExistsAndReturn(
     lemma: string,
     language: string,
-    kind: LexicalKind,
+    kind: LexicalEntryKind,
   ) {
-    const existing = await this.prisma.word.findUnique({
+    const existing = await this.prisma.lexicalEntry.findUnique({
       where: { lemma_language: { lemma, language } },
     });
     if (existing) return existing;
 
     try {
-      return await this.prisma.word.create({
+      return await this.prisma.lexicalEntry.create({
         data: { lemma, language, kind },
       });
     } catch (err: unknown) {
@@ -77,8 +83,8 @@ export class WordsService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
-        // Race condition: another request created the word concurrently
-        return this.prisma.word.findUniqueOrThrow({
+        // Race condition: another request created the entry concurrently
+        return this.prisma.lexicalEntry.findUniqueOrThrow({
           where: { lemma_language: { lemma, language } },
         });
       }

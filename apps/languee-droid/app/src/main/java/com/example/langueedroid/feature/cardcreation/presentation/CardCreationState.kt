@@ -3,7 +3,7 @@ package com.example.langueedroid.feature.cardcreation.presentation
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 
 enum class CardCreationError {
     LOAD_DECKS_FAILED,
@@ -49,7 +49,7 @@ data class CardCreationState(
     val selectionEnd: Int? = null,
     val deckSelectionState: DeckSelectionState = DeckSelectionState.Loading,
     val flowState: CardCreationFlowState = CardCreationFlowState.LookingUp,
-    val kind: LexicalKind = LexicalKind.WORD,
+    val kind: LexicalEntryKind = LexicalEntryKind.WORD,
     val expressionContextFound: Boolean? = null,
 )
 

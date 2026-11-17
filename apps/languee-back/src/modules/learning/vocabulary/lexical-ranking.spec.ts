@@ -1,9 +1,9 @@
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { rankLexicalGroups } from './lexical-ranking';
-import type { LookupHeadword } from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
+import type { LookupEntry } from '../../lexicon/enrichment/dictionary/types/lookup-entry.types';
 
-const headword = (lemma: string, pos: PartOfSpeech): LookupHeadword => ({
-  wordId: lemma,
+const headword = (lemma: string, pos: PartOfSpeech): LookupEntry => ({
+  entryId: lemma,
   lemma,
   language: 'en',
   relations: [],

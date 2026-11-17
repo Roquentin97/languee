@@ -244,7 +244,7 @@ class CardCreationViewModel
                     val lookupResult =
                         vocabularyRepository
                             .lookup(
-                                word = targetWord,
+                                text = targetWord,
                                 language = language,
                                 context =
                                     (

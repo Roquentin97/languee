@@ -10,10 +10,10 @@ import type {
   CardAnkiDroidExport,
   CardAnkiDroidExportAttempt,
   Definition,
-  Word,
+  LexicalEntry,
 } from '@prisma/client';
 
-const mockWord: Word = {
+const mockEntry: LexicalEntry = {
   id: 'word-id-1',
   lemma: 'run',
   language: 'en',
@@ -24,7 +24,7 @@ const mockWord: Word = {
 
 const mockDefinition: Definition = {
   id: 'def-id-1',
-  wordId: 'word-id-1',
+  entryId: 'word-id-1',
   partOfSpeech: 'verb',
   definition: 'to move at a speed faster than walking',
   example: 'She runs every morning.',
@@ -38,7 +38,7 @@ const mockCard: Card = {
   type: 'cloze',
   userId: 'user-id-1',
   definitionId: 'def-id-1',
-  wordId: null,
+  entryId: null,
   partOfSpeech: null,
   context: null,
   inflectionForms: null,
@@ -57,7 +57,7 @@ const mockCard: Card = {
 
 const mockCardWithRelations = {
   ...mockCard,
-  definition: { ...mockDefinition, word: mockWord },
+  definition: { ...mockDefinition, entry: mockEntry },
   ankidroidExport: null,
 };
 

@@ -74,9 +74,9 @@ describe('DictionaryController (e2e)', () => {
       where: { term: 'despite', language: 'en' },
     });
     await prisma.definition.deleteMany({
-      where: { word: { lemma: 'despite', language: 'en' } },
+      where: { entry: { lemma: 'despite', language: 'en' } },
     });
-    await prisma.word.deleteMany({
+    await prisma.lexicalEntry.deleteMany({
       where: { lemma: 'despite', language: 'en' },
     });
   });

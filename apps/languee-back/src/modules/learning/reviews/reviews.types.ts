@@ -65,7 +65,7 @@ export type ReviewQueueItem = {
  * Word data revealed to the learner once the card has been answered
  * correctly. Never sent while the answer is still hidden.
  */
-export type RevealedWordInfo = {
+export type RevealedEntryInfo = {
   lemma: string;
   ipa: string | null;
   inflectionForms: Record<string, string> | null;
@@ -74,7 +74,7 @@ export type RevealedWordInfo = {
 export type AnswerCheckOutcome = {
   result: 'correct' | 'incorrect';
   matchedForm: string | null;
-  revealed: RevealedWordInfo | null;
+  revealed: RevealedEntryInfo | null;
 };
 
 export type FormCheckResultEntry = {
@@ -86,7 +86,7 @@ export type FormCheckResultEntry = {
 export type FormCheckOutcome = {
   results: Record<string, FormCheckResultEntry>;
   allCorrect: boolean;
-  revealed: RevealedWordInfo;
+  revealed: RevealedEntryInfo;
 };
 
 export type RevealedDefinition = {

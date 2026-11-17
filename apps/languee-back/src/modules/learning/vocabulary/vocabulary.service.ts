@@ -1,10 +1,10 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { LexicalKind } from '@prisma/client';
+import { LexicalEntryKind } from '@prisma/client';
 import { DictionaryService } from '../../lexicon/enrichment/dictionary/dictionary.service';
 import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
 import { CardsService } from '../cards/cards.service';
 import { NlpService } from '../../lexicon/enrichment/nlp/nlp.service';
-import { WordsService } from '../../lexicon/entries/words/words.service';
+import { LexicalEntriesService } from '../../lexicon/entries/lexical-entries/lexical-entries.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { PartOfSpeechRequiredError } from './vocabulary.errors';
@@ -24,7 +24,7 @@ import type {
   LookupVocabularyInput,
   LookupVocabularyOutput,
 } from './types/lookup-vocabulary.types';
-import type { LookupWordOutput } from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
+import type { LookupEntryOutput } from '../../lexicon/enrichment/dictionary/types/lookup-entry.types';
 import type { InflectionForms } from '../../lexicon/types/inflection-forms.types';
 import type { SavedVocabularyCandidate } from '../cards/cards.service';
 import type {
@@ -43,7 +43,7 @@ export class VocabularyService {
     private readonly dictionaryService: DictionaryService,
     private readonly cardsService: CardsService,
     private readonly nlpService: NlpService,
-    private readonly wordsService: WordsService,
+    private readonly wordsService: LexicalEntriesService,
     private readonly definitionService: DefinitionService,
     @Optional() private readonly evaluation?: LexicalEvaluationService,
   ) {}
@@ -52,7 +52,7 @@ export class VocabularyService {
     // NLP owns the word-vs-expression decision: it tokenizes with the actual
     // language model and returns a discriminated result.
     const analysis = await this.nlpService.analyze(
-      input.word,
+      input.text,
       input.context,
       input.language,
       ...(input.selectionStart === undefined
@@ -81,7 +81,10 @@ export class VocabularyService {
       Map<string, Map<string, SavedMatchDefinitionDto>>
     >();
     const lemmas = new Map<string, string>(
-      candidates.map((candidate) => [candidate.word.id, candidate.word.lemma]),
+      candidates.map((candidate) => [
+        candidate.entry.id,
+        candidate.entry.lemma,
+      ]),
     );
     for (const candidate of candidates)
       for (const surface of input.tokens)
@@ -89,9 +92,9 @@ export class VocabularyService {
     return {
       matches: [...matched].map(([surface, headwords]) => ({
         surface,
-        headwords: [...headwords].map(([wordId, definitions]) => ({
-          wordId,
-          lemma: lemmas.get(wordId) ?? '',
+        headwords: [...headwords].map(([entryId, definitions]) => ({
+          entryId,
+          lemma: lemmas.get(entryId) ?? '',
           definitions: [...definitions.values()],
         })),
       })),
@@ -104,9 +107,9 @@ export class VocabularyService {
     surface: string,
   ): void {
     const direct =
-      candidate.word.lemma.normalize('NFC').toLocaleLowerCase('en-US') ===
+      candidate.entry.lemma.normalize('NFC').toLocaleLowerCase('en-US') ===
       surface;
-    const form = candidate.word.forms.some(
+    const form = candidate.entry.forms.some(
       (entry) =>
         entry.partOfSpeech === candidate.partOfSpeech &&
         entry.form.normalize('NFC').toLocaleLowerCase('en-US') === surface,
@@ -116,7 +119,7 @@ export class VocabularyService {
       matched.get(surface) ??
       new Map<string, Map<string, SavedMatchDefinitionDto>>();
     const byDefinition =
-      byHeadword.get(candidate.word.id) ??
+      byHeadword.get(candidate.entry.id) ??
       new Map<string, SavedMatchDefinitionDto>();
     byDefinition.set(candidate.definitionId, {
       definitionId: candidate.definitionId,
@@ -126,7 +129,7 @@ export class VocabularyService {
         ...new Map(candidate.decks.map((deck) => [deck.id, deck])).values(),
       ],
     });
-    byHeadword.set(candidate.word.id, byDefinition);
+    byHeadword.set(candidate.entry.id, byDefinition);
     matched.set(surface, byHeadword);
   }
 
@@ -156,8 +159,8 @@ export class VocabularyService {
       context: input.context,
       preferred: this.preferredPair(ranked.preferred),
       lookupId,
-      orderedGroups: ranked.groups.map(({ wordId, partOfSpeech }) => ({
-        wordId,
+      orderedGroups: ranked.groups.map(({ entryId, partOfSpeech }) => ({
+        entryId,
         partOfSpeech,
       })),
       headwords: await this.enrichHeadwords(base, input.userId),
@@ -178,7 +181,7 @@ export class VocabularyService {
     group: ReturnType<typeof rankLexicalGroups>['preferred'],
   ) {
     return group
-      ? { wordId: group.wordId, partOfSpeech: group.partOfSpeech }
+      ? { entryId: group.entryId, partOfSpeech: group.partOfSpeech }
       : null;
   }
 
@@ -186,21 +189,21 @@ export class VocabularyService {
     input: LookupVocabularyInput,
     analysis: NlpWordAnalysis,
     lookupId: string,
-  ): Promise<LookupWordOutput> {
+  ): Promise<LookupEntryOutput> {
     try {
       return await this.dictionaryService.lookup({
-        word: input.word,
+        text: input.text,
         lemma: analysis.lemma,
         language: input.language,
-        kind: LexicalKind.word,
+        kind: LexicalEntryKind.word,
         pos: analysis.pos ?? undefined,
       });
     } catch (error: unknown) {
       if (error instanceof DefinitionsNotFoundException) {
-        const empty: LookupWordOutput = {
-          input: input.word,
+        const empty: LookupEntryOutput = {
+          input: input.text,
           language: input.language,
-          kind: LexicalKind.word,
+          kind: LexicalEntryKind.word,
           source: 'provider',
           preferred: null,
           headwords: [],
@@ -214,7 +217,7 @@ export class VocabularyService {
     }
   }
 
-  private availablePartsOfSpeech(base: LookupWordOutput): PartOfSpeech[] {
+  private availablePartsOfSpeech(base: LookupEntryOutput): PartOfSpeech[] {
     return [
       ...new Set(
         base.headwords.flatMap((word) =>
@@ -237,11 +240,11 @@ export class VocabularyService {
         ? { type: 'expression', contextForm: matchedText.trim() }
         : null;
     const selected = base.headwords.find(
-      (word) => word.wordId === base.preferred?.wordId,
+      (word) => word.entryId === base.preferred?.entryId,
     );
     return {
       ...base,
-      input: input.word,
+      input: input.text,
       context: input.context,
       headwords: await this.enrichHeadwords(
         base,
@@ -270,11 +273,11 @@ export class VocabularyService {
   ) {
     const kind =
       analysis.kind === 'phrasal_verb'
-        ? LexicalKind.phrasal_verb
-        : LexicalKind.expression;
+        ? LexicalEntryKind.phrasal_verb
+        : LexicalEntryKind.expression;
     try {
       const base = await this.dictionaryService.lookup({
-        word: input.word.trim(),
+        text: input.text.trim(),
         lemma: analysis.canonical,
         language: input.language,
         kind,
@@ -282,8 +285,8 @@ export class VocabularyService {
       return { base, providerMiss: false };
     } catch (error: unknown) {
       if (!(error instanceof DefinitionsNotFoundException)) throw error;
-      const base: LookupWordOutput = {
-        input: input.word,
+      const base: LookupEntryOutput = {
+        input: input.text,
         language: input.language,
         kind,
         source: 'provider',
@@ -295,7 +298,7 @@ export class VocabularyService {
   }
 
   private async enrichHeadwords(
-    base: LookupWordOutput,
+    base: LookupEntryOutput,
     userId: string,
     contextInflections: InflectionForms | null = null,
   ): Promise<LookupVocabularyOutput['headwords']> {
@@ -360,7 +363,7 @@ export class VocabularyService {
 
     return {
       id: row.id,
-      wordId: word.id,
+      entryId: word.id,
       lemma: canonical,
       kind: effectiveKind,
       partOfSpeech: row.partOfSpeech as PartOfSpeech,
@@ -370,9 +373,9 @@ export class VocabularyService {
     };
   }
   private logCreatedDefinition(
-    wordId: string,
+    entryId: string,
     canonical: string,
-    effectiveKind: LexicalKind,
+    effectiveKind: LexicalEntryKind,
     partOfSpeech: PartOfSpeech,
   ): void {
     this.logger.log({
@@ -380,7 +383,7 @@ export class VocabularyService {
       event: 'vocabulary.user_definition_created',
       method: this.createUserDefinition.name,
       data: {
-        wordId,
+        entryId,
         lemma: canonical,
         kind: effectiveKind,
         partOfSpeech,
@@ -393,7 +396,7 @@ export class VocabularyService {
     analysis: Awaited<ReturnType<NlpService['analyze']>>,
   ) {
     let canonical: string;
-    let effectiveKind: LexicalKind;
+    let effectiveKind: LexicalEntryKind;
     let partOfSpeech: PartOfSpeech;
 
     if (analysis.kind === 'word') {
@@ -403,14 +406,14 @@ export class VocabularyService {
         throw new PartOfSpeechRequiredError();
       }
       canonical = analysis.lemma;
-      effectiveKind = LexicalKind.word;
+      effectiveKind = LexicalEntryKind.word;
       partOfSpeech = input.partOfSpeech;
     } else {
       canonical = analysis.canonical;
       effectiveKind =
         analysis.kind === 'phrasal_verb'
-          ? LexicalKind.phrasal_verb
-          : LexicalKind.expression;
+          ? LexicalEntryKind.phrasal_verb
+          : LexicalEntryKind.expression;
       partOfSpeech = input.partOfSpeech ?? PartOfSpeech.PHRASE;
     }
 

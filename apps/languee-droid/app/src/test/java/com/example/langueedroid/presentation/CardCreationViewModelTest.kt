@@ -17,7 +17,7 @@ import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.ExpressionTooLongException
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.OfflineEntry
@@ -140,7 +140,7 @@ class CardCreationViewModelTest {
 
     private fun aLookupResult(
         definitions: List<DefinitionResult> = listOf(aDefinition()),
-        kind: LexicalKind = LexicalKind.WORD,
+        kind: LexicalEntryKind = LexicalEntryKind.WORD,
         providerMiss: Boolean = false,
         expressionContextFound: Boolean? = null,
     ) = LookupResult(
@@ -154,10 +154,10 @@ class CardCreationViewModelTest {
 
     private fun aCreatedUserDefinition(
         id: String = "def_user_1",
-        kind: LexicalKind = LexicalKind.PHRASAL_VERB,
+        kind: LexicalEntryKind = LexicalEntryKind.PHRASAL_VERB,
     ) = CreatedUserDefinition(
         id = id,
-        wordId = "word_1",
+        entryId = "word_1",
         lemma = "run into",
         kind = kind,
         partOfSpeech = "phrase",
@@ -1051,19 +1051,19 @@ class CardCreationViewModelTest {
     fun `lookup for an expression sets state kind to PHRASAL_VERB`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(kind = LexicalKind.PHRASAL_VERB))
+            stubLookup(aLookupResult(kind = LexicalEntryKind.PHRASAL_VERB))
 
             val vm = buildViewModel(targetWord = "ran into")
             advanceUntilIdle()
 
-            assertEquals(LexicalKind.PHRASAL_VERB, vm.state.value.kind)
+            assertEquals(LexicalEntryKind.PHRASAL_VERB, vm.state.value.kind)
         }
 
     @Test
     fun `lookup with expressionContextFound false is reflected in state`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(kind = LexicalKind.EXPRESSION, expressionContextFound = false))
+            stubLookup(aLookupResult(kind = LexicalEntryKind.EXPRESSION, expressionContextFound = false))
 
             val vm = buildViewModel(targetWord = "spill the beans")
             advanceUntilIdle()
@@ -1075,12 +1075,12 @@ class CardCreationViewModelTest {
     fun `lookup for a plain word leaves kind as WORD`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(kind = LexicalKind.WORD))
+            stubLookup(aLookupResult(kind = LexicalEntryKind.WORD))
 
             val vm = buildViewModel()
             advanceUntilIdle()
 
-            assertEquals(LexicalKind.WORD, vm.state.value.kind)
+            assertEquals(LexicalEntryKind.WORD, vm.state.value.kind)
         }
 
     // -------------------------------------------------------------------------
@@ -1091,7 +1091,7 @@ class CardCreationViewModelTest {
     fun `empty definitions with providerMiss true — ManualDefinition state shown`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
 
             val vm = buildViewModel(targetWord = "spill the beans")
             advanceUntilIdle()
@@ -1119,7 +1119,7 @@ class CardCreationViewModelTest {
     fun `submitManualDefinition success proceeds to SelectingExample with returned definition`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
 
@@ -1151,7 +1151,7 @@ class CardCreationViewModelTest {
     fun `submitManualDefinition passes the assisted language`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.success(aCreatedUserDefinition(id = "def_user_1")))
 
@@ -1179,7 +1179,7 @@ class CardCreationViewModelTest {
     fun `submitManualDefinition with blank text is a no-op`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
 
             val vm = buildViewModel(targetWord = "run into", context = null)
             advanceUntilIdle()
@@ -1200,7 +1200,7 @@ class CardCreationViewModelTest {
         runTest {
             val existingDefinition = aDefinition(id = "existing_def")
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(DefinitionAlreadyExistsException()))
 
@@ -1209,7 +1209,7 @@ class CardCreationViewModelTest {
 
             vm.onManualDefinitionTextChanged("To encounter unexpectedly.")
             // Re-stub lookup for the retry triggered by the 409 so it now returns the existing definition.
-            stubLookup(aLookupResult(definitions = listOf(existingDefinition), kind = LexicalKind.EXPRESSION))
+            stubLookup(aLookupResult(definitions = listOf(existingDefinition), kind = LexicalEntryKind.EXPRESSION))
             vm.submitManualDefinition()
             vm.onExampleConfirmed(null)
             vm.onDeckSelected(aDeck())
@@ -1227,7 +1227,7 @@ class CardCreationViewModelTest {
     fun `submitManualDefinition 401 — unauthorizedEvent is emitted`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(UnauthorizedException()))
 
@@ -1255,7 +1255,7 @@ class CardCreationViewModelTest {
     fun `submitManualDefinition generic failure — inline error shown, form retained`() =
         runTest {
             stubDecks(aDeck())
-            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalKind.EXPRESSION, providerMiss = true))
+            stubLookup(aLookupResult(definitions = emptyList(), kind = LexicalEntryKind.EXPRESSION, providerMiss = true))
             whenever(vocabularyRepository.createUserDefinition(any(), any(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("HTTP 500")))
 

@@ -87,7 +87,7 @@ class CardRepository(
 data class SavedVocabulary(
     val surface: String,
     val headword: String,
-    val wordId: String,
+    val entryId: String,
     val definitionId: String,
     val partOfSpeech: String,
     val definition: String,

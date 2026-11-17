@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class RevealedWordDto {
+export class RevealedEntryDto {
   @ApiProperty({ example: 'come across' })
   lemma!: string;
 
@@ -36,8 +36,8 @@ export class AnswerCardResponseDto {
   @ApiPropertyOptional({
     description:
       'Word details revealed after a correct answer: lemma, transcription, and inflections. Null while incorrect.',
-    type: RevealedWordDto,
+    type: RevealedEntryDto,
     nullable: true,
   })
-  revealed!: RevealedWordDto | null;
+  revealed!: RevealedEntryDto | null;
 }

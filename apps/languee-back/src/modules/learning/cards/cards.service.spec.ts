@@ -1,5 +1,5 @@
 import { MorphologyService } from '../../lexicon/enrichment/morphology/morphology.service';
-import type { ParadigmsByWord } from '../../lexicon/enrichment/morphology/morphology.types';
+import type { ParadigmsByEntry } from '../../lexicon/enrichment/morphology/morphology.types';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../system/core/prisma/prisma.service';
@@ -12,8 +12,8 @@ import {
   CardNotFoundError,
   DefinitionNotFoundError,
 } from './cards.errors';
-import type { Card, Deck, Word } from '@prisma/client';
-import type { DefinitionWithWord } from '../../lexicon/entries/definitions/definitions.service';
+import type { Card, Deck, LexicalEntry } from '@prisma/client';
+import type { DefinitionWithEntry } from '../../lexicon/entries/definitions/definitions.service';
 
 const mockDeck: Deck = {
   id: 'deck-id-1',
@@ -23,7 +23,7 @@ const mockDeck: Deck = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
-const mockWord: Word = {
+const mockEntry: LexicalEntry = {
   id: 'word-id-1',
   lemma: 'run',
   language: 'en',
@@ -32,19 +32,19 @@ const mockWord: Word = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
-const mockDefinition: DefinitionWithWord = {
+const mockDefinition: DefinitionWithEntry = {
   id: 'def-id-1',
-  wordId: 'word-id-1',
+  entryId: 'word-id-1',
   partOfSpeech: 'verb',
   definition: 'to move at a speed faster than walking',
   example: 'She runs every morning.',
   provider: 'free-dictionary',
   gapFillMetadata: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
-  word: mockWord,
+  entry: mockEntry,
 };
 
-const mockDefinitionInflecting: DefinitionWithWord = {
+const mockDefinitionInflecting: DefinitionWithEntry = {
   ...mockDefinition,
   id: 'def-id-2',
 };
@@ -55,7 +55,7 @@ function baseCard(overrides: Partial<Card>): Card {
     type: 'cloze',
     userId: 'user-id-1',
     definitionId: null,
-    wordId: null,
+    entryId: null,
     partOfSpeech: null,
     context: null,
     inflectionForms: null,
@@ -87,7 +87,7 @@ const mockDefinitionCard = baseCard({
 const mockInflectionCard = baseCard({
   id: 'card-id-inflection',
   type: 'inflection',
-  wordId: 'word-id-1',
+  entryId: 'word-id-1',
   partOfSpeech: 'verb',
   inflectionForms: {
     type: 'verb',
@@ -101,9 +101,9 @@ function withRelations(card: Card, deckId?: string) {
   return {
     ...card,
     definition: card.definitionId
-      ? { ...mockDefinition, word: mockWord }
+      ? { ...mockDefinition, entry: mockEntry }
       : null,
-    word: card.wordId ? mockWord : null,
+    entry: card.entryId ? mockEntry : null,
     decks: deckId ? [{ deck: { id: deckId, name: mockDeck.name } }] : [],
   };
 }
@@ -134,7 +134,7 @@ const mockPrismaService = {
   ),
 };
 
-const irregularParadigms: ParadigmsByWord = new Map([
+const irregularParadigms: ParadigmsByEntry = new Map([
   [
     'word-id-1',
     new Map([
@@ -156,7 +156,7 @@ const mockDecksService = {
 };
 
 const mockDefinitionService = {
-  findByIdWithWord: jest.fn(),
+  findByIdWithEntry: jest.fn(),
 };
 
 describe('CardsService', () => {
@@ -186,7 +186,7 @@ describe('CardsService', () => {
   describe('create()', () => {
     it('happy path — a non-inflecting word yields cloze + definition cards only', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique
         .mockResolvedValueOnce(null) // cloze card lookup
         .mockResolvedValueOnce(null); // definition card lookup
@@ -221,7 +221,7 @@ describe('CardsService', () => {
     it('happy path — an inflecting word additionally yields a shared inflection card', async () => {
       mockMorphology.describeEntries.mockResolvedValue(irregularParadigms);
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(
         mockDefinitionInflecting,
       );
       mockTx.card.findUnique
@@ -251,7 +251,7 @@ describe('CardsService', () => {
 
     it('does not generate an inflection card for a regular word even when forms exist', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue({
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue({
         ...mockDefinitionInflecting,
       });
       mockTx.card.findUnique
@@ -275,7 +275,7 @@ describe('CardsService', () => {
 
     it('does not generate an inflection card when an irregular definition has no learnable forms', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue({
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue({
         ...mockDefinitionInflecting,
         inflectionForms: { type: 'verb', base: 'run' },
       });
@@ -304,7 +304,7 @@ describe('CardsService', () => {
         ...mockDeck,
         id: 'deck-id-2',
       });
-      mockDefinitionService.findByIdWithWord.mockResolvedValue({
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue({
         ...mockDefinitionInflecting,
         id: 'def-id-other-sense',
       });
@@ -338,9 +338,9 @@ describe('CardsService', () => {
         3,
         expect.objectContaining({
           where: {
-            userId_wordId_partOfSpeech_type: {
+            userId_entryId_partOfSpeech_type: {
               userId: 'user-id-1',
-              wordId: 'word-id-1',
+              entryId: 'word-id-1',
               partOfSpeech: 'verb',
               type: 'inflection',
             },
@@ -359,7 +359,7 @@ describe('CardsService', () => {
 
     it('happy path — reuses cards already generated for the definition, only joining the new deck', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique
         .mockResolvedValueOnce(mockClozeCard) // already exists
         .mockResolvedValueOnce(mockDefinitionCard); // already exists
@@ -385,7 +385,7 @@ describe('CardsService', () => {
 
     it('edge case — concurrent creation (P2002) on a sense card re-fetches instead of failing', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(mockDefinition);
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
         { code: 'P2002', clientVersion: '7.9.1' },
@@ -412,7 +412,7 @@ describe('CardsService', () => {
     it('edge case — concurrent creation (P2002) on the inflection card re-fetches instead of failing', async () => {
       mockMorphology.describeEntries.mockResolvedValue(irregularParadigms);
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(
         mockDefinitionInflecting,
       );
       const prismaError = new Prisma.PrismaClientKnownRequestError(
@@ -444,7 +444,7 @@ describe('CardsService', () => {
 
     it('edge case — an unexpected error from card.create is re-thrown, not swallowed', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique.mockResolvedValueOnce(null);
       mockTx.card.create.mockRejectedValueOnce(new Error('Network failure'));
 
@@ -462,12 +462,12 @@ describe('CardsService', () => {
         service.create('user-id-1', 'deck-id-other', 'def-id-1'),
       ).rejects.toBeInstanceOf(DeckNotFoundError);
 
-      expect(mockDefinitionService.findByIdWithWord).not.toHaveBeenCalled();
+      expect(mockDefinitionService.findByIdWithEntry).not.toHaveBeenCalled();
     });
 
     it('edge case — unknown definitionId throws DefinitionNotFoundError', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(null);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(null);
 
       await expect(
         service.create('user-id-1', 'deck-id-1', 'nonexistent-def'),
@@ -478,7 +478,7 @@ describe('CardsService', () => {
 
     it('edge case — the same definition already saved in this exact deck throws CardAlreadyExistsError', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique.mockResolvedValueOnce(mockClozeCard);
       mockTx.cardDeck.findUnique.mockResolvedValueOnce({
         id: 'join-1',
@@ -496,7 +496,7 @@ describe('CardsService', () => {
 
     it('rejects a concurrent duplicate when the membership was inserted after the initial check', async () => {
       mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
-      mockDefinitionService.findByIdWithWord.mockResolvedValue(mockDefinition);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(mockDefinition);
       mockTx.card.findUnique.mockResolvedValueOnce(mockClozeCard);
       mockTx.cardDeck.findUnique.mockResolvedValueOnce(null);
       mockTx.cardDeck.createMany.mockResolvedValueOnce({ count: 0 });
@@ -521,8 +521,8 @@ describe('CardsService', () => {
     const cards = await service.findManyByUserId('user-id-1');
     expect(mockMorphology.describeEntries).toHaveBeenCalledTimes(1);
     expect(mockMorphology.describeEntries).toHaveBeenCalledWith([
-      { wordId: 'word-id-1', lemma: 'run', partOfSpeech: 'verb' },
-      { wordId: 'word-id-1', lemma: 'run', partOfSpeech: 'verb' },
+      { entryId: 'word-id-1', lemma: 'run', partOfSpeech: 'verb' },
+      { entryId: 'word-id-1', lemma: 'run', partOfSpeech: 'verb' },
     ]);
     expect(cards[0].inflectionForms).toEqual(snapshot);
     expect(cards[0].lexicalInflectionForms).toEqual({
@@ -835,20 +835,20 @@ describe('CardsService', () => {
     });
   });
 
-  describe('findSavedSensesByWordId()', () => {
-    it('happy path — groups saved senses by wordId', async () => {
+  describe('findSavedSensesByEntryId()', () => {
+    it('happy path — groups saved senses by entryId', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([
         {
           definitionId: 'def-id-1',
-          definition: { wordId: 'word-id-1', definition: 'to move fast' },
+          definition: { entryId: 'word-id-1', definition: 'to move fast' },
         },
         {
           definitionId: 'def-id-3',
-          definition: { wordId: 'word-id-1', definition: 'to operate' },
+          definition: { entryId: 'word-id-1', definition: 'to operate' },
         },
       ]);
 
-      const result = await service.findSavedSensesByWordId('user-id-1', [
+      const result = await service.findSavedSensesByEntryId('user-id-1', [
         'word-id-1',
       ]);
 
@@ -861,7 +861,7 @@ describe('CardsService', () => {
     it('edge case — no saved senses returns an empty map', async () => {
       mockPrismaService.card.findMany.mockResolvedValue([]);
 
-      const result = await service.findSavedSensesByWordId('user-id-1', [
+      const result = await service.findSavedSensesByEntryId('user-id-1', [
         'word-id-1',
       ]);
 

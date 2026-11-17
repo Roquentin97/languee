@@ -108,7 +108,7 @@ describe('VocabularyController (e2e)', () => {
   describe('GET /api/v1/vocabulary/lookup — expression meta fields', () => {
     it('returns 401 when no Authorization header is provided', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/vocabulary/lookup?word=ran%20into')
+        .get('/api/v1/vocabulary/lookup?text=ran%20into')
         .expect(401);
     });
 
@@ -119,7 +119,7 @@ describe('VocabularyController (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(
-          '/api/v1/vocabulary/lookup?word=one%20two%20three%20four%20five%20six%20seven%20eight%20nine%20ten%20eleven',
+          '/api/v1/vocabulary/lookup?text=one%20two%20three%20four%20five%20six%20seven%20eight%20nine%20ten%20eleven',
         )
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(400);
@@ -140,12 +140,18 @@ describe('VocabularyController (e2e)', () => {
       mockAdapter.fetch.mockResolvedValue(MOCK_WORD_DEFINITIONS);
 
       const res = await request(app.getHttpServer())
-        .get('/api/v1/vocabulary/lookup?word=running')
+        .get('/api/v1/vocabulary/lookup?text=running')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.kind).toBe('word');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.preferred.entryId).toEqual(expect.any(String));
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.preferred).not.toHaveProperty('wordId');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.headwords[0]).toHaveProperty('entryId');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.meta.isExpression).toBe(false);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -165,7 +171,7 @@ describe('VocabularyController (e2e)', () => {
       mockAdapter.fetch.mockResolvedValue(MOCK_EXPRESSION_DEFINITIONS);
 
       const res = await request(app.getHttpServer())
-        .get('/api/v1/vocabulary/lookup?word=ran%20into')
+        .get('/api/v1/vocabulary/lookup?text=ran%20into')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
@@ -194,7 +200,7 @@ describe('VocabularyController (e2e)', () => {
       mockAdapter.fetch.mockResolvedValue([]);
 
       const res = await request(app.getHttpServer())
-        .get('/api/v1/vocabulary/lookup?word=kick%20the%20bucket')
+        .get('/api/v1/vocabulary/lookup?text=kick%20the%20bucket')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
@@ -269,6 +275,12 @@ describe('VocabularyController (e2e)', () => {
       expect(res.body.lemma).toBe(word);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.kind).toBe('word');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.preferred.entryId).toEqual(expect.any(String));
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.preferred).not.toHaveProperty('wordId');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(res.body.headwords[0]).toHaveProperty('entryId');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect(res.body.partOfSpeech).toBe(PartOfSpeech.NOUN);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

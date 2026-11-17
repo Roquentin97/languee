@@ -70,7 +70,7 @@ export class VocabularyController {
     summary: 'Look up headwords and definitions with deck membership',
   })
   @ApiQuery({
-    name: 'word',
+    name: 'text',
     type: String,
     required: true,
     example: 'running',
@@ -128,7 +128,7 @@ export class VocabularyController {
       this.validateSelection(query);
       const { selectionStart, selectionEnd } = query;
       return await this.vocabularyService.lookup({
-        word: query.word,
+        text: query.text,
         language: query.language ?? 'en',
         userId: user.userId,
         context: query.context,
@@ -230,7 +230,7 @@ export class VocabularyController {
   }
 
   private validateSelection(query: LookupVocabularyDto): void {
-    const { selectionStart, selectionEnd, context, word } = query;
+    const { selectionStart, selectionEnd, context, text } = query;
     if (selectionStart !== undefined || selectionEnd !== undefined) {
       const start = Number(selectionStart);
       const end = Number(selectionEnd);
@@ -247,7 +247,7 @@ export class VocabularyController {
         end > chars.length ||
         !context?.trim() ||
         chars.slice(start, end).join('').normalize('NFC').toLowerCase() !==
-          word.normalize('NFC').toLowerCase() ||
+          text.normalize('NFC').toLowerCase() ||
         (start > 0 && isWordChar(chars[start - 1])) ||
         (end < chars.length && isWordChar(chars[end]))
       )

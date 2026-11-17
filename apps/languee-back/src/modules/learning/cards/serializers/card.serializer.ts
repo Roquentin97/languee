@@ -25,8 +25,8 @@ function serializeDefinition(
   };
 }
 
-function serializeWord(card: CardWithRelations): CardResponseDto['word'] {
-  const word = card.definition?.word ?? card.word;
+function serializeEntry(card: CardWithRelations): CardResponseDto['entry'] {
+  const word = card.definition?.entry ?? card.entry;
   if (!word) {
     // Unreachable: every card carries either a definition (cloze /
     // definition cards) or a word (inflection cards).
@@ -42,7 +42,7 @@ export function serializeCard(card: CardWithRelations): CardResponseDto {
     userId: card.userId,
     decks: card.decks,
     definitionId: card.definitionId,
-    wordId: card.wordId,
+    entryId: card.entryId,
     partOfSpeech: card.partOfSpeech,
     context: card.context ?? null,
     inflectionForms: (card.inflectionForms as InflectionForms | null) ?? null,
@@ -52,7 +52,7 @@ export function serializeCard(card: CardWithRelations): CardResponseDto {
       card.definition,
       card.lexicalInflectionForms ?? null,
     ),
-    word: serializeWord(card),
+    entry: serializeEntry(card),
   };
 }
 

@@ -2,13 +2,13 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerResult
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
 import com.example.langueedroid.core.network.dto.DefinitionReviewDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
 import com.example.langueedroid.core.network.dto.InflectionReviewDto
-import com.example.langueedroid.core.network.dto.RevealedWordDto
+import com.example.langueedroid.core.network.dto.RevealedEntryDto
 import com.example.langueedroid.core.network.dto.ReviewDeckDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
@@ -55,27 +55,32 @@ class ReviewMapperTest {
     }
 
     // -------------------------------------------------------------------------
-    // ReviewPromptDto.kind -> LexicalKind mapping, including unknown fallback
+    // ReviewPromptDto.kind -> LexicalEntryKind mapping, including unknown fallback
     // -------------------------------------------------------------------------
 
     @Test
     fun `kind word maps to WORD`() {
-        assertEquals(LexicalKind.WORD, aPromptDto(kind = "word").toDomain().kind)
+        assertEquals(LexicalEntryKind.WORD, aPromptDto(kind = "word").toDomain().kind)
     }
 
     @Test
     fun `kind phrasal_verb maps to PHRASAL_VERB`() {
-        assertEquals(LexicalKind.PHRASAL_VERB, aPromptDto(kind = "phrasal_verb").toDomain().kind)
+        assertEquals(LexicalEntryKind.PHRASAL_VERB, aPromptDto(kind = "phrasal_verb").toDomain().kind)
     }
 
     @Test
     fun `kind expression maps to EXPRESSION`() {
-        assertEquals(LexicalKind.EXPRESSION, aPromptDto(kind = "expression").toDomain().kind)
+        assertEquals(LexicalEntryKind.EXPRESSION, aPromptDto(kind = "expression").toDomain().kind)
+    }
+
+    @Test
+    fun `kind idiom maps to IDIOM`() {
+        assertEquals(LexicalEntryKind.IDIOM, aPromptDto(kind = "idiom").toDomain().kind)
     }
 
     @Test
     fun `unknown kind string falls back safely to WORD`() {
-        assertEquals(LexicalKind.WORD, aPromptDto(kind = "some_future_kind").toDomain().kind)
+        assertEquals(LexicalEntryKind.WORD, aPromptDto(kind = "some_future_kind").toDomain().kind)
     }
 
     // -------------------------------------------------------------------------
@@ -192,7 +197,7 @@ class ReviewMapperTest {
                 result = "correct",
                 matchedForm = "came across",
                 revealed =
-                    RevealedWordDto(
+                    RevealedEntryDto(
                         lemma = "come across",
                         ipa = "/kʌm əˈkɹɒs/",
                         inflectionForms = mapOf("type" to "verb", "past" to "came across"),

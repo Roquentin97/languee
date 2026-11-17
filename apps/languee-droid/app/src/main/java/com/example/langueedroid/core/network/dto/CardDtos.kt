@@ -22,7 +22,7 @@ data class CardDeckDto(
     val name: String,
 )
 
-data class CardWordDto(
+data class CardEntryDto(
     val id: String,
     val lemma: String,
     val language: String,
@@ -34,14 +34,14 @@ data class CardResponseDto(
     val userId: String,
     val decks: List<CardDeckDto>,
     val definitionId: String?,
-    val wordId: String?,
+    val entryId: String?,
     val partOfSpeech: String?,
     val context: String?,
     val inflectionForms: Map<String, String>?,
     val createdAt: String,
     val updatedAt: String,
     val definition: CardDefinitionDto?,
-    val word: CardWordDto,
+    val entry: CardEntryDto,
 )
 
 data class CreateCardsResponseDto(

@@ -19,7 +19,7 @@ interface VocabularyApi {
 
     @GET("/api/v1/vocabulary/lookup")
     suspend fun lookup(
-        @Query("word") word: String,
+        @Query("text") text: String,
         @Query("language") language: String? = null,
         @Query("context") context: String? = null,
         @Query("disablePosFiltering") disablePosFiltering: Boolean? = null,

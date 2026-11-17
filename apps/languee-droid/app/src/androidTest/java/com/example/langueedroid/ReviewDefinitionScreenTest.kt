@@ -10,7 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.LexicalKind
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
@@ -67,7 +67,7 @@ class ReviewDefinitionScreenTest {
                                 index = 1,
                                 total = 1,
                                 matchedForm = null,
-                                revealed = RevealedWord("run", null, null, "Move quickly on foot"),
+                                revealed = RevealedEntry("run", null, null, "Move quickly on foot"),
                             )
                     },
                     onGrade = { rating = it },

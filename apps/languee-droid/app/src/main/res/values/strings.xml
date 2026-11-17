@@ -183,6 +183,7 @@
     <string name="review_new_badge">New</string>
     <string name="review_kind_phrasal_verb">phrasal verb</string>
     <string name="review_kind_expression">expression</string>
+    <string name="review_kind_idiom">idiom</string>
     <string name="review_progress">%1$d of %2$d</string>
     <string name="review_answer_label">Your answer</string>
     <string name="review_submit_button">Submit</string>
@@ -191,7 +192,7 @@
     <string name="review_incorrect_feedback">Not quite. Try again, or tap Can\'t recall.</string>
     <string name="review_correct_title">Correct!</string>
     <string name="review_accepted_answer">Accepted: %1$s</string>
-    <string name="review_word_forms_title">WORD FORMS</string>
+    <string name="review_lexical_forms_title">FORMS</string>
     <string name="review_rating_again">Again</string>
     <string name="review_rating_hard">Hard</string>
     <string name="review_rating_good">Good</string>

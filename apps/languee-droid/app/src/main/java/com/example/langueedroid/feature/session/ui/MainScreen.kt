@@ -30,7 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
@@ -522,7 +522,7 @@ private fun queueCurrentSave(
     val flow = state.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
     val definition = flow.selectedDefinition ?: return
     val deck = (state.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
-    if (state.kind != LexicalKind.WORD || definition.id.isBlank()) {
+    if (state.kind != LexicalEntryKind.WORD || definition.id.isBlank()) {
         if (entryId == null) mainViewModel.addEntry(state.targetWord, state.context)
         return
     }

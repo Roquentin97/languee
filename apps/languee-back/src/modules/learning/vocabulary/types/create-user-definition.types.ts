@@ -1,6 +1,7 @@
 import { PartOfSpeech } from '../../../lexicon/types/part-of-speech.enum';
 
-export type CreateUserDefinitionKind = 'word' | 'phrasal_verb' | 'expression';
+export type CreateUserDefinitionKind =
+  'word' | 'phrasal_verb' | 'expression' | 'idiom';
 
 export type CreateUserDefinitionInput = {
   text: string;
@@ -12,7 +13,7 @@ export type CreateUserDefinitionInput = {
 
 export type CreateUserDefinitionOutput = {
   id: string;
-  wordId: string;
+  entryId: string;
   lemma: string;
   kind: CreateUserDefinitionKind;
   partOfSpeech: PartOfSpeech;

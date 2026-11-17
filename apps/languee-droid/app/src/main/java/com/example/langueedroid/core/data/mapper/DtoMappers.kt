@@ -11,9 +11,9 @@ import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeOutcome
 import com.example.langueedroid.core.domain.InflectionReview
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.core.domain.LookupResult
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
@@ -26,7 +26,7 @@ import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.GradeResponseDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyResponseDto
 import com.example.langueedroid.core.network.dto.PreferredInterpretationDto
-import com.example.langueedroid.core.network.dto.RevealedWordDto
+import com.example.langueedroid.core.network.dto.RevealedEntryDto
 import com.example.langueedroid.core.network.dto.ReviewItemDto
 import com.example.langueedroid.core.network.dto.ReviewPromptDto
 import com.example.langueedroid.core.network.dto.ReviewSummaryDto
@@ -49,7 +49,7 @@ fun CardResponseDto.toDomain(requestedDeckId: String? = null): Card {
     return Card(
         id = id,
         deckId = deck?.id.orEmpty(),
-        lemma = word.lemma,
+        lemma = entry.lemma,
         partOfSpeech = definition?.partOfSpeech ?: partOfSpeech.orEmpty(),
         definition = definition?.definition.orEmpty(),
         example = definition?.example,
@@ -71,7 +71,7 @@ fun EnrichedDefinitionDto.toDomain(): DefinitionResult =
     )
 
 fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
-    val headword = headwords.firstOrNull { it.wordId == preferred?.wordId }
+    val headword = headwords.firstOrNull { it.entryId == preferred?.entryId }
     val groups =
         if (meta.isExpression == true) {
             headword
@@ -79,15 +79,15 @@ fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
                 .orEmpty()
                 .filter {
                     preferred?.partOfSpeech == null || it.partOfSpeech == preferred.partOfSpeech
-                }.map { PreferredInterpretationDto(headword?.wordId.orEmpty(), it.partOfSpeech) }
+                }.map { PreferredInterpretationDto(headword?.entryId.orEmpty(), it.partOfSpeech) }
         } else {
             orderedGroups ?: headwords.flatMap { word ->
-                word.partsOfSpeech.map { PreferredInterpretationDto(word.wordId, it.partOfSpeech) }
+                word.partsOfSpeech.map { PreferredInterpretationDto(word.entryId, it.partOfSpeech) }
             }
         }
     val definitions =
         groups.flatMap { group ->
-            val word = headwords.firstOrNull { it.wordId == group.wordId }
+            val word = headwords.firstOrNull { it.entryId == group.entryId }
             val pos = word?.partsOfSpeech?.firstOrNull { it.partOfSpeech == group.partOfSpeech }
             pos?.definitions.orEmpty().map {
                 it.toDomain().copy(lemma = word?.lemma, lookupId = lookupId, preferred = group == preferred)
@@ -98,7 +98,7 @@ fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
         lemma = headword?.lemma ?: input,
         definitions = definitions,
         context = context,
-        kind = kind.toLexicalKind(),
+        kind = kind.toLexicalEntryKind(),
         isExpression = meta.isExpression ?: false,
         providerMiss = meta.providerMiss ?: false,
         expressionContextFound = meta.expressionContextFound,
@@ -108,9 +108,9 @@ fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
 fun CreateUserDefinitionResponseDto.toDomain(): CreatedUserDefinition =
     CreatedUserDefinition(
         id = id,
-        wordId = wordId,
+        entryId = entryId,
         lemma = lemma,
-        kind = kind.toLexicalKind(),
+        kind = kind.toLexicalEntryKind(),
         partOfSpeech = partOfSpeech,
         definition = definition,
         example = example,
@@ -123,12 +123,13 @@ fun ReviewSummaryDto.toDomain(): ReviewSummary =
         newCount = newCount,
     )
 
-private fun String?.toLexicalKind(): LexicalKind =
+private fun String?.toLexicalEntryKind(): LexicalEntryKind =
     when (this) {
-        "word" -> LexicalKind.WORD
-        "phrasal_verb" -> LexicalKind.PHRASAL_VERB
-        "expression" -> LexicalKind.EXPRESSION
-        else -> LexicalKind.WORD
+        "word" -> LexicalEntryKind.WORD
+        "phrasal_verb" -> LexicalEntryKind.PHRASAL_VERB
+        "expression" -> LexicalEntryKind.EXPRESSION
+        "idiom" -> LexicalEntryKind.IDIOM
+        else -> LexicalEntryKind.WORD
     }
 
 fun ReviewPromptDto.toDomain(): ReviewPrompt =
@@ -136,7 +137,7 @@ fun ReviewPromptDto.toDomain(): ReviewPrompt =
         definition = definition,
         maskedSentence = maskedSentence,
         partOfSpeech = partOfSpeech,
-        kind = kind.toLexicalKind(),
+        kind = kind.toLexicalEntryKind(),
         lemmaLength = lemmaLength,
         language = language,
     )
@@ -162,7 +163,7 @@ fun ReviewItemDto.toDomain(): ReviewItem {
                     definition = "Enter the forms of ${data.lemma}",
                     maskedSentence = null,
                     partOfSpeech = data.partOfSpeech,
-                    kind = data.kind.toLexicalKind(),
+                    kind = data.kind.toLexicalEntryKind(),
                     lemmaLength = data.lemma.length,
                     language = data.language,
                 )
@@ -173,7 +174,7 @@ fun ReviewItemDto.toDomain(): ReviewItem {
                     definition = "What does ${data.lemma} mean?",
                     maskedSentence = null,
                     partOfSpeech = data.partOfSpeech,
-                    kind = data.kind.toLexicalKind(),
+                    kind = data.kind.toLexicalEntryKind(),
                     lemmaLength = data.lemma.length,
                     language = data.language,
                 )
@@ -191,8 +192,8 @@ fun ReviewItemDto.toDomain(): ReviewItem {
     )
 }
 
-fun RevealedWordDto.toDomain(): RevealedWord =
-    RevealedWord(
+fun RevealedEntryDto.toDomain(): RevealedEntry =
+    RevealedEntry(
         lemma = lemma,
         ipa = ipa,
         inflectionForms = inflectionForms,
@@ -211,7 +212,7 @@ fun CheckAnswerResponseDto.toDomain(): AnswerCheck =
         matchedForm = matchedForm,
         revealed =
             revealed?.let {
-                RevealedWord(
+                RevealedEntry(
                     lemma = it.lemma,
                     ipa = it.ipa,
                     inflectionForms = it.inflectionForms,

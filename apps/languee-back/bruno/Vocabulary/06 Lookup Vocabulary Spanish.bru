@@ -8,7 +8,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?word=corro&language=es
+  url: {{base_url}}/api/v1/vocabulary/lookup?text=corro&language=es
   body: none
   auth: inherit
 }
@@ -20,7 +20,7 @@ tests {
     expect(res.body.language).to.equal("es");
     expect(res.body.headwords).to.be.an("array");
     if (res.body.preferred) {
-      expect(res.body.headwords.some(h => h.wordId === res.body.preferred.wordId)).to.equal(true);
+      expect(res.body.headwords.some(h => h.entryId === res.body.preferred.entryId)).to.equal(true);
     }
   });
 }

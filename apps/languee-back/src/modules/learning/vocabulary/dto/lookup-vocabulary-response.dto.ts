@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   PreferredInterpretationDto,
   SurfaceRelationDto,
-} from '../../../lexicon/enrichment/dictionary/dto/lookup-word-response.dto';
+} from '../../../lexicon/enrichment/dictionary/dto/lookup-entry-response.dto';
 import { PartOfSpeech } from '../../../lexicon/types/part-of-speech.enum';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../../lexicon/types/inflection-forms.types';
@@ -81,7 +81,7 @@ export class VocabularyPosGroupDto {
 
 export class VocabularyHeadwordDto {
   @ApiProperty({ example: 'word_123' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ example: 'good' })
   lemma!: string;
@@ -98,7 +98,7 @@ export class VocabularyHeadwordDto {
 
 export class OrderedVocabularyGroupDto {
   @ApiProperty({ format: 'uuid' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ enum: PartOfSpeech })
   partOfSpeech!: PartOfSpeech;
@@ -114,7 +114,7 @@ export class LookupVocabularyResponseDto {
   @ApiProperty({ example: 'en' })
   language!: string;
 
-  @ApiProperty({ enum: ['word', 'phrasal_verb', 'expression'] })
+  @ApiProperty({ enum: ['word', 'phrasal_verb', 'expression', 'idiom'] })
   kind!: string;
 
   @ApiProperty({ enum: ['cache', 'provider'] })

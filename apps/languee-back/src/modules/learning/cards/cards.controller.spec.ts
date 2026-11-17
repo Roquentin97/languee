@@ -17,7 +17,7 @@ import type {
   Card,
   CardAnkiDroidExport,
   Definition,
-  Word,
+  LexicalEntry,
 } from '@prisma/client';
 
 const mockUser: CurrentUserPayload = {
@@ -25,7 +25,7 @@ const mockUser: CurrentUserPayload = {
   sessionId: 'session-id-1',
 };
 
-const mockWord: Word = {
+const mockEntry: LexicalEntry = {
   id: 'word-id-1',
   lemma: 'run',
   language: 'en',
@@ -36,7 +36,7 @@ const mockWord: Word = {
 
 const mockDefinition: Definition = {
   id: 'def-id-1',
-  wordId: 'word-id-1',
+  entryId: 'word-id-1',
   partOfSpeech: 'verb',
   definition: 'to move at a speed faster than walking',
   example: 'She runs every morning.',
@@ -55,7 +55,7 @@ function baseCard(overrides: Partial<Card>): Card {
     type: 'cloze',
     userId: 'user-id-1',
     definitionId: 'def-id-1',
-    wordId: null,
+    entryId: null,
     partOfSpeech: null,
     context: null,
     inflectionForms: null,
@@ -96,8 +96,8 @@ const mockAnkiDroidExport: CardAnkiDroidExport = {
 
 const mockCardWithRelations: CardWithRelations = {
   ...mockCard,
-  definition: { ...mockDefinition, word: mockWord },
-  word: null,
+  definition: { ...mockDefinition, entry: mockEntry },
+  entry: null,
   decks: [{ id: 'deck-id-1', name: 'My Deck' }],
 };
 
@@ -242,7 +242,7 @@ describe('CardsController', () => {
           pastParticiple: 'run',
           gerundParticiple: 'running',
         },
-        definition: { ...mockDefinitionWithInflections, word: mockWord },
+        definition: { ...mockDefinitionWithInflections, entry: mockEntry },
         ankidroidExport: null,
       };
       mockCardsService.findOneByIdAndUserId.mockResolvedValue(
@@ -267,11 +267,11 @@ describe('CardsController', () => {
         ...baseCard({
           type: 'inflection',
           definitionId: null,
-          wordId: 'word-id-1',
+          entryId: 'word-id-1',
           partOfSpeech: 'verb',
         }),
         definition: null,
-        word: mockWord,
+        entry: mockEntry,
         decks: [{ id: 'deck-id-1', name: 'My Deck' }],
         ankidroidExport: null,
       };
@@ -280,7 +280,7 @@ describe('CardsController', () => {
       const result = await controller.findOne('card-id-1', mockUser);
 
       expect(result.definition).toBeNull();
-      expect(result.word).toEqual({
+      expect(result.entry).toEqual({
         id: 'word-id-1',
         lemma: 'run',
         language: 'en',

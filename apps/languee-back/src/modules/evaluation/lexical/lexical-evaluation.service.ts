@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { EvalDisagreementReason } from '@prisma/client';
 import { PrismaService } from '../../system/core/prisma/prisma.service';
 import { normalizeSpelling } from '../../lexicon/enrichment/morphology/morphology-provider';
-import type { LookupWordOutput } from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
+import type { LookupEntryOutput } from '../../lexicon/enrichment/dictionary/types/lookup-entry.types';
 import type { NlpWordAnalysis } from '../../lexicon/enrichment/nlp/nlp.interfaces';
 import type { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 
 type LookupEvaluationInput = {
-  word: string;
+  text: string;
   language: string;
   userId: string;
   context?: string;
@@ -16,7 +16,7 @@ type LookupEvaluationInput = {
   disablePosFiltering?: boolean;
 };
 type RankedGroup = {
-  wordId: string;
+  entryId: string;
   lemma: string;
   partOfSpeech: PartOfSpeech;
 };
@@ -37,7 +37,7 @@ export class LexicalEvaluationService {
     id: string,
     input: LookupEvaluationInput,
     analysis: NlpWordAnalysis,
-    base: LookupWordOutput,
+    base: LookupEntryOutput,
     ranked: Ranking,
   ): void {
     this.enqueue('lookup', () =>
@@ -49,7 +49,7 @@ export class LexicalEvaluationService {
     lookupId: string;
     userId: string;
     definitionId: string;
-    wordId: string;
+    entryId: string;
     lemma: string;
     pos: string;
   }): void {
@@ -90,7 +90,7 @@ export class LexicalEvaluationService {
     lookupId: string;
     userId: string;
     definitionId: string;
-    wordId: string;
+    entryId: string;
     lemma: string;
     pos: string;
   }): Promise<void> {
@@ -117,8 +117,8 @@ export class LexicalEvaluationService {
           group.definitionIds.includes(choice.definitionId),
       );
     const changed =
-      lookup.preferredWordId !== null &&
-      (lookup.preferredWordId !== choice.wordId ||
+      lookup.preferredEntryId !== null &&
+      (lookup.preferredEntryId !== choice.entryId ||
         lookup.preferredPos !== choice.pos);
     if (!offered || (!lookup.disagreement && !changed)) return;
     await this.prisma.evalLexicalLearnerChoice.upsert({
@@ -127,7 +127,7 @@ export class LexicalEvaluationService {
       create: {
         lookupId: choice.lookupId,
         chosenDefinitionId: choice.definitionId,
-        chosenWordId: choice.wordId,
+        chosenEntryId: choice.entryId,
         chosenLemma: choice.lemma,
         chosenPos: choice.pos,
       },
@@ -138,19 +138,19 @@ export class LexicalEvaluationService {
     id: string,
     input: LookupEvaluationInput,
     analysis: NlpWordAnalysis,
-    base: LookupWordOutput,
+    base: LookupEntryOutput,
     presented: Ranking,
   ): Promise<void> {
     if (!analysis.modelVersion) throw new Error('NLP model identity missing');
     const contextual = Boolean(input.context?.trim()) && analysis.pos !== null;
-    const candidates = this.candidates(base, presented.groups, input.word);
+    const candidates = this.candidates(base, presented.groups, input.text);
     const reason = this.reason(presented.groups, analysis, contextual);
     await this.prisma.evalLexicalLookup.create({
       data: {
         id,
         userId: input.userId,
         language: input.language,
-        surface: input.word,
+        surface: input.text,
         context: input.context ?? null,
         selectionStart: input.selectionStart ?? null,
         selectionEnd: input.selectionEnd ?? null,
@@ -159,7 +159,7 @@ export class LexicalEvaluationService {
         nlpModelVersion: analysis.modelVersion,
         rankingPolicyVersion: '1',
         candidates,
-        preferredWordId: presented.preferred?.wordId ?? null,
+        preferredEntryId: presented.preferred?.entryId ?? null,
         preferredPos: presented.preferred?.partOfSpeech ?? null,
         ...this.disagreement(reason),
       },
@@ -182,12 +182,12 @@ export class LexicalEvaluationService {
   }
 
   private candidates(
-    base: LookupWordOutput,
+    base: LookupEntryOutput,
     groups: RankedGroup[],
     surface: string,
   ) {
     return groups.map((group) => {
-      const word = base.headwords.find((w) => w.wordId === group.wordId)!;
+      const word = base.headwords.find((w) => w.entryId === group.entryId)!;
       const pos = word.partsOfSpeech.find(
         (p) => p.partOfSpeech === group.partOfSpeech,
       )!;

@@ -5,7 +5,7 @@ import { MORPHOLOGY_PROVIDER } from './morphology-provider';
 import { MorphologyService } from './morphology.service';
 
 const entry = {
-  wordId: 'go-id',
+  entryId: 'go-id',
   lemma: 'go',
   partOfSpeech: PartOfSpeech.VERB,
   language: 'en',
@@ -13,7 +13,9 @@ const entry = {
 describe('MorphologyService', () => {
   let service: MorphologyService;
   let module: TestingModule;
-  const prisma = { wordForm: { createMany: jest.fn(), findMany: jest.fn() } };
+  const prisma = {
+    lexicalForm: { createMany: jest.fn(), findMany: jest.fn() },
+  };
   const provider = {
     getInflections: jest.fn(),
     getInflectionsBatch: jest.fn(),
@@ -43,16 +45,16 @@ describe('MorphologyService', () => {
       PartOfSpeech.VERB,
       'en',
     );
-    expect(prisma.wordForm.createMany).toHaveBeenCalledWith({
+    expect(prisma.lexicalForm.createMany).toHaveBeenCalledWith({
       data: [
         {
-          wordId: 'go-id',
+          entryId: 'go-id',
           form: 'gone',
           partOfSpeech: 'verb',
           relationType: 'past_participle',
         },
         {
-          wordId: 'go-id',
+          entryId: 'go-id',
           form: 'went',
           partOfSpeech: 'verb',
           relationType: 'past',
@@ -64,7 +66,7 @@ describe('MorphologyService', () => {
   it('does not invent missing forms for an empty resource paradigm', async () => {
     provider.getInflections.mockResolvedValue([]);
     await service.indexParadigm(entry);
-    expect(prisma.wordForm.createMany).not.toHaveBeenCalled();
+    expect(prisma.lexicalForm.createMany).not.toHaveBeenCalled();
   });
   it('batches multiple entries and shares indexing for overlapping calls', async () => {
     let finish!: (value: unknown) => void;
@@ -75,7 +77,7 @@ describe('MorphologyService', () => {
     );
     const second = {
       ...entry,
-      wordId: 'well-id',
+      entryId: 'well-id',
       lemma: 'well',
       partOfSpeech: PartOfSpeech.ADVERB,
     };
@@ -92,11 +94,11 @@ describe('MorphologyService', () => {
       { lemma: 'well', partOfSpeech: 'adverb', forms: [] },
     ]);
     await Promise.all([first, overlapping]);
-    expect(prisma.wordForm.createMany).toHaveBeenCalledTimes(1);
-    expect(prisma.wordForm.createMany).toHaveBeenCalledWith({
+    expect(prisma.lexicalForm.createMany).toHaveBeenCalledTimes(1);
+    expect(prisma.lexicalForm.createMany).toHaveBeenCalledWith({
       data: [
         {
-          wordId: 'go-id',
+          entryId: 'go-id',
           form: 'went',
           partOfSpeech: 'verb',
           relationType: 'past',
@@ -108,7 +110,7 @@ describe('MorphologyService', () => {
   it('propagates morphology failures without writing a paradigm', async () => {
     provider.getInflections.mockRejectedValue(new Error('outage'));
     await expect(service.indexParadigm(entry)).rejects.toThrow('outage');
-    expect(prisma.wordForm.createMany).not.toHaveBeenCalled();
+    expect(prisma.lexicalForm.createMany).not.toHaveBeenCalled();
   });
   it('records normalized validated relationships without collapsing grammatical types', async () => {
     await service.recordValidatedRelationships(
@@ -117,16 +119,16 @@ describe('MorphologyService', () => {
       PartOfSpeech.VERB,
       ['past', 'past_participle'],
     );
-    expect(prisma.wordForm.createMany).toHaveBeenCalledWith({
+    expect(prisma.lexicalForm.createMany).toHaveBeenCalledWith({
       data: [
         {
-          wordId: 'see-id',
+          entryId: 'see-id',
           form: 'saw',
           partOfSpeech: 'verb',
           relationType: 'past',
         },
         {
-          wordId: 'see-id',
+          entryId: 'see-id',
           form: 'saw',
           partOfSpeech: 'verb',
           relationType: 'past_participle',
@@ -142,75 +144,75 @@ describe('MorphologyService', () => {
       PartOfSpeech.VERB,
       [],
     );
-    expect(prisma.wordForm.createMany).not.toHaveBeenCalled();
+    expect(prisma.lexicalForm.createMany).not.toHaveBeenCalled();
   });
   it('finds POS-scoped origins in the requested language', async () => {
     const origins = [
       {
-        wordId: 'well-id',
+        entryId: 'well-id',
         partOfSpeech: 'adverb',
         relationType: 'comparative',
       },
     ];
-    prisma.wordForm.findMany.mockResolvedValue(origins);
+    prisma.lexicalForm.findMany.mockResolvedValue(origins);
     expect(await service.findOrigins('BETTER', 'en')).toEqual(origins);
-    expect(prisma.wordForm.findMany).toHaveBeenCalledWith({
-      where: { form: 'better', word: { language: 'en' } },
-      select: { wordId: true, partOfSpeech: true, relationType: true },
+    expect(prisma.lexicalForm.findMany).toHaveBeenCalledWith({
+      where: { form: 'better', entry: { language: 'en' } },
+      select: { entryId: true, partOfSpeech: true, relationType: true },
     });
   });
   it('returns no origins for a missing spelling', async () => {
-    prisma.wordForm.findMany.mockResolvedValue([]);
+    prisma.lexicalForm.findMany.mockResolvedValue([]);
     expect(await service.findOrigins('unknown', 'en')).toEqual([]);
   });
   it('describes several words and POS in one query, isolating forms and aliases', async () => {
-    prisma.wordForm.findMany.mockResolvedValue([
+    prisma.lexicalForm.findMany.mockResolvedValue([
       {
-        wordId: 'well-id',
+        entryId: 'well-id',
         form: 'better',
         partOfSpeech: 'adverb',
         relationType: 'comparative',
       },
       {
-        wordId: 'well-id',
+        entryId: 'well-id',
         form: 'best',
         partOfSpeech: 'adverb',
         relationType: 'superlative',
       },
       {
-        wordId: 'well-id',
+        entryId: 'well-id',
         form: 'wells',
         partOfSpeech: 'noun',
         relationType: 'plural',
       },
       {
-        wordId: 'be-id',
+        entryId: 'be-id',
         form: 'was',
         partOfSpeech: 'verb',
         relationType: 'past',
       },
       {
-        wordId: 'be-id',
+        entryId: 'be-id',
         form: 'were',
         partOfSpeech: 'verb',
         relationType: 'past',
       },
       {
-        wordId: 'be-id',
+        entryId: 'be-id',
         form: 'bee',
         partOfSpeech: 'verb',
         relationType: 'alternative_spelling',
       },
     ]);
     const result = await service.describeEntries([
-      { wordId: 'well-id', lemma: 'well', partOfSpeech: 'adverb' },
-      { wordId: 'well-id', lemma: 'well', partOfSpeech: 'noun' },
-      { wordId: 'be-id', lemma: 'be', partOfSpeech: 'verb' },
-      { wordId: 'be-id', lemma: 'be', partOfSpeech: 'verb' },
+      { entryId: 'well-id', lemma: 'well', partOfSpeech: 'adverb' },
+      { entryId: 'well-id', lemma: 'well', partOfSpeech: 'noun' },
+      { entryId: 'be-id', lemma: 'be', partOfSpeech: 'verb' },
+      { entryId: 'be-id', lemma: 'be', partOfSpeech: 'verb' },
     ]);
-    expect(prisma.wordForm.findMany).toHaveBeenCalledTimes(1);
-    expect(prisma.wordForm.findMany).toHaveBeenCalledWith({
-      where: { wordId: { in: ['well-id', 'be-id'] } },
+    expect(prisma.lexicalForm.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.lexicalForm.findMany).toHaveBeenCalledWith({
+      where: { entryId: { in: ['well-id', 'be-id'] } },
     });
     expect(result.get('well-id')?.get('noun')).toEqual({
       inflectionForms: { type: 'noun', singular: 'well', plural: 'wells' },
@@ -227,7 +229,7 @@ describe('MorphologyService', () => {
     expect(result.get('be-id')?.size).toBe(1);
   });
   it('describes an entry without known forms without inferring irregularity', async () => {
-    prisma.wordForm.findMany.mockResolvedValue([]);
+    prisma.lexicalForm.findMany.mockResolvedValue([]);
     const result = await service.describeEntries([entry]);
     expect(result.get('go-id')?.get('verb')).toEqual({
       inflectionForms: { type: 'verb', base: 'go' },
@@ -237,6 +239,6 @@ describe('MorphologyService', () => {
   });
   it('does not query storage for an empty entry list', async () => {
     expect(await service.describeEntries([])).toEqual(new Map());
-    expect(prisma.wordForm.findMany).not.toHaveBeenCalled();
+    expect(prisma.lexicalForm.findMany).not.toHaveBeenCalled();
   });
 });

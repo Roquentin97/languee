@@ -1,6 +1,6 @@
 package com.example.langueedroid.feature.review.presentation
 
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewItem
 
 enum class ReviewError { LOAD_FAILED, SUBMIT_FAILED, GRADE_FAILED }
@@ -30,7 +30,7 @@ sealed class ReviewSessionState {
         val index: Int,
         val total: Int,
         val matchedForm: String?,
-        val revealed: RevealedWord? = null,
+        val revealed: RevealedEntry? = null,
         val typedForms: Map<String, String>? = null,
     ) : ReviewSessionState()
 

@@ -2,7 +2,7 @@ import { VocabularyService } from './vocabulary.service';
 import { DictionaryService } from '../../lexicon/enrichment/dictionary/dictionary.service';
 import { CardsService } from '../cards/cards.service';
 import { NlpService } from '../../lexicon/enrichment/nlp/nlp.service';
-import { WordsService } from '../../lexicon/entries/words/words.service';
+import { LexicalEntriesService } from '../../lexicon/entries/lexical-entries/lexical-entries.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 import { DefinitionsNotFoundException } from '../../lexicon/enrichment/dictionary/dictionary.errors';
@@ -35,13 +35,13 @@ it.each([undefined, 'missing word'])(
           pos: PartOfSpeech.NOUN,
         }),
       } as unknown as NlpService,
-      {} as WordsService,
+      {} as LexicalEntriesService,
       {} as DefinitionService,
       { scheduleLookup: record } as unknown as LexicalEvaluationService,
     );
     await expect(
       service.lookup({
-        word: 'missing',
+        text: 'missing',
         language: 'en',
         userId: 'user',
         context,
@@ -61,10 +61,10 @@ const result = {
   language: 'en',
   kind: 'word' as const,
   source: 'cache' as const,
-  preferred: { wordId: 'good', partOfSpeech: null },
+  preferred: { entryId: 'good', partOfSpeech: null },
   headwords: [
     {
-      wordId: 'better',
+      entryId: 'better',
       lemma: 'better',
       language: 'en',
       relations: [],
@@ -76,7 +76,7 @@ const result = {
       ],
     },
     {
-      wordId: 'good',
+      entryId: 'good',
       lemma: 'good',
       language: 'en',
       relations: [{ partOfSpeech: 'adjective', relationType: 'comparative' }],
@@ -109,14 +109,14 @@ it('returns definitions with a correlation ID without waiting for storage', asyn
         pos: PartOfSpeech.ADJECTIVE,
       }),
     } as unknown as NlpService,
-    {} as WordsService,
+    {} as LexicalEntriesService,
     {} as DefinitionService,
     {
       scheduleLookup: jest.fn(),
     } as unknown as LexicalEvaluationService,
   );
   const response = await service.lookup({
-    word: 'better',
+    text: 'better',
     language: 'en',
     userId: 'user',
     context: 'It is better',
@@ -126,7 +126,7 @@ it('returns definitions with a correlation ID without waiting for storage', asyn
   );
   expect(response.orderedGroups).toHaveLength(3);
   expect(response.preferred).toEqual({
-    wordId: 'good',
+    entryId: 'good',
     partOfSpeech: PartOfSpeech.ADJECTIVE,
   });
 });
@@ -143,7 +143,7 @@ describe('multi-headword vocabulary lookup', () => {
     { lookup } as unknown as DictionaryService,
     { findCardsByDefinitionIdsAndUserId: cards } as unknown as CardsService,
     { analyze } as unknown as NlpService,
-    {} as WordsService,
+    {} as LexicalEntriesService,
     {} as DefinitionService,
   );
   it.each([
@@ -176,14 +176,14 @@ describe('multi-headword vocabulary lookup', () => {
         inflectionForms: null,
       });
       const output = await service.lookup({
-        word: 'better',
+        text: 'better',
         language: 'en',
         userId: 'user',
         context,
       });
       const expectedPreferred = preferred
         ? {
-            wordId: pos === PartOfSpeech.VERB ? 'better' : 'good',
+            entryId: pos === PartOfSpeech.VERB ? 'better' : 'good',
             partOfSpeech: preferred,
           }
         : null;
@@ -200,7 +200,7 @@ describe('multi-headword vocabulary lookup', () => {
         preferred: expectedPreferred,
         headwords: [
           {
-            wordId: 'better',
+            entryId: 'better',
             partsOfSpeech: [
               {
                 partOfSpeech: 'verb',
@@ -211,7 +211,7 @@ describe('multi-headword vocabulary lookup', () => {
             ],
           },
           {
-            wordId: 'good',
+            entryId: 'good',
             partsOfSpeech: [
               { partOfSpeech: 'adjective', definitions: [{ id: 'adj' }] },
               { partOfSpeech: 'noun', definitions: [{ id: 'noun' }] },
