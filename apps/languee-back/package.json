@@ -103,7 +103,7 @@
       ]
     },
     "extensionsToTreatAsEsm": [".ts"],
-    "transformIgnorePatterns": ["/node_modules/(?!(@nestjs/jwt|@nestjs/passport)/)"],
+    "transformIgnorePatterns": ["/node_modules/(?!(@nestjs/jwt|@nestjs/passport|uuid)/)"],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
