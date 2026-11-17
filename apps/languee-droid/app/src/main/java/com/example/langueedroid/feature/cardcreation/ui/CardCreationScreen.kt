@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -479,6 +483,46 @@ private fun LoadedDeckSelector(
 }
 
 @Composable
+private fun PartOfSpeechTabs(
+    partsOfSpeech: List<String>,
+    selectedPartOfSpeech: String?,
+    onSelected: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        partsOfSpeech.forEach { partOfSpeech ->
+            FilterChip(
+                selected = selectedPartOfSpeech == partOfSpeech,
+                onClick = { onSelected(partOfSpeech) },
+                label = { Text(partOfSpeech) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DefinitionCards(
+    definitions: List<DefinitionResult>,
+    selectedDefinition: DefinitionResult?,
+    selectedDeckId: String?,
+    onDefinitionSelected: (DefinitionResult) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(definitions) { definition ->
+            DefinitionCard(
+                definition = definition,
+                isSelected = definition == selectedDefinition,
+                selectedDeckId = selectedDeckId,
+                onClick = { onDefinitionSelected(definition) },
+            )
+        }
+    }
+}
+
+@Composable
 private fun DefinitionsList(
     definitions: List<DefinitionResult>,
     lemma: String,
@@ -494,6 +538,10 @@ private fun DefinitionsList(
     modifier: Modifier = Modifier,
 ) {
     val selectedDeck = (deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
+    val partsOfSpeech = definitions.map { it.partOfSpeech }.distinct()
+    val defaultPartOfSpeech =
+        selectedDefinition?.partOfSpeech ?: definitions.firstOrNull { it.preferred }?.partOfSpeech ?: partsOfSpeech.firstOrNull()
+    var selectedPartOfSpeech by rememberSaveable(lemma, partsOfSpeech) { mutableStateOf(defaultPartOfSpeech) }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -505,23 +553,19 @@ private fun DefinitionsList(
             color = TextSecondary,
         )
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f),
-        ) {
-            items(definitions) { definition ->
-                DefinitionCard(
-                    definition = definition,
-                    isSelected = definition == selectedDefinition,
-                    selectedDeckId = selectedDeck?.id,
-                    onClick = { onDefinitionSelected(definition) },
-                )
-            }
-        }
+        PartOfSpeechTabs(partsOfSpeech, selectedPartOfSpeech) { selectedPartOfSpeech = it }
+
+        DefinitionCards(
+            definitions.filter { it.partOfSpeech == selectedPartOfSpeech },
+            selectedDefinition,
+            selectedDeck?.id,
+            onDefinitionSelected,
+            Modifier.weight(1f),
+        )
 
         // The target deck is asked only after a definition has been picked, so the
         // definitions (and their saved-state badges) can inform the deck choice.
-        if (selectedDefinition != null) {
+        if (selectedDefinition != null && selectedDefinition.partOfSpeech == selectedPartOfSpeech) {
             DefinitionAvailability(definitionState)
             DeckSelector(
                 deckSelectionState = deckSelectionState,

@@ -741,9 +741,7 @@ private fun CaptureWorkspaceSelectionInfo(
             (tokens.getOrNull(inspectedIndex ?: -1) as? Token.Word)?.text
         }
     val saved = savedVocabulary.filter { it.surface.equals(inspected, ignoreCase = true) }
-    if (handled != null) {
-        HandledVocabularyInfo(handled, tokens)
-    } else {
+    if (handled == null) {
         SavedVocabularyInfo(saved)
         SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
     }
@@ -825,34 +823,6 @@ private fun SessionHistoryRow(
                 Text(item.deckName, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = TextMuted)
                 TextButton(onClick = { showFullDefinition = false }) { Text("Close") }
             }
-        }
-    }
-}
-
-@Composable
-private fun HandledVocabularyInfo(
-    item: CompletedTarget,
-    tokens: List<Token>,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = GreenContainer),
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                ExpressionSpanSelector.joinSelection(tokens, item.indices),
-                style = MaterialTheme.typography.titleSmall,
-                color = TextPrimary,
-            )
-            Text(
-                item.definition,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(item.deckName, style = MaterialTheme.typography.labelSmall, color = TextMuted)
         }
     }
 }
