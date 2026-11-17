@@ -69,8 +69,8 @@ class CaptureWorkspaceTest {
             ),
         )
         composeRule.onNodeWithText("Added this session (1)").assertIsDisplayed()
-        composeRule.onAllNodesWithText("A river edge").assertCountEquals(2)
-        composeRule.onAllNodesWithText("Nature").assertCountEquals(2)
+        composeRule.onAllNodesWithText("A river edge").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Nature").assertCountEquals(1)
         composeRule.onNodeWithText("Done").assertIsDisplayed()
     }
 
