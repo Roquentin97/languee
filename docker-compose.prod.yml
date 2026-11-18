@@ -139,9 +139,22 @@ services:
       postgres:
         condition: service_healthy
 
+  loki-retention-check:
+    image: caddy:2-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
+    entrypoint: ["sh", "-ec"]
+    command: ['case "$$LOKI_RETENTION_DAYS" in ""|*[!0-9]*|0*) echo "LOKI_RETENTION_DAYS must be a positive integer without leading zeros" >&2; exit 1;; esac']
+    environment:
+      LOKI_RETENTION_DAYS: ${LOKI_RETENTION_DAYS:-5}
+    restart: "no"
+
   loki:
+    depends_on:
+      loki-retention-check:
+        condition: service_completed_successfully
     image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
-    command: -config.file=/etc/loki/local-config.yaml
+    command: ["-config.file=/etc/loki/local-config.yaml", "-config.expand-env=true"]
+    environment:
+      LOKI_RETENTION_DAYS: ${LOKI_RETENTION_DAYS:-5}
     restart: unless-stopped
     volumes:
       - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
@@ -195,6 +208,7 @@ services:
     volumes:
       - ./provision/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host:ro,rslave
       - alloy_data:/var/lib/alloy/data
     mem_limit: 256m
 

@@ -582,3 +582,31 @@ def test_find_oci_prefers_explicit_then_default_venv_then_path(tmp_path, monkeyp
     monkeypatch.setattr(svc.shutil, "which", lambda name: None)
     with pytest.raises(svc.ConfigError, match="OCI CLI not found"):
         svc.find_oci(None)
+
+
+def test_retention_optional_and_positive_integer():
+    config = valid_config()
+    svc.validate(config)
+    assert 'LOKI_RETENTION_DAYS=' not in svc.render(config, 'a', 'b', 1)[svc.STACK_ENV]
+    config['LOKI_RETENTION_DAYS'] = '12'
+    svc.validate(config)
+    assert 'LOKI_RETENTION_DAYS=12' in svc.render(config, 'a', 'b', 1)[svc.STACK_ENV]
+    for value in ('0', '-1', '1.5', '01', 'abc'):
+        config['LOKI_RETENTION_DAYS'] = value
+        with pytest.raises(svc.ConfigError):
+            svc.validate(config)
+
+
+
+def test_disk_healthcheck_is_optional_and_rendered_without_exposure():
+    config = valid_config()
+    svc.validate(config)
+    assert "DISK_HEALTHCHECK_URL=" not in svc.render(config, "a", "b", 1)[svc.STACK_ENV]
+    config["DISK_HEALTHCHECK_URL"] = "https://hc-ping.com/example-id"
+    svc.validate(config)
+    assert "DISK_HEALTHCHECK_URL=https://hc-ping.com/example-id" in svc.render(config, "a", "b", 1)[svc.STACK_ENV]
+    for value in ("http://hc-ping.com/id", "https://hc-ping.com/id?secret=x", "https://hc-ping.com/id/fail", "bad"):
+        config["DISK_HEALTHCHECK_URL"] = value
+        with pytest.raises(svc.ConfigError) as error:
+            svc.validate(config)
+        assert value not in str(error.value)

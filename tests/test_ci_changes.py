@@ -57,6 +57,13 @@ class ChangeSelectionTest(unittest.TestCase):
                 self.assertTrue(result['agents'])
                 self.assertFalse(any(result[name] for name in ci_changes.SERVICES))
 
+    def test_monitoring_configuration_selects_deploy_checks(self):
+        for path in ('.env.example', 'provision/alloy/config.alloy', 'deploy/scripts/check-disk-health.py'):
+            with self.subTest(path=path):
+                result = self.select([path])
+                self.assertTrue(result['deploy'])
+                self.assertFalse(any(result[name] for name in ci_changes.SERVICES))
+
     def test_changed_service_job_selects_that_service(self):
         for job in ci_changes.SERVICES:
             with self.subTest(job=job):

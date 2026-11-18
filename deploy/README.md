@@ -336,3 +336,12 @@ credentials exist only on the lost host is not a recovery path.
 3. Restore the latest dump (above).
 4. Flip the DNS A record. Done — config is identical (add `linux/amd64` to the
    image build first if the new host is x86).
+
+Image cleanup runs before application pulls and after a successful deployment.
+It only removes old tags from the backend, migrator, and NLP repositories; it
+keeps the three newest image IDs per repository plus images used by running
+containers and current or previous deployment state. Shared image IDs are
+protected across repositories. Cleanup never removes volumes and failures are
+reported as warnings without failing an otherwise successful deployment. Check
+the deployment log for `image cleanup complete` or warnings after rollout.
+See [Vault configuration](VAULT.md#disk-health-check) for Healthchecks.io setup, cron installation, and safe testing. Loki retention defaults to five days and is configured with `LOKI_RETENTION_DAYS`.

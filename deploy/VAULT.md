@@ -51,7 +51,7 @@ tests assert it matches the script's allowlist. Unknown keys are rejected.
 
 | Written to          | Keys |
 | ------------------- | ---- |
-| `.env` (compose + backup script) | `DOMAIN`, `MONITOR_DOMAIN`, `TELEMETRY_DOMAIN`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `TELEMETRY_USERNAME`, `TELEMETRY_PASSWORD_HASH`, `LANGUEE_BACK_POSTGRES_USER`, `LANGUEE_BACK_POSTGRES_PASSWORD`, `LANGUEE_BACK_POSTGRES_DB`, `LANGUEE_BACK_REDIS_PASSWORD`, `BACKUP_RCLONE_REMOTE`, `BACKUP_RETENTION_DAYS`, `BACKUP_HEALTHCHECK_URL` (may be empty; sensitive) |
+| `.env` (compose + backup script) | `DOMAIN`, `MONITOR_DOMAIN`, `TELEMETRY_DOMAIN`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `TELEMETRY_USERNAME`, `TELEMETRY_PASSWORD_HASH`, `LANGUEE_BACK_POSTGRES_USER`, `LANGUEE_BACK_POSTGRES_PASSWORD`, `LANGUEE_BACK_POSTGRES_DB`, `LANGUEE_BACK_REDIS_PASSWORD`, `BACKUP_RCLONE_REMOTE`, `BACKUP_RETENTION_DAYS`, `BACKUP_HEALTHCHECK_URL`, `DISK_HEALTHCHECK_URL` (optional, may be empty; sensitive) |
 | `languee-back.env`  | `PORT`, `NODE_ENV`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `BASIC_AUTH`, `BASIC_PASSWORD`, `LANGUEE_NLP_BASE_URL`, `LANGUEE_NLP_BASIC_AUTH_LOGIN`, `LANGUEE_NLP_BASIC_AUTH_PASSWORD`, `LOG_FORMAT`, `SERVICE_NAME`, `PRINT_DEBUG_LOGS`, `PRINT_PRETTY_JSON_LOGS`, `TRACING_ENABLED=true`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318` |
 | `languee-nlp.env`   | `LANGUEE_NLP_SPACY_MODEL`, `LANGUEE_NLP_LOG_FORMAT`, `LANGUEE_NLP_LOG_LEVEL`, `LANGUEE_NLP_SERVICE_NAME`, `LANGUEE_NLP_ENVIRONMENT`, `LANGUEE_NLP_TRACING_ENABLED=true`, `LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318` |
 | derived             | `languee-nlp.env` `BASIC_LOGIN` / `BASIC_PASSWORD` come from `LANGUEE_NLP_BASIC_AUTH_LOGIN` / `LANGUEE_NLP_BASIC_AUTH_PASSWORD` (stored once). The backend's `BASIC_PASSWORD` is Swagger auth and is never used for NLP. |
@@ -158,3 +158,21 @@ changes, export the current secret JSON and store it encrypted away from OCI,
 for example `age`/`gpg`-encrypted in a password manager or a private R2 bucket
 with a key you hold elsewhere. Likewise keep the rclone R2 config and the
 crontab outside the VM; `backup-db.sh` backs up Postgres only.
+
+
+### Disk health check
+
+Create a dedicated Healthchecks.io check with a one-minute expected period and a five-minute grace period, and configure its notification channel. Add its base HTTPS ping URL as `DISK_HEALTHCHECK_URL` in the OCI Vault JSON; keep the URL secret. Leave the key absent or empty to disable pings. Apply the Vault change through **Apply config (dev)** after deploying the code. Never edit the generated `/opt/languee/.env` by hand.
+
+Install the cron entry in the deploy user's crontab, preserving existing entries (including the database backup):
+
+```sh
+crontab -l > /tmp/languee-crontab 2>/dev/null || true
+grep -Fqx '* * * * * /usr/bin/python3 /opt/languee/scripts/check-disk-health.py >> /opt/languee/backups/disk-health.log 2>&1' /tmp/languee-crontab || printf '%s\n' '* * * * * /usr/bin/python3 /opt/languee/scripts/check-disk-health.py >> /opt/languee/backups/disk-health.log 2>&1' >> /tmp/languee-crontab
+crontab /tmp/languee-crontab
+rm /tmp/languee-crontab
+```
+
+The script samples `/` once per minute using available bytes. Exactly 85% used is healthy; only a value strictly above 85% starts the timer. A failure ping begins after five minutes of observed high usage, plus up to one sampling interval and delivery delay. Recovery reports success after the next healthy measurement.
+
+Test without filling the filesystem: run the script once to verify success, then run `/usr/bin/python3 /opt/languee/scripts/check-disk-health.py --test-fail` to send a test failure, then run the normal script to report recovery. This does not change disk usage or timer state. Confirm success, failure and recovery signals in Healthchecks activity, then pause cron for slightly longer than the configured grace period to verify a missed heartbeat alert, and resume it. Do not change the production threshold or manually edit generated environment files.

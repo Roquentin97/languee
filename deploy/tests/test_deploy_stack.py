@@ -226,3 +226,8 @@ def test_pinned_monitoring_images_contain_healthcheck_executables():
                 assert executable.lstrip("/") in archive.getnames(), image
         finally:
             subprocess.run(["docker", "rm", "-f", container], check=False, capture_output=True)
+
+
+def test_deploy_workflow_copies_disk_health_script():
+    workflow = (Path(__file__).parents[2] / ".github/workflows/deploy.yml").read_text()
+    assert "deploy/scripts/check-disk-health.py" in workflow

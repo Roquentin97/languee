@@ -101,6 +101,7 @@ SQL_IDENT = _re(r"[a-z_][a-z0-9_]{0,62}", "lowercase letters, digits, '_' (max 6
 # Keys written to /opt/languee/.env. That file is read by compose AND sourced by
 # backup-db.sh, so its values are restricted to a shell-inert character set.
 STACK_SCHEMA: dict[str, Rule] = {
+    "LOKI_RETENTION_DAYS": Rule(lambda v: re.fullmatch(r"[1-9][0-9]*", v) is not None, "a positive integer", required=False),
     "DOMAIN": HOSTNAME,
     "MONITOR_DOMAIN": HOSTNAME,
     "TELEMETRY_DOMAIN": HOSTNAME,
@@ -120,6 +121,13 @@ STACK_SCHEMA: dict[str, Rule] = {
     "BACKUP_HEALTHCHECK_URL": _re(
         r"https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/[A-Za-z0-9._/~-]*",
         "an https URL without query string, or empty to disable the heartbeat",
+        allow_empty=True,
+    ),
+    "DISK_HEALTHCHECK_URL": Rule(
+        lambda v: re.fullmatch(r"https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/[A-Za-z0-9._/~-]*", v) is not None
+        and not v.endswith("/fail"),
+        "a shell-safe HTTPS ping URL without query string or /fail",
+        required=False,
         allow_empty=True,
     ),
 }
