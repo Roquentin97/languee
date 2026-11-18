@@ -63,6 +63,12 @@ state_before=$(vault_sync --status)
 initial=false
 if ! grep -q '"back_tag": "' <<<"$state_before"; then initial=true; fi
 
+cleanup_images() {
+  APP_DIR="$APP_DIR" IMAGE_PREFIX="$IMAGE_PREFIX" python3 scripts/cleanup-images.py ||
+    echo "WARNING: image cleanup failed; continuing deployment" >&2
+}
+cleanup_images
+
 # Artifact labels are checked before state is changed. A missing artifact never
 # falls back to a moving tag.
 verify_artifact() {
@@ -196,3 +202,5 @@ fi
 
 docker compose ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'
 echo "deployed: $(vault_sync --status | tr -d '\n ')"
+
+cleanup_images

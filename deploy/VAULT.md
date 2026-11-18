@@ -158,3 +158,19 @@ changes, export the current secret JSON and store it encrypted away from OCI,
 for example `age`/`gpg`-encrypted in a password manager or a private R2 bucket
 with a key you hold elsewhere. Likewise keep the rclone R2 config and the
 crontab outside the VM; `backup-db.sh` backs up Postgres only.
+
+### Disk alerts and log retention
+
+`LOKI_RETENTION_DAYS` is optional and defaults to `5`; it must be a positive
+whole number without leading zeroes. Loki's compactor applies it to existing
+logs as well as new logs, with deletion subject to the two-hour deletion delay
+and normal compaction. Older logs can therefore be deleted after rollout.
+
+Email requires all five optional Vault keys: `GRAFANA_SMTP_HOST` (host:port),
+`GRAFANA_SMTP_USER`, `GRAFANA_SMTP_PASSWORD`, `GRAFANA_SMTP_FROM_ADDRESS`, and
+`GRAFANA_ALERT_EMAIL`. Use shell-safe values as described above. Without them,
+existing secrets continue to work but email delivery is disabled. Add the keys
+and apply configuration before relying on alerts. In Grafana, open Alerting →
+Contact points → disk-email → Test, send a test notification, and confirm its
+receipt. Then check Alerting → Alert rules for the root filesystem rule and its
+normal evaluation state. The rule fires after usage exceeds 85% for five minutes.

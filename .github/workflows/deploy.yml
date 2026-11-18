@@ -241,7 +241,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py
+          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py,deploy/scripts/cleanup-images.py
           target: /opt/languee/
           strip_components: 1
       - name: Copy observability provisioning

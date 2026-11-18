@@ -48,8 +48,8 @@ def select_checks(paths, base_workflow, head_workflow):
         for path in paths
     )
     selected['deploy'] = any(
-        path.startswith(('deploy/', '.github/workflows/'))
-        or path in {'docker-compose.yml', 'docker-compose.prod.yml'}
+        path.startswith(('deploy/', 'provision/', '.github/workflows/'))
+        or path in {'docker-compose.yml', 'docker-compose.prod.yml', '.env.example'}
         for path in paths
     )
     return selected

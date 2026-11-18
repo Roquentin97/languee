@@ -101,6 +101,12 @@ SQL_IDENT = _re(r"[a-z_][a-z0-9_]{0,62}", "lowercase letters, digits, '_' (max 6
 # Keys written to /opt/languee/.env. That file is read by compose AND sourced by
 # backup-db.sh, so its values are restricted to a shell-inert character set.
 STACK_SCHEMA: dict[str, Rule] = {
+    "LOKI_RETENTION_DAYS": Rule(lambda v: re.fullmatch(r"[1-9][0-9]*", v) is not None, "a positive integer", required=False),
+    "GRAFANA_SMTP_HOST": _re(r"[A-Za-z0-9.-]+:[0-9]+", "SMTP host:port", required=False),
+    "GRAFANA_SMTP_USER": _re(r"[A-Za-z0-9_.@+-]+", "SMTP username", required=False),
+    "GRAFANA_SMTP_PASSWORD": _re(r"[A-Za-z0-9_.@%+=:,/~-]+", "shell-safe SMTP password", required=False),
+    "GRAFANA_SMTP_FROM_ADDRESS": _re(r"[A-Za-z0-9_.+-]+@[A-Za-z0-9.-]+", "sender email address", required=False),
+    "GRAFANA_ALERT_EMAIL": _re(r"[A-Za-z0-9_.+-]+@[A-Za-z0-9.-]+", "recipient email address", required=False),
     "DOMAIN": HOSTNAME,
     "MONITOR_DOMAIN": HOSTNAME,
     "TELEMETRY_DOMAIN": HOSTNAME,
@@ -256,6 +262,9 @@ def _relationship_problems(config: Mapping[str, str]) -> list[str]:
     problems = []
     if ":" in config["LANGUEE_NLP_BASIC_AUTH_LOGIN"]:
         problems.append("LANGUEE_NLP_BASIC_AUTH_LOGIN: must not contain ':' (HTTP basic auth)")
+    smtp_keys = ("GRAFANA_SMTP_HOST", "GRAFANA_SMTP_USER", "GRAFANA_SMTP_PASSWORD", "GRAFANA_SMTP_FROM_ADDRESS", "GRAFANA_ALERT_EMAIL")
+    if any(key in config for key in smtp_keys) and not all(key in config for key in smtp_keys):
+        problems.append("SMTP configuration requires all five GRAFANA_SMTP_* and GRAFANA_ALERT_EMAIL keys")
     return problems
 
 
@@ -276,6 +285,7 @@ def render(config: Mapping[str, str], back_tag: str, nlp_tag: str, secret_versio
 
     stack = [("COMPOSE_FILE", COMPOSE_FILE), ("LANGUEE_BACK_TAG", back_tag), ("LANGUEE_NLP_TAG", nlp_tag)]
     stack += [(k, config[k]) for k in STACK_SCHEMA if k in config]
+    stack.append(("GRAFANA_SMTP_ENABLED", "true" if "GRAFANA_SMTP_HOST" in config else "false"))
     back = [(k, config[k]) for k in BACK_SCHEMA if k in config]
     nlp = [(k, config[k]) for k in NLP_SCHEMA if k in config]
     nlp += [(target, config[source]) for target, source in NLP_DERIVED.items()]

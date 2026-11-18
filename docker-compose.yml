@@ -134,9 +134,22 @@ services:
       retries: 3
       start_period: 20s
 
+  loki-retention-check:
+    image: caddy:2-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
+    entrypoint: ["sh", "-ec"]
+    command: ['case "$$LOKI_RETENTION_DAYS" in ""|*[!0-9]*|0*) echo "LOKI_RETENTION_DAYS must be a positive integer without leading zeros" >&2; exit 1;; esac']
+    environment:
+      LOKI_RETENTION_DAYS: ${LOKI_RETENTION_DAYS:-5}
+    restart: "no"
+
   loki:
+    depends_on:
+      loki-retention-check:
+        condition: service_completed_successfully
     image: grafana/loki:3.7.2@sha256:191d4fdfb7264f16989f0a57f320872620a5a7c2ceeec6229212c4190ec49b86
-    command: -config.file=/etc/loki/local-config.yaml
+    command: ["-config.file=/etc/loki/local-config.yaml", "-config.expand-env=true"]
+    environment:
+      LOKI_RETENTION_DAYS: ${LOKI_RETENTION_DAYS:-5}
     volumes:
       - ./provision/loki-config.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
@@ -188,6 +201,7 @@ services:
     volumes:
       - ./provision/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/host:ro,rslave
       - alloy-data:/var/lib/alloy/data
     ports:
       - "4317:4317"
@@ -201,11 +215,18 @@ services:
   grafana:
     image: grafana/grafana:13.0.1-security-01@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
     environment:
+      GF_SMTP_ENABLED: ${GRAFANA_SMTP_ENABLED:-false}
+      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-localhost:25}
+      GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${GRAFANA_SMTP_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_FROM_ADDRESS:-admin@example.com}
+      GRAFANA_ALERT_EMAIL: ${GRAFANA_ALERT_EMAIL:-admin@example.com}
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
     ports:
       - "3001:3000"
     volumes:
+      - ./provision/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       - ./provision/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./provision/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - grafana-data:/var/lib/grafana

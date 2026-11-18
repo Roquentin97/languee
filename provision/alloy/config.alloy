@@ -51,10 +51,6 @@ loki.process "json_parser" {
 
 	stage.labels {
 		values = {
-			service         = null,
-			app             = null,
-			environment     = null,
-			compose_service = null,
 			level           = "level",
 			context         = "context",
 		}
@@ -132,4 +128,15 @@ prometheus.remote_write "default" {
 	endpoint {
 		url = "http://prometheus:9090/api/v1/write"
 	}
+}
+
+// Read the host root filesystem, not the container overlay filesystem.
+prometheus.exporter.unix "host" {
+  rootfs_path = "/host"
+  disable_collectors = ["arp", "bcache", "bonding", "btrfs", "conntrack", "cpu", "diskstats", "edac", "entropy", "filefd", "hwmon", "infiniband", "ipvs", "loadavg", "mdadm", "meminfo", "netclass", "netdev", "netstat", "nfs", "nfsd", "nvme", "powersupplyclass", "pressure", "rapl", "schedstat", "sockstat", "softnet", "stat", "tapestats", "textfile", "thermal_zone", "time", "timex", "udp_queues", "uname", "vmstat", "xfs", "zfs"]
+}
+prometheus.scrape "host" {
+  targets = prometheus.exporter.unix.host.targets
+  forward_to = [prometheus.remote_write.default.receiver]
+  scrape_interval = "30s"
 }

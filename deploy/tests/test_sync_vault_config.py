@@ -582,3 +582,24 @@ def test_find_oci_prefers_explicit_then_default_venv_then_path(tmp_path, monkeyp
     monkeypatch.setattr(svc.shutil, "which", lambda name: None)
     with pytest.raises(svc.ConfigError, match="OCI CLI not found"):
         svc.find_oci(None)
+
+
+def test_retention_optional_and_positive_integer():
+    config = valid_config()
+    svc.validate(config)
+    assert 'LOKI_RETENTION_DAYS=' not in svc.render(config, 'a', 'b', 1)[svc.STACK_ENV]
+    config['LOKI_RETENTION_DAYS'] = '12'
+    svc.validate(config)
+    assert 'LOKI_RETENTION_DAYS=12' in svc.render(config, 'a', 'b', 1)[svc.STACK_ENV]
+    for value in ('0', '-1', '1.5', '01', 'abc'):
+        config['LOKI_RETENTION_DAYS'] = value
+        with pytest.raises(svc.ConfigError):
+            svc.validate(config)
+
+
+def test_smtp_is_optional_but_requires_complete_configuration():
+    config = valid_config()
+    assert 'GRAFANA_SMTP_ENABLED=false' in svc.render(config, 'a', 'b', 1)[svc.STACK_ENV]
+    config['GRAFANA_SMTP_HOST'] = 'smtp.example.com:587'
+    with pytest.raises(svc.ConfigError):
+        svc.validate(config)
