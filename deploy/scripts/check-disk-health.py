@@ -27,21 +27,25 @@ def read_state(path, now):
         value = json.loads(path.read_text())
         started = value["high_since"]
         updated = value["updated_at"]
-        if (not isinstance(started, (int, float)) or not isinstance(updated, (int, float))
-                or updated > now or now - updated > STALE_SECONDS
+        failed = value.get("failed", False)
+        if not isinstance(failed, bool):
+            failed = False
+        if (not isinstance(updated, (int, float)) or updated > now):
+            return {"high_since": None, "failed": failed}
+        if (not isinstance(started, (int, float)) or now - updated > STALE_SECONDS
                 or started > updated or started < 0):
-            return None
-        return started
+            return {"high_since": None, "failed": failed}
+        return {"high_since": started, "failed": failed}
     except (OSError, ValueError, KeyError, TypeError):
-        return None
+        return {"high_since": None, "failed": False}
 
 
-def write_state(path, high_since, now):
+def write_state(path, high_since, now, failed):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=".disk-health-", dir=path.parent)
     try:
         with os.fdopen(fd, "w") as out:
-            json.dump({"high_since": high_since, "updated_at": now}, out)
+            json.dump({"high_since": high_since, "updated_at": now, "failed": failed}, out)
             out.flush()
             os.fsync(out.fileno())
         os.replace(name, path)
@@ -82,18 +86,25 @@ def run(*, base_url, state_path=STATE, lock_path=LOCK, measure=None, clock=None,
             if not isinstance(total, int) or not isinstance(available, int) or total <= 0 or not 0 <= available <= total:
                 raise ValueError("invalid disk measurement")
         except Exception:
-            send_ping(base_url, True)
+            sent = send_ping(base_url, True)
+            previous = read_state(state_path, now)
+            write_state(state_path, None, now, bool(sent or previous["failed"]))
             print("root filesystem measurement failed", file=sys.stderr)
             return 1
 
         # Compare exact byte ratios: precisely 85% used is healthy.
         high = (total - available) * 100 > total * HIGH_PERCENT
-        started = read_state(state_path, now) if high else None
+        previous = read_state(state_path, now)
+        started = previous["high_since"] if high else None
         if high and started is None:
             started = now
-        write_state(state_path, started, now)
-        failed = bool(high and now - started >= SUSTAINED_SECONDS)
-        return 0 if send_ping(base_url, failed) else 1
+        # A stale timer restarts, but a delivered failure remains failed until
+        # a valid healthy sample can successfully send the recovery ping.
+        failed = bool(high and (previous["failed"] or now - started >= SUSTAINED_SECONDS))
+        sent = send_ping(base_url, failed)
+        failed_state = failed if sent else bool(previous["failed"] or failed)
+        write_state(state_path, started, now, failed_state)
+        return 0 if sent else 1
 
 
 def main():

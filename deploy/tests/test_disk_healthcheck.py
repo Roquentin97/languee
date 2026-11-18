@@ -62,6 +62,28 @@ def test_corrupt_state_invalid_measurement_and_failed_ping(tmp_path):
     assert result == 1
 
 
+def test_measurement_failure_keeps_check_failed_until_healthy_measurement(tmp_path):
+    fail = lambda: (_ for _ in ()).throw(OSError())
+    result, calls, path = call(tmp_path, measure=fail)
+    assert result == 1 and calls[-1][1] is True
+    assert json.loads(path.read_text())['failed'] is True
+    _, calls, path = call(tmp_path, used=86, now=1060, state=json.loads(path.read_text()))
+    assert calls[-1][1] is True
+    assert json.loads(path.read_text())['failed'] is True
+    _, calls, path = call(tmp_path, used=85, now=1120, state=json.loads(path.read_text()))
+    assert calls[-1][1] is False
+    assert json.loads(path.read_text())['failed'] is False
+
+
+def test_failed_check_survives_stale_high_timer_state(tmp_path):
+    stale = {'high_since': 1000, 'updated_at': 1000, 'failed': True}
+    _, calls, path = call(tmp_path, used=86, now=2000, state=stale)
+    assert calls[-1][1] is True
+    state = json.loads(path.read_text())
+    assert state['failed'] is True
+    assert state['high_since'] == 2000
+
+
 def test_empty_url_sends_no_request_and_lock_serializes(tmp_path):
     calls=[]
     assert disk.run(base_url='', state_path=tmp_path/'s', lock_path=tmp_path/'l',
