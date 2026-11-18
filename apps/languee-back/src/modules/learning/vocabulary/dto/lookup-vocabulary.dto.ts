@@ -1,17 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsIn,
   Length,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+import { CaptureRangeDto } from '../../capture/capture-range.dto';
+
 export class LookupVocabularyDto {
   @ApiProperty({
     example: 'running',
     description:
-      'Word or expression to look up. Idioms and phrasal verbs are supported; the NLP service owns the token-count limit and rejects inputs above it.',
+      'Word or expression to look up, with at most six whitespace-separated components. Idioms and phrasal verbs are supported.',
   })
   @IsString()
   @IsNotEmpty({ message: 'TEXT_REQUIRED' })
@@ -42,28 +49,38 @@ export class LookupVocabularyDto {
   context?: string;
 
   @ApiPropertyOptional({
-    type: Number,
-    description: 'Inclusive Unicode code-point offset in context',
-  })
-  @IsOptional()
-  @IsString()
-  selectionStart?: string;
-
-  @ApiPropertyOptional({
-    type: Number,
-    description: 'Exclusive Unicode code-point offset in context',
-  })
-  @IsOptional()
-  @IsString()
-  selectionEnd?: string;
-
-  @ApiPropertyOptional({
-    enum: ['true', 'false'],
-    example: 'false',
+    type: [CaptureRangeDto],
+    example: [
+      { start: 0, end: 3 },
+      { start: 8, end: 11 },
+    ],
     description:
-      'Do not select a context-derived preferred part of speech; all groups are always returned',
+      'Ordered, non-overlapping half-open Unicode code-point ranges, one per selected word.',
   })
   @IsOptional()
-  @IsIn(['true', 'false'])
-  disablePosFiltering?: 'true' | 'false';
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(6)
+  @ValidateNested({ each: true })
+  @Type(() => CaptureRangeDto)
+  selectionRanges?: CaptureRangeDto[];
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    default: true,
+    description: 'Include contextual expression and base-verb alternatives.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeSuggestions?: boolean;
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    example: false,
+    description:
+      'Do not select a context-derived preferred part of speech; all groups are always returned.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  disablePosFiltering?: boolean;
 }

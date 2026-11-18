@@ -8,6 +8,10 @@ import { NlpInputInvalidError, NlpUnavailableError } from './nlp.errors';
 import type {
   NlpAnalyzeResponse,
   NlpAnalyzeResult,
+  NlpExpressionMatch,
+  NlpExpressionMatchInput,
+  NlpExpressionMatchResponse,
+  NlpSelectionAnalysisResponse,
   NlpTokenForms,
 } from './nlp.interfaces';
 import { mapSpacyPos } from './mappers/spacy-pos.mapper';
@@ -22,8 +26,56 @@ import type {
   InflectionResult,
 } from '../morphology/morphology-provider';
 import type { InflectionForms } from '../../types/inflection-forms.types';
+import type { CaptureRange } from '../../../learning/capture/capture-ranges';
 
 export const NLP_READY_TIMEOUT_MS = 2_000;
+export const NLP_EXPRESSION_MATCH_TIMEOUT_MS = 2_000;
+
+function mapSelectionAnalysis(selection: NlpSelectionAnalysisResponse | null) {
+  return selection
+    ? {
+        headLemma: selection.head_lemma,
+        pos: selection.pos,
+        headRange: selection.head_range,
+      }
+    : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isCaptureRange(value: unknown): value is CaptureRange {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.start === 'number' &&
+    Number.isSafeInteger(value.start) &&
+    value.start >= 0 &&
+    typeof value.end === 'number' &&
+    Number.isSafeInteger(value.end) &&
+    value.end > value.start
+  );
+}
+
+function isNlpExpressionMatch(value: unknown): value is NlpExpressionMatch {
+  if (!isRecord(value) || !Array.isArray(value.component_ranges)) return false;
+  return (
+    typeof value.entry_id === 'string' &&
+    typeof value.canonical_text === 'string' &&
+    typeof value.surface_text === 'string' &&
+    value.component_ranges.every(isCaptureRange)
+  );
+}
+
+function isNlpExpressionMatchResponse(
+  value: unknown,
+): value is NlpExpressionMatchResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.matches) &&
+    value.matches.every(isNlpExpressionMatch)
+  );
+}
 
 @Injectable()
 export class NlpService {
@@ -48,7 +100,7 @@ export class NlpService {
     text: string,
     context?: string,
     language = 'en',
-    selection?: { start: number; end: number },
+    selectionRanges?: CaptureRange[],
   ): Promise<NlpAnalyzeResult> {
     this.logger.debug({
       message: 'request',
@@ -58,7 +110,12 @@ export class NlpService {
     });
 
     const start = Date.now();
-    const body = await this.requestAnalysis(text, context, language, selection);
+    const body = await this.requestAnalysis(
+      text,
+      context,
+      language,
+      selectionRanges,
+    );
     const durationMs = Date.now() - start;
 
     return this.mapAnalysis(body, text, language, durationMs);
@@ -68,21 +125,38 @@ export class NlpService {
     text: string,
     context: string | undefined,
     language: string,
-    selection?: { start: number; end: number },
+    selectionRanges?: CaptureRange[],
   ): Promise<NlpAnalyzeResponse> {
-    const params: Record<string, string> = { text, language };
-    if (context?.trim()) params.input_text = context;
-    if (selection) {
-      params.selection_start = String(selection.start);
-      params.selection_end = String(selection.end);
-    }
+    const body: Record<string, unknown> = { text, language };
+    if (context?.trim()) body.input_text = context;
+    if (selectionRanges?.length) body.selection_ranges = selectionRanges;
     return this.protectedRequest<NlpAnalyzeResponse>(
       'analyze',
-      params,
       undefined,
+      body,
       {},
       text,
     );
+  }
+
+  async matchExpressions(
+    input: NlpExpressionMatchInput,
+  ): Promise<NlpExpressionMatch[]> {
+    const response = await this.protectedRequest<unknown>(
+      'match-expressions',
+      undefined,
+      input,
+      {
+        operation: 'nlp expression matching',
+        timeoutMs: NLP_EXPRESSION_MATCH_TIMEOUT_MS,
+      },
+    );
+    if (!isNlpExpressionMatchResponse(response)) {
+      throw new NlpUnavailableError(
+        new Error('NLP expression matcher returned an invalid response'),
+      );
+    }
+    return response.matches;
   }
 
   private async protectedRequest<T>(
@@ -274,6 +348,13 @@ export class NlpService {
     language: string,
     durationMs: number,
   ): NlpAnalyzeResult {
+    if (
+      typeof body.model_version !== 'string' ||
+      body.model_version.trim().length === 0
+    )
+      throw new NlpUnavailableError(
+        new Error('NLP analysis omitted model version'),
+      );
     if (body.kind === 'word')
       return this.mapWord(body, text, language, durationMs);
 
@@ -303,7 +384,9 @@ export class NlpService {
       kind: body.kind,
       canonical: body.canonical,
       headLemma: body.head_lemma,
+      modelVersion: body.model_version,
       contextMatch,
+      selectionAnalysis: mapSelectionAnalysis(body.selection_analysis),
     };
   }
 
@@ -344,6 +427,7 @@ export class NlpService {
       modelVersion: body.model_version,
       isIrregular: token['is_irregular'],
       inflectionForms,
+      selectionAnalysis: mapSelectionAnalysis(body.selection_analysis),
     };
   }
 

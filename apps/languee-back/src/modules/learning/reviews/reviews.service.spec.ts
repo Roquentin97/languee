@@ -49,6 +49,7 @@ function baseCard(overrides: Partial<Card>): Card {
     entryId: null,
     partOfSpeech: null,
     context: null,
+    targetRanges: null,
     inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
     state: 'review',
     dueAt: new Date('2026-07-01T00:00:00.000Z'),
@@ -267,6 +268,26 @@ describe('ReviewsService', () => {
       });
     });
 
+    it('cloze card payload masks exactly the saved ranges and preserves intervening text', async () => {
+      mockCardsService.findDueCards.mockResolvedValue([
+        {
+          ...mockClozeCard,
+          context: 'She gave the old machine up, then gave up.',
+          targetRanges: [
+            { start: 4, end: 8 },
+            { start: 25, end: 27 },
+          ],
+        },
+      ]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
+
+      const result = await service.getQueue('user-id-1', { limit: 20 });
+
+      expect(result[0]?.cloze?.maskedSentence).toBe(
+        'She ____ the old machine ____, then gave up.',
+      );
+    });
+
     it('inflection card payload — exposes form keys but never the values', async () => {
       mockCardsService.findDueCards.mockResolvedValue([]);
       mockCardsService.findUnreviewedCards.mockResolvedValue([
@@ -387,6 +408,33 @@ describe('ReviewsService', () => {
           lemma: 'run into',
           ipa: null,
         },
+      });
+    });
+
+    it('accepts the joined selected components without requiring an intervening object', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue({
+        ...mockClozeCard,
+        context: 'She gave the old machine up, then gave up.',
+        targetRanges: [
+          { start: 4, end: 8 },
+          { start: 25, end: 27 },
+        ],
+        definition: {
+          ...mockDefinition,
+          entry: { ...mockEntry, lemma: 'give up' },
+        },
+      });
+
+      const result = await service.checkTypedAnswer(
+        'user-id-1',
+        'card-id-1',
+        'gave up',
+      );
+
+      expect(result).toMatchObject({
+        result: 'correct',
+        matchedForm: 'gave up',
+        revealed: { lemma: 'give up' },
       });
     });
 

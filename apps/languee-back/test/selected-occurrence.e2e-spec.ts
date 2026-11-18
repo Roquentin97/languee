@@ -24,8 +24,9 @@ integration('selected occurrence across backend and NLP', () => {
       new ConfigService({
         nlp: {
           baseUrl: nlpUrl,
-          basicAuthLogin: 'test',
-          basicAuthPassword: 'test',
+          basicAuthLogin: process.env['NLP_CROSS_SERVICE_LOGIN'] ?? 'test',
+          basicAuthPassword:
+            process.env['NLP_CROSS_SERVICE_PASSWORD'] ?? 'test',
         },
       }),
     );
@@ -81,18 +82,18 @@ integration('selected occurrence across backend and NLP', () => {
       {} as never,
     );
     const controller = new VocabularyController(vocabulary);
-    const lookup = (start: string, end: string) =>
+    const lookup = (start: number, end: number) =>
       controller.lookup(
         {
           text: 'saw',
           context: 'I saw the saw.',
-          selectionStart: start,
-          selectionEnd: end,
+          selectionRanges: [{ start, end }],
+          includeSuggestions: false,
         },
         { userId: 'integration' } as never,
       );
-    const first = await lookup('2', '5');
-    const second = await lookup('10', '13');
+    const first = await lookup(2, 5);
+    const second = await lookup(10, 13);
     expect(first.preferred).toEqual({
       entryId: 'see',
       partOfSpeech: PartOfSpeech.VERB,

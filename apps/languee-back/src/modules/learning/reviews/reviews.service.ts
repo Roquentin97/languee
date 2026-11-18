@@ -10,6 +10,7 @@ import type {
 import { DecksService } from '../decks/decks.service';
 import type { InflectionForms } from '../../lexicon/types/inflection-forms.types';
 import { collectTargetForms, maskText } from './lib/masking';
+import { capturedText, maskCapturedRanges } from '../capture/capture-ranges';
 import { checkAnswer } from './lib/answer-matching';
 import { checkTypedForms, formKeysFor } from './lib/inflection-payload';
 import { truncateGloss } from './lib/definition-hints';
@@ -293,7 +294,12 @@ export class ReviewsService {
     const inflectionForms = (card.inflectionForms ??
       card.lexicalInflectionForms ??
       null) as InflectionForms | null;
-    return collectTargetForms(card.definition.entry.lemma, inflectionForms);
+    const forms = collectTargetForms(
+      card.definition.entry.lemma,
+      inflectionForms,
+    );
+    const captured = capturedText(card.context, card.targetRanges);
+    return captured ? [...forms, captured] : forms;
   }
 
   private buildQueueItem(
@@ -330,10 +336,12 @@ export class ReviewsService {
     }
     const word = card.definition.entry;
     const forms = this.targetFormsForCard(card);
+    const capturedMask = maskCapturedRanges(card.context, card.targetRanges);
 
     return {
       definition: card.definition.definition,
       maskedSentence:
+        capturedMask ??
         maskText(card.context, forms) ??
         maskText(card.definition.example, forms),
       partOfSpeech: card.definition.partOfSpeech,

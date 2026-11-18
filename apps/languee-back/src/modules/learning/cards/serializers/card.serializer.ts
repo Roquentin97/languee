@@ -9,6 +9,7 @@ import type {
   CreateCardsResponseDto,
 } from '../dto/card-response.dto';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
+import { parseCaptureRanges } from '../../capture/capture-ranges';
 
 function serializeDefinition(
   definition: CardWithRelations['definition'],
@@ -45,6 +46,7 @@ export function serializeCard(card: CardWithRelations): CardResponseDto {
     entryId: card.entryId,
     partOfSpeech: card.partOfSpeech,
     context: card.context ?? null,
+    targetRanges: parseCaptureRanges(card.targetRanges),
     inflectionForms: (card.inflectionForms as InflectionForms | null) ?? null,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,

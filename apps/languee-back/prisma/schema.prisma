@@ -37,8 +37,7 @@ model EvalLexicalLookup {
   language             String
   surface              String
   context              String?
-  selectionStart       Int?                               @map("selection_start")
-  selectionEnd         Int?                               @map("selection_end")
+  selectionRanges      Json?                              @map("selection_ranges") @db.JsonB
   nlpLemma             String?                            @map("nlp_lemma")
   nlpPos               String?                            @map("nlp_pos")
   nlpModelVersion      String                             @map("nlp_model_version")
@@ -92,6 +91,8 @@ model LexicalEntry {
 
   @@unique([lemma, language])
   @@index([lemma, language])
+  // Prisma introspection drops the operator class; the migration retains it for prefix LIKE queries.
+  @@index([language, lemma], map: "lexical_entries_language_lemma_prefix_idx")
   @@map("lexical_entries")
 }
 
@@ -163,6 +164,7 @@ model Card {
   /// `definition` cards have no context of their own - they borrow their
   /// sibling `cloze` card's context as a hint instead.
   context         String?
+  targetRanges    Json?   @map("target_ranges") @db.JsonB
   inflectionForms Json?   @map("inflection_forms") @db.JsonB
 
   decks CardDeck[]

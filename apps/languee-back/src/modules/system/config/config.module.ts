@@ -1,8 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import Joi from 'joi';
 import { configuration } from './configuration';
-import { configValidationSchema } from './config.validation';
+import { validateEnvironment } from './config.validation';
 
 @Global()
 @Module({
@@ -10,17 +9,8 @@ import { configValidationSchema } from './config.validation';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
-      validate: (config: Record<string, unknown>) => {
-        const result = configValidationSchema.validate(config, {
-          abortEarly: false,
-        }) as Joi.ValidationResult<Record<string, unknown>>;
-
-        if (result.error) {
-          throw result.error;
-        }
-
-        return result.value;
-      },
+      // Container runtimes and test hosts add unrelated process variables.
+      validate: validateEnvironment,
       expandVariables: false,
     }),
   ],

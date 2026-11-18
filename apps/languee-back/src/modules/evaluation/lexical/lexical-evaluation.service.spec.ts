@@ -69,8 +69,7 @@ describe('lexical evaluation snapshots', () => {
         language: 'en',
         userId: 'user',
         context: 'Two oxen',
-        selectionStart: 4,
-        selectionEnd: 8,
+        selectionRanges: [{ start: 4, end: 8 }],
       },
       {
         kind: 'word',
@@ -177,6 +176,92 @@ describe('lexical evaluation snapshots', () => {
     expect(data.context).toBeNull();
     expect(data.preferredEntryId).toBeNull();
     expect(data.disagreement).toBeUndefined();
+  });
+
+  it('records expression identity and all selected component ranges', async () => {
+    const selectionRanges = [
+      { start: 10, end: 14 },
+      { start: 15, end: 18 },
+    ];
+    service.scheduleExpressionLookup(
+      'expression-lookup-id',
+      {
+        text: 'turn off',
+        language: 'en',
+        userId: 'user',
+        context: 'We should turn off the lights.',
+        selectionRanges,
+      },
+      {
+        kind: 'phrasal_verb',
+        canonical: 'turn off',
+        headLemma: 'turn',
+        modelVersion: 'en_core_web_md@3.8.0',
+        contextMatch: {
+          found: true,
+          matchedText: 'turn off',
+          confidence: 'high',
+        },
+        selectionAnalysis: {
+          headLemma: 'turn',
+          pos: 'VERB',
+          headRange: { start: 10, end: 14 },
+        },
+      },
+      {
+        input: 'turn off',
+        language: 'en',
+        kind: LexicalEntryKind.phrasal_verb,
+        source: 'cache',
+        preferred: { entryId: 'expression-id', partOfSpeech: null },
+        headwords: [
+          {
+            entryId: 'expression-id',
+            lemma: 'turn off',
+            language: 'en',
+            relations: [],
+            partsOfSpeech: [
+              {
+                partOfSpeech: PartOfSpeech.VERB,
+                definitions: [
+                  {
+                    id: 'expression-definition-id',
+                    partOfSpeech: PartOfSpeech.VERB,
+                    definition: 'to stop a device',
+                    example: null,
+                    provider: 'fixture',
+                    hasIrregularForms: false,
+                    inflectionForms: null,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: 'expression-lookup-id',
+        userId: 'user',
+        surface: 'turn off',
+        selectionRanges,
+        nlpLemma: 'turn off',
+        nlpPos: 'VERB',
+        nlpModelVersion: 'en_core_web_md@3.8.0',
+        preferredEntryId: 'expression-id',
+        preferredPos: null,
+        candidates: [
+          expect.objectContaining({
+            entryId: 'expression-id',
+            lemma: 'turn off',
+            definitionIds: ['expression-definition-id'],
+          }),
+        ],
+      }),
+    });
   });
 });
 

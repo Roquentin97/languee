@@ -97,15 +97,18 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 
-Contextual vocabulary lookup accepts optional `selectionStart` and `selectionEnd`
-query parameters. Supply both as inclusive-start, exclusive-end Unicode code-point
-offsets into the exact `context` value. The selected standalone word must match
-`word` case-insensitively and under Unicode canonical equivalence. Invalid spans
-return `INPUT_INVALID`; omitting both preserves the default contextual lookup.
+Vocabulary lookup uses `POST /api/v1/vocabulary/lookup` with a JSON body. Optional
+`text` is limited to six whitespace-separated components. Optional
+`selectionRanges` contains up to six ordered, non-overlapping `{start, end}` half-open
+Unicode code-point ranges, one per selected word in the exact `context`. The
+selected words joined by single spaces must match `text` under case and Unicode
+canonical normalization. Omit `context` or `selectionRanges` for manual lookups;
+automatic expression alternatives require explicit ranges. Card saves may include
+`targetRanges` to preserve the chosen components for exact cloze masking.
 
 For the cross-service occurrence regression, start the NLP service with the
 `en_core_web_md` model and test credentials `test` / `test`, then run:
 
 ```sh
-NLP_CROSS_SERVICE_URL=http://127.0.0.1:18087 yarn jest --config ./test/jest-e2e.json selected-occurrence.e2e-spec.ts --runInBand
+NLP_CROSS_SERVICE_URL=http://127.0.0.1:18001 yarn jest --config ./test/jest-e2e.json selected-occurrence.e2e-spec.ts --runInBand
 ```

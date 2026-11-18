@@ -7,10 +7,17 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?text={{word_phrasal_verb}}&language=en
-  body: none
+post {
+  url: {{base_url}}/api/v1/vocabulary/lookup
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+    "text": "{{word_phrasal_verb}}",
+    "language": "en"
+  }
 }
 
 tests {

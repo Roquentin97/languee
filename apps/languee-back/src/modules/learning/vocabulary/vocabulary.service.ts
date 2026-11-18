@@ -11,8 +11,14 @@ import { PartOfSpeechRequiredError } from './vocabulary.errors';
 import { rankLexicalGroups } from './lexical-ranking';
 import { LexicalEvaluationService } from '../../evaluation/lexical/lexical-evaluation.service';
 import { v7 as uuidv7 } from 'uuid';
+import { normalizeSpelling } from '../../lexicon/enrichment/morphology/morphology-provider';
+import {
+  rangesCoverCompleteWords,
+  rangesReconstructText,
+} from '../capture/capture-ranges';
 import type {
   NlpExpressionAnalysis,
+  NlpExpressionMatch,
   NlpWordAnalysis,
 } from '../../lexicon/enrichment/nlp/nlp.interfaces';
 import type {
@@ -21,6 +27,7 @@ import type {
 } from './types/create-user-definition.types';
 import type {
   DeckRef,
+  LookupAlternative,
   LookupVocabularyInput,
   LookupVocabularyOutput,
 } from './types/lookup-vocabulary.types';
@@ -55,9 +62,7 @@ export class VocabularyService {
       input.text,
       input.context,
       input.language,
-      ...(input.selectionStart === undefined
-        ? []
-        : [{ start: input.selectionStart, end: input.selectionEnd! }]),
+      input.selectionRanges,
     );
 
     if (analysis.kind === 'word') {
@@ -138,7 +143,10 @@ export class VocabularyService {
     analysis: NlpWordAnalysis,
   ): Promise<LookupVocabularyOutput> {
     const lookupId = uuidv7();
-    const base = await this.lookupWordBase(input, analysis, lookupId);
+    const { base, providerMiss, providerError } = await this.lookupWordBase(
+      input,
+      analysis,
+    );
     const availablePartsOfSpeech = this.availablePartsOfSpeech(base);
     const filteredByPos =
       Boolean(input.context?.trim()) &&
@@ -154,6 +162,12 @@ export class VocabularyService {
       filteredByPos,
     );
     this.evaluation?.scheduleLookup(lookupId, input, analysis, base, ranked);
+    const alternatives = await this.wordAlternatives(
+      input,
+      analysis,
+      providerMiss,
+      providerError,
+    );
     return {
       ...base,
       context: input.context,
@@ -164,16 +178,51 @@ export class VocabularyService {
         partOfSpeech,
       })),
       headwords: await this.enrichHeadwords(base, input.userId),
-      meta: {
-        analyzedLemma: analysis.lemma,
-        analyzedPos: analysis.pos,
+      alternatives,
+      meta: this.wordLookupMeta(
+        analysis,
         filteredByPos,
         unmatchedPos,
         availablePartsOfSpeech,
-        isExpression: false,
-        providerMiss: false,
-        expressionContextFound: null,
-      },
+        providerMiss,
+      ),
+    };
+  }
+
+  private async wordAlternatives(
+    input: LookupVocabularyInput,
+    analysis: NlpWordAnalysis,
+    providerMiss: boolean,
+    providerError: DefinitionsNotFoundException | null,
+  ): Promise<LookupAlternative[]> {
+    const alternatives =
+      input.includeSuggestions === false
+        ? []
+        : await this.contextExpressionAlternative(input, analysis);
+    if (providerMiss && alternatives.length === 0)
+      throw (
+        providerError ??
+        new DefinitionsNotFoundException(input.text, input.language)
+      );
+    return alternatives;
+  }
+
+  private wordLookupMeta(
+    analysis: NlpWordAnalysis,
+    filteredByPos: boolean,
+    unmatchedPos: boolean,
+    availablePartsOfSpeech: PartOfSpeech[],
+    providerMiss: boolean,
+  ): LookupVocabularyOutput['meta'] {
+    return {
+      analyzedLemma: analysis.lemma,
+      analyzedPos: analysis.pos,
+      filteredByPos,
+      unmatchedPos,
+      availablePartsOfSpeech,
+      isExpression: false,
+      providerMiss,
+      expressionContextFound: null,
     };
   }
 
@@ -188,16 +237,20 @@ export class VocabularyService {
   private async lookupWordBase(
     input: LookupVocabularyInput,
     analysis: NlpWordAnalysis,
-    lookupId: string,
-  ): Promise<LookupEntryOutput> {
+  ): Promise<{
+    base: LookupEntryOutput;
+    providerMiss: boolean;
+    providerError: DefinitionsNotFoundException | null;
+  }> {
     try {
-      return await this.dictionaryService.lookup({
+      const base = await this.dictionaryService.lookup({
         text: input.text,
         lemma: analysis.lemma,
         language: input.language,
         kind: LexicalEntryKind.word,
         pos: analysis.pos ?? undefined,
       });
+      return { base, providerMiss: false, providerError: null };
     } catch (error: unknown) {
       if (error instanceof DefinitionsNotFoundException) {
         const empty: LookupEntryOutput = {
@@ -208,13 +261,119 @@ export class VocabularyService {
           preferred: null,
           headwords: [],
         };
-        this.evaluation?.scheduleLookup(lookupId, input, analysis, empty, {
-          groups: [],
-          preferred: null,
-        });
+        return { base: empty, providerMiss: true, providerError: error };
       }
       throw error;
     }
+  }
+
+  private async contextExpressionAlternative(
+    input: LookupVocabularyInput,
+    analysis: NlpWordAnalysis,
+  ): Promise<LookupAlternative[]> {
+    const selection = analysis.selectionAnalysis;
+    if (
+      !input.context ||
+      !input.selectionRanges?.length ||
+      selection?.pos !== 'VERB' ||
+      !rangesCoverCompleteWords(input.context, [selection.headRange])
+    )
+      return [];
+
+    try {
+      const best = await this.findBestContextExpressionMatch(
+        input,
+        selection.headLemma,
+        selection.headRange,
+      );
+      if (!best) return [];
+      return [
+        {
+          type: 'expression',
+          text: best.surface_text,
+          lemma: best.canonical_text,
+          entryId: best.entry_id,
+          selectionRanges: best.component_ranges,
+          reason: 'context_match',
+          prominence: 'normal',
+        },
+      ];
+    } catch {
+      this.logger.debug({
+        message: 'optional expression matching failed',
+        event: 'vocabulary.expression_matching_unavailable',
+        method: this.contextExpressionAlternative.name,
+        data: { language: input.language, headLemma: selection.headLemma },
+      });
+      return [];
+    }
+  }
+
+  private async findBestContextExpressionMatch(
+    input: LookupVocabularyInput,
+    headLemma: string,
+    headRange: NonNullable<NlpWordAnalysis['selectionAnalysis']>['headRange'],
+  ): Promise<NlpExpressionMatch | null> {
+    const candidates = await this.wordsService.findExpressionCandidates(
+      headLemma,
+      input.language,
+    );
+    if (!candidates.length || !input.context) return null;
+    const matches = await this.nlpService.matchExpressions({
+      language: input.language,
+      input_text: input.context,
+      selected_verb_range: headRange,
+      candidates: candidates.map(({ id, lemma }) => ({
+        entry_id: id,
+        canonical_text: lemma,
+      })),
+    });
+    const candidateById = new Map(
+      candidates.map((candidate) => [candidate.id, candidate]),
+    );
+    return (
+      matches.find((match) =>
+        this.isUsableExpressionMatch(match, candidateById, input, headRange),
+      ) ?? null
+    );
+  }
+
+  private isUsableExpressionMatch(
+    match: NlpExpressionMatch,
+    candidateById: Map<string, { id: string; lemma: string }>,
+    input: LookupVocabularyInput,
+    headRange: NonNullable<NlpWordAnalysis['selectionAnalysis']>['headRange'],
+  ): boolean {
+    const candidate = candidateById.get(match.entry_id);
+    const firstComponent = match.component_ranges[0];
+    return Boolean(
+      candidate &&
+      candidate.lemma === match.canonical_text &&
+      firstComponent !== undefined &&
+      firstComponent.start === headRange.start &&
+      firstComponent.end === headRange.end &&
+      rangesReconstructText(
+        input.context,
+        match.surface_text,
+        match.component_ranges,
+      ) &&
+      !this.alternativeReproducesTarget(
+        input,
+        match.surface_text,
+        match.component_ranges,
+      ),
+    );
+  }
+
+  private alternativeReproducesTarget(
+    input: LookupVocabularyInput,
+    text: string,
+    ranges: LookupAlternative['selectionRanges'],
+  ): boolean {
+    return (
+      normalizeSpelling(text) === normalizeSpelling(input.text) &&
+      JSON.stringify(ranges) === JSON.stringify(input.selectionRanges ?? [])
+    );
   }
 
   private availablePartsOfSpeech(base: LookupEntryOutput): PartOfSpeech[] {
@@ -232,39 +391,102 @@ export class VocabularyService {
     analysis: NlpExpressionAnalysis,
   ): Promise<LookupVocabularyOutput> {
     const { base, providerMiss } = await this.findExpression(input, analysis);
-    const matchedText = analysis.contextMatch?.matchedText;
-    const contextInflections: InflectionForms | null =
-      analysis.contextMatch?.found === true &&
-      typeof matchedText === 'string' &&
-      matchedText.trim().toLowerCase() !== analysis.canonical
-        ? { type: 'expression', contextForm: matchedText.trim() }
-        : null;
-    const selected = base.headwords.find(
-      (word) => word.entryId === base.preferred?.entryId,
-    );
+    const lookupId = uuidv7();
+    this.evaluation?.scheduleExpressionLookup(lookupId, input, analysis, base);
     return {
       ...base,
       input: input.text,
       context: input.context,
+      lookupId,
       headwords: await this.enrichHeadwords(
         base,
         input.userId,
-        contextInflections,
+        this.expressionContextInflections(analysis),
       ),
-      meta: {
-        analyzedLemma: analysis.canonical,
-        analyzedPos: null,
-        filteredByPos: false,
-        unmatchedPos: false,
-        availablePartsOfSpeech:
-          selected?.partsOfSpeech.map((group) => group.partOfSpeech) ?? [],
-        isExpression: true,
-        providerMiss,
-        expressionContextFound: input.context?.trim()
-          ? (analysis.contextMatch?.found ?? null)
-          : null,
-      },
+      alternatives:
+        input.includeSuggestions === false
+          ? []
+          : await this.baseVerbAlternative(input, analysis, providerMiss),
+      meta: this.expressionMeta(input, analysis, base, providerMiss),
     };
+  }
+
+  private expressionContextInflections(
+    analysis: NlpExpressionAnalysis,
+  ): InflectionForms | null {
+    const matchedText = analysis.contextMatch?.matchedText;
+    return analysis.contextMatch?.found === true &&
+      typeof matchedText === 'string' &&
+      matchedText.trim().toLowerCase() !== analysis.canonical
+      ? { type: 'expression', contextForm: matchedText.trim() }
+      : null;
+  }
+
+  private expressionMeta(
+    input: LookupVocabularyInput,
+    analysis: NlpExpressionAnalysis,
+    base: LookupEntryOutput,
+    providerMiss: boolean,
+  ): LookupVocabularyOutput['meta'] {
+    const selected = base.headwords.find(
+      (word) => word.entryId === base.preferred?.entryId,
+    );
+    return {
+      analyzedLemma: analysis.canonical,
+      analyzedPos: null,
+      filteredByPos: false,
+      unmatchedPos: false,
+      availablePartsOfSpeech:
+        selected?.partsOfSpeech.map((group) => group.partOfSpeech) ?? [],
+      isExpression: true,
+      providerMiss,
+      expressionContextFound: input.context?.trim()
+        ? (analysis.contextMatch?.found ?? null)
+        : null,
+    };
+  }
+
+  private async baseVerbAlternative(
+    input: LookupVocabularyInput,
+    analysis: NlpExpressionAnalysis,
+    providerMiss: boolean,
+  ): Promise<LookupAlternative[]> {
+    const selection = analysis.selectionAnalysis;
+    if (
+      !input.context ||
+      !input.selectionRanges?.length ||
+      selection?.pos !== 'VERB' ||
+      !rangesCoverCompleteWords(input.context, [selection.headRange])
+    )
+      return [];
+
+    const text = Array.from(input.context)
+      .slice(selection.headRange.start, selection.headRange.end)
+      .join('');
+    if (this.alternativeReproducesTarget(input, text, [selection.headRange]))
+      return [];
+
+    let entryId: string | null = null;
+    try {
+      const entry = await this.wordsService.findByLemma(
+        normalizeSpelling(selection.headLemma),
+        input.language,
+      );
+      entryId = entry?.id ?? null;
+    } catch {
+      // The cached id only improves the alternative's metadata.
+    }
+    return [
+      {
+        type: 'base_verb',
+        text,
+        lemma: selection.headLemma,
+        entryId,
+        selectionRanges: [selection.headRange],
+        reason: providerMiss ? 'expression_not_found' : 'verb_alternative',
+        prominence: providerMiss ? 'normal' : 'subtle',
+      },
+    ];
   }
 
   private async findExpression(

@@ -35,10 +35,13 @@ const mockCardsService = {
 
 const mockNlpService = {
   analyze: jest.fn(),
+  matchExpressions: jest.fn(),
 };
 
 const mockLexicalEntriesService = {
   ensureExistsAndReturn: jest.fn(),
+  findExpressionCandidates: jest.fn(),
+  findByLemma: jest.fn(),
 };
 
 const mockDefinitionService = {
@@ -729,6 +732,7 @@ describe('VocabularyService', () => {
         'walked',
         undefined,
         'en',
+        undefined,
       );
     });
 
@@ -749,17 +753,92 @@ describe('VocabularyService', () => {
         language: 'en',
         userId: 'user-id-1',
         context: 'I saw the saw.',
-        selectionStart: 10,
-        selectionEnd: 13,
+        selectionRanges: [{ start: 10, end: 13 }],
       });
       expect(mockNlpService.analyze).toHaveBeenCalledWith(
         'saw',
         'I saw the saw.',
         'en',
-        { start: 10, end: 13 },
+        [{ start: 10, end: 13 }],
       );
       expect(result.meta.analyzedLemma).toBe('saw');
       expect(result.preferred?.partOfSpeech).toBe(PartOfSpeech.NOUN);
+      expect(result.headwords).toHaveLength(1);
+    });
+
+    it('rejects an expression match anchored to another repeated verb occurrence', async () => {
+      const context = 'run off then run off';
+      mockNlpService.analyze.mockResolvedValue({
+        ...defaultNlpAnalysis,
+        lemma: 'run',
+        selectionAnalysis: {
+          headLemma: 'run',
+          pos: 'VERB',
+          headRange: { start: 13, end: 16 },
+        },
+      });
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+      mockLexicalEntriesService.findExpressionCandidates.mockResolvedValue([
+        { id: 'expression-id', lemma: 'run off' },
+      ]);
+      mockNlpService.matchExpressions.mockResolvedValue([
+        {
+          entry_id: 'expression-id',
+          canonical_text: 'run off',
+          surface_text: 'run off',
+          component_ranges: [
+            { start: 0, end: 3 },
+            { start: 4, end: 7 },
+          ],
+        },
+      ]);
+
+      const result = await service.lookup({
+        text: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context,
+        selectionRanges: [{ start: 13, end: 16 }],
+      });
+
+      expect(result.alternatives).toEqual([]);
+      expect(mockNlpService.matchExpressions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selected_verb_range: { start: 13, end: 16 },
+        }),
+      );
+    });
+
+    it('keeps the original word lookup when the optional expression matcher is unavailable', async () => {
+      mockNlpService.analyze.mockResolvedValue({
+        ...defaultNlpAnalysis,
+        lemma: 'run',
+        selectionAnalysis: {
+          headLemma: 'run',
+          pos: 'VERB',
+          headRange: { start: 0, end: 3 },
+        },
+      });
+      mockDictionaryService.lookup.mockResolvedValue(baseOutput);
+      mockCardsService.findCardsByDefinitionIdsAndUserId.mockResolvedValue([]);
+      mockLexicalEntriesService.findExpressionCandidates.mockResolvedValue([
+        { id: 'expression-id', lemma: 'run off' },
+      ]);
+      mockNlpService.matchExpressions.mockRejectedValue(
+        new NlpUnavailableError(),
+      );
+
+      const result = await service.lookup({
+        text: 'run',
+        language: 'en',
+        userId: 'user-id-1',
+        context: 'run off quickly',
+        selectionRanges: [{ start: 0, end: 3 }],
+      });
+
+      expect(result.kind).toBe('word');
+      expect(result.alternatives).toEqual([]);
       expect(result.headwords).toHaveLength(1);
     });
 
@@ -778,6 +857,7 @@ describe('VocabularyService', () => {
         'saw',
         'The saw was sharp enough to cut oak.',
         'en',
+        undefined,
       );
     });
 
@@ -910,6 +990,7 @@ describe('VocabularyService', () => {
           'ran into',
           undefined,
           'en',
+          undefined,
         );
         expect(mockDictionaryService.lookup).toHaveBeenCalledWith({
           text: 'ran into',
@@ -1039,6 +1120,7 @@ describe('VocabularyService', () => {
           'ran into',
           'I ran into an old friend.',
           'en',
+          undefined,
         );
         expect(result.meta.expressionContextFound).toBe(true);
       });
@@ -1146,6 +1228,7 @@ describe('VocabularyService', () => {
           'one two three four five six seven',
           undefined,
           'en',
+          undefined,
         );
         expect(mockDictionaryService.lookup).not.toHaveBeenCalled();
       });

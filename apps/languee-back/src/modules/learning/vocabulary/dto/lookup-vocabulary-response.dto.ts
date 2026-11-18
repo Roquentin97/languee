@@ -6,6 +6,7 @@ import {
 import { PartOfSpeech } from '../../../lexicon/types/part-of-speech.enum';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../../lexicon/types/inflection-forms.types';
+import { CaptureRangeDto } from '../../capture/capture-range.dto';
 
 export class DeckRefDto {
   @ApiProperty({ example: 'deck_123' })
@@ -104,6 +105,31 @@ export class OrderedVocabularyGroupDto {
   partOfSpeech!: PartOfSpeech;
 }
 
+export class LookupAlternativeDto {
+  @ApiProperty({ enum: ['expression', 'base_verb'] })
+  type!: 'expression' | 'base_verb';
+
+  @ApiProperty({ example: 'ran into' })
+  text!: string;
+
+  @ApiProperty({ example: 'run into' })
+  lemma!: string;
+
+  @ApiProperty({ format: 'uuid', nullable: true })
+  entryId!: string | null;
+
+  @ApiProperty({ type: [CaptureRangeDto] })
+  selectionRanges!: CaptureRangeDto[];
+
+  @ApiProperty({
+    enum: ['context_match', 'expression_not_found', 'verb_alternative'],
+  })
+  reason!: 'context_match' | 'expression_not_found' | 'verb_alternative';
+
+  @ApiProperty({ enum: ['normal', 'subtle'] })
+  prominence!: 'normal' | 'subtle';
+}
+
 export class LookupVocabularyResponseDto {
   @ApiProperty({ example: 'better' })
   input!: string;
@@ -125,6 +151,9 @@ export class LookupVocabularyResponseDto {
 
   @ApiProperty({ type: [VocabularyHeadwordDto] })
   headwords!: VocabularyHeadwordDto[];
+
+  @ApiProperty({ type: [LookupAlternativeDto] })
+  alternatives!: LookupAlternativeDto[];
 
   @ApiPropertyOptional({ type: [OrderedVocabularyGroupDto] })
   orderedGroups?: OrderedVocabularyGroupDto[];

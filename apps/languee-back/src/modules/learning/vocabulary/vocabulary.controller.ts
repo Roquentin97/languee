@@ -4,12 +4,10 @@ import {
   ConflictException,
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,10 +16,10 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiBody,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -51,6 +49,7 @@ import {
   contextInputError,
   distinctSurfaceTokens,
 } from './capture-input';
+import { rangesReconstructText } from '../capture/capture-ranges';
 import {
   SavedMatchesDto,
   SavedMatchesResponseDto,
@@ -63,53 +62,12 @@ import {
 export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
 
-  // The route's OpenAPI decorators are counted as part of the method.
-  // eslint-disable-next-line max-lines-per-function
-  @Get('lookup')
+  @Post('lookup')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Look up headwords and definitions with deck membership',
   })
-  @ApiQuery({
-    name: 'text',
-    type: String,
-    required: true,
-    example: 'running',
-  })
-  @ApiQuery({
-    name: 'language',
-    type: String,
-    required: false,
-    example: 'en',
-    description: 'ISO 639-1 language code. Defaults to en.',
-  })
-  @ApiQuery({
-    name: 'context',
-    type: String,
-    required: false,
-    example: 'She runs every morning.',
-  })
-  @ApiQuery({
-    name: 'disablePosFiltering',
-    enum: ['true', 'false'],
-    required: false,
-    example: 'false',
-    description:
-      'Disable the contextual POS preference; alternatives are always returned.',
-  })
-  @ApiQuery({
-    name: 'selectionStart',
-    type: Number,
-    required: false,
-    description:
-      'Inclusive Unicode code-point offset in context; requires selectionEnd.',
-  })
-  @ApiQuery({
-    name: 'selectionEnd',
-    type: Number,
-    required: false,
-    description:
-      'Exclusive Unicode code-point offset in context; requires selectionStart.',
-  })
+  @ApiBody({ type: LookupVocabularyDto })
   @ApiOkResponse({ type: LookupVocabularyResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiNotFoundResponse({ description: 'Definitions not found' })
@@ -120,23 +78,22 @@ export class VocabularyController {
     description: 'NLP service or dictionary provider unavailable',
   })
   async lookup(
-    @Query() query: LookupVocabularyDto,
+    @Body() query: LookupVocabularyDto,
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<LookupVocabularyOutput> {
     try {
-      this.throwIfContextTooLong(query.context);
-      this.validateSelection(query);
-      const { selectionStart, selectionEnd } = query;
+      this.validateLookupInput(query);
       return await this.vocabularyService.lookup({
         text: query.text,
         language: query.language ?? 'en',
         userId: user.userId,
         context: query.context,
-        selectionStart:
-          selectionStart === undefined ? undefined : Number(selectionStart),
-        selectionEnd:
-          selectionEnd === undefined ? undefined : Number(selectionEnd),
-        disablePosFiltering: query.disablePosFiltering === 'true',
+        selectionRanges: query.selectionRanges?.map(({ start, end }) => ({
+          start,
+          end,
+        })),
+        disablePosFiltering: query.disablePosFiltering ?? false,
+        includeSuggestions: query.includeSuggestions ?? true,
       });
     } catch (err: unknown) {
       if (err instanceof NlpUnavailableError) {
@@ -230,29 +187,22 @@ export class VocabularyController {
   }
 
   private validateSelection(query: LookupVocabularyDto): void {
-    const { selectionStart, selectionEnd, context, text } = query;
-    if (selectionStart !== undefined || selectionEnd !== undefined) {
-      const start = Number(selectionStart);
-      const end = Number(selectionEnd);
-      const chars = Array.from(context ?? '');
-      const isWordChar = (char: string) => /[\p{L}\p{N}\p{M}_]/u.test(char);
-      if (
-        selectionStart === undefined ||
-        selectionEnd === undefined ||
-        !/^\d+$/.test(selectionStart) ||
-        !/^\d+$/.test(selectionEnd) ||
-        !Number.isSafeInteger(start) ||
-        !Number.isSafeInteger(end) ||
-        start >= end ||
-        end > chars.length ||
-        !context?.trim() ||
-        chars.slice(start, end).join('').normalize('NFC').toLowerCase() !==
-          text.normalize('NFC').toLowerCase() ||
-        (start > 0 && isWordChar(chars[start - 1])) ||
-        (end < chars.length && isWordChar(chars[end]))
-      )
-        throw new BadRequestException('INPUT_INVALID');
-    }
+    if (
+      query.selectionRanges !== undefined &&
+      !rangesReconstructText(query.context, query.text, query.selectionRanges)
+    )
+      throw new BadRequestException('INPUT_INVALID');
+  }
+
+  private validateLookupInput(query: LookupVocabularyDto): void {
+    this.throwIfLookupTooLong(query.text);
+    this.throwIfContextTooLong(query.context);
+    this.validateSelection(query);
+  }
+
+  private throwIfLookupTooLong(text: string): void {
+    const components = text.trim().split(/\s+/u).filter(Boolean);
+    if (components.length > 6) throw new BadRequestException('INPUT_INVALID');
   }
 
   private throwIfContextTooLong(context: string | undefined): void {

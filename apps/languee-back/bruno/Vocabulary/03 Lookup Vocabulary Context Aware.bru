@@ -7,10 +7,19 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?text=saw&language=en&context=The%20saw%20was%20sharp%20enough%20to%20cut%20oak&selectionStart=4&selectionEnd=7
-  body: none
+post {
+  url: {{base_url}}/api/v1/vocabulary/lookup
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+    "text": "saw",
+    "language": "en",
+    "context": "The saw was sharp enough to cut oak",
+    "selectionRanges": [{ "start": 4, "end": 7 }]
+  }
 }
 
 script:post-response {

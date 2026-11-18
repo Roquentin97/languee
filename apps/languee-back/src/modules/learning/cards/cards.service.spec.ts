@@ -6,6 +6,8 @@ import { PrismaService } from '../../system/core/prisma/prisma.service';
 import { DecksService } from '../decks/decks.service';
 import { DeckNotFoundError } from '../decks/decks.errors';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
+import { DictionaryService } from '../../lexicon/enrichment/dictionary/dictionary.service';
+import { NlpService } from '../../lexicon/enrichment/nlp/nlp.service';
 import { CardsService } from './cards.service';
 import {
   CardAlreadyExistsError,
@@ -49,6 +51,48 @@ const mockDefinitionInflecting: DefinitionWithEntry = {
   id: 'def-id-2',
 };
 
+const mockExpressionEntry: LexicalEntry = {
+  ...mockEntry,
+  id: 'expression-id-1',
+  lemma: 'run into',
+  kind: 'phrasal_verb',
+};
+
+const mockExpressionDefinition: DefinitionWithEntry = {
+  ...mockDefinition,
+  id: 'def-expression-1',
+  entryId: mockExpressionEntry.id,
+  entry: mockExpressionEntry,
+};
+
+const giveUpEntry: LexicalEntry = {
+  ...mockExpressionEntry,
+  id: 'expression-give-up-id',
+  lemma: 'give up',
+};
+const giveUpDefinition: DefinitionWithEntry = {
+  ...mockExpressionDefinition,
+  id: 'definition-give-up-id',
+  entryId: giveUpEntry.id,
+  entry: giveUpEntry,
+};
+const giveInEntry: LexicalEntry = {
+  ...mockExpressionEntry,
+  id: 'expression-give-in-id',
+  lemma: 'give in',
+};
+const giveInDefinition: DefinitionWithEntry = {
+  ...mockExpressionDefinition,
+  id: 'definition-give-in-id',
+  entryId: giveInEntry.id,
+  entry: giveInEntry,
+};
+const giveEntry: LexicalEntry = {
+  ...mockEntry,
+  id: 'give-entry-id',
+  lemma: 'give',
+};
+
 function baseCard(overrides: Partial<Card>): Card {
   return {
     id: 'card-id-x',
@@ -58,6 +102,7 @@ function baseCard(overrides: Partial<Card>): Card {
     entryId: null,
     partOfSpeech: null,
     context: null,
+    targetRanges: null,
     inflectionForms: null,
     state: 'new',
     dueAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -97,13 +142,28 @@ const mockInflectionCard = baseCard({
   },
 });
 
-function withRelations(card: Card, deckId?: string) {
+const giveInflectionCard = baseCard({
+  id: 'card-id-inflection-give',
+  type: 'inflection',
+  entryId: giveEntry.id,
+  partOfSpeech: 'verb',
+  inflectionForms: {
+    type: 'verb',
+    base: 'give',
+    past: 'gave',
+    pastParticiple: 'given',
+  },
+});
+
+function withRelations(
+  card: Card,
+  deckId?: string,
+  entry: LexicalEntry = mockEntry,
+) {
   return {
     ...card,
-    definition: card.definitionId
-      ? { ...mockDefinition, entry: mockEntry }
-      : null,
-    entry: card.entryId ? mockEntry : null,
+    definition: card.definitionId ? { ...mockDefinition, entry } : null,
+    entry: card.entryId ? entry : null,
     decks: deckId ? [{ deck: { id: deckId, name: mockDeck.name } }] : [],
   };
 }
@@ -111,6 +171,7 @@ function withRelations(card: Card, deckId?: string) {
 const mockTx = {
   card: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
     create: jest.fn(),
     findUniqueOrThrow: jest.fn(),
   },
@@ -150,6 +211,8 @@ const irregularParadigms: ParadigmsByEntry = new Map([
   ],
 ]);
 const mockMorphology = { describeEntries: jest.fn() };
+const mockDictionary = { lookup: jest.fn() };
+const mockNlp = { analyze: jest.fn() };
 
 const mockDecksService = {
   findOneOrThrow: jest.fn(),
@@ -173,6 +236,8 @@ describe('CardsService', () => {
         { provide: DecksService, useValue: mockDecksService },
         { provide: DefinitionService, useValue: mockDefinitionService },
         { provide: MorphologyService, useValue: mockMorphology },
+        { provide: DictionaryService, useValue: mockDictionary },
+        { provide: NlpService, useValue: mockNlp },
       ],
     }).compile();
 
@@ -247,6 +312,297 @@ describe('CardsService', () => {
         'definition',
         'inflection',
       ]);
+    });
+
+    it('creates the shared give inflection for give up and preserves target ranges', async () => {
+      const targetRanges = [
+        { start: 10, end: 14 },
+        { start: 15, end: 17 },
+      ];
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(
+        giveUpDefinition,
+      );
+      mockNlp.analyze.mockResolvedValue({
+        kind: 'phrasal_verb',
+        canonical: 'give up',
+        headLemma: 'give',
+        contextMatch: null,
+      });
+      mockDictionary.lookup.mockResolvedValue({
+        headwords: [
+          {
+            entryId: giveEntry.id,
+            lemma: 'give',
+            language: 'en',
+            relations: [],
+            partsOfSpeech: [
+              {
+                partOfSpeech: 'verb',
+                definitions: [
+                  {
+                    id: 'def-give-verb',
+                    partOfSpeech: 'verb',
+                    definition: 'to hand something to someone',
+                    example: null,
+                    provider: 'fixture',
+                    hasIrregularForms: true,
+                    inflectionForms: {
+                      type: 'verb',
+                      base: 'give',
+                      past: 'gave',
+                      pastParticiple: 'given',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      mockTx.card.findMany.mockResolvedValue([]);
+      mockTx.card.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      mockTx.card.create
+        .mockResolvedValueOnce(mockClozeCard)
+        .mockResolvedValueOnce(mockDefinitionCard)
+        .mockResolvedValueOnce(giveInflectionCard);
+      mockTx.cardDeck.findUnique.mockResolvedValue(null);
+      mockTx.cardDeck.createMany.mockResolvedValue({ count: 3 });
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(mockClozeCard, 'deck-id-1'),
+        withRelations(mockDefinitionCard, 'deck-id-1'),
+        withRelations(giveInflectionCard, 'deck-id-1', giveEntry),
+      ]);
+
+      const result = await service.create(
+        'user-id-1',
+        'deck-id-1',
+        giveUpDefinition.id,
+        'We should give up the plan.',
+        undefined,
+        'lookup-id-expression',
+        targetRanges,
+      );
+
+      expect(result.map((card) => card.type)).toEqual([
+        'cloze',
+        'definition',
+        'inflection',
+      ]);
+      expect(mockNlp.analyze).toHaveBeenCalledWith('give up', undefined, 'en');
+      expect(mockDictionary.lookup).toHaveBeenCalledWith({
+        text: 'give',
+        lemma: 'give',
+        language: 'en',
+        kind: 'word',
+        pos: 'verb',
+      });
+      expect(mockTx.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                entryId: giveEntry.id,
+                partOfSpeech: 'verb',
+                type: 'inflection',
+              }),
+            ]),
+          }),
+        }),
+      );
+      expect(mockTx.card.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'cloze',
+            context: 'We should give up the plan.',
+            targetRanges,
+          }),
+        }),
+      );
+      expect(mockTx.card.create).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'inflection',
+            entryId: giveEntry.id,
+            partOfSpeech: 'verb',
+          }),
+        }),
+      );
+    });
+
+    it('reuses the give inflection card created for give up when saving give in', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(
+        giveInDefinition,
+      );
+      mockNlp.analyze.mockResolvedValue({
+        kind: 'phrasal_verb',
+        canonical: 'give in',
+        headLemma: 'give',
+        contextMatch: null,
+      });
+      mockDictionary.lookup.mockResolvedValue({
+        headwords: [
+          {
+            entryId: giveEntry.id,
+            lemma: 'give',
+            language: 'en',
+            relations: [],
+            partsOfSpeech: [
+              {
+                partOfSpeech: 'verb',
+                definitions: [
+                  {
+                    id: 'def-give-verb',
+                    partOfSpeech: 'verb',
+                    definition: 'to hand something to someone',
+                    example: null,
+                    provider: 'fixture',
+                    hasIrregularForms: true,
+                    inflectionForms: {
+                      type: 'verb',
+                      base: 'give',
+                      past: 'gave',
+                      pastParticiple: 'given',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      mockTx.card.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(giveInflectionCard);
+      mockTx.card.create
+        .mockResolvedValueOnce(mockClozeCard)
+        .mockResolvedValueOnce(mockDefinitionCard);
+      mockTx.cardDeck.findUnique.mockResolvedValue(null);
+      mockTx.cardDeck.createMany.mockResolvedValue({ count: 3 });
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(mockClozeCard, 'deck-id-1'),
+        withRelations(mockDefinitionCard, 'deck-id-1'),
+        withRelations(giveInflectionCard, 'deck-id-1', giveEntry),
+      ]);
+
+      const result = await service.create(
+        'user-id-1',
+        'deck-id-1',
+        giveInDefinition.id,
+      );
+
+      expect(result.map((card) => card.type)).toEqual([
+        'cloze',
+        'definition',
+        'inflection',
+      ]);
+      expect(mockTx.card.findUnique).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({
+          where: {
+            userId_entryId_partOfSpeech_type: {
+              userId: 'user-id-1',
+              entryId: giveEntry.id,
+              partOfSpeech: 'verb',
+              type: 'inflection',
+            },
+          },
+        }),
+      );
+      expect(mockTx.card.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('continues an expression save when optional base-verb analysis fails', async () => {
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(
+        mockExpressionDefinition,
+      );
+      mockNlp.analyze.mockRejectedValue(new Error('NLP unavailable'));
+      mockTx.card.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+      mockTx.card.create
+        .mockResolvedValueOnce(mockClozeCard)
+        .mockResolvedValueOnce(mockDefinitionCard);
+      mockTx.cardDeck.findUnique.mockResolvedValue(null);
+      mockTx.cardDeck.createMany.mockResolvedValue({ count: 2 });
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(mockClozeCard, 'deck-id-1'),
+        withRelations(mockDefinitionCard, 'deck-id-1'),
+      ]);
+
+      const result = await service.create(
+        'user-id-1',
+        'deck-id-1',
+        mockExpressionDefinition.id,
+      );
+
+      expect(result.map((card) => card.type)).toEqual(['cloze', 'definition']);
+      expect(mockDictionary.lookup).not.toHaveBeenCalled();
+    });
+
+    it('retries expression meaning cards during base-analysis outage without changing an existing inflection card', async () => {
+      const targetRanges = [
+        { start: 10, end: 14 },
+        { start: 15, end: 18 },
+      ];
+      const savedClozeCard = {
+        ...mockClozeCard,
+        definitionId: mockExpressionDefinition.id,
+        targetRanges,
+      };
+      const savedDefinitionCard = {
+        ...mockDefinitionCard,
+        definitionId: mockExpressionDefinition.id,
+      };
+      mockDecksService.findOneOrThrow.mockResolvedValue(mockDeck);
+      mockDefinitionService.findByIdWithEntry.mockResolvedValue(
+        mockExpressionDefinition,
+      );
+      mockNlp.analyze.mockRejectedValue(new Error('NLP unavailable'));
+      mockTx.card.findMany.mockResolvedValue([
+        { id: savedClozeCard.id, type: 'cloze' },
+        { id: savedDefinitionCard.id, type: 'definition' },
+      ]);
+      mockPrismaService.card.findMany.mockResolvedValue([
+        withRelations(savedClozeCard, 'deck-id-1'),
+        withRelations(savedDefinitionCard, 'deck-id-1'),
+      ]);
+
+      const result = await service.create(
+        'user-id-1',
+        'deck-id-1',
+        mockExpressionDefinition.id,
+        'We should turn off the lights.',
+        undefined,
+        'lookup-id-expression-retry',
+        targetRanges,
+      );
+
+      expect(result.map((card) => card.type)).toEqual(['cloze', 'definition']);
+      expect(result[0]?.targetRanges).toEqual(targetRanges);
+      expect(mockTx.card.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              {
+                definitionId: mockExpressionDefinition.id,
+                type: { in: ['cloze', 'definition'] },
+              },
+            ],
+          }),
+        }),
+      );
+      expect(mockTx.card.create).not.toHaveBeenCalled();
+      expect(mockTx.cardDeck.createMany).not.toHaveBeenCalled();
+      expect(mockDictionary.lookup).not.toHaveBeenCalled();
     });
 
     it('does not generate an inflection card for a regular word even when forms exist', async () => {

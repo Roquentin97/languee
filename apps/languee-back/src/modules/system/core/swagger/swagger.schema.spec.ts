@@ -167,8 +167,8 @@ const expectations: OperationExpectation[] = [
   },
   {
     path: '/api/v1/vocabulary/lookup',
-    method: 'get',
-    parameters: ['text', 'language', 'context', 'disablePosFiltering'],
+    method: 'post',
+    requestBodySchema: 'LookupVocabularyDto',
     responses: ['200', '400', '401', '404', '502'],
     responseSchema: 'LookupVocabularyResponseDto',
   },
@@ -397,5 +397,16 @@ describe('generated Swagger schema', () => {
     expect(JSON.stringify(schemas.VocabularyPosGroupDto)).toContain(
       'definitions',
     );
+    expect(JSON.stringify(schemas.LookupVocabularyResponseDto)).toContain(
+      'alternatives',
+    );
+    expect(JSON.stringify(schemas.CreateCardDto)).toContain('targetRanges');
+    expect(
+      (
+        schemas.LookupVocabularyDto as {
+          properties: Record<string, { description?: string }>;
+        }
+      ).properties.text?.description,
+    ).toContain('six whitespace-separated components');
   });
 });

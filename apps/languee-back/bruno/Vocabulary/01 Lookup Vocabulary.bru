@@ -8,10 +8,17 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?text={{dictionary_word}}&language={{dictionary_language}}
-  body: none
+post {
+  url: {{base_url}}/api/v1/vocabulary/lookup
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+    "text": "{{dictionary_word}}",
+    "language": "{{dictionary_language}}"
+  }
 }
 
 tests {

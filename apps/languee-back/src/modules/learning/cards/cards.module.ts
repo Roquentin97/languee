@@ -1,5 +1,7 @@
 import { LexicalEvaluationModule } from '../../evaluation/lexical/lexical-evaluation.module';
 import { MorphologyModule } from '../../lexicon/enrichment/morphology/morphology.module';
+import { DictionaryModule } from '../../lexicon/enrichment/dictionary/dictionary.module';
+import { NlpModule } from '../../lexicon/enrichment/nlp/nlp.module';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../system/core/prisma/prisma.module';
 import { AuthModule } from '../../identity/auth/auth.module';
@@ -16,6 +18,8 @@ import { CardsController } from './cards.controller';
     DecksModule,
     DefinitionsModule,
     MorphologyModule,
+    DictionaryModule,
+    NlpModule,
   ],
   providers: [CardsService],
   controllers: [CardsController],

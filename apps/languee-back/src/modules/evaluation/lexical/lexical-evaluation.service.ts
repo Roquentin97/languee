@@ -1,18 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { EvalDisagreementReason } from '@prisma/client';
 import { PrismaService } from '../../system/core/prisma/prisma.service';
 import { normalizeSpelling } from '../../lexicon/enrichment/morphology/morphology-provider';
 import type { LookupEntryOutput } from '../../lexicon/enrichment/dictionary/types/lookup-entry.types';
-import type { NlpWordAnalysis } from '../../lexicon/enrichment/nlp/nlp.interfaces';
+import type {
+  NlpExpressionAnalysis,
+  NlpWordAnalysis,
+} from '../../lexicon/enrichment/nlp/nlp.interfaces';
 import type { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
+import type { CaptureRange } from '../../learning/capture/capture-ranges';
 
 type LookupEvaluationInput = {
   text: string;
   language: string;
   userId: string;
   context?: string;
-  selectionStart?: number;
-  selectionEnd?: number;
+  selectionRanges?: CaptureRange[];
   disablePosFiltering?: boolean;
 };
 type RankedGroup = {
@@ -42,6 +46,17 @@ export class LexicalEvaluationService {
   ): void {
     this.enqueue('lookup', () =>
       this.record(id, input, analysis, base, ranked),
+    );
+  }
+
+  scheduleExpressionLookup(
+    id: string,
+    input: LookupEvaluationInput,
+    analysis: NlpExpressionAnalysis,
+    base: LookupEntryOutput,
+  ): void {
+    this.enqueue('expression lookup', () =>
+      this.recordExpression(id, input, analysis, base),
     );
   }
 
@@ -152,8 +167,9 @@ export class LexicalEvaluationService {
         language: input.language,
         surface: input.text,
         context: input.context ?? null,
-        selectionStart: input.selectionStart ?? null,
-        selectionEnd: input.selectionEnd ?? null,
+        selectionRanges: input.selectionRanges
+          ? input.selectionRanges.map(({ start, end }) => ({ start, end }))
+          : Prisma.JsonNull,
         nlpLemma: analysis.lemma,
         nlpPos: analysis.rawPos ?? null,
         nlpModelVersion: analysis.modelVersion,
@@ -164,6 +180,49 @@ export class LexicalEvaluationService {
         ...this.disagreement(reason),
       },
     });
+  }
+
+  private async recordExpression(
+    id: string,
+    input: LookupEvaluationInput,
+    analysis: NlpExpressionAnalysis,
+    base: LookupEntryOutput,
+  ): Promise<void> {
+    if (!analysis.modelVersion) throw new Error('NLP model identity missing');
+    await this.prisma.evalLexicalLookup.create({
+      data: {
+        id,
+        userId: input.userId,
+        language: input.language,
+        surface: input.text,
+        context: input.context ?? null,
+        selectionRanges: input.selectionRanges
+          ? input.selectionRanges.map(({ start, end }) => ({ start, end }))
+          : Prisma.JsonNull,
+        nlpLemma: analysis.canonical,
+        nlpPos: analysis.selectionAnalysis?.pos ?? null,
+        nlpModelVersion: analysis.modelVersion,
+        rankingPolicyVersion: '1',
+        candidates: this.expressionCandidates(base),
+        preferredEntryId: base.preferred?.entryId ?? null,
+        preferredPos: base.preferred?.partOfSpeech ?? null,
+      },
+    });
+  }
+
+  private expressionCandidates(base: LookupEntryOutput) {
+    return base.headwords.flatMap((word) =>
+      word.partsOfSpeech.map((group) => ({
+        entryId: word.entryId,
+        lemma: word.lemma,
+        partOfSpeech: String(group.partOfSpeech),
+        relationships: word.relations.filter(
+          (relationship) =>
+            relationship.partOfSpeech === String(group.partOfSpeech),
+        ),
+        definitionIds: group.definitions.map((definition) => definition.id),
+      })),
+    );
   }
 
   private disagreement(reason: ReturnType<LexicalEvaluationService['reason']>) {

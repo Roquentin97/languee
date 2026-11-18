@@ -58,6 +58,7 @@ function baseCard(overrides: Partial<Card>): Card {
     entryId: null,
     partOfSpeech: null,
     context: null,
+    targetRanges: null,
     inflectionForms: null,
     state: 'new',
     dueAt: new Date('2026-01-01T00:00:00.000Z'),

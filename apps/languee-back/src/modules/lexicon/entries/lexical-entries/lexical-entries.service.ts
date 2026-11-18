@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { LexicalEntryKind, Prisma } from '@prisma/client';
 import type { LexicalEntry } from '@prisma/client';
 import { PrismaService } from '../../../system/core/prisma/prisma.service';
+import { normalizeSpelling } from '../../enrichment/morphology/morphology-provider';
+
+export type LexicalExpressionCandidate = { id: string; lemma: string };
 
 @Injectable()
 export class LexicalEntriesService {
@@ -21,6 +24,28 @@ export class LexicalEntriesService {
     return this.prisma.lexicalEntry.findMany({
       where: { language, lemma: { in: [...new Set(lemmas)] } },
     });
+  }
+
+  findExpressionCandidates(
+    headLemma: string,
+    language: string,
+  ): Promise<LexicalExpressionCandidate[]> {
+    const normalizedHead = normalizeSpelling(headLemma);
+    if (!normalizedHead) return Promise.resolve([]);
+    const escapedHead = normalizedHead.replace(/[\\%_]/g, '\\$&');
+    const prefixPattern = `${escapedHead} %`;
+
+    return this.prisma.$queryRaw<LexicalExpressionCandidate[]>`
+      SELECT id, lemma
+      FROM "lexical_entries"
+      WHERE "language" = ${language}
+        AND "kind" IN (
+          'phrasal_verb'::"LexicalEntryKind",
+          'expression'::"LexicalEntryKind"
+        )
+        AND "lemma" LIKE ${prefixPattern} ESCAPE chr(92)
+      ORDER BY "lemma" ASC
+    `;
   }
 
   async ensureMany(

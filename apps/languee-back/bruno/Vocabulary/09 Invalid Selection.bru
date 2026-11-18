@@ -4,10 +4,18 @@ meta {
   seq: 20
 }
 
-get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?text=saw&context=I%20saw%20the%20saw.&selectionStart=3&selectionEnd=5
-  body: none
+post {
+  url: {{base_url}}/api/v1/vocabulary/lookup
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+    "text": "saw",
+    "context": "I saw the saw.",
+    "selectionRanges": [{ "start": 3, "end": 5 }]
+  }
 }
 
 tests {

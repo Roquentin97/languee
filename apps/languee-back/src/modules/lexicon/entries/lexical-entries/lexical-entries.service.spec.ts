@@ -26,6 +26,7 @@ describe('LexicalEntriesService', () => {
   let module: TestingModule;
 
   const prismaMock = {
+    $queryRaw: jest.fn(),
     lexicalEntry: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -233,6 +234,37 @@ describe('LexicalEntriesService', () => {
         },
         orderBy: { lemma: 'asc' },
       });
+    });
+  });
+
+  describe('findExpressionCandidates', () => {
+    it('loads known expression ids and canonical text with an escaped prefix', async () => {
+      const rows = [
+        { id: 'entry-id-1', lemma: 'turn_% off' },
+        { id: 'entry-id-2', lemma: 'turn_% over' },
+      ];
+      prismaMock.$queryRaw.mockResolvedValue(rows);
+
+      expect(await service.findExpressionCandidates('TURN_%', 'en')).toEqual(
+        rows,
+      );
+
+      const [query, language, pattern] = prismaMock.$queryRaw.mock.calls[0] as [
+        TemplateStringsArray,
+        string,
+        string,
+      ];
+      expect(query.join('?')).toContain('"language" = ?');
+      expect(query.join('?')).toContain('"lemma" LIKE ? ESCAPE chr(92)');
+      expect(language).toBe('en');
+      expect(pattern).toBe('turn\\_\\% %');
+    });
+
+    it('does not query for an empty normalized head', async () => {
+      await expect(
+        service.findExpressionCandidates('  ', 'en'),
+      ).resolves.toEqual([]);
+      expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
     });
   });
 });

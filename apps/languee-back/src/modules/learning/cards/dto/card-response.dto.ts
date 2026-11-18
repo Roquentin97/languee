@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../../lexicon/types/inflection-forms.types';
+import { CaptureRangeDto } from '../../capture/capture-range.dto';
 
 export const CARD_TYPES = ['cloze', 'inflection', 'definition'] as const;
 export type CardTypeValue = (typeof CARD_TYPES)[number];
@@ -85,6 +86,9 @@ export class CardResponseDto {
   })
   context!: string | null;
 
+  @ApiPropertyOptional({ type: [CaptureRangeDto], nullable: true })
+  targetRanges!: CaptureRangeDto[] | null;
+
   @ApiPropertyOptional(INFLECTION_FORMS_SWAGGER)
   inflectionForms!: InflectionForms | null;
 
@@ -109,7 +113,7 @@ export class CreateCardsResponseDto {
   @ApiProperty({
     type: [CardResponseDto],
     description:
-      'Every card generated or reused by this save: always a `cloze` and a `definition` card, plus an `inflection` card when the word inflects.',
+      'Always includes `cloze` and `definition` cards. Includes a shared `inflection` card when the word paradigm or optional expression-base lookup resolves an eligible inflection. An unavailable expression-base lookup does not change existing shared-card membership or scheduling.',
   })
   cards!: CardResponseDto[];
 }

@@ -45,6 +45,7 @@ import {
   serializeCards,
 } from './serializers/card.serializer';
 import { contextInputError } from '../vocabulary/capture-input';
+import { rangesCoverCompleteWords } from '../capture/capture-ranges';
 
 @ApiTags('cards')
 @ApiBearerAuth('access-token')
@@ -90,12 +91,12 @@ export class CardsController {
     summary:
       'Save a definition into a deck, generating every applicable card type',
     description:
-      'Creates a `cloze` and a `definition` card, plus an `inflection` card when the selected definition is flagged irregular and has learnable forms.',
+      'Creates `cloze` and `definition` cards, plus a shared `inflection` card when the word paradigm or optional expression-base lookup resolves an eligible inflection.',
   })
   @ApiBody({ type: CreateCardDto })
   @ApiCreatedResponse({ type: CreateCardsResponseDto })
   @ApiBadRequestResponse({
-    description: 'Invalid request or CONTEXT_TOO_LONG',
+    description: 'Invalid request, invalid target ranges, or CONTEXT_TOO_LONG',
   })
   @ApiConflictResponse({ description: 'This deck already holds this card' })
   @ApiNotFoundResponse({
@@ -109,6 +110,7 @@ export class CardsController {
     try {
       const contextError = contextInputError(dto.context);
       if (contextError) throw new BadRequestException(contextError);
+      this.validateTargetRanges(dto);
       const cards = await this.cardsService.create(
         user.userId,
         dto.deckId,
@@ -116,6 +118,7 @@ export class CardsController {
         dto.context,
         dto.inflectionForms,
         dto.lookupId,
+        dto.targetRanges ?? undefined,
       );
       return serializeCards(cards);
     } catch (err: unknown) {
@@ -130,5 +133,13 @@ export class CardsController {
       }
       throw err;
     }
+  }
+
+  private validateTargetRanges(dto: CreateCardDto): void {
+    if (
+      dto.targetRanges &&
+      !rangesCoverCompleteWords(dto.context, dto.targetRanges)
+    )
+      throw new BadRequestException('INPUT_INVALID');
   }
 }
