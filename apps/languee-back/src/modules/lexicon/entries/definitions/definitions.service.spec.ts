@@ -6,7 +6,7 @@ import { PartOfSpeech } from '../../types/part-of-speech.enum';
 function makeDefinitionRow(
   overrides: Partial<{
     id: string;
-    wordId: string;
+    entryId: string;
     partOfSpeech: string;
     definition: string;
     example: string | null;
@@ -15,7 +15,7 @@ function makeDefinitionRow(
 ) {
   return {
     id: overrides.id ?? 'def-id-1',
-    wordId: overrides.wordId ?? 'word-id-1',
+    entryId: overrides.entryId ?? 'word-id-1',
     partOfSpeech: overrides.partOfSpeech ?? 'verb',
     definition: overrides.definition ?? 'move at a fast pace',
     example: overrides.example ?? null,
@@ -63,7 +63,7 @@ describe('DefinitionService', () => {
           id: 'def-1',
           partOfSpeech: 'verb',
           definition: 'move at a fast pace',
-          word: { lemma: 'run', kind: 'word' },
+          entry: { lemma: 'run', kind: 'word' },
         },
       ];
       prismaMock.definition.findMany.mockResolvedValue(rows);
@@ -77,7 +77,7 @@ describe('DefinitionService', () => {
           id: true,
           partOfSpeech: true,
           definition: true,
-          word: { select: { lemma: true, kind: true } },
+          entry: { select: { lemma: true, kind: true } },
         },
       });
     });
@@ -91,31 +91,31 @@ describe('DefinitionService', () => {
     });
   });
 
-  describe('findByWordId', () => {
-    it('returns all definitions for the given wordId', async () => {
+  describe('findByEntryId', () => {
+    it('returns all definitions for the given entryId', async () => {
       const rows = [
-        makeDefinitionRow({ id: 'def-1', wordId: 'word-id-1' }),
+        makeDefinitionRow({ id: 'def-1', entryId: 'word-id-1' }),
         makeDefinitionRow({
           id: 'def-2',
-          wordId: 'word-id-1',
+          entryId: 'word-id-1',
           partOfSpeech: 'noun',
           definition: 'a run',
         }),
       ];
       prismaMock.definition.findMany.mockResolvedValue(rows);
 
-      const result = await service.findByWordId('word-id-1');
+      const result = await service.findByEntryId('word-id-1');
 
       expect(result).toEqual(rows);
       expect(prismaMock.definition.findMany).toHaveBeenCalledWith({
-        where: { wordId: 'word-id-1' },
+        where: { entryId: 'word-id-1' },
       });
     });
 
-    it('returns empty array when no definitions exist for the wordId', async () => {
+    it('returns empty array when no definitions exist for the entryId', async () => {
       prismaMock.definition.findMany.mockResolvedValue([]);
 
-      const result = await service.findByWordId('unknown-word-id');
+      const result = await service.findByEntryId('unknown-word-id');
 
       expect(result).toEqual([]);
     });
@@ -163,22 +163,22 @@ describe('DefinitionService', () => {
       expect(prismaMock.definition.createMany).not.toHaveBeenCalled();
     });
   });
-  describe('findByWordIds', () => {
+  describe('findByEntryIds', () => {
     it('loads complete semantic inventories for all candidate words in stable order', async () => {
       const rows = [
-        makeDefinitionRow({ wordId: 'first', partOfSpeech: 'noun' }),
-        makeDefinitionRow({ wordId: 'first', partOfSpeech: 'verb' }),
-        makeDefinitionRow({ wordId: 'second' }),
+        makeDefinitionRow({ entryId: 'first', partOfSpeech: 'noun' }),
+        makeDefinitionRow({ entryId: 'first', partOfSpeech: 'verb' }),
+        makeDefinitionRow({ entryId: 'second' }),
       ];
       prismaMock.definition.findMany.mockResolvedValue(rows);
-      expect(await service.findByWordIds(['first', 'second'])).toEqual(rows);
+      expect(await service.findByEntryIds(['first', 'second'])).toEqual(rows);
       expect(prismaMock.definition.findMany).toHaveBeenCalledWith({
-        where: { wordId: { in: ['first', 'second'] } },
+        where: { entryId: { in: ['first', 'second'] } },
         orderBy: { id: 'asc' },
       });
     });
     it('does not query storage when there are no candidate words', async () => {
-      expect(await service.findByWordIds([])).toEqual([]);
+      expect(await service.findByEntryIds([])).toEqual([]);
       expect(prismaMock.definition.findMany).not.toHaveBeenCalled();
     });
   });

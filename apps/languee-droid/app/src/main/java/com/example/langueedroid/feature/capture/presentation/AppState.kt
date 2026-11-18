@@ -1,6 +1,7 @@
 package com.example.langueedroid.feature.capture.presentation
 
 import com.example.langueedroid.core.data.SavedVocabulary
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.Token
 
 sealed class AppState {
@@ -32,8 +33,8 @@ sealed class AppState {
 
         /**
          * Shared context capture: the app received multi-token text via the share intent.
-         * The user taps a word to start a selection, taps adjacent words to extend it into
-         * a multi-word expression (1–6 words), and taps selected words to deselect them —
+         * The user toggles any words into a multi-word expression (1–6 words) and taps
+         * selected words to deselect them —
          * the selection may be discontiguous so words that are not part of the expression
          * (e.g. the object of a separated phrasal verb) can be dropped. [selectedIndices]
          * holds the ordered word-token indices currently selected
@@ -59,8 +60,10 @@ sealed class AppState {
             val context: String,
             val isMultiSentence: Boolean,
             val highlightRanges: kotlin.collections.List<IntRange>,
+            val selectionRanges: kotlin.collections.List<SelectionRange> = emptyList(),
+            val captureContext: String? = null,
+            val sourceOffsetCodePoints: Int = 0,
             val selectedLanguage: String = "en",
-            val selection: IntRange? = null,
         ) : Screen()
 
         /**
@@ -73,6 +76,9 @@ sealed class AppState {
             val targetWord: String,
             val context: String,
             val highlightRanges: kotlin.collections.List<IntRange>,
+            val selectionRanges: kotlin.collections.List<SelectionRange> = emptyList(),
+            val captureContext: String? = null,
+            val sourceOffsetCodePoints: Int = 0,
             val selectedLanguage: String = "en",
         ) : Screen()
     }

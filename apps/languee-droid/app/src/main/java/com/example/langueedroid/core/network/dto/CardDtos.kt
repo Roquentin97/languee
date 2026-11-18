@@ -6,6 +6,7 @@ data class CreateCardRequest(
     val context: String? = null,
     val inflectionForms: Map<String, String>?,
     val lookupId: String? = null,
+    val targetRanges: List<SelectionRangeDto>? = null,
 )
 
 data class CardDefinitionDto(
@@ -22,7 +23,7 @@ data class CardDeckDto(
     val name: String,
 )
 
-data class CardWordDto(
+data class CardEntryDto(
     val id: String,
     val lemma: String,
     val language: String,
@@ -34,14 +35,15 @@ data class CardResponseDto(
     val userId: String,
     val decks: List<CardDeckDto>,
     val definitionId: String?,
-    val wordId: String?,
+    val entryId: String?,
     val partOfSpeech: String?,
     val context: String?,
+    val targetRanges: List<SelectionRangeDto>? = null,
     val inflectionForms: Map<String, String>?,
     val createdAt: String,
     val updatedAt: String,
     val definition: CardDefinitionDto?,
-    val word: CardWordDto,
+    val entry: CardEntryDto,
 )
 
 data class CreateCardsResponseDto(

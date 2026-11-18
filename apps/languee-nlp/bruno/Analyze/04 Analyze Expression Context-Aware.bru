@@ -8,10 +8,20 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/analyze?text={{expression}}&input_text=He%20gave%20it%20all%20up%20yesterday.
-  body: none
+post {
+  url: {{base_url}}/analyze
+  body: json
   auth: inherit
+}
+body:json {
+  {
+    "text": "gave up",
+    "input_text": "He gave it all up yesterday.",
+    "selection_ranges": [
+      { "start": 3, "end": 7 },
+      { "start": 15, "end": 17 }
+    ]
+  }
 }
 
 tests {
@@ -22,5 +32,7 @@ tests {
   test("context_match is present", function() {
     expect(res.body.context_match).to.be.an("object");
     expect(res.body.context_match.found).to.equal(true);
+    expect(res.body.selection_analysis.pos).to.equal("VERB");
+    expect(res.body.model_version).to.be.a("string");
   });
 }

@@ -8,6 +8,7 @@ from languee_nlp.logging import configure_logging
 from languee_nlp.middleware import RequestLoggingMiddleware
 from languee_nlp.routers.analyze import router as analyze_router
 from languee_nlp.routers.health import router as health_router
+from languee_nlp.routers.match_expressions import router as match_expressions_router
 from languee_nlp.routers.morphology import router as morphology_router
 from languee_nlp.routers.version import router as version_router
 from languee_nlp.settings import settings
@@ -46,6 +47,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(version_router)
 app.include_router(analyze_router)
+app.include_router(match_expressions_router)
 app.include_router(morphology_router)
 
 if settings.tracing_enabled:

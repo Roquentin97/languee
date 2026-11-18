@@ -20,7 +20,12 @@ headers {
 body:json {
   {
     "deckId": "{{deck_id}}",
-    "definitionId": "{{definition_id}}"
+    "definitionId": "{{definition_id}}",
+    "context": "I turned it off.",
+    "targetRanges": [
+      { "start": 2, "end": 8 },
+      { "start": 12, "end": 15 }
+    ]
   }
 }
 

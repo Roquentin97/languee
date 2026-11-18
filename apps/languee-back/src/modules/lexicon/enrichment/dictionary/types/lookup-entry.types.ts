@@ -1,13 +1,13 @@
-import type { LexicalKind } from '@prisma/client';
+import type { LexicalEntryKind } from '@prisma/client';
 import { PartOfSpeech } from '../../../types/part-of-speech.enum';
 import type { InflectionForms } from '../../../types/inflection-forms.types';
 
-export type LookupWordInput = {
-  word: string;
+export type LookupEntryInput = {
+  text: string;
   language: string;
   lemma?: string;
   pos?: string;
-  kind: LexicalKind;
+  kind: LexicalEntryKind;
 };
 
 export type DefinitionResult = {
@@ -20,8 +20,8 @@ export type DefinitionResult = {
   inflectionForms: InflectionForms | null;
 };
 
-export type LookupHeadword = {
-  wordId: string;
+export type LookupEntry = {
+  entryId: string;
   lemma: string;
   language: string;
   relations: { partOfSpeech: string; relationType: string }[];
@@ -31,11 +31,11 @@ export type LookupHeadword = {
   }[];
 };
 
-export type LookupWordOutput = {
+export type LookupEntryOutput = {
   input: string;
   language: string;
-  kind: LexicalKind;
+  kind: LexicalEntryKind;
   source: 'cache' | 'provider';
-  preferred: { wordId: string; partOfSpeech: PartOfSpeech | null } | null;
-  headwords: LookupHeadword[];
+  preferred: { entryId: string; partOfSpeech: PartOfSpeech | null } | null;
+  headwords: LookupEntry[];
 };

@@ -61,7 +61,7 @@ export class SavedMatchDefinitionDto {
 
 export class SavedMatchHeadwordDto {
   @ApiProperty({ example: 'word_123' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ example: 'expressway' })
   lemma!: string;

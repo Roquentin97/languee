@@ -1,17 +1,20 @@
-import type { LexicalParadigm } from '../../lexicon/enrichment/morphology/morphology.types';
 import { MorphologyService } from '../../lexicon/enrichment/morphology/morphology.service';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { LexicalEvaluationService } from '../../evaluation/lexical/lexical-evaluation.service';
-import { CardType, Prisma } from '@prisma/client';
+import { CardType, LexicalEntryKind, Prisma } from '@prisma/client';
 import type {
   Card,
   CardAnkiDroidExport,
   Definition,
-  Word,
+  LexicalEntry,
 } from '@prisma/client';
 import { PrismaService } from '../../system/core/prisma/prisma.service';
 import { DecksService } from '../decks/decks.service';
 import { DefinitionService } from '../../lexicon/entries/definitions/definitions.service';
+import { DictionaryService } from '../../lexicon/enrichment/dictionary/dictionary.service';
+import { NlpService } from '../../lexicon/enrichment/nlp/nlp.service';
+import { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
+import { normalizeSpelling } from '../../lexicon/enrichment/morphology/morphology-provider';
 import { wordInflects } from './lib/inflects';
 import {
   CardAlreadyExistsError,
@@ -19,12 +22,13 @@ import {
   DefinitionNotFoundError,
 } from './cards.errors';
 import type { InflectionForms } from '../../lexicon/types/inflection-forms.types';
+import type { CaptureRange } from '../capture/capture-ranges';
 
 export type DeckRef = { id: string; name: string };
 
 export type CardWithRelations = Card & {
-  definition: (Definition & { word: Word }) | null;
-  word: Word | null;
+  definition: (Definition & { entry: LexicalEntry }) | null;
+  entry: LexicalEntry | null;
   decks: DeckRef[];
   lexicalInflectionForms?: InflectionForms | null;
 };
@@ -39,7 +43,7 @@ export type SavedVocabularyCandidate = {
   definitionId: string;
   partOfSpeech: string;
   definition: string;
-  word: {
+  entry: {
     id: string;
     lemma: string;
     forms: Array<{ form: string; partOfSpeech: string }>;
@@ -61,8 +65,8 @@ export type CardSchedulingUpdate = {
 };
 
 const RELATIONS_INCLUDE = {
-  definition: { include: { word: true } },
-  word: true,
+  definition: { include: { entry: true } },
+  entry: true,
   decks: { include: { deck: { select: { id: true, name: true } } } },
 } satisfies Prisma.CardInclude;
 
@@ -80,11 +84,18 @@ type CreateDeckCardsInput = {
   lookupId?: string;
   userId: string;
   deckId: string;
-  definition: Definition & { word: Word };
+  definition: Definition & { entry: LexicalEntry };
   context?: string;
+  targetRanges?: CaptureRange[];
   snapshot: InflectionForms | null;
-  paradigm: LexicalParadigm | undefined;
-  lexicalSnapshot: InflectionForms | null;
+  inflectionTarget: InflectionCardTarget | null;
+};
+
+type InflectionCardTarget = {
+  entryId: string;
+  partOfSpeech: string;
+  inflectionForms: InflectionForms | null;
+  hasIrregularForms: boolean;
 };
 
 type TxClient = Prisma.TransactionClient;
@@ -124,6 +135,8 @@ export class CardsService {
     private readonly definitionService: DefinitionService,
     private readonly morphology: MorphologyService,
     @Optional() private readonly evaluation?: LexicalEvaluationService,
+    @Optional() private readonly dictionary?: DictionaryService,
+    @Optional() private readonly nlp?: NlpService,
   ) {}
 
   /**
@@ -137,38 +150,21 @@ export class CardsService {
     context?: string,
     inflectionForms?: InflectionForms | null,
     lookupId?: string,
+    targetRanges?: CaptureRange[],
   ): Promise<CardWithRelations[]> {
-    await this.decksService.findOneOrThrow(deckId, userId);
-
-    const definition =
-      await this.definitionService.findByIdWithWord(definitionId);
-    if (!definition) {
-      throw new DefinitionNotFoundError();
-    }
-
-    const paradigms = await this.morphology.describeEntries([
-      {
-        wordId: definition.wordId,
-        lemma: definition.word.lemma,
-        partOfSpeech: definition.partOfSpeech,
-      },
-    ]);
-    const paradigm = paradigms
-      .get(definition.wordId)
-      ?.get(definition.partOfSpeech);
-    const lexicalSnapshot = paradigm?.snapshot ?? null;
-    const snapshot =
-      definition.word.kind === 'word'
-        ? lexicalSnapshot
-        : (inflectionForms ?? null);
+    const definition = await this.loadDefinitionForSave(
+      userId,
+      deckId,
+      definitionId,
+    );
+    const practice = await this.preparePractice(definition, inflectionForms);
     const cardIds = await this.createDeckCards({
       userId,
       deckId,
       definition,
       context,
-      snapshot,
-      paradigm,
-      lexicalSnapshot,
+      targetRanges,
+      ...practice,
       lookupId,
     });
 
@@ -180,18 +176,125 @@ export class CardsService {
     return this.withLexicalMorphology(result);
   }
 
+  private async loadDefinitionForSave(
+    userId: string,
+    deckId: string,
+    definitionId: string,
+  ): Promise<Definition & { entry: LexicalEntry }> {
+    await this.decksService.findOneOrThrow(deckId, userId);
+    const definition =
+      await this.definitionService.findByIdWithEntry(definitionId);
+    if (!definition) throw new DefinitionNotFoundError();
+    return definition;
+  }
+
+  private async preparePractice(
+    definition: Definition & { entry: LexicalEntry },
+    inflectionForms?: InflectionForms | null,
+  ): Promise<Pick<CreateDeckCardsInput, 'snapshot' | 'inflectionTarget'>> {
+    const paradigms = await this.morphology.describeEntries([
+      {
+        entryId: definition.entryId,
+        lemma: definition.entry.lemma,
+        partOfSpeech: definition.partOfSpeech,
+      },
+    ]);
+    const paradigm = paradigms
+      .get(definition.entryId)
+      ?.get(definition.partOfSpeech);
+    const lexicalSnapshot = paradigm?.snapshot ?? null;
+    const snapshot =
+      definition.entry.kind === LexicalEntryKind.word
+        ? lexicalSnapshot
+        : (inflectionForms ?? null);
+    const inflectionTarget =
+      (await this.expressionInflectionTarget(definition)) ??
+      (paradigm
+        ? {
+            entryId: definition.entryId,
+            partOfSpeech: definition.partOfSpeech,
+            inflectionForms: lexicalSnapshot,
+            hasIrregularForms: paradigm.hasIrregularForms,
+          }
+        : null);
+    return { snapshot, inflectionTarget };
+  }
+
+  private async expressionInflectionTarget(
+    definition: Definition & { entry: LexicalEntry },
+  ): Promise<InflectionCardTarget | null> {
+    if (
+      (definition.entry.kind !== LexicalEntryKind.phrasal_verb &&
+        definition.entry.kind !== LexicalEntryKind.expression) ||
+      definition.partOfSpeech !== String(PartOfSpeech.VERB) ||
+      !this.dictionary ||
+      !this.nlp
+    )
+      return null;
+
+    try {
+      const analysis = await this.nlp.analyze(
+        definition.entry.lemma,
+        undefined,
+        definition.entry.language,
+      );
+      const headLemma =
+        analysis.kind === 'word' ? analysis.lemma : analysis.headLemma;
+      const lookup = await this.dictionary.lookup({
+        text: headLemma,
+        lemma: headLemma,
+        language: definition.entry.language,
+        kind: LexicalEntryKind.word,
+        pos: PartOfSpeech.VERB,
+      });
+      return this.findInflectingBaseTarget(lookup.headwords, headLemma);
+    } catch {
+      this.logger.debug({
+        message: 'optional base-verb inflection enrichment failed',
+        event: 'card.base_verb_inflection_unavailable',
+        method: this.expressionInflectionTarget.name,
+        data: { expression: definition.entry.lemma },
+      });
+      return null;
+    }
+  }
+
+  private findInflectingBaseTarget(
+    headwords: Awaited<ReturnType<DictionaryService['lookup']>>['headwords'],
+    headLemma: string,
+  ): InflectionCardTarget | null {
+    const base = headwords.find(
+      (word) => normalizeSpelling(word.lemma) === normalizeSpelling(headLemma),
+    );
+    const verbGroup = base?.partsOfSpeech.find(
+      (group) => group.partOfSpeech === PartOfSpeech.VERB,
+    );
+    const inflectingDefinition = verbGroup?.definitions.find(
+      (candidate) =>
+        candidate.hasIrregularForms && wordInflects(candidate.inflectionForms),
+    );
+    return base && inflectingDefinition
+      ? {
+          entryId: base.entryId,
+          partOfSpeech: PartOfSpeech.VERB,
+          inflectionForms: inflectingDefinition.inflectionForms,
+          hasIrregularForms: inflectingDefinition.hasIrregularForms,
+        }
+      : null;
+  }
+
   private recordEvaluation(
     lookupId: string | undefined,
     userId: string,
-    definition: Definition & { word: Word },
+    definition: Definition & { entry: LexicalEntry },
   ): void {
     if (!lookupId) return;
     this.evaluation?.scheduleChoice({
       lookupId,
       userId,
       definitionId: definition.id,
-      wordId: definition.wordId,
-      lemma: definition.word.lemma,
+      entryId: definition.entryId,
+      lemma: definition.entry.lemma,
       pos: definition.partOfSpeech,
     });
   }
@@ -238,9 +341,9 @@ export class CardsService {
     deckId,
     definition,
     context,
+    targetRanges,
     snapshot,
-    paradigm,
-    lexicalSnapshot,
+    inflectionTarget,
     lookupId,
   }: CreateDeckCardsInput): Promise<string[]> {
     return this.prisma.$transaction(async (tx) => {
@@ -250,6 +353,7 @@ export class CardsService {
         userId,
         deckId,
         definition,
+        inflectionTarget,
       );
       if (existing) return existing;
       const clozeCard = await this.findOrCreateSenseCard(tx, {
@@ -257,6 +361,7 @@ export class CardsService {
         type: CardType.cloze,
         definitionId: definition.id,
         context: context ?? null,
+        targetRanges,
         inflectionForms: snapshot,
       });
 
@@ -272,9 +377,7 @@ export class CardsService {
 
       await this.addInflectionCard(tx, ids, {
         userId,
-        definition,
-        paradigm,
-        lexicalSnapshot,
+        inflectionTarget,
       });
 
       await this.addRemainingMemberships(tx, ids, deckId);
@@ -313,10 +416,17 @@ export class CardsService {
     lookupId: string | undefined,
     userId: string,
     deckId: string,
-    definition: Definition & { word: Word },
+    definition: Definition & { entry: LexicalEntry },
+    inflectionTarget: InflectionCardTarget | null,
   ): Promise<string[] | null> {
     if (!lookupId) return null;
-    return this.findTrackedRetry(tx, userId, deckId, definition);
+    return this.findTrackedRetry(
+      tx,
+      userId,
+      deckId,
+      definition,
+      inflectionTarget,
+    );
   }
 
   private async findTrackedRetry(
@@ -324,6 +434,7 @@ export class CardsService {
     userId: string,
     deckId: string,
     definition: Definition,
+    inflectionTarget: InflectionCardTarget | null,
   ): Promise<string[] | null> {
     const cards = await tx.card.findMany({
       where: {
@@ -334,11 +445,15 @@ export class CardsService {
             definitionId: definition.id,
             type: { in: [CardType.cloze, CardType.definition] },
           },
-          {
-            wordId: definition.wordId,
-            partOfSpeech: definition.partOfSpeech,
-            type: CardType.inflection,
-          },
+          ...(inflectionTarget
+            ? [
+                {
+                  entryId: inflectionTarget.entryId,
+                  partOfSpeech: inflectionTarget.partOfSpeech,
+                  type: CardType.inflection,
+                },
+              ]
+            : []),
         ],
       },
       select: { id: true, type: true },
@@ -372,20 +487,18 @@ export class CardsService {
     ids: string[],
     {
       userId,
-      definition,
-      paradigm,
-      lexicalSnapshot,
-    }: Pick<
-      CreateDeckCardsInput,
-      'userId' | 'definition' | 'paradigm' | 'lexicalSnapshot'
-    >,
+      inflectionTarget,
+    }: Pick<CreateDeckCardsInput, 'userId' | 'inflectionTarget'>,
   ): Promise<void> {
-    if (paradigm?.hasIrregularForms && wordInflects(paradigm.inflectionForms)) {
+    if (
+      inflectionTarget?.hasIrregularForms &&
+      wordInflects(inflectionTarget.inflectionForms)
+    ) {
       const inflectionCard = await this.findOrCreateInflectionCard(tx, {
         userId,
-        wordId: definition.wordId,
-        partOfSpeech: definition.partOfSpeech,
-        inflectionForms: lexicalSnapshot,
+        entryId: inflectionTarget.entryId,
+        partOfSpeech: inflectionTarget.partOfSpeech,
+        inflectionForms: inflectionTarget.inflectionForms,
       });
       ids.push(inflectionCard.id);
     }
@@ -506,7 +619,7 @@ export class CardsService {
             id: true,
             partOfSpeech: true,
             definition: true,
-            word: {
+            entry: {
               select: {
                 id: true,
                 lemma: true,
@@ -528,7 +641,7 @@ export class CardsService {
           definitionId: card.definition.id,
           partOfSpeech: card.definition.partOfSpeech,
           definition: card.definition.definition,
-          word: card.definition.word,
+          entry: card.definition.entry,
           decks: card.decks.map((entry) => entry.deck),
         },
       ];
@@ -545,7 +658,7 @@ export class CardsService {
       type: CardType.cloze,
       definition: {
         is: {
-          word: {
+          entry: {
             language,
             OR: [
               { lemma: { in: tokens, mode: 'insensitive' } },
@@ -639,35 +752,35 @@ export class CardsService {
 
   /**
    * The user's other saved senses (definition cards) for each of the given
-   * words, grouped by wordId. Used to build definition-card hint 1.
+   * words, grouped by entryId. Used to build definition-card hint 1.
    */
-  async findSavedSensesByWordId(
+  async findSavedSensesByEntryId(
     userId: string,
-    wordIds: string[],
+    entryIds: string[],
   ): Promise<Map<string, SavedSense[]>> {
     const cards = await this.prisma.card.findMany({
       where: {
         userId,
         type: CardType.definition,
-        definition: { wordId: { in: wordIds } },
+        definition: { entryId: { in: entryIds } },
       },
       select: {
         definitionId: true,
-        definition: { select: { wordId: true, definition: true } },
+        definition: { select: { entryId: true, definition: true } },
       },
     });
 
-    const byWordId = new Map<string, SavedSense[]>();
+    const byEntryId = new Map<string, SavedSense[]>();
     for (const card of cards) {
       if (!card.definitionId || !card.definition) continue;
-      const senses = byWordId.get(card.definition.wordId) ?? [];
+      const senses = byEntryId.get(card.definition.entryId) ?? [];
       senses.push({
         definitionId: card.definitionId,
         definition: card.definition.definition,
       });
-      byWordId.set(card.definition.wordId, senses);
+      byEntryId.set(card.definition.entryId, senses);
     }
-    return byWordId;
+    return byEntryId;
   }
 
   /**
@@ -690,8 +803,8 @@ export class CardsService {
       card.definition
         ? [
             {
-              wordId: card.definition.wordId,
-              lemma: card.definition.word.lemma,
+              entryId: card.definition.entryId,
+              lemma: card.definition.entry.lemma,
               partOfSpeech: card.definition.partOfSpeech,
             },
           ]
@@ -702,7 +815,7 @@ export class CardsService {
       ...card,
       lexicalInflectionForms: card.definition
         ? (paradigms
-            .get(card.definition.wordId)
+            .get(card.definition.entryId)
             ?.get(card.definition.partOfSpeech)?.inflectionForms ?? null)
         : null,
     }));
@@ -715,6 +828,7 @@ export class CardsService {
       type: typeof CardType.cloze | typeof CardType.definition;
       definitionId: string;
       context: string | null;
+      targetRanges?: CaptureRange[];
       inflectionForms: InflectionForms | null;
     },
   ): Promise<Card> {
@@ -736,6 +850,9 @@ export class CardsService {
           type: params.type,
           definitionId: params.definitionId,
           context: params.context,
+          targetRanges: params.targetRanges
+            ? params.targetRanges.map(({ start, end }) => ({ start, end }))
+            : Prisma.JsonNull,
           inflectionForms: params.inflectionForms ?? Prisma.JsonNull,
         },
       });
@@ -756,15 +873,15 @@ export class CardsService {
     tx: TxClient,
     params: {
       userId: string;
-      wordId: string;
+      entryId: string;
       partOfSpeech: string;
       inflectionForms: InflectionForms | null;
     },
   ): Promise<Card> {
     const where = {
-      userId_wordId_partOfSpeech_type: {
+      userId_entryId_partOfSpeech_type: {
         userId: params.userId,
-        wordId: params.wordId,
+        entryId: params.entryId,
         partOfSpeech: params.partOfSpeech,
         type: CardType.inflection,
       },
@@ -778,7 +895,7 @@ export class CardsService {
         data: {
           userId: params.userId,
           type: CardType.inflection,
-          wordId: params.wordId,
+          entryId: params.entryId,
           partOfSpeech: params.partOfSpeech,
           inflectionForms: params.inflectionForms ?? Prisma.JsonNull,
         },

@@ -7,10 +7,17 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/api/v1/vocabulary/lookup?word=saw&language=en
-  body: none
+post {
+  url: {{base_url}}/api/v1/vocabulary/lookup
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+    "text": "saw",
+    "language": "en"
+  }
 }
 
 tests {
@@ -20,7 +27,7 @@ tests {
     expect(res.body.context).to.be.undefined;
     expect(res.body.headwords).to.be.an("array");
     if (res.body.preferred) {
-      expect(res.body.headwords.some(h => h.wordId === res.body.preferred.wordId)).to.equal(true);
+      expect(res.body.headwords.some(h => h.entryId === res.body.preferred.entryId)).to.equal(true);
     }
     expect(res.body.meta.filteredByPos).to.equal(false);
   });

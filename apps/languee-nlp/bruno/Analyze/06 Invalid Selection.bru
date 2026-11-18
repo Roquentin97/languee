@@ -4,10 +4,17 @@ meta {
   seq: 20
 }
 
-get {
-  url: {{base_url}}/analyze?text=saw&input_text=I%20saw%20the%20saw.&selection_start=3&selection_end=5
-  body: none
+post {
+  url: {{base_url}}/analyze
+  body: json
   auth: inherit
+}
+body:json {
+  {
+    "text": "saw",
+    "input_text": "I saw the saw.",
+    "selection_ranges": [{ "start": 3, "end": 5 }]
+  }
 }
 
 tests {

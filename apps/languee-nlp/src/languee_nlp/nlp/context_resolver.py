@@ -27,6 +27,22 @@ def resolve_token_from_context(
 ) -> ContextResolverResult:
     doc = nlp(context)
 
+    return resolve_token_in_doc(
+        doc,
+        input_text,
+        selection_start,
+        selection_end,
+    )
+
+
+def resolve_token_in_doc(
+    doc: spacy.tokens.Doc,
+    input_text: str,
+    selection_start: int,
+    selection_end: int,
+) -> ContextResolverResult:
+    """Resolve a range against an already parsed context without reparsing it."""
+
     matched_token: spacy.tokens.Token | None = None
     matched_index: int = -1
     confidence = "high"

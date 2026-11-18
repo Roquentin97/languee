@@ -1,6 +1,6 @@
 package com.example.langueedroid.core.domain
 
-enum class LexicalKind { WORD, PHRASAL_VERB, EXPRESSION }
+enum class LexicalEntryKind { WORD, PHRASAL_VERB, EXPRESSION, IDIOM }
 
 data class ReviewSummary(
     val dueCount: Int,
@@ -11,7 +11,7 @@ data class ReviewPrompt(
     val definition: String,
     val maskedSentence: String?,
     val partOfSpeech: String,
-    val kind: LexicalKind,
+    val kind: LexicalEntryKind,
     val lemmaLength: Int,
     val language: String = "en",
 )
@@ -47,7 +47,7 @@ enum class AnswerResult { CORRECT, INCORRECT }
  * correctly: the canonical lemma, its phonetic transcription, and the
  * inflection forms effective for the reviewed card.
  */
-data class RevealedWord(
+data class RevealedEntry(
     val lemma: String,
     val ipa: String?,
     val inflectionForms: Map<String, String>?,
@@ -57,7 +57,7 @@ data class RevealedWord(
 data class AnswerCheck(
     val result: AnswerResult,
     val matchedForm: String?,
-    val revealed: RevealedWord? = null,
+    val revealed: RevealedEntry? = null,
 )
 
 enum class ReviewRating { AGAIN, HARD, GOOD, EASY }

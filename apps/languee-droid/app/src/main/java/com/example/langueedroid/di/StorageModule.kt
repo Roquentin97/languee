@@ -9,6 +9,7 @@ import com.example.langueedroid.core.data.local.AppDatabase
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.data.local.MIGRATION_1_2
 import com.example.langueedroid.core.data.local.MIGRATION_2_3
+import com.example.langueedroid.core.data.local.MIGRATION_3_4
 import com.example.langueedroid.core.data.local.OfflineEntryDao
 import dagger.Module
 import dagger.Provides
@@ -39,7 +40,7 @@ object StorageModule {
     ): AppDatabase =
         Room
             .databaseBuilder(context, AppDatabase::class.java, "languee_droid.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides

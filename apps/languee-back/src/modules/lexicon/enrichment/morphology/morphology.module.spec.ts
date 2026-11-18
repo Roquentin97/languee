@@ -23,7 +23,7 @@ it('exports the morphology boundary and supports a replaceable provider through 
       .fn()
       .mockResolvedValue([{ lemma: 'go', partOfSpeech: 'verb' }]),
   };
-  const prisma = { wordForm: { createMany: jest.fn() } };
+  const prisma = { lexicalForm: { createMany: jest.fn() } };
   const module = await Test.createTestingModule({
     imports: [MorphologyModule],
     providers: [Consumer],
@@ -39,13 +39,13 @@ it('exports the morphology boundary and supports a replaceable provider through 
       { lemma: 'go', partOfSpeech: 'verb' },
     ]);
     await consumer.morphology.indexParadigm({
-      wordId: 'go-id',
+      entryId: 'go-id',
       lemma: 'go',
       partOfSpeech: PartOfSpeech.VERB,
       language: 'en',
     });
     expect(provider.getInflections).toHaveBeenCalledWith('go', 'verb', 'en');
-    expect(prisma.wordForm.createMany).toHaveBeenCalledTimes(1);
+    expect(prisma.lexicalForm.createMany).toHaveBeenCalledTimes(1);
   } finally {
     await module.close();
   }

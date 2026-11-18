@@ -8,10 +8,15 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/analyze?text={{word}}
-  body: none
+post {
+  url: {{base_url}}/analyze
+  body: json
   auth: inherit
+}
+body:json {
+  {
+    "text": "{{word}}"
+  }
 }
 
 tests {
@@ -23,5 +28,6 @@ tests {
     expect(res.body.tokens).to.be.an("array").with.length(1);
     expect(res.body.tokens[0].lemma).to.be.a("string");
     expect(res.body.tokens[0].pos).to.be.a("string");
+    expect(res.body).to.have.property("selection_analysis", null);
   });
 }

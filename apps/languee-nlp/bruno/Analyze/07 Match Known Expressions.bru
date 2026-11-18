@@ -1,0 +1,39 @@
+meta {
+  name: Match Known Expressions
+  type: http
+  seq: 21
+  tags: [
+    analyze
+    internal
+  ]
+}
+
+post {
+  url: {{base_url}}/match-expressions
+  body: json
+  auth: inherit
+}
+body:json {
+  {
+    "language": "en",
+    "input_text": "She turned the lights off.",
+    "selected_verb_range": { "start": 4, "end": 10 },
+    "candidates": [
+      { "entry_id": "fixture-turn-off", "canonical_text": "turn off" }
+    ]
+  }
+}
+
+tests {
+  test("returns exact selected component ranges", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.matches).to.be.an("array").with.length(1);
+    expect(res.body.matches[0].entry_id).to.equal("fixture-turn-off");
+    expect(res.body.matches[0].canonical_text).to.equal("turn off");
+    expect(res.body.matches[0].surface_text).to.equal("turned off");
+    expect(res.body.matches[0].component_ranges).to.deep.equal([
+      { start: 4, end: 10 },
+      { start: 22, end: 25 }
+    ]);
+  });
+}

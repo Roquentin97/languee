@@ -600,8 +600,9 @@ describe('tracked card saves (e2e)', () => {
       'A tracked meaning.',
     );
     const lookup = await request(app.getHttpServer())
-      .get(`/api/v1/vocabulary/lookup?word=${surface}`)
+      .post('/api/v1/vocabulary/lookup')
       .set('Authorization', `Bearer ${accessToken}`)
+      .send({ text: surface, language: 'en' })
       .expect(200);
     const lookupId = (lookup.body as LookupApiResponse).lookupId;
     expect(lookupId).toBeDefined();

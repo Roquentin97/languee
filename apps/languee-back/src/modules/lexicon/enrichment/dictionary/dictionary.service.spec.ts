@@ -22,13 +22,13 @@ describe('DictionaryService public projection', () => {
       source: 'provider',
       headwords: [
         {
-          wordId: '1',
+          entryId: '1',
           lemma: 'poise',
           relations: [],
           definitions: [definition],
         },
         {
-          wordId: '2',
+          entryId: '2',
           lemma: 'poised',
           relations: [],
           definitions: [
@@ -38,12 +38,12 @@ describe('DictionaryService public projection', () => {
       ],
     });
     const result = await service.lookup({
-      word: 'poised',
+      text: 'poised',
       lemma: 'poise',
       kind: 'word',
       language: 'en',
     });
-    expect(result.preferred).toEqual({ wordId: '1', partOfSpeech: null });
+    expect(result.preferred).toEqual({ entryId: '1', partOfSpeech: null });
     expect(result.headwords.map((w) => w.lemma)).toEqual(['poise', 'poised']);
     expect(result.headwords[0].partsOfSpeech[0].definitions).toEqual([
       definition,
@@ -65,13 +65,13 @@ describe('DictionaryService public projection', () => {
       source: 'cache',
       headwords: [
         {
-          wordId: 'better-id',
+          entryId: 'better-id',
           lemma: 'better',
           relations: [],
           definitions: [definition],
         },
         {
-          wordId: 'good-id',
+          entryId: 'good-id',
           lemma: 'good',
           relations: [
             {
@@ -84,15 +84,18 @@ describe('DictionaryService public projection', () => {
       ],
     });
     const result = await service.lookup({
-      word: 'better',
+      text: 'better',
       lemma: 'good',
       language: 'en',
       kind: 'word',
     });
-    expect(result.preferred).toEqual({ wordId: 'good-id', partOfSpeech: null });
+    expect(result.preferred).toEqual({
+      entryId: 'good-id',
+      partOfSpeech: null,
+    });
     expect(result.headwords).toHaveLength(2);
     expect(result.headwords[1]).toMatchObject({
-      wordId: 'good-id',
+      entryId: 'good-id',
       language: 'en',
       relations: [{ partOfSpeech: 'adjective', relationType: 'comparative' }],
       partsOfSpeech: [
@@ -104,13 +107,13 @@ describe('DictionaryService public projection', () => {
   it('reports an empty completed result as a dictionary miss', async () => {
     discover.mockResolvedValue({ source: 'cache', headwords: [] });
     await expect(
-      service.lookup({ word: 'qzvx', kind: 'word', language: 'en' }),
+      service.lookup({ text: 'qzvx', kind: 'word', language: 'en' }),
     ).rejects.toBeInstanceOf(DefinitionsNotFoundException);
   });
   it('propagates failures', async () => {
     discover.mockRejectedValue(new Error('outage'));
     await expect(
-      service.lookup({ word: 'qzvx', kind: 'word', language: 'en' }),
+      service.lookup({ text: 'qzvx', kind: 'word', language: 'en' }),
     ).rejects.toThrow('outage');
   });
 });

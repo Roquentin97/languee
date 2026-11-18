@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { LexicalKind } from '@prisma/client';
+import { LexicalEntryKind } from '@prisma/client';
 import { PrismaService } from '../../../system/core/prisma/prisma.service';
-import { WordsService } from '../../entries/words/words.service';
+import { LexicalEntriesService } from '../../entries/lexical-entries/lexical-entries.service';
 import { DefinitionService } from '../../entries/definitions/definitions.service';
 import { PartOfSpeech } from '../../types/part-of-speech.enum';
 import {
@@ -15,10 +15,10 @@ import type {
   DictionaryEntry,
   IDictionaryApiAdapter,
 } from './interfaces/dictionary-api-adapter.interface';
-import type { DefinitionResult } from './types/lookup-word.types';
+import type { DefinitionResult } from './types/lookup-entry.types';
 
 export type ResolvedHeadword = {
-  wordId: string;
+  entryId: string;
   lemma: string;
   relations: { partOfSpeech: string; relationType: string }[];
   definitions: DefinitionResult[];
@@ -52,7 +52,7 @@ export class HeadwordDiscoveryService {
   private readonly discoveries = new Map<string, Promise<DiscoveryResult>>();
   constructor(
     private readonly prisma: PrismaService,
-    private readonly words: WordsService,
+    private readonly words: LexicalEntriesService,
     private readonly definitions: DefinitionService,
     @Inject(DICTIONARY_API_ADAPTER)
     private readonly dictionary: IDictionaryApiAdapter,
@@ -65,7 +65,7 @@ export class HeadwordDiscoveryService {
     surface: string,
     language: string,
     contextualLemma?: string,
-    kind: LexicalKind = LexicalKind.word,
+    kind: LexicalEntryKind = LexicalEntryKind.word,
   ): Promise<DiscoveryResult> {
     const term = normalizeSpelling(surface);
     const flightKey = JSON.stringify([
@@ -89,17 +89,17 @@ export class HeadwordDiscoveryService {
     term: string,
     language: string,
     contextualLemma: string | undefined,
-    kind: LexicalKind,
+    kind: LexicalEntryKind,
   ): Promise<DiscoveryResult> {
     const key = { term_language: { term, language } };
     const state = await this.prisma.lookupState.findUnique({ where: key });
     if (state?.discoveryCompletedAt) {
-      if (kind === LexicalKind.word && contextualLemma)
+      if (kind === LexicalEntryKind.word && contextualLemma)
         await this.processCohort([contextualLemma], language, kind);
       return { source: 'cache', headwords: await this.resolve(term, language) };
     }
     const seeds = [term];
-    if (kind === LexicalKind.word) {
+    if (kind === LexicalEntryKind.word) {
       let candidates: Awaited<
         ReturnType<MorphologyProvider['findLemmaCandidates']>
       >;
@@ -116,7 +116,7 @@ export class HeadwordDiscoveryService {
       const knownWords = await this.words.findLookupCandidates(
         term,
         language,
-        reverse.map((r) => r.wordId),
+        reverse.map((r) => r.entryId),
       );
       seeds.push(
         ...candidates.map((c) => c.lemma),
@@ -168,7 +168,7 @@ export class HeadwordDiscoveryService {
   private async processCohort(
     seeds: string[],
     language: string,
-    kind: LexicalKind,
+    kind: LexicalEntryKind,
   ): Promise<void> {
     const visited = new Set<string>();
     const fetched = new Map<string, DictionaryEntry>();
@@ -250,7 +250,7 @@ export class HeadwordDiscoveryService {
   private async persistCohort(
     fetched: Map<string, DictionaryEntry>,
     language: string,
-    kind: LexicalKind,
+    kind: LexicalEntryKind,
   ): Promise<void> {
     const lemmas = [...fetched]
       .filter(([, entry]) => entry.definitions.length)
@@ -270,14 +270,14 @@ export class HeadwordDiscoveryService {
           );
       }),
     );
-    if (kind === LexicalKind.word && words.length) {
+    if (kind === LexicalEntryKind.word && words.length) {
       await this.morphology.indexParadigms(
         [...fetched].flatMap(([lemma, entry]) => {
           const word = byLemma.get(lemma);
           return word
             ? [...new Set(entry.definitions.map((d) => d.partOfSpeech))].map(
                 (partOfSpeech) => ({
-                  wordId: word.id,
+                  entryId: word.id,
                   lemma,
                   partOfSpeech,
                   language,
@@ -295,7 +295,7 @@ export class HeadwordDiscoveryService {
     fetched: Map<string, DictionaryEntry>,
     byLemma: Map<
       string,
-      Awaited<ReturnType<WordsService['ensureMany']>>[number]
+      Awaited<ReturnType<LexicalEntriesService['ensureMany']>>[number]
     >,
     language: string,
   ): Promise<void> {
@@ -335,7 +335,7 @@ export class HeadwordDiscoveryService {
     if (!targets.length) return;
     const words = await this.words.findByLemmas(targets, language);
     const byLemma = new Map(words.map((word) => [word.lemma, word]));
-    const definitions = await this.definitions.findByWordIds(
+    const definitions = await this.definitions.findByEntryIds(
       words.map((word) => word.id),
     );
     for (const [lemma, entry] of fetched)
@@ -353,7 +353,7 @@ export class HeadwordDiscoveryService {
           if (
             definitions.some(
               (d) =>
-                d.wordId === word.id &&
+                d.entryId === word.id &&
                 d.partOfSpeech === String(reference.targetPos) &&
                 d.provider === this.dictionary.providerName,
             )
@@ -370,25 +370,25 @@ export class HeadwordDiscoveryService {
   }
 
   private groupDefinitions(
-    definitions: Awaited<ReturnType<DefinitionService['findByWordIds']>>,
+    definitions: Awaited<ReturnType<DefinitionService['findByEntryIds']>>,
   ) {
     const byWord = new Map<string, typeof definitions>();
     for (const definition of definitions) {
-      const rows = byWord.get(definition.wordId) ?? [];
+      const rows = byWord.get(definition.entryId) ?? [];
       rows.push(definition);
-      byWord.set(definition.wordId, rows);
+      byWord.set(definition.entryId, rows);
     }
     return byWord;
   }
 
   private async describeWords(
-    words: Awaited<ReturnType<WordsService['findLookupCandidates']>>,
+    words: Awaited<ReturnType<LexicalEntriesService['findLookupCandidates']>>,
     byWord: ReturnType<HeadwordDiscoveryService['groupDefinitions']>,
   ) {
     return this.morphology.describeEntries(
       words.flatMap((word) =>
         (byWord.get(word.id) ?? []).map((d) => ({
-          wordId: word.id,
+          entryId: word.id,
           lemma: word.lemma,
           partOfSpeech: d.partOfSpeech,
         })),
@@ -404,9 +404,9 @@ export class HeadwordDiscoveryService {
     const words = await this.words.findLookupCandidates(
       term,
       language,
-      origins.map((o) => o.wordId),
+      origins.map((o) => o.entryId),
     );
-    const definitions = await this.definitions.findByWordIds(
+    const definitions = await this.definitions.findByEntryIds(
       words.map((w) => w.id),
     );
     const byWord = this.groupDefinitions(definitions);
@@ -415,14 +415,14 @@ export class HeadwordDiscoveryService {
       .map((word) => {
         const allowed = new Set(
           origins
-            .filter((o) => o.wordId === word.id)
+            .filter((o) => o.entryId === word.id)
             .map((o) => o.partOfSpeech),
         );
         return {
-          wordId: word.id,
+          entryId: word.id,
           lemma: word.lemma,
           relations: origins
-            .filter((o) => o.wordId === word.id)
+            .filter((o) => o.entryId === word.id)
             .map(({ partOfSpeech, relationType }) => ({
               partOfSpeech,
               relationType,

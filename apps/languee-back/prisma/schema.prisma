@@ -7,13 +7,13 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  decks        Deck[]
-  cards        Card[]
+  id             String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email          String              @unique
+  passwordHash   String              @map("password_hash")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  decks          Deck[]
+  cards          Card[]
   lexicalLookups EvalLexicalLookup[]
 
   @@map("users")
@@ -31,21 +31,20 @@ enum EvalDisagreementReason {
 }
 
 model EvalLexicalLookup {
-  id                   String @id @db.Uuid
-  userId               String @map("user_id") @db.Uuid
-  user                 User @relation(fields: [userId], references: [id])
+  id                   String                             @id @db.Uuid
+  userId               String                             @map("user_id") @db.Uuid
+  user                 User                               @relation(fields: [userId], references: [id])
   language             String
   surface              String
   context              String?
-  selectionStart       Int? @map("selection_start")
-  selectionEnd         Int? @map("selection_end")
-  nlpLemma             String? @map("nlp_lemma")
-  nlpPos               String? @map("nlp_pos")
-  nlpModelVersion      String @map("nlp_model_version")
-  rankingPolicyVersion String @map("ranking_policy_version")
-  candidates           Json @db.JsonB
-  preferredWordId      String? @map("preferred_word_id") @db.Uuid
-  preferredPos         String? @map("preferred_pos")
+  selectionRanges      Json?                              @map("selection_ranges") @db.JsonB
+  nlpLemma             String?                            @map("nlp_lemma")
+  nlpPos               String?                            @map("nlp_pos")
+  nlpModelVersion      String                             @map("nlp_model_version")
+  rankingPolicyVersion String                             @map("ranking_policy_version")
+  candidates           Json                               @db.JsonB
+  preferredEntryId     String?                            @map("preferred_entry_id") @db.Uuid
+  preferredPos         String?                            @map("preferred_pos")
   disagreement         EvalLexicalDictionaryDisagreement?
   choice               EvalLexicalLearnerChoice?
 
@@ -53,8 +52,8 @@ model EvalLexicalLookup {
 }
 
 model EvalLexicalDictionaryDisagreement {
-  lookupId String @id @map("lookup_id") @db.Uuid
-  lookup   EvalLexicalLookup @relation(fields: [lookupId], references: [id])
+  lookupId String                  @id @map("lookup_id") @db.Uuid
+  lookup   EvalLexicalLookup       @relation(fields: [lookupId], references: [id])
   outcome  EvalDisagreementOutcome
   reason   EvalDisagreementReason
 
@@ -62,52 +61,55 @@ model EvalLexicalDictionaryDisagreement {
 }
 
 model EvalLexicalLearnerChoice {
-  lookupId           String @id @map("lookup_id") @db.Uuid
+  lookupId           String            @id @map("lookup_id") @db.Uuid
   lookup             EvalLexicalLookup @relation(fields: [lookupId], references: [id])
-  chosenDefinitionId String @map("chosen_definition_id") @db.Uuid
-  chosenWordId       String @map("chosen_word_id") @db.Uuid
-  chosenLemma        String @map("chosen_lemma")
-  chosenPos          String @map("chosen_pos")
+  chosenDefinitionId String            @map("chosen_definition_id") @db.Uuid
+  chosenEntryId      String            @map("chosen_entry_id") @db.Uuid
+  chosenLemma        String            @map("chosen_lemma")
+  chosenPos          String            @map("chosen_pos")
 
   @@map("eval_lexical_learner_choices")
 }
 
-enum LexicalKind {
+enum LexicalEntryKind {
   word
   phrasal_verb
   expression
+  idiom
 }
 
-model Word {
-  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+model LexicalEntry {
+  id          String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
   lemma       String
-  language    String       @default("en")
+  language    String           @default("en")
   ipa         String?
-  kind        LexicalKind  @default(word)
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  forms       WordForm[]
+  kind        LexicalEntryKind @default(word)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  forms       LexicalForm[]
   definitions Definition[]
   cards       Card[]
 
   @@unique([lemma, language])
   @@index([lemma, language])
-  @@map("words")
+  // Prisma introspection drops the operator class; the migration retains it for prefix LIKE queries.
+  @@index([language, lemma], map: "lexical_entries_language_lemma_prefix_idx")
+  @@map("lexical_entries")
 }
 
 model Definition {
-  id                String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  wordId            String   @map("word_id") @db.Uuid
-  word              Word     @relation(fields: [wordId], references: [id])
-  partOfSpeech      String   @map("part_of_speech")
-  definition        String
-  example           String?
-  provider          String
-  gapFillMetadata   Json?    @map("gap_fill_metadata") @db.JsonB
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
-  cards             Card[]
+  id              String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  entryId         String       @map("entry_id") @db.Uuid
+  entry           LexicalEntry @relation(fields: [entryId], references: [id])
+  partOfSpeech    String       @map("part_of_speech")
+  definition      String
+  example         String?
+  provider        String
+  gapFillMetadata Json?        @map("gap_fill_metadata") @db.JsonB
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  cards           Card[]
 
-  @@unique([wordId, partOfSpeech, definition])
-  @@index([wordId])
+  @@unique([entryId, partOfSpeech, definition])
+  @@index([entryId])
   @@index([partOfSpeech])
   @@map("definitions")
 }
@@ -154,14 +156,15 @@ model Card {
   /// Set for `inflection` cards: the lemma + part of speech whose paradigm
   /// this card tests. Null for `cloze` and `definition` cards, which are
   /// anchored to a single definition instead.
-  wordId       String? @map("word_id") @db.Uuid
-  word         Word?   @relation(fields: [wordId], references: [id], onDelete: Restrict)
-  partOfSpeech String? @map("part_of_speech")
+  entryId      String?       @map("entry_id") @db.Uuid
+  entry        LexicalEntry? @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  partOfSpeech String?       @map("part_of_speech")
 
   /// Captured usage sentence, populated on `cloze` cards for masking.
   /// `definition` cards have no context of their own - they borrow their
   /// sibling `cloze` card's context as a hint instead.
   context         String?
+  targetRanges    Json?   @map("target_ranges") @db.JsonB
   inflectionForms Json?   @map("inflection_forms") @db.JsonB
 
   decks CardDeck[]
@@ -183,11 +186,11 @@ model Card {
   reviewLogs      ReviewLog[]
 
   @@unique([userId, definitionId, type])
-  @@unique([userId, wordId, partOfSpeech, type])
+  @@unique([userId, entryId, partOfSpeech, type])
   @@index([userId, dueAt])
   @@index([userId, type])
   @@index([definitionId])
-  @@index([wordId, partOfSpeech])
+  @@index([entryId, partOfSpeech])
   @@map("cards")
 }
 
@@ -294,23 +297,23 @@ model ReviewLog {
   @@map("review_logs")
 }
 
-model WordForm {
-  id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  wordId String @map("word_id") @db.Uuid
-  word Word @relation(fields: [wordId], references: [id])
-  form String
-  partOfSpeech String @map("part_of_speech")
-  relationType String @map("relation_type")
+model LexicalForm {
+  id           String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  entryId      String       @map("entry_id") @db.Uuid
+  entry        LexicalEntry @relation(fields: [entryId], references: [id])
+  form         String
+  partOfSpeech String       @map("part_of_speech")
+  relationType String       @map("relation_type")
 
-  @@unique([wordId, form, partOfSpeech, relationType])
+  @@unique([entryId, form, partOfSpeech, relationType])
   @@index([form])
-  @@map("word_forms")
+  @@map("lexical_forms")
 }
 
 model LookupState {
-  term String
-  language String
-  dictionaryFetchedAt DateTime? @map("dictionary_fetched_at") @db.Timestamptz
+  term                 String
+  language             String
+  dictionaryFetchedAt  DateTime? @map("dictionary_fetched_at") @db.Timestamptz
   discoveryCompletedAt DateTime? @map("discovery_completed_at") @db.Timestamptz
 
   @@id([term, language])

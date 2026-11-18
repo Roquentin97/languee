@@ -32,10 +32,12 @@ const successOutput: LookupVocabularyOutput = {
   language: 'en',
   kind: 'word',
   source: 'cache',
-  preferred: { wordId: 'word-1', partOfSpeech: PartOfSpeech.VERB },
+  alternatives: [],
+  lookupId: 'lookup-id-1',
+  preferred: { entryId: 'word-1', partOfSpeech: PartOfSpeech.VERB },
   headwords: [
     {
-      wordId: 'word-1',
+      entryId: 'word-1',
       lemma: 'run',
       language: 'en',
       relations: [],
@@ -98,31 +100,48 @@ describe('VocabularyController', () => {
   });
 
   describe('lookup()', () => {
-    it('forwards the selected Unicode code-point span', async () => {
+    it('forwards ordered selected Unicode code-point ranges', async () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
       await controller.lookup(
         {
-          word: 'saw',
+          text: 'saw',
           context: '😀 I saw the saw.',
-          selectionStart: '12',
-          selectionEnd: '15',
+          selectionRanges: [{ start: 12, end: 15 }],
         },
         mockUser,
       );
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
-        expect.objectContaining({ selectionStart: 12, selectionEnd: 15 }),
+        expect.objectContaining({
+          selectionRanges: [{ start: 12, end: 15 }],
+        }),
       );
     });
-    it.each([
-      { selectionStart: '2' },
-      { selectionStart: '-1', selectionEnd: '5' },
-      { selectionStart: '3', selectionEnd: '5' },
-      { selectionStart: '10', selectionEnd: '99' },
-      { selectionStart: '10', selectionEnd: '2' },
-    ])('rejects invalid selections: %j', async (offsets) => {
+
+    it('rejects more than six whitespace-separated lookup components before service dispatch', async () => {
       await expect(
         controller.lookup(
-          { word: 'saw', context: 'I saw the saw.', ...offsets },
+          { text: 'one two three four five six seven' },
+          mockUser,
+        ),
+      ).rejects.toThrow('INPUT_INVALID');
+      expect(mockVocabularyService.lookup).not.toHaveBeenCalled();
+    });
+    it.each([
+      { selectionRanges: [] },
+      { selectionRanges: [{ start: -1, end: 5 }] },
+      { selectionRanges: [{ start: 5, end: 7 }] },
+      { selectionRanges: [{ start: 10, end: 99 }] },
+      { selectionRanges: [{ start: 10, end: 2 }] },
+      {
+        selectionRanges: [
+          { start: 2, end: 5 },
+          { start: 4, end: 7 },
+        ],
+      },
+    ])('rejects invalid selections: %j', async (ranges) => {
+      await expect(
+        controller.lookup(
+          { text: 'saw', context: 'I saw the saw.', ...ranges },
           mockUser,
         ),
       ).rejects.toThrow('INPUT_INVALID');
@@ -133,24 +152,26 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
 
       const result = await controller.lookup(
-        { word: 'run', language: 'en' },
+        { text: 'run', language: 'en' },
         mockUser,
       );
 
       expect(result).toEqual(successOutput);
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith({
-        word: 'run',
+        text: 'run',
         language: 'en',
         userId: 'user-id-1',
         context: undefined,
+        selectionRanges: undefined,
         disablePosFiltering: false,
+        includeSuggestions: true,
       });
     });
 
-    it('language defaults to "en" when not provided in query', async () => {
+    it('language defaults to "en" when not provided in the body', async () => {
       mockVocabularyService.lookup.mockResolvedValue(successOutput);
 
-      await controller.lookup({ word: 'run' }, mockUser);
+      await controller.lookup({ text: 'run' }, mockUser);
 
       expect(mockVocabularyService.lookup).toHaveBeenCalledWith(
         expect.objectContaining({ language: 'en' }),
@@ -162,10 +183,10 @@ describe('VocabularyController', () => {
 
       await controller.lookup(
         {
-          word: 'run',
+          text: 'run',
           language: 'en',
           context: 'She runs every morning.',
-          disablePosFiltering: 'true',
+          disablePosFiltering: true,
         },
         mockUser,
       );
@@ -182,11 +203,11 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockRejectedValue(new NlpUnavailableError());
 
       await expect(
-        controller.lookup({ word: 'walk', language: 'en' }, mockUser),
+        controller.lookup({ text: 'walk', language: 'en' }, mockUser),
       ).rejects.toBeInstanceOf(BadGatewayException);
 
       const err = await controller
-        .lookup({ word: 'walk', language: 'en' }, mockUser)
+        .lookup({ text: 'walk', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(BadGatewayException);
@@ -201,7 +222,7 @@ describe('VocabularyController', () => {
       );
 
       const err = await controller
-        .lookup({ word: 'walk fast', language: 'en' }, mockUser)
+        .lookup({ text: 'walk fast', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(BadRequestException);
@@ -216,7 +237,7 @@ describe('VocabularyController', () => {
       );
 
       const err = await controller
-        .lookup({ word: 'xyzabc', language: 'en' }, mockUser)
+        .lookup({ text: 'xyzabc', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(NotFoundException);
@@ -231,7 +252,7 @@ describe('VocabularyController', () => {
       );
 
       const err = await controller
-        .lookup({ word: 'walk', language: 'en' }, mockUser)
+        .lookup({ text: 'walk', language: 'en' }, mockUser)
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(BadGatewayException);
@@ -245,7 +266,7 @@ describe('VocabularyController', () => {
       mockVocabularyService.lookup.mockRejectedValue(unknownErr);
 
       await expect(
-        controller.lookup({ word: 'walk', language: 'en' }, mockUser),
+        controller.lookup({ text: 'walk', language: 'en' }, mockUser),
       ).rejects.toThrow('Unexpected failure');
     });
   });

@@ -7,8 +7,8 @@ import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.GradeOutcome
-import com.example.langueedroid.core.domain.LexicalKind
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
@@ -70,7 +70,7 @@ class ReviewViewModelTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private fun aPrompt(kind: LexicalKind = LexicalKind.WORD) =
+    private fun aPrompt(kind: LexicalEntryKind = LexicalEntryKind.WORD) =
         ReviewPrompt(
             definition = "To encounter unexpectedly.",
             maskedSentence = "Guess who I ____ at the station!",
@@ -168,7 +168,7 @@ class ReviewViewModelTest {
                     prompt = aPrompt().copy(definition = "What does run into mean?", maskedSentence = null),
                 )
             val revealed =
-                RevealedWord(
+                RevealedEntry(
                     lemma = "run into",
                     ipa = null,
                     inflectionForms = null,
@@ -258,7 +258,7 @@ class ReviewViewModelTest {
         runTest {
             val item = anItem(cardId = "card-1")
             val revealed =
-                RevealedWord(
+                RevealedEntry(
                     lemma = "come across",
                     ipa = "/kʌm əˈkɹɒs/",
                     inflectionForms = mapOf("type" to "verb", "past" to "came across"),

@@ -2,7 +2,7 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.data.mapper.toLookupResult
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionResponseDto
 import com.example.langueedroid.core.network.dto.EnrichedDefinitionDto
 import com.example.langueedroid.core.network.dto.LookupMetaDto
@@ -86,27 +86,32 @@ class VocabularyMapperTest {
 
     @Test
     fun `kind word maps to WORD`() {
-        assertEquals(LexicalKind.WORD, aResponseDto(kind = "word").toLookupResult().kind)
+        assertEquals(LexicalEntryKind.WORD, aResponseDto(kind = "word").toLookupResult().kind)
     }
 
     @Test
     fun `kind phrasal_verb maps to PHRASAL_VERB`() {
-        assertEquals(LexicalKind.PHRASAL_VERB, aResponseDto(kind = "phrasal_verb").toLookupResult().kind)
+        assertEquals(LexicalEntryKind.PHRASAL_VERB, aResponseDto(kind = "phrasal_verb").toLookupResult().kind)
     }
 
     @Test
     fun `kind expression maps to EXPRESSION`() {
-        assertEquals(LexicalKind.EXPRESSION, aResponseDto(kind = "expression").toLookupResult().kind)
+        assertEquals(LexicalEntryKind.EXPRESSION, aResponseDto(kind = "expression").toLookupResult().kind)
+    }
+
+    @Test
+    fun `kind idiom maps to IDIOM`() {
+        assertEquals(LexicalEntryKind.IDIOM, aResponseDto(kind = "idiom").toLookupResult().kind)
     }
 
     @Test
     fun `word kind defaults to WORD`() {
-        assertEquals(LexicalKind.WORD, aResponseDto(kind = "word").toLookupResult().kind)
+        assertEquals(LexicalEntryKind.WORD, aResponseDto(kind = "word").toLookupResult().kind)
     }
 
     @Test
     fun `unknown kind string falls back to WORD`() {
-        assertEquals(LexicalKind.WORD, aResponseDto(kind = "some_future_kind").toLookupResult().kind)
+        assertEquals(LexicalEntryKind.WORD, aResponseDto(kind = "some_future_kind").toLookupResult().kind)
     }
 
     // -------------------------------------------------------------------------
@@ -154,11 +159,11 @@ class VocabularyMapperTest {
         val json =
             """
             {"input":"better","context":"It is better","language":"en","kind":"word","source":"cache",
-             "preferred":{"wordId":"good","partOfSpeech":"adjective"},
+             "preferred":{"entryId":"good","partOfSpeech":"adjective"},
              "headwords":[
-               {"wordId":"better","lemma":"better","language":"en","relations":[],"partsOfSpeech":
+               {"entryId":"better","lemma":"better","language":"en","relations":[],"partsOfSpeech":
                  [{"partOfSpeech":"verb","definitions":[{"id":"v","partOfSpeech":"verb","definition":"improve","example":null,"provider":"dict","hasIrregularForms":false,"inflectionForms":null,"decks":[]}]}]},
-               {"wordId":"good","lemma":"good","language":"en","relations":[{"partOfSpeech":"adjective","relationType":"comparative"}],"partsOfSpeech":
+               {"entryId":"good","lemma":"good","language":"en","relations":[{"partOfSpeech":"adjective","relationType":"comparative"}],"partsOfSpeech":
                  [{"partOfSpeech":"adjective","definitions":[{"id":"a","partOfSpeech":"adjective","definition":"excellent","example":null,"provider":"dict","hasIrregularForms":false,"inflectionForms":null,"decks":[{"id":"deck","name":"Saved"}]}]},
                   {"partOfSpeech":"noun","definitions":[]}] }],
              "meta":{"filteredByPos":true,"unmatchedPos":false,"availablePartsOfSpeech":["adjective","noun"]}}
@@ -182,7 +187,7 @@ class VocabularyMapperTest {
         val dto =
             CreateUserDefinitionResponseDto(
                 id = "def_123",
-                wordId = "word_123",
+                entryId = "word_123",
                 lemma = "run into",
                 kind = "phrasal_verb",
                 partOfSpeech = "phrase",
@@ -194,9 +199,9 @@ class VocabularyMapperTest {
         val domain = dto.toDomain()
 
         assertEquals("def_123", domain.id)
-        assertEquals("word_123", domain.wordId)
+        assertEquals("word_123", domain.entryId)
         assertEquals("run into", domain.lemma)
-        assertEquals(LexicalKind.PHRASAL_VERB, domain.kind)
+        assertEquals(LexicalEntryKind.PHRASAL_VERB, domain.kind)
         assertEquals("phrase", domain.partOfSpeech)
         assertEquals("To encounter unexpectedly.", domain.definition)
         assertEquals("I ran into an old friend.", domain.example)
@@ -208,7 +213,7 @@ class VocabularyMapperTest {
         val dto =
             CreateUserDefinitionResponseDto(
                 id = "def_123",
-                wordId = "word_123",
+                entryId = "word_123",
                 lemma = "cat",
                 kind = "word",
                 partOfSpeech = "noun",

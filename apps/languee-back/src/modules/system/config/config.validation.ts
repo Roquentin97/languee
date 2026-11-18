@@ -33,3 +33,14 @@ export const configValidationSchema = Joi.object({
       'languee (https://github.com/Roquentin97/languee; dictionary lookup)',
     ),
 });
+
+export function validateEnvironment(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  const result = configValidationSchema.validate(config, {
+    abortEarly: false,
+    allowUnknown: true,
+  });
+  if (result.error) throw result.error;
+  return result.value as Record<string, unknown>;
+}

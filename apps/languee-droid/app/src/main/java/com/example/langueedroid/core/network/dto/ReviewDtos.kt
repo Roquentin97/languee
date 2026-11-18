@@ -57,7 +57,7 @@ data class CheckAnswerRequest(
 data class CheckAnswerResponseDto(
     val result: String,
     val matchedForm: String?,
-    val revealed: RevealedWordDto? = null,
+    val revealed: RevealedEntryDto? = null,
 )
 
 data class CheckFormsRequest(
@@ -67,7 +67,7 @@ data class CheckFormsRequest(
 data class CheckFormsResponseDto(
     val results: Map<String, FormCheckResultDto>,
     val allCorrect: Boolean,
-    val revealed: RevealedWordDto,
+    val revealed: RevealedEntryDto,
 )
 
 data class FormCheckResultDto(
@@ -89,7 +89,7 @@ data class GradeResponseDto(
     val state: String,
 )
 
-data class RevealedWordDto(
+data class RevealedEntryDto(
     val lemma: String,
     val ipa: String?,
     val inflectionForms: Map<String, String>?,

@@ -8,7 +8,7 @@ package com.example.langueedroid.core.domain
  * passes this check can still be rejected.
  */
 object ExpressionLimits {
-    const val MAX_WORDS = 10
+    const val MAX_WORDS = 6
 
     /** True when [text] holds more whitespace-separated words than the server will accept. */
     fun exceedsMaxWords(text: String): Boolean =

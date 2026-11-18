@@ -106,6 +106,7 @@ fun CaptureScreen(
     onSelectLanguage: (String) -> Unit,
     onStartTextWorkspace: (String) -> Unit = {},
     onRetrySavedVocabulary: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val workspaceScroll = rememberScrollState()
@@ -143,6 +144,7 @@ fun CaptureScreen(
                     onSelectLanguage = onSelectLanguage,
                     onWordTapped = onWordTokenTapped,
                     onConfirmSelection = onConfirmWordSelection,
+                    onClearSelection = onClearSelection,
                     onRetrySavedVocabulary = onRetrySavedVocabulary,
                     onCancel = onDismiss,
                 )
@@ -591,6 +593,7 @@ private fun SharedContextCaptureContent(
     onSelectLanguage: (String) -> Unit,
     onWordTapped: (Int) -> Unit,
     onConfirmSelection: () -> Unit,
+    onClearSelection: () -> Unit,
     onRetrySavedVocabulary: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
@@ -633,6 +636,7 @@ private fun SharedContextCaptureContent(
             onSelectLanguage = onSelectLanguage,
             onWordTapped = onWordTapped,
             onConfirmSelection = onConfirmSelection,
+            onClearSelection = onClearSelection,
             onRetrySavedVocabulary = onRetrySavedVocabulary,
             innerPadding = innerPadding,
         )
@@ -652,6 +656,7 @@ private fun SharedContextCaptureBody(
     onSelectLanguage: (String) -> Unit,
     onWordTapped: (Int) -> Unit,
     onConfirmSelection: () -> Unit,
+    onClearSelection: () -> Unit,
     onRetrySavedVocabulary: () -> Unit,
     innerPadding: androidx.compose.foundation.layout.PaddingValues,
 ) {
@@ -692,6 +697,7 @@ private fun SharedContextCaptureBody(
             savedVocabulary = savedVocabulary,
             inspectedIndex = inspectedIndex,
             onConfirmSelection = onConfirmSelection,
+            onClearSelection = onClearSelection,
         )
     }
 }
@@ -732,6 +738,7 @@ private fun CaptureWorkspaceSelectionInfo(
     savedVocabulary: List<SavedVocabulary>,
     inspectedIndex: Int?,
     onConfirmSelection: () -> Unit,
+    onClearSelection: () -> Unit,
 ) {
     val handled = completed.firstOrNull { inspectedIndex != null && inspectedIndex in it.indices }
     val inspected =
@@ -743,7 +750,7 @@ private fun CaptureWorkspaceSelectionInfo(
     val saved = savedVocabulary.filter { it.surface.equals(inspected, ignoreCase = true) }
     if (handled == null) {
         SavedVocabularyInfo(saved)
-        SelectionConfirmation(tokens, selectedIndices, onConfirmSelection)
+        SelectionConfirmation(tokens, selectedIndices, onConfirmSelection, onClearSelection)
     }
 }
 
@@ -860,6 +867,7 @@ private fun SelectionConfirmation(
     tokens: List<Token>,
     selectedIndices: List<Int>,
     onConfirmSelection: () -> Unit,
+    onClearSelection: () -> Unit,
 ) {
     if (selectedIndices.isNotEmpty()) {
         Text(
@@ -871,6 +879,9 @@ private fun SelectionConfirmation(
             style = MaterialTheme.typography.bodyMedium,
             color = GreenPrimary,
         )
+        TextButton(onClick = onClearSelection, modifier = Modifier.testTag("clear-selection")) {
+            Text(stringResource(R.string.btn_clear_selection))
+        }
         Spacer(modifier = Modifier.height(12.dp))
         Button(
             onClick = onConfirmSelection,
@@ -1089,11 +1100,11 @@ private fun ReviewContextCard(state: AppState.Screen.ContextReview) {
             color = GreenPrimaryDark,
         )
     val annotated =
-        buildHighlightedAnnotatedString(
-            context = state.context,
-            word = state.targetWord,
-            highlightStyle = highlightStyle,
-        )
+        if (state.selectionRanges.isEmpty()) {
+            buildHighlightedAnnotatedString(state.context, state.targetWord, highlightStyle)
+        } else {
+            buildHighlightedAnnotatedString(state.context, state.selectionRanges, highlightStyle)
+        }
 
     Card(
         shape = RoundedCornerShape(18.dp),
@@ -1123,10 +1134,11 @@ private fun MultiSentenceWarning(
 ) {
     if (state.isMultiSentence) {
         val canTruncate =
-            EntryValidator.extractSentenceContaining(
-                state.targetWord,
-                state.context,
-            ) != null
+            state.selectionRanges.isNotEmpty() ||
+                EntryValidator.extractSentenceContaining(
+                    state.targetWord,
+                    state.context,
+                ) != null
 
         Card(
             shape = RoundedCornerShape(14.dp),

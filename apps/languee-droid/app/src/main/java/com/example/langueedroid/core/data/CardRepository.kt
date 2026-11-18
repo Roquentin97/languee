@@ -4,10 +4,12 @@ import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.Card
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.dto.CreateCardRequest
+import com.example.langueedroid.core.network.dto.SelectionRangeDto
 import com.example.langueedroid.core.telemetry.Logger
 
 class CardRepository(
@@ -20,6 +22,7 @@ class CardRepository(
         context: String? = null,
         inflectionForms: Map<String, String>? = null,
         lookupId: String? = null,
+        targetRanges: List<SelectionRange>? = null,
     ): Result<String> =
         runCatching {
             val response =
@@ -30,6 +33,7 @@ class CardRepository(
                         context = context,
                         inflectionForms = inflectionForms,
                         lookupId = lookupId,
+                        targetRanges = targetRanges?.takeIf { it.isNotEmpty() }?.map { SelectionRangeDto(it.start, it.end) },
                     ),
                 )
             when {
@@ -87,7 +91,7 @@ class CardRepository(
 data class SavedVocabulary(
     val surface: String,
     val headword: String,
-    val wordId: String,
+    val entryId: String,
     val definitionId: String,
     val partOfSpeech: String,
     val definition: String,

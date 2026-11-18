@@ -1,368 +1,260 @@
-"""Tests for contextual GET /analyze single-word behavior."""
+"""Tests for POST /analyze selection ranges and contextual word resolution."""
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from languee_nlp.main import app
-from languee_nlp.routers.analyze import _TOKEN_COUNT_DETAIL
+from languee_nlp.routers.analyze import (
+    _TOKEN_COUNT_DETAIL,
+    _count_manual_words,
+    _validate_selection_ranges,
+)
+from languee_nlp.schemas import SelectionRange
 
 client = TestClient(app)
 AUTH = ("admin", "changeme")
 
 
-# ---------------------------------------------------------------------------
-# Helper: build a minimal mock token for use in context-path tests
-# ---------------------------------------------------------------------------
-
-
-def _make_mock_token(
-    text: str = "word",
-    lemma: str = "word",
-    pos: str = "NOUN",
-    morph_dict: dict | None = None,
-    idx: int = 0,
-    token_index: int = 0,
-    children: list | None = None,
+def _token(
+    text: str,
+    lemma: str,
+    pos: str,
+    idx: int,
+    token_index: int,
+    dep: str = "ROOT",
 ) -> MagicMock:
-    if morph_dict is None:
-        morph_dict = {}
-    tok = MagicMock()
-    tok.text = text
-    tok.lemma_ = lemma
-    tok.pos_ = pos
-    tok.morph.to_dict.return_value = morph_dict
-    tok.idx = idx
-    tok.i = token_index
-    tok.children = children if children is not None else []
-    # head defaults to self (no phrasal particle)
-    tok.head = tok
-    return tok
+    token = MagicMock()
+    token.text = text
+    token.lemma_ = lemma
+    token.pos_ = pos
+    token.idx = idx
+    token.i = token_index
+    token.dep_ = dep
+    token.morph.to_dict.return_value = {}
+    token.children = []
+    token.head = token
+    return token
 
 
-def _make_single_token_nlp(
-    text: str = "word",
-    lemma: str = "word",
-    pos: str = "NOUN",
-    morph_dict: dict | None = None,
-) -> MagicMock:
-    """Return a mock nlp that yields a single-token doc for any input."""
-    tok = _make_mock_token(text=text, lemma=lemma, pos=pos, morph_dict=morph_dict)
+def _doc(tokens: list[MagicMock]) -> MagicMock:
     doc = MagicMock()
-    doc.__len__ = MagicMock(return_value=1)
-    doc.__getitem__ = MagicMock(return_value=tok)
-    doc.__iter__ = MagicMock(return_value=iter([tok]))
-    mock_nlp = MagicMock(return_value=doc)
-    return mock_nlp
+    doc.__len__.return_value = len(tokens)
+    doc.__iter__.side_effect = lambda: iter(tokens)
+    doc.__getitem__.side_effect = lambda index: tokens[index]
+    return doc
 
 
-# ===========================================================================
-# word is required.
-# ===========================================================================
+def _nlp_for(docs: dict[str, MagicMock]) -> MagicMock:
+    nlp = MagicMock(side_effect=lambda text: docs[text])
+    nlp.meta = {"lang": "en", "name": "test_model", "version": "1.0"}
+    return nlp
 
 
-def test_get_words_missing_word_with_input_text_returns_422():
-    response = client.get(
-        "/analyze",
-        params={"input_text": "I went to a meeting"},
-        auth=AUTH,
+def _saw_context() -> tuple[MagicMock, MagicMock]:
+    isolated = _doc([_token("saw", "saw", "NOUN", 0, 0)])
+    context = _doc(
+        [
+            _token("I", "I", "PRON", 0, 0),
+            _token("saw", "see", "VERB", 2, 1),
+            _token("the", "the", "DET", 6, 2),
+            _token("saw", "saw", "NOUN", 10, 3),
+            _token(".", ".", "PUNCT", 13, 4),
+        ]
     )
-    assert response.status_code == 422
+    return isolated, context
 
 
-# ===========================================================================
-# POST /words was replaced by GET query parameters.
-# ===========================================================================
+def test_analyze_requires_text_and_rejects_the_old_get_contract():
+    missing = client.post("/analyze", json={"input_text": "I run"}, auth=AUTH)
+    old_get = client.get("/analyze", params={"text": "run"}, auth=AUTH)
+
+    assert missing.status_code == 422
+    assert old_get.status_code == 405
 
 
-def test_post_words_is_removed():
-    response = client.post("/analyze", json={"word": "run"}, auth=AUTH)
-    assert response.status_code == 405
+def test_analyze_requires_basic_authentication():
+    response = client.post("/analyze", json={"text": "run"})
 
-
-# ===========================================================================
-# Input text provided but word cannot be found.
-# ===========================================================================
-
-
-def test_get_words_word_missing_from_input_text_returns_422():
-    response = client.get(
-        "/analyze",
-        params={"text": "lesson", "input_text": "I went to a meeting"},
-        auth=AUTH,
-    )
-    assert response.status_code == 422
-    assert response.json()["detail"] == "SELECTION_DOES_NOT_MATCH_INPUT"
-
-
-# ===========================================================================
-# Edge case 10: no input_text → input_text_analysis absent from response
-# ===========================================================================
-
-
-def test_get_words_without_input_text_omits_input_text_analysis():
-    mock_nlp = _make_single_token_nlp(text="run", lemma="run", pos="VERB")
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/analyze", params={"text": "run"}, auth=AUTH)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert "input_text_analysis" not in body
-
-
-# ===========================================================================
-# Edge case 11: no selection, word triggers zero spaCy tokens → 400
-# ===========================================================================
-
-
-def test_get_analyze_no_input_text_zero_tokens_returns_400():
-    doc = MagicMock()
-    doc.__len__ = MagicMock(return_value=0)
-    mock_nlp = MagicMock(return_value=doc)
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        response = client.get("/analyze", params={"text": "xyz"}, auth=AUTH)
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
-
-
-# ===========================================================================
-# Edge case 13: empty text after normalization → 400
-# ===========================================================================
-
-
-def test_get_analyze_empty_text_after_normalization_returns_400():
-    response = client.get("/analyze", params={"text": "   "}, auth=AUTH)
-    assert response.status_code == 400
-    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
-
-
-# ===========================================================================
-# Edge case 14: blank input_text is treated as absent context.
-# ===========================================================================
-
-
-def test_get_words_blank_input_text_falls_back_to_word():
-    mock_nlp = _make_single_token_nlp(text="run", lemma="run", pos="VERB")
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get(
-                "/analyze",
-                params={"text": "run", "input_text": "   "},
-                auth=AUTH,
-            )
-
-    assert response.status_code == 200
-    assert "input_text_analysis" not in response.json()
-
-
-# ===========================================================================
-# Edge case 15: GET /words handles simple word analysis.
-# ===========================================================================
-
-
-def test_get_words_still_handles_simple_word_analysis():
-    mock_nlp = _make_single_token_nlp(text="run", lemma="run", pos="VERB")
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-            response = client.get("/analyze", params={"text": "run"}, auth=AUTH)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["input_text"] == "run"
-    assert body["is_multi_word"] is False
-    assert len(body["tokens"]) == 1
-    assert body["tokens"][0]["pos"] == "VERB"
-    # GET response must not include input_text_analysis fields
-    assert "input_text_analysis" not in body
-
-
-# ===========================================================================
-# Edge case 16: GET /words without Basic auth credentials → 401
-# ===========================================================================
-
-
-def test_get_words_without_auth_returns_401():
-    response = client.get("/analyze", params={"text": "run"})
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Basic"
 
 
-# ===========================================================================
-# Edge case 17: GET /words with wrong Basic auth credentials → 401
-# ===========================================================================
+def test_empty_text_keeps_the_existing_400_error():
+    response = client.post("/analyze", json={"text": "   "}, auth=AUTH)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == _TOKEN_COUNT_DETAIL
 
 
-def test_get_words_with_wrong_auth_returns_401():
-    response = client.get(
+def test_manual_analysis_enforces_the_six_selectable_word_limit():
+    response = client.post(
         "/analyze",
-        params={"text": "run"},
-        auth=("admin", "wrong-password"),
+        json={"text": "one two three four five six seven"},
+        auth=AUTH,
     )
-    assert response.status_code == 401
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "SELECTION_LIMIT_EXCEEDED"
 
 
-# ===========================================================================
-# Edge case 18: input text with word, no phrasal-verb particle →
-#               detected_expression=null, warnings empty
-# ===========================================================================
+def test_manual_word_limit_counts_whitespace_components():
+    assert _count_manual_words("don't") == 1
+    assert _count_manual_words("state-of-the-art") == 1
+    assert _count_manual_words("don t") == 2
 
 
-def test_get_words_input_text_with_word_no_phrasal_verb():
-    # "run" in text "I like to run every day" – starts at idx 10, length 3
-    full_text = "I like to run every day"
-    word = "run"
-    selection_start = 10  # "run" starts at index 10
-    selection_end = 13
+def test_explicit_range_selects_the_requested_repeated_occurrence():
+    isolated, context = _saw_context()
+    nlp = _nlp_for({"saw": isolated, "I saw the saw.": context})
+    payload = {
+        "text": "saw",
+        "input_text": "I saw the saw.",
+        "selection_ranges": [{"start": 10, "end": 13}],
+    }
 
-    assert full_text[selection_start:selection_end] == word
-
-    # Build a mock token that has no prt children
-    mock_token = _make_mock_token(
-        text=word,
-        lemma=word,
-        pos="VERB",
-        idx=selection_start,
-        token_index=3,
-        children=[],
-    )
-    mock_token.head = mock_token
-
-    mock_doc = MagicMock()
-    mock_doc.__iter__ = MagicMock(return_value=iter([mock_token]))
-    mock_doc.__len__ = MagicMock(return_value=1)
-    mock_doc.__getitem__ = MagicMock(return_value=mock_token)
-    mock_nlp = MagicMock(return_value=mock_doc)
-
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=mock_nlp):
-        with patch(
-            "languee_nlp.routers.analyze.resolve_token_from_context"
-        ) as mock_resolver:
-            from languee_nlp.nlp.context_resolver import ContextResolverResult
-
-            mock_resolver.return_value = ContextResolverResult(
-                token=mock_token,
-                matched_token_index=3,
-                pos_source="input_text",
-                confidence="high",
-                detected_expression=None,
-                warnings=[],
-            )
-            with patch("languee_nlp.nlp.word_service.getInflection", return_value=()):
-                response = client.get(
-                    "/analyze",
-                    params={"text": word, "input_text": full_text},
-                    auth=AUTH,
-                )
-
-    assert response.status_code == 200
-    mock_resolver.assert_called_once_with(
-        mock_nlp,
-        word,
-        full_text,
-        selection_start,
-        selection_end,
-    )
-    body = response.json()
-    ita = body["input_text_analysis"]
-    assert ita["detected_expression"] is None
-    assert ita["warnings"] == []
-
-
-def test_explicit_second_occurrence_is_forwarded_without_normalizing_context():
-    context = "😀 I saw the saw."
-    nlp = _make_single_token_nlp(text="saw")
     with (
         patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp),
-        patch("languee_nlp.routers.analyze.resolve_token_from_context") as resolve,
+        patch("languee_nlp.nlp.word_service.getInflection", return_value=()),
     ):
-        result = MagicMock()
-        result.token = _make_mock_token(text="saw", lemma="saw", pos="NOUN")
-        result.matched_token_index = 4
-        result.confidence = "high"
-        result.detected_expression = None
-        result.warnings = []
-        resolve.return_value = result
-        response = client.get(
-            "/analyze",
-            params={
-                "text": "saw",
-                "input_text": context,
-                "selection_start": 12,
-                "selection_end": 15,
-            },
-            auth=AUTH,
-        )
+        response = client.post("/analyze", json=payload, auth=AUTH)
+
     assert response.status_code == 200
-    assert resolve.call_args.args[2:] == (context, 12, 15)
+    body = response.json()
+    assert body["tokens"][0]["pos"] == "NOUN"
+    assert body["selection_analysis"] is None
+    assert body["input_text_analysis"]["matched_token_index"] == 3
 
 
-def test_invalid_explicit_selection_does_not_fall_back():
-    nlp = _make_single_token_nlp(text="saw")
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp):
-        response = client.get(
-            "/analyze",
-            params={
-                "text": "saw",
-                "input_text": "I saw the saw.",
-                "selection_start": 3,
-                "selection_end": 5,
-            },
-            auth=AUTH,
-        )
+def test_selected_verb_returns_lemma_pos_and_exact_head_range():
+    isolated, context = _saw_context()
+    nlp = _nlp_for({"saw": isolated, "I saw the saw.": context})
+    payload = {
+        "text": "saw",
+        "input_text": "I saw the saw.",
+        "selection_ranges": [{"start": 2, "end": 5}],
+    }
+
+    with (
+        patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp),
+        patch("languee_nlp.nlp.word_service.getInflection", return_value=()),
+    ):
+        response = client.post("/analyze", json=payload, auth=AUTH)
+
+    assert response.status_code == 200
+    assert response.json()["selection_analysis"] == {
+        "head_lemma": "see",
+        "pos": "VERB",
+        "head_range": {"start": 2, "end": 5},
+    }
+
+
+def test_invalid_explicit_range_does_not_fall_back_to_another_occurrence():
+    response = client.post(
+        "/analyze",
+        json={
+            "text": "saw",
+            "input_text": "I saw the saw.",
+            "selection_ranges": [{"start": 3, "end": 5}],
+        },
+        auth=AUTH,
+    )
+
     assert response.status_code == 422
     assert response.json()["detail"] == "SELECTION_DOES_NOT_MATCH_INPUT"
 
 
-def test_unicode_selection_validation_and_pair_invariants():
-    import pytest
-    from fastapi import HTTPException
+def test_unicode_ranges_use_raw_code_points_before_nfc_comparison():
+    context_text = "😀 CAFE\u0301!"
+    isolated = _doc([_token("café", "café", "VERB", 0, 0)])
+    context = _doc([_token("CAFE\u0301", "café", "VERB", 2, 0)])
+    nlp = _nlp_for({"café": isolated, context_text: context})
 
-    from languee_nlp.routers.analyze import _validate_selection
+    with (
+        patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp),
+        patch("languee_nlp.nlp.word_service.getInflection", return_value=()),
+    ):
+        response = client.post(
+            "/analyze",
+            json={
+                "text": "café",
+                "input_text": context_text,
+                "selection_ranges": [{"start": 2, "end": 7}],
+            },
+            auth=AUTH,
+        )
 
-    _validate_selection("café", "😀 CAFE\u0301!", 2, 7, 1)
-    for context, start, end in [
-        ("saw", 0, None),
-        (None, 0, 3),
-        ("saw", -1, 3),
-        ("saw", 3, 1),
-        ("saw", 0, 4),
-        ("saws", 0, 3),
-        ("saw", 1, 3),
-    ]:
-        with pytest.raises(HTTPException) as exc:
-            _validate_selection("saw", context, start, end, 1)
-        assert exc.value.detail == "SELECTION_DOES_NOT_MATCH_INPUT"
+    assert response.status_code == 200
+    assert response.json()["selection_analysis"]["head_range"] == {
+        "start": 2,
+        "end": 7,
+    }
 
 
-def test_repeated_word_uses_selected_spacy_token():
-    import en_core_web_md
+def test_ranges_follow_android_letter_mark_tokens():
+    _validate_selection_ranges(
+        "don t",
+        "don't",
+        [
+            SelectionRange(start=0, end=3),
+            SelectionRange(start=4, end=5),
+        ],
+    )
 
-    nlp = en_core_web_md.load()
-    with patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp):
-        responses = [
-            client.get(
-                "/analyze",
-                params={
-                    "text": "saw",
-                    "input_text": "I saw the saw.",
-                    "selection_start": start,
-                    "selection_end": end,
-                },
-                auth=AUTH,
-            )
-            for start, end in [(2, 5), (10, 13)]
-        ]
-    assert all(response.status_code == 200 for response in responses)
-    assert [
-        (r.json()["tokens"][0]["lemma"], r.json()["tokens"][0]["pos"])
-        for r in responses
-    ] == [
-        ("see", "VERB"),
-        ("saw", "NOUN"),
-    ]
+    with pytest.raises(HTTPException) as exc:
+        _validate_selection_ranges(
+            "don't",
+            "don't",
+            [SelectionRange(start=0, end=5)],
+        )
+    assert exc.value.detail == "SELECTION_DOES_NOT_MATCH_INPUT"
+
+    with pytest.raises(HTTPException):
+        _validate_selection_ranges(
+            "foo",
+            "foo1bar",
+            [SelectionRange(start=0, end=7)],
+        )
+
+    with pytest.raises(HTTPException):
+        _validate_selection_ranges(
+            "SS",
+            "ß",
+            [SelectionRange(start=0, end=1)],
+        )
+
+
+def test_context_without_ranges_remains_manual_and_has_no_selection_analysis():
+    isolated = _doc([_token("run", "run", "VERB", 0, 0)])
+    context = _doc([_token("run", "run", "VERB", 2, 1)])
+    nlp = _nlp_for({"run": isolated, "I run": context})
+
+    with (
+        patch("languee_nlp.routers.analyze.get_nlp", return_value=nlp),
+        patch("languee_nlp.nlp.word_service.getInflection", return_value=()),
+    ):
+        response = client.post(
+            "/analyze",
+            json={"text": "run", "input_text": "I run"},
+            auth=AUTH,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["selection_analysis"] is None
+    assert nlp.call_count == 2
+
+
+def test_selection_range_schema_rejects_non_integer_offsets():
+    response = client.post(
+        "/analyze",
+        json={
+            "text": "run",
+            "input_text": "I run",
+            "selection_ranges": [{"start": 2.0, "end": 5}],
+        },
+        auth=AUTH,
+    )
+
+    assert response.status_code == 422

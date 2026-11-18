@@ -6,16 +6,16 @@ export class CreateUserDefinitionResponseDto {
   id!: string;
 
   @ApiProperty({ example: 'word_123' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ example: 'run into' })
   lemma!: string;
 
   @ApiProperty({
-    enum: ['word', 'phrasal_verb', 'expression'],
+    enum: ['word', 'phrasal_verb', 'expression', 'idiom'],
     example: 'phrasal_verb',
   })
-  kind!: 'word' | 'phrasal_verb' | 'expression';
+  kind!: 'word' | 'phrasal_verb' | 'expression' | 'idiom';
 
   @ApiProperty({ enum: PartOfSpeech, example: PartOfSpeech.PHRASE })
   partOfSpeech!: PartOfSpeech;

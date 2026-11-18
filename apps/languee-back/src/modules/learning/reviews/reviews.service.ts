@@ -10,6 +10,7 @@ import type {
 import { DecksService } from '../decks/decks.service';
 import type { InflectionForms } from '../../lexicon/types/inflection-forms.types';
 import { collectTargetForms, maskText } from './lib/masking';
+import { capturedText, maskCapturedRanges } from '../capture/capture-ranges';
 import { checkAnswer } from './lib/answer-matching';
 import { checkTypedForms, formKeysFor } from './lib/inflection-payload';
 import { truncateGloss } from './lib/definition-hints';
@@ -117,7 +118,7 @@ export class ReviewsService {
     const outcome = checkAnswer(typedAnswer, forms);
 
     if (outcome.result === 'correct') {
-      const word = card.definition.word;
+      const word = card.definition.entry;
       const inflectionForms = (card.inflectionForms ??
         card.lexicalInflectionForms ??
         null) as Record<string, string> | null;
@@ -140,7 +141,7 @@ export class ReviewsService {
     typedForms: Record<string, string>,
   ): Promise<FormCheckOutcome> {
     const card = await this.cardsService.findOwnedOrThrow(cardId, userId);
-    if (card.type !== CardType.inflection || !card.word) {
+    if (card.type !== CardType.inflection || !card.entry) {
       throw new UnsupportedCardTypeError(
         'Only `inflection` cards support form checking',
       );
@@ -162,8 +163,8 @@ export class ReviewsService {
       results,
       allCorrect,
       revealed: {
-        lemma: card.word.lemma,
-        ipa: card.word.ipa,
+        lemma: card.entry.lemma,
+        ipa: card.entry.ipa,
         inflectionForms: card.inflectionForms as Record<string, string>,
       },
     };
@@ -181,7 +182,7 @@ export class ReviewsService {
     }
 
     return {
-      lemma: card.definition.word.lemma,
+      lemma: card.definition.entry.lemma,
       definition: card.definition.definition,
     };
   }
@@ -293,7 +294,12 @@ export class ReviewsService {
     const inflectionForms = (card.inflectionForms ??
       card.lexicalInflectionForms ??
       null) as InflectionForms | null;
-    return collectTargetForms(card.definition.word.lemma, inflectionForms);
+    const forms = collectTargetForms(
+      card.definition.entry.lemma,
+      inflectionForms,
+    );
+    const captured = capturedText(card.context, card.targetRanges);
+    return captured ? [...forms, captured] : forms;
   }
 
   private buildQueueItem(
@@ -328,12 +334,14 @@ export class ReviewsService {
     if (!card.definition) {
       throw new Error(`cloze card ${card.id} is missing its definition`);
     }
-    const word = card.definition.word;
+    const word = card.definition.entry;
     const forms = this.targetFormsForCard(card);
+    const capturedMask = maskCapturedRanges(card.context, card.targetRanges);
 
     return {
       definition: card.definition.definition,
       maskedSentence:
+        capturedMask ??
         maskText(card.context, forms) ??
         maskText(card.definition.example, forms),
       partOfSpeech: card.definition.partOfSpeech,
@@ -346,7 +354,7 @@ export class ReviewsService {
   private buildInflectionPayload(
     card: CardWithRelations,
   ): InflectionCardPayload {
-    if (!card.word) {
+    if (!card.entry) {
       throw new Error(`inflection card ${card.id} is missing its word`);
     }
     const inflectionForms = (card.inflectionForms ??
@@ -354,10 +362,10 @@ export class ReviewsService {
       null) as InflectionForms | null;
 
     return {
-      lemma: card.word.lemma,
+      lemma: card.entry.lemma,
       partOfSpeech: card.partOfSpeech ?? '',
-      kind: card.word.kind,
-      language: card.word.language,
+      kind: card.entry.kind,
+      language: card.entry.language,
       formKeys: inflectionForms ? formKeysFor(inflectionForms) : [],
     };
   }
@@ -369,7 +377,7 @@ export class ReviewsService {
     if (!card.definition) {
       throw new Error(`definition card ${card.id} is missing its definition`);
     }
-    const word = card.definition.word;
+    const word = card.definition.entry;
 
     return {
       lemma: word.lemma,
@@ -399,20 +407,22 @@ export class ReviewsService {
     const definitionIds = definitionCards
       .map((card) => card.definitionId)
       .filter((id): id is string => id !== null);
-    const wordIds = [
-      ...new Set(definitionCards.map((card) => card.definition?.word.id ?? '')),
+    const entryIds = [
+      ...new Set(
+        definitionCards.map((card) => card.definition?.entry.id ?? ''),
+      ),
     ].filter((id) => id.length > 0);
 
-    const [contexts, savedSensesByWord] = await Promise.all([
+    const [contexts, savedSensesByEntry] = await Promise.all([
       this.cardsService.findClozeCardContexts(userId, definitionIds),
-      this.cardsService.findSavedSensesByWordId(userId, wordIds),
+      this.cardsService.findSavedSensesByEntryId(userId, entryIds),
     ]);
 
     for (const card of definitionCards) {
       if (!card.definitionId || !card.definition) continue;
 
       const siblings: SavedSense[] = (
-        savedSensesByWord.get(card.definition.word.id) ?? []
+        savedSensesByEntry.get(card.definition.entry.id) ?? []
       ).filter((sense) => sense.definitionId !== card.definitionId);
 
       const hint1 =

@@ -2,7 +2,7 @@ import { HeadwordDiscoveryService } from './headword-discovery.service';
 import { MorphologyModule } from '../morphology/morphology.module';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { WordsModule } from '../../entries/words/words.module';
+import { LexicalEntriesModule } from '../../entries/lexical-entries/lexical-entries.module';
 import { DefinitionsModule } from '../../entries/definitions/definitions.module';
 import { AuthModule } from '../../../identity/auth/auth.module';
 import { DictionaryApiAdapter } from './adapters/dictionary-api.adapter';
@@ -14,7 +14,12 @@ import { DICTIONARY_API_ADAPTER } from './dictionary.tokens';
 import { IDictionaryApiAdapter } from './interfaces/dictionary-api-adapter.interface';
 
 @Module({
-  imports: [WordsModule, DefinitionsModule, AuthModule, MorphologyModule],
+  imports: [
+    LexicalEntriesModule,
+    DefinitionsModule,
+    AuthModule,
+    MorphologyModule,
+  ],
   providers: [
     DictionaryApiAdapter,
     FreeDictionaryApiAdapter,

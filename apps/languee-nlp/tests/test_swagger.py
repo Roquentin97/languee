@@ -24,19 +24,21 @@ def test_openapi_schema_describes_health_routes():
     assert "/ready" in data["paths"]
     assert "/analyze" in data["paths"]
     assert data["paths"]["/health"]["get"]["tags"] == ["health"]
-    assert data["paths"]["/analyze"]["get"]["tags"] == ["analyze"]
-    assert "post" not in data["paths"]["/analyze"]
+    analyze = data["paths"]["/analyze"]
+    assert "get" not in analyze
+    assert analyze["post"]["tags"] == ["analyze"]
+    request_schema = analyze["post"]["requestBody"]["content"]["application/json"]
+    assert request_schema["schema"]["$ref"].endswith("/AnalyzeRequest")
+    analyze_response = analyze["post"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    assert {"oneOf", "anyOf"} & analyze_response.keys()
 
-    parameters = data["paths"]["/analyze"]["get"]["parameters"]
-    assert [parameter["name"] for parameter in parameters] == [
-        "text",
-        "input_text",
-        "language",
-        "selection_start",
-        "selection_end",
-    ]
-    assert parameters[0]["required"] is True
-    assert parameters[1]["required"] is False
-    assert parameters[2]["required"] is False
-    assert parameters[3]["required"] is False
-    assert parameters[4]["required"] is False
+    selection_analysis = data["components"]["schemas"]["SelectionAnalysis"]
+    assert set(selection_analysis["required"]) == {
+        "head_lemma",
+        "pos",
+        "head_range",
+    }
+    assert "/match-expressions" in data["paths"]
+    assert "post" in data["paths"]["/match-expressions"]

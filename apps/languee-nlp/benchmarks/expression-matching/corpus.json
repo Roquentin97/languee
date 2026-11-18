@@ -1,0 +1,1545 @@
+{
+  "version": 1,
+  "provenance": "Original examples authored for Languee; provisional linguistic labels require human review. No external dataset.",
+  "label_status": "frozen-before-first-run; not independently reviewed",
+  "cases": [
+    {
+      "id": "pv-001",
+      "family": "turn",
+      "split": "dev",
+      "context": "She turned off the lights.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 14
+        }
+      ],
+      "category": "adjacent",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-002",
+      "family": "turn",
+      "split": "dev",
+      "context": "She turned the lights off.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 22,
+          "end": 25
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-003",
+      "family": "turn",
+      "split": "dev",
+      "context": "She turned the very bright kitchen lights off.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 42,
+          "end": 45
+        }
+      ],
+      "selected_text": "turned off",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "long-object",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-004",
+      "family": "turn",
+      "split": "dev",
+      "context": "Did she turn them off?",
+      "selection": [
+        {
+          "start": 8,
+          "end": 12
+        }
+      ],
+      "selected_text": "turn",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 8,
+          "end": 12
+        },
+        {
+          "start": 18,
+          "end": 21
+        }
+      ],
+      "category": "question",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-005",
+      "family": "turn",
+      "split": "dev",
+      "context": "She turned off the main road.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 14
+        }
+      ],
+      "selected_text": "turned off",
+      "expected_action": "reduce",
+      "alternative_lemma": "turn",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-006",
+      "family": "turn",
+      "split": "dev",
+      "context": "She turned toward the window.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-word",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-007",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked the word up.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "expand",
+      "alternative_lemma": "look up",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 20,
+          "end": 22
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-008",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked up the word.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "expand",
+      "alternative_lemma": "look up",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "category": "semantic",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-009",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked up the chimney.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "selected_text": "looked up",
+      "expected_action": "reduce",
+      "alternative_lemma": "look",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-010",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked up.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "ambiguous",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-011",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked after the children.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "expand",
+      "alternative_lemma": "look after",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 16
+        }
+      ],
+      "category": "prepositional",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-012",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked at the clock after lunch.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 24,
+          "end": 29
+        }
+      ],
+      "selected_text": "looked after",
+      "expected_action": "reduce",
+      "alternative_lemma": "look",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-013",
+      "family": "give",
+      "split": "dev",
+      "context": "He gave the game up.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "selected_text": "gave",
+      "expected_action": "expand",
+      "alternative_lemma": "give up",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 7
+        },
+        {
+          "start": 17,
+          "end": 19
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-014",
+      "family": "give",
+      "split": "dev",
+      "context": "He has not given up yet.",
+      "selection": [
+        {
+          "start": 11,
+          "end": 16
+        }
+      ],
+      "selected_text": "given",
+      "expected_action": "expand",
+      "alternative_lemma": "give up",
+      "alternative_ranges": [
+        {
+          "start": 11,
+          "end": 16
+        },
+        {
+          "start": 17,
+          "end": 19
+        }
+      ],
+      "category": "negation",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-015",
+      "family": "give",
+      "split": "dev",
+      "context": "He gave her a book up the street.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        },
+        {
+          "start": 19,
+          "end": 21
+        }
+      ],
+      "selected_text": "gave up",
+      "expected_action": "reduce",
+      "alternative_lemma": "give",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "category": "attachment",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-016",
+      "family": "give",
+      "split": "dev",
+      "context": "He gave up smoking.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        },
+        {
+          "start": 8,
+          "end": 10
+        }
+      ],
+      "selected_text": "gave up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-017",
+      "family": "put",
+      "split": "dev",
+      "context": "We put up with the noise.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "selected_text": "put",
+      "expected_action": "expand",
+      "alternative_lemma": "put up with",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 7,
+          "end": 9
+        },
+        {
+          "start": 10,
+          "end": 14
+        }
+      ],
+      "category": "three-part",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-018",
+      "family": "put",
+      "split": "dev",
+      "context": "We put the tent up.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "selected_text": "put",
+      "expected_action": "expand",
+      "alternative_lemma": "put up",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 16,
+          "end": 18
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-019",
+      "family": "put",
+      "split": "dev",
+      "context": "We put the box on the shelf.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 15,
+          "end": 17
+        }
+      ],
+      "selected_text": "put on",
+      "expected_action": "reduce",
+      "alternative_lemma": "put",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-020",
+      "family": "put",
+      "split": "dev",
+      "context": "We put up with the noise.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 7,
+          "end": 9
+        },
+        {
+          "start": 10,
+          "end": 14
+        }
+      ],
+      "selected_text": "put up with",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-021",
+      "family": "walk",
+      "split": "dev",
+      "context": "She walked up the hill.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "selected_text": "walked up",
+      "expected_action": "reduce",
+      "alternative_lemma": "walk",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-022",
+      "family": "walk",
+      "split": "dev",
+      "context": "She walked out on her husband.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "walked",
+      "expected_action": "expand",
+      "alternative_lemma": "walk out on",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 14
+        },
+        {
+          "start": 15,
+          "end": 17
+        }
+      ],
+      "category": "three-part",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-023",
+      "family": "walk",
+      "split": "dev",
+      "context": "She walked after lunch.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 16
+        }
+      ],
+      "selected_text": "walked after",
+      "expected_action": "reduce",
+      "alternative_lemma": "walk",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-024",
+      "family": "walk",
+      "split": "dev",
+      "context": "She walked while he switched off the light.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "walked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "other-clause",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-025",
+      "family": "take",
+      "split": "dev",
+      "context": "Take your wet boots off!",
+      "selection": [
+        {
+          "start": 0,
+          "end": 4
+        }
+      ],
+      "selected_text": "Take",
+      "expected_action": "expand",
+      "alternative_lemma": "take off",
+      "alternative_ranges": [
+        {
+          "start": 0,
+          "end": 4
+        },
+        {
+          "start": 20,
+          "end": 23
+        }
+      ],
+      "category": "imperative",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-026",
+      "family": "take",
+      "split": "dev",
+      "context": "The plane took off.",
+      "selection": [
+        {
+          "start": 10,
+          "end": 14
+        }
+      ],
+      "selected_text": "took",
+      "expected_action": "expand",
+      "alternative_lemma": "take off",
+      "alternative_ranges": [
+        {
+          "start": 10,
+          "end": 14
+        },
+        {
+          "start": 15,
+          "end": 18
+        }
+      ],
+      "category": "intransitive",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-027",
+      "family": "take",
+      "split": "dev",
+      "context": "She took a photo down the street.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 8
+        },
+        {
+          "start": 17,
+          "end": 21
+        }
+      ],
+      "selected_text": "took down",
+      "expected_action": "reduce",
+      "alternative_lemma": "take",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 8
+        }
+      ],
+      "category": "attachment",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-028",
+      "family": "take",
+      "split": "dev",
+      "context": "She took the medicine.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 8
+        }
+      ],
+      "selected_text": "took",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-word",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-029",
+      "family": "switch",
+      "split": "heldout",
+      "context": "She switched the lights off.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "expand",
+      "alternative_lemma": "switch off",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 12
+        },
+        {
+          "start": 24,
+          "end": 27
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-030",
+      "family": "switch",
+      "split": "heldout",
+      "context": "The lights were switched off.",
+      "selection": [
+        {
+          "start": 16,
+          "end": 24
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "expand",
+      "alternative_lemma": "switch off",
+      "alternative_ranges": [
+        {
+          "start": 16,
+          "end": 24
+        },
+        {
+          "start": 25,
+          "end": 28
+        }
+      ],
+      "category": "passive",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-031",
+      "family": "switch",
+      "split": "heldout",
+      "context": "She switched the very old kitchen lights off.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "expand",
+      "alternative_lemma": "switch off",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 12
+        },
+        {
+          "start": 41,
+          "end": 44
+        }
+      ],
+      "category": "long-object",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-032",
+      "family": "switch",
+      "split": "heldout",
+      "context": "She switched seats after dinner.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        },
+        {
+          "start": 19,
+          "end": 24
+        }
+      ],
+      "selected_text": "switched after",
+      "expected_action": "reduce",
+      "alternative_lemma": "switch",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 12
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-033",
+      "family": "switch",
+      "split": "heldout",
+      "context": "She switched off the lights.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        },
+        {
+          "start": 13,
+          "end": 16
+        }
+      ],
+      "selected_text": "switched off",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-034",
+      "family": "pick",
+      "split": "heldout",
+      "context": "He picked the parcel up.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 9
+        }
+      ],
+      "selected_text": "picked",
+      "expected_action": "expand",
+      "alternative_lemma": "pick up",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 9
+        },
+        {
+          "start": 21,
+          "end": 23
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-035",
+      "family": "pick",
+      "split": "heldout",
+      "context": "He is picking up the parcel.",
+      "selection": [
+        {
+          "start": 6,
+          "end": 13
+        }
+      ],
+      "selected_text": "picking",
+      "expected_action": "expand",
+      "alternative_lemma": "pick up",
+      "alternative_ranges": [
+        {
+          "start": 6,
+          "end": 13
+        },
+        {
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "category": "auxiliary",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-036",
+      "family": "pick",
+      "split": "heldout",
+      "context": "He picked flowers up the hill.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 9
+        },
+        {
+          "start": 18,
+          "end": 20
+        }
+      ],
+      "selected_text": "picked up",
+      "expected_action": "reduce",
+      "alternative_lemma": "pick",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 9
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-037",
+      "family": "pick",
+      "split": "heldout",
+      "context": "He picked a flower.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 9
+        }
+      ],
+      "selected_text": "picked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-word",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-038",
+      "family": "break",
+      "split": "heldout",
+      "context": "They broke up yesterday.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 10
+        }
+      ],
+      "selected_text": "broke",
+      "expected_action": "expand",
+      "alternative_lemma": "break up",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "category": "intransitive",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-039",
+      "family": "break",
+      "split": "heldout",
+      "context": "They broke the meeting up.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 10
+        }
+      ],
+      "selected_text": "broke",
+      "expected_action": "expand",
+      "alternative_lemma": "break up",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 10
+        },
+        {
+          "start": 23,
+          "end": 25
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-040",
+      "family": "break",
+      "split": "heldout",
+      "context": "They broke the window after midnight.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 10
+        },
+        {
+          "start": 22,
+          "end": 27
+        }
+      ],
+      "selected_text": "broke after",
+      "expected_action": "reduce",
+      "alternative_lemma": "break",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 10
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-041",
+      "family": "break",
+      "split": "heldout",
+      "context": "They broke up yesterday.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "selected_text": "broke up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-042",
+      "family": "run",
+      "split": "heldout",
+      "context": "We ran out of milk.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "selected_text": "ran",
+      "expected_action": "expand",
+      "alternative_lemma": "run out of",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 7,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "category": "three-part",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-043",
+      "family": "run",
+      "split": "heldout",
+      "context": "She ran into an old friend.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "selected_text": "ran",
+      "expected_action": "expand",
+      "alternative_lemma": "run into",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 7
+        },
+        {
+          "start": 8,
+          "end": 12
+        }
+      ],
+      "category": "prepositional",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-044",
+      "family": "run",
+      "split": "heldout",
+      "context": "She ran into the kitchen.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        },
+        {
+          "start": 8,
+          "end": 12
+        }
+      ],
+      "selected_text": "ran into",
+      "expected_action": "reduce",
+      "alternative_lemma": "run",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-045",
+      "family": "run",
+      "split": "heldout",
+      "context": "She ran into something.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "selected_text": "ran",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "ambiguous",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-046",
+      "family": "bring",
+      "split": "heldout",
+      "context": "Bring the boxes in.",
+      "selection": [
+        {
+          "start": 0,
+          "end": 5
+        }
+      ],
+      "selected_text": "Bring",
+      "expected_action": "expand",
+      "alternative_lemma": "bring in",
+      "alternative_ranges": [
+        {
+          "start": 0,
+          "end": 5
+        },
+        {
+          "start": 16,
+          "end": 18
+        }
+      ],
+      "category": "imperative",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-047",
+      "family": "bring",
+      "split": "heldout",
+      "context": "She brought the subject up.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        }
+      ],
+      "selected_text": "brought",
+      "expected_action": "expand",
+      "alternative_lemma": "bring up",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 24,
+          "end": 26
+        }
+      ],
+      "category": "separated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-048",
+      "family": "bring",
+      "split": "heldout",
+      "context": "She brought lunch after work.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 18,
+          "end": 23
+        }
+      ],
+      "selected_text": "brought after",
+      "expected_action": "reduce",
+      "alternative_lemma": "bring",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 11
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-049",
+      "family": "bring",
+      "split": "heldout",
+      "context": "She brought up the subject.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 14
+        }
+      ],
+      "selected_text": "brought up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-050",
+      "family": "depend",
+      "split": "heldout",
+      "context": "It depends on the weather.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "depends",
+      "expected_action": "expand",
+      "alternative_lemma": "depend on",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "category": "prepositional",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-051",
+      "family": "depend",
+      "split": "heldout",
+      "context": "It depends on the weather.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "selected_text": "depends on",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    },
+    {
+      "id": "pv-052",
+      "family": "depend",
+      "split": "heldout",
+      "context": "It depends, and she walks on the path.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 26,
+          "end": 28
+        }
+      ],
+      "selected_text": "depends on",
+      "expected_action": "reduce",
+      "alternative_lemma": "depend",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "category": "other-clause",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-053",
+      "family": "turn",
+      "split": "dev",
+      "context": "She turned left, then turned the lights off.",
+      "selection": [
+        {
+          "start": 22,
+          "end": 28
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 22,
+          "end": 28
+        },
+        {
+          "start": 40,
+          "end": 43
+        }
+      ],
+      "category": "repeated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-054",
+      "family": "turn",
+      "split": "dev",
+      "context": "😀 Café: she turned the lights off.",
+      "selection": [
+        {
+          "start": 12,
+          "end": 18
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 12,
+          "end": 18
+        },
+        {
+          "start": 30,
+          "end": 33
+        }
+      ],
+      "category": "unicode",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-055",
+      "family": "switch",
+      "split": "heldout",
+      "context": "He switched seats, then switched the radio off.",
+      "selection": [
+        {
+          "start": 24,
+          "end": 32
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "expand",
+      "alternative_lemma": "switch off",
+      "alternative_ranges": [
+        {
+          "start": 24,
+          "end": 32
+        },
+        {
+          "start": 43,
+          "end": 46
+        }
+      ],
+      "category": "repeated",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-056",
+      "family": "switch",
+      "split": "heldout",
+      "context": "😀 Café: she switched it off.",
+      "selection": [
+        {
+          "start": 13,
+          "end": 21
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "expand",
+      "alternative_lemma": "switch off",
+      "alternative_ranges": [
+        {
+          "start": 13,
+          "end": 21
+        },
+        {
+          "start": 25,
+          "end": 28
+        }
+      ],
+      "category": "unicode",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-057",
+      "family": "pick",
+      "split": "heldout",
+      "context": "He picked flowers. She went up the hill.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 9
+        },
+        {
+          "start": 28,
+          "end": 30
+        }
+      ],
+      "selected_text": "picked up",
+      "expected_action": "reduce",
+      "alternative_lemma": "pick",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 9
+        }
+      ],
+      "category": "sentence-boundary",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-058",
+      "family": "bring",
+      "split": "heldout",
+      "context": "She brought lunch and put the books away.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 36,
+          "end": 40
+        }
+      ],
+      "selected_text": "brought away",
+      "expected_action": "reduce",
+      "alternative_lemma": "bring",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 11
+        }
+      ],
+      "category": "coordination",
+      "rationale": "Selected extra word belongs to a spatial/temporal phrase or another predicate."
+    },
+    {
+      "id": "pv-059",
+      "family": "give",
+      "split": "dev",
+      "context": "He gave up and walked away.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "selected_text": "gave",
+      "expected_action": "expand",
+      "alternative_lemma": "give up",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 7
+        },
+        {
+          "start": 8,
+          "end": 10
+        }
+      ],
+      "category": "coordination",
+      "rationale": "Context licenses this verb construction."
+    },
+    {
+      "id": "pv-060",
+      "family": "look",
+      "split": "dev",
+      "context": "She looked the word up, then looked down.",
+      "selection": [
+        {
+          "start": 29,
+          "end": 35
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "repeated-ambiguous",
+      "rationale": "Selection is already correct or context cannot safely resolve the alternative."
+    }
+  ]
+}

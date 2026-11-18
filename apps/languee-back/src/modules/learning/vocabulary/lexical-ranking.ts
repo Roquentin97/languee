@@ -1,9 +1,9 @@
 import { normalizeSpelling } from '../../lexicon/enrichment/morphology/morphology-provider';
-import type { LookupHeadword } from '../../lexicon/enrichment/dictionary/types/lookup-word.types';
+import type { LookupEntry } from '../../lexicon/enrichment/dictionary/types/lookup-entry.types';
 import type { PartOfSpeech } from '../../lexicon/types/part-of-speech.enum';
 
 export function rankLexicalGroups(
-  headwords: LookupHeadword[],
+  headwords: LookupEntry[],
   lemma: string,
   pos: PartOfSpeech | null,
   contextual: boolean,
@@ -12,7 +12,7 @@ export function rankLexicalGroups(
     word.partsOfSpeech
       .filter((group) => group.definitions.length)
       .map((group) => ({
-        wordId: word.wordId,
+        entryId: word.entryId,
         lemma: word.lemma,
         partOfSpeech: group.partOfSpeech,
       })),

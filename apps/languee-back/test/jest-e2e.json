@@ -3,7 +3,12 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "extensionsToTreatAsEsm": [".ts"],
   "transform": {
-    "^.+\\.(t|j)s$": ["ts-jest", { "isolatedModules": false }]
-  }
+    "^.+\\.(t|j)s$": ["ts-jest", { "isolatedModules": false, "useESM": true }]
+  },
+  "transformIgnorePatterns": [
+    "/node_modules/(?!(@nestjs/config|@nestjs/jwt|@nestjs/passport|uuid)/)"
+  ],
+  "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" }
 }

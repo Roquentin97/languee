@@ -1,0 +1,1153 @@
+{
+  "version": 1,
+  "provenance": "Original Languee contrastive examples. Same lexical families, new sentences; no claim of unseen-family generalization.",
+  "label_status": "fixed before alternative-model evaluation; agent-reviewed, pending independent human adjudication",
+  "cases": [
+    {
+      "id": "followup-001",
+      "family": "turn",
+      "split": "heldout",
+      "context": "The caretaker turned off the projector.",
+      "selection": [
+        {
+          "start": 14,
+          "end": 20
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 14,
+          "end": 20
+        },
+        {
+          "start": 21,
+          "end": 24
+        }
+      ],
+      "category": "adjacent",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-002",
+      "family": "turn",
+      "split": "heldout",
+      "context": "The cyclist turned off the highway.",
+      "selection": [
+        {
+          "start": 12,
+          "end": 18
+        },
+        {
+          "start": 19,
+          "end": 22
+        }
+      ],
+      "selected_text": "turned off",
+      "expected_action": "reduce",
+      "alternative_lemma": "turn",
+      "alternative_ranges": [
+        {
+          "start": 12,
+          "end": 18
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-003",
+      "family": "turn",
+      "split": "heldout",
+      "context": "The caretaker turned the ancient ceiling fan off.",
+      "selection": [
+        {
+          "start": 14,
+          "end": 20
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "expand",
+      "alternative_lemma": "turn off",
+      "alternative_ranges": [
+        {
+          "start": 14,
+          "end": 20
+        },
+        {
+          "start": 45,
+          "end": 48
+        }
+      ],
+      "category": "long-object",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-004",
+      "family": "turn",
+      "split": "heldout",
+      "context": "The cyclist turned off the highway.",
+      "selection": [
+        {
+          "start": 12,
+          "end": 18
+        }
+      ],
+      "selected_text": "turned",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-005",
+      "family": "look",
+      "split": "heldout",
+      "context": "Nora looked up the address in a dictionary.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "expand",
+      "alternative_lemma": "look up",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 14
+        }
+      ],
+      "category": "semantic",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-006",
+      "family": "look",
+      "split": "heldout",
+      "context": "Nora looked up the drainpipe.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 14
+        }
+      ],
+      "selected_text": "looked up",
+      "expected_action": "reduce",
+      "alternative_lemma": "look",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-007",
+      "family": "look",
+      "split": "heldout",
+      "context": "Nora looked the address up.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "expand",
+      "alternative_lemma": "look up",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 24,
+          "end": 26
+        }
+      ],
+      "category": "separated",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-008",
+      "family": "look",
+      "split": "heldout",
+      "context": "Nora looked up the drainpipe.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "looked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-009",
+      "family": "run",
+      "split": "heldout",
+      "context": "The dog ran into the garage.",
+      "selection": [
+        {
+          "start": 8,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 16
+        }
+      ],
+      "selected_text": "ran into",
+      "expected_action": "reduce",
+      "alternative_lemma": "run",
+      "alternative_ranges": [
+        {
+          "start": 8,
+          "end": 11
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-010",
+      "family": "run",
+      "split": "heldout",
+      "context": "Maya ran into a former classmate.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 8
+        }
+      ],
+      "selected_text": "ran",
+      "expected_action": "expand",
+      "alternative_lemma": "run into",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 8
+        },
+        {
+          "start": 9,
+          "end": 13
+        }
+      ],
+      "category": "semantic",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-011",
+      "family": "run",
+      "split": "heldout",
+      "context": "The dog ran into the garage.",
+      "selection": [
+        {
+          "start": 8,
+          "end": 11
+        }
+      ],
+      "selected_text": "ran",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-012",
+      "family": "run",
+      "split": "heldout",
+      "context": "Maya ran into trouble.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 8
+        },
+        {
+          "start": 9,
+          "end": 13
+        }
+      ],
+      "selected_text": "ran into",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-013",
+      "family": "give",
+      "split": "heldout",
+      "context": "Owen gave the difficult puzzle up.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "selected_text": "gave",
+      "expected_action": "expand",
+      "alternative_lemma": "give up",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 9
+        },
+        {
+          "start": 31,
+          "end": 33
+        }
+      ],
+      "category": "separated",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-014",
+      "family": "give",
+      "split": "heldout",
+      "context": "Owen gave directions up the valley.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        },
+        {
+          "start": 21,
+          "end": 23
+        }
+      ],
+      "selected_text": "gave up",
+      "expected_action": "reduce",
+      "alternative_lemma": "give",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-015",
+      "family": "give",
+      "split": "heldout",
+      "context": "Owen gave directions up the valley.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "selected_text": "gave",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-016",
+      "family": "give",
+      "split": "heldout",
+      "context": "Owen gave up the game.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        },
+        {
+          "start": 10,
+          "end": 12
+        }
+      ],
+      "selected_text": "gave up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-017",
+      "family": "take",
+      "split": "heldout",
+      "context": "The rocket took off at noon.",
+      "selection": [
+        {
+          "start": 11,
+          "end": 15
+        }
+      ],
+      "selected_text": "took",
+      "expected_action": "expand",
+      "alternative_lemma": "take off",
+      "alternative_ranges": [
+        {
+          "start": 11,
+          "end": 15
+        },
+        {
+          "start": 16,
+          "end": 19
+        }
+      ],
+      "category": "intransitive",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-018",
+      "family": "take",
+      "split": "heldout",
+      "context": "Ruth took a photograph down the corridor.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        },
+        {
+          "start": 23,
+          "end": 27
+        }
+      ],
+      "selected_text": "took down",
+      "expected_action": "reduce",
+      "alternative_lemma": "take",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "category": "attachment",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-019",
+      "family": "take",
+      "split": "heldout",
+      "context": "Ruth took a photograph down the corridor.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "selected_text": "took",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-020",
+      "family": "take",
+      "split": "heldout",
+      "context": "Ruth took her jacket off.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        },
+        {
+          "start": 21,
+          "end": 24
+        }
+      ],
+      "selected_text": "took off",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-021",
+      "family": "put",
+      "split": "heldout",
+      "context": "The neighbors put up with the drilling.",
+      "selection": [
+        {
+          "start": 14,
+          "end": 17
+        }
+      ],
+      "selected_text": "put",
+      "expected_action": "expand",
+      "alternative_lemma": "put up with",
+      "alternative_ranges": [
+        {
+          "start": 14,
+          "end": 17
+        },
+        {
+          "start": 18,
+          "end": 20
+        },
+        {
+          "start": 21,
+          "end": 25
+        }
+      ],
+      "category": "three-part",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-022",
+      "family": "put",
+      "split": "heldout",
+      "context": "Leo put a vase on the table.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        },
+        {
+          "start": 15,
+          "end": 17
+        }
+      ],
+      "selected_text": "put on",
+      "expected_action": "reduce",
+      "alternative_lemma": "put",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-023",
+      "family": "put",
+      "split": "heldout",
+      "context": "Leo put a vase on the table.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "selected_text": "put",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-024",
+      "family": "put",
+      "split": "heldout",
+      "context": "The neighbors put up with the drilling.",
+      "selection": [
+        {
+          "start": 14,
+          "end": 17
+        },
+        {
+          "start": 18,
+          "end": 20
+        },
+        {
+          "start": 21,
+          "end": 25
+        }
+      ],
+      "selected_text": "put up with",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-025",
+      "family": "pick",
+      "split": "heldout",
+      "context": "A courier picked the package up.",
+      "selection": [
+        {
+          "start": 10,
+          "end": 16
+        }
+      ],
+      "selected_text": "picked",
+      "expected_action": "expand",
+      "alternative_lemma": "pick up",
+      "alternative_ranges": [
+        {
+          "start": 10,
+          "end": 16
+        },
+        {
+          "start": 29,
+          "end": 31
+        }
+      ],
+      "category": "separated",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-026",
+      "family": "pick",
+      "split": "heldout",
+      "context": "A gardener picked roses up the lane.",
+      "selection": [
+        {
+          "start": 11,
+          "end": 17
+        },
+        {
+          "start": 24,
+          "end": 26
+        }
+      ],
+      "selected_text": "picked up",
+      "expected_action": "reduce",
+      "alternative_lemma": "pick",
+      "alternative_ranges": [
+        {
+          "start": 11,
+          "end": 17
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-027",
+      "family": "pick",
+      "split": "heldout",
+      "context": "A gardener picked roses up the lane.",
+      "selection": [
+        {
+          "start": 11,
+          "end": 17
+        }
+      ],
+      "selected_text": "picked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-028",
+      "family": "pick",
+      "split": "heldout",
+      "context": "A courier picked up the package.",
+      "selection": [
+        {
+          "start": 10,
+          "end": 16
+        },
+        {
+          "start": 17,
+          "end": 19
+        }
+      ],
+      "selected_text": "picked up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-029",
+      "family": "bring",
+      "split": "heldout",
+      "context": "Eva brought the concern up.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        }
+      ],
+      "selected_text": "brought",
+      "expected_action": "expand",
+      "alternative_lemma": "bring up",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 24,
+          "end": 26
+        }
+      ],
+      "category": "separated",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-030",
+      "family": "bring",
+      "split": "heldout",
+      "context": "Eva brought snacks before rehearsal.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 19,
+          "end": 25
+        }
+      ],
+      "selected_text": "brought before",
+      "expected_action": "reduce",
+      "alternative_lemma": "bring",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 11
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-031",
+      "family": "bring",
+      "split": "heldout",
+      "context": "Eva brought snacks before rehearsal.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        }
+      ],
+      "selected_text": "brought",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-032",
+      "family": "bring",
+      "split": "heldout",
+      "context": "Eva brought up the concern.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 14
+        }
+      ],
+      "selected_text": "brought up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-033",
+      "family": "switch",
+      "split": "heldout",
+      "context": "😀 Zoe switched the heater off.",
+      "selection": [
+        {
+          "start": 6,
+          "end": 14
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "expand",
+      "alternative_lemma": "switch off",
+      "alternative_ranges": [
+        {
+          "start": 6,
+          "end": 14
+        },
+        {
+          "start": 26,
+          "end": 29
+        }
+      ],
+      "category": "unicode",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-034",
+      "family": "switch",
+      "split": "heldout",
+      "context": "Zoe switched jobs during winter.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        },
+        {
+          "start": 18,
+          "end": 24
+        }
+      ],
+      "selected_text": "switched during",
+      "expected_action": "reduce",
+      "alternative_lemma": "switch",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 12
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-035",
+      "family": "switch",
+      "split": "heldout",
+      "context": "Zoe switched jobs during winter.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        }
+      ],
+      "selected_text": "switched",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-036",
+      "family": "switch",
+      "split": "heldout",
+      "context": "Zoe switched off the heater.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 12
+        },
+        {
+          "start": 13,
+          "end": 16
+        }
+      ],
+      "selected_text": "switched off",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-037",
+      "family": "walk",
+      "split": "heldout",
+      "context": "They walked out on the negotiations.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "walked",
+      "expected_action": "expand",
+      "alternative_lemma": "walk out on",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 15
+        },
+        {
+          "start": 16,
+          "end": 18
+        }
+      ],
+      "category": "three-part",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-038",
+      "family": "walk",
+      "split": "heldout",
+      "context": "They walked toward the station.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 18
+        }
+      ],
+      "selected_text": "walked toward",
+      "expected_action": "reduce",
+      "alternative_lemma": "walk",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "category": "spatial",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-039",
+      "family": "walk",
+      "split": "heldout",
+      "context": "They walked toward the station.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "walked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-040",
+      "family": "walk",
+      "split": "heldout",
+      "context": "They walked while someone gave up.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "walked",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "other-clause",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-041",
+      "family": "depend",
+      "split": "heldout",
+      "context": "Success depended on their patience.",
+      "selection": [
+        {
+          "start": 8,
+          "end": 16
+        }
+      ],
+      "selected_text": "depended",
+      "expected_action": "expand",
+      "alternative_lemma": "depend on",
+      "alternative_ranges": [
+        {
+          "start": 8,
+          "end": 16
+        },
+        {
+          "start": 17,
+          "end": 19
+        }
+      ],
+      "category": "prepositional",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-042",
+      "family": "depend",
+      "split": "heldout",
+      "context": "It depends, but the lamp is on.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 28,
+          "end": 30
+        }
+      ],
+      "selected_text": "depends on",
+      "expected_action": "reduce",
+      "alternative_lemma": "depend",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "category": "other-clause",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-043",
+      "family": "depend",
+      "split": "heldout",
+      "context": "Success depended on their patience.",
+      "selection": [
+        {
+          "start": 8,
+          "end": 16
+        },
+        {
+          "start": 17,
+          "end": 19
+        }
+      ],
+      "selected_text": "depended on",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-044",
+      "family": "depend",
+      "split": "heldout",
+      "context": "It depends. The lamp is on.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "depends",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "sentence-boundary",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-045",
+      "family": "break",
+      "split": "heldout",
+      "context": "The band broke up last spring.",
+      "selection": [
+        {
+          "start": 9,
+          "end": 14
+        }
+      ],
+      "selected_text": "broke",
+      "expected_action": "expand",
+      "alternative_lemma": "break up",
+      "alternative_ranges": [
+        {
+          "start": 9,
+          "end": 14
+        },
+        {
+          "start": 15,
+          "end": 17
+        }
+      ],
+      "category": "intransitive",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-046",
+      "family": "break",
+      "split": "heldout",
+      "context": "A thief broke the lock after sunset.",
+      "selection": [
+        {
+          "start": 8,
+          "end": 13
+        },
+        {
+          "start": 23,
+          "end": 28
+        }
+      ],
+      "selected_text": "broke after",
+      "expected_action": "reduce",
+      "alternative_lemma": "break",
+      "alternative_ranges": [
+        {
+          "start": 8,
+          "end": 13
+        }
+      ],
+      "category": "temporal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-047",
+      "family": "break",
+      "split": "heldout",
+      "context": "A thief broke the lock after sunset.",
+      "selection": [
+        {
+          "start": 8,
+          "end": 13
+        }
+      ],
+      "selected_text": "broke",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "verb-only-literal",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    },
+    {
+      "id": "followup-048",
+      "family": "break",
+      "split": "heldout",
+      "context": "The band broke up last spring.",
+      "selection": [
+        {
+          "start": 9,
+          "end": 14
+        },
+        {
+          "start": 15,
+          "end": 17
+        }
+      ],
+      "selected_text": "broke up",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "correct-expression",
+      "rationale": "Particle construction licenses expansion; spatial/temporal or unrelated extras license reduction; already-correct or verb-only literal selections require abstention. Provisional label."
+    }
+  ]
+}

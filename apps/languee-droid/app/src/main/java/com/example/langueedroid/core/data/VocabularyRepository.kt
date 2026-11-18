@@ -10,10 +10,14 @@ import com.example.langueedroid.core.domain.ExpressionLimits
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.VocabularyNotFoundException
 import com.example.langueedroid.core.network.VocabularyApi
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
+import com.example.langueedroid.core.network.dto.LookupVocabularyRequestDto
 import com.example.langueedroid.core.network.dto.SavedMatchesRequestDto
+import com.example.langueedroid.core.network.dto.SelectionRangeDto
 import com.example.langueedroid.core.telemetry.Logger
 
 class VocabularyRepository(
@@ -43,7 +47,7 @@ class VocabularyRepository(
                                 SavedVocabulary(
                                     surface = match.surface,
                                     headword = headword.lemma,
-                                    wordId = headword.wordId,
+                                    entryId = headword.entryId,
                                     definitionId = definition.definitionId,
                                     partOfSpeech = definition.partOfSpeech,
                                     definition = definition.definition,
@@ -58,26 +62,28 @@ class VocabularyRepository(
         }
 
     suspend fun lookup(
-        word: String,
+        text: String,
         language: String? = null,
         context: String? = null,
-        selectionStart: Int? = null,
-        selectionEnd: Int? = null,
+        selectionRanges: List<SelectionRange>? = null,
+        includeSuggestions: Boolean = true,
     ): Result<LookupResult> =
         runCatching {
             // Fail fast on obviously-too-long input so the user gets a specific message without a
             // round trip. NLP still owns the real limit — see [ExpressionLimits].
-            if (ExpressionLimits.exceedsMaxWords(word)) {
+            if (ExpressionLimits.exceedsMaxWords(text)) {
                 logger.info("vocabulary.expression_too_long", mapOf("max_words" to ExpressionLimits.MAX_WORDS.toString()))
                 throw ExpressionTooLongException()
             }
             val response =
                 vocabularyApi.lookup(
-                    word = word,
-                    language = language,
-                    context = context,
-                    selectionStart = selectionStart,
-                    selectionEnd = selectionEnd,
+                    LookupVocabularyRequestDto(
+                        text = text,
+                        language = language ?: "en",
+                        context = context,
+                        selectionRanges = selectionRanges?.takeIf { it.isNotEmpty() }?.map { SelectionRangeDto(it.start, it.end) },
+                        includeSuggestions = includeSuggestions,
+                    ),
                 )
             when {
                 response.isSuccessful -> {
@@ -92,6 +98,7 @@ class VocabularyRepository(
                     logger.warn("vocabulary.unauthorized")
                     throw UnauthorizedException()
                 }
+                response.code() == 404 -> throw VocabularyNotFoundException("Vocabulary lookup failed: HTTP ${response.code()}")
                 response.code() == 400 -> {
                     logger.warn("vocabulary.input_invalid")
                     throw LookupInputInvalidException()

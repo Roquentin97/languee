@@ -48,8 +48,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.InflectionFormLabels
-import com.example.langueedroid.core.domain.LexicalKind
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
@@ -290,9 +290,10 @@ private fun QuestionHeader(state: ReviewSessionState.Question) {
         }
         val kindLabelRes =
             when (state.item.prompt.kind) {
-                LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
-                LexicalKind.EXPRESSION -> R.string.review_kind_expression
-                LexicalKind.WORD -> null
+                LexicalEntryKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+                LexicalEntryKind.EXPRESSION -> R.string.review_kind_expression
+                LexicalEntryKind.IDIOM -> R.string.review_kind_idiom
+                LexicalEntryKind.WORD -> null
             }
         if (kindLabelRes != null) {
             ReviewChip(text = stringResource(kindLabelRes))
@@ -460,8 +461,8 @@ private fun QuestionContent(
 }
 
 @Composable
-private fun RevealedWordDetails(
-    revealed: RevealedWord,
+private fun RevealedEntryDetails(
+    revealed: RevealedEntry,
     typedForms: Map<String, String>?,
 ) {
     revealed.definition?.let { meaning ->
@@ -496,7 +497,7 @@ private fun RevealedWordDetails(
     if (!displayForms.isNullOrEmpty()) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(R.string.review_word_forms_title),
+            text = stringResource(R.string.review_lexical_forms_title),
             style = MaterialTheme.typography.labelSmall,
             color = TextSecondary,
         )
@@ -548,7 +549,7 @@ private fun ReviewGradeButtons(onGrade: (ReviewRating) -> Unit) {
 @Composable
 private fun CorrectContent(
     matchedForm: String?,
-    revealed: RevealedWord?,
+    revealed: RevealedEntry?,
     item: ReviewItem,
     typedForms: Map<String, String>?,
     language: String,
@@ -601,7 +602,7 @@ private fun CorrectContent(
                         Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                     }
                 }
-                if (revealed != null) RevealedWordDetails(revealed, typedForms)
+                if (revealed != null) RevealedEntryDetails(revealed, typedForms)
             }
         }
         ReviewGradeButtons(onGrade)

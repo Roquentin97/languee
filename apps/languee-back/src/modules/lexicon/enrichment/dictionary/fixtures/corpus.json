@@ -538,7 +538,7 @@
         }
       ],
       "other_references": [],
-      "notes": "The childer relationship is observed, but childer/NOUN must be independently validated before a trusted WordForm is persisted.",
+      "notes": "The childer relationship is observed, but childer/NOUN must be independently validated before a trusted LexicalForm is persisted.",
       "conditional_target_validation": [
         "childer/noun"
       ],
@@ -1238,7 +1238,7 @@
       "fixture": "ordinary dictionary link",
       "input_shape": "Independent semantic definition with unrelated hyperlink",
       "expected_classification": "semantic_definition",
-      "expected_assertion": "No WordForm reference from arbitrary anchor."
+      "expected_assertion": "No LexicalForm reference from arbitrary anchor."
     },
     {
       "id": "R02",
@@ -1280,7 +1280,7 @@
       "fixture": "missing target",
       "input_shape": "Form-of marker missing target anchor",
       "expected_classification": "unresolved",
-      "expected_assertion": "No WordForm; do not look outside marker for unrelated anchor."
+      "expected_assertion": "No LexicalForm; do not look outside marker for unrelated anchor."
     },
     {
       "id": "R08",
@@ -1357,7 +1357,7 @@
       "fixture": "malformed marked HTML",
       "input_shape": "Broken/unexpected marked relationship",
       "expected_classification": "unresolved_or_error",
-      "expected_assertion": "No false verified WordForm; honest completion/error state."
+      "expected_assertion": "No false verified LexicalForm; honest completion/error state."
     }
   ],
   "lookup_cache_scenarios": [
@@ -1449,12 +1449,12 @@
     {
       "id": "C18",
       "sequence_or_case": "parser ambiguity",
-      "expected": "Unresolved marked reference never becomes a trusted WordForm or semantic definition; completion tracks successful conservative processing, not universal certainty."
+      "expected": "Unresolved marked reference never becomes a trusted LexicalForm or semantic definition; completion tracks successful conservative processing, not universal certainty."
     },
     {
       "id": "C19",
       "sequence_or_case": "two concurrent identical lookups",
-      "expected": "No duplicate Word, Definition, WordForm, LookupState; final completion truthful; repeated provider request during race allowed."
+      "expected": "No duplicate Word, Definition, LexicalForm, LookupState; final completion truthful; repeated provider request during race allowed."
     },
     {
       "id": "C20",
@@ -1495,8 +1495,8 @@
     },
     {
       "id": "S02",
-      "case": "WordForm structure",
-      "expected": "Unique (wordId,form,POS,relationType); multiple forms/targets and distinct grammatical types permitted."
+      "case": "LexicalForm structure",
+      "expected": "Unique (entryId,form,POS,relationType); multiple forms/targets and distinct grammatical types permitted."
     },
     {
       "id": "S03",
@@ -1521,7 +1521,7 @@
     {
       "id": "S07",
       "case": "new lexical snapshot",
-      "expected": "New card for go/VERB uses go forms, not selected surface forms and not WordForm alternative_spelling rows."
+      "expected": "New card for go/VERB uses go forms, not selected surface forms and not LexicalForm alternative_spelling rows."
     },
     {
       "id": "S08",
@@ -2280,14 +2280,14 @@
       "lemma": "beautiful",
       "part_of_speech": "adjective",
       "expected_single_token_mappings": [],
-      "note": "Periphrastic “more beautiful” and “most beautiful” are not single-token WordForm rows."
+      "note": "Periphrastic “more beautiful” and “most beautiful” are not single-token LexicalForm rows."
     },
     {
       "id": "M30",
       "lemma": "quickly",
       "part_of_speech": "adverb",
       "expected_single_token_mappings": [],
-      "note": "Periphrastic “more quickly” and “most quickly” are not single-token WordForm rows."
+      "note": "Periphrastic “more quickly” and “most quickly” are not single-token LexicalForm rows."
     }
   ]
 }

@@ -67,7 +67,8 @@ import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.InflectionFormLabels
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.LookupAlternative
 import com.example.langueedroid.core.ui.components.SpeakerIconButton
 import com.example.langueedroid.core.ui.theme.AmberBorder
 import com.example.langueedroid.core.ui.theme.AmberContainer
@@ -80,6 +81,7 @@ import com.example.langueedroid.core.ui.theme.GreenPrimary
 import com.example.langueedroid.core.ui.theme.SurfaceWarm
 import com.example.langueedroid.core.ui.theme.TextPrimary
 import com.example.langueedroid.core.ui.theme.TextSecondary
+import com.example.langueedroid.feature.cardcreation.presentation.AlternativeLookupStatus
 import com.example.langueedroid.feature.cardcreation.presentation.AnkiExportTriggerStatus
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
@@ -107,6 +109,8 @@ fun CardCreationScreen(
     onManualDefinitionTextChanged: (String) -> Unit = {},
     onManualExampleTextChanged: (String) -> Unit = {},
     onSubmitManualDefinition: () -> Unit = {},
+    onLookupAlternative: (LookupAlternative) -> Unit = {},
+    onReturnToOriginalLookup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val inExampleSelection = state.flowState is CardCreationFlowState.SelectingExample
@@ -133,6 +137,8 @@ fun CardCreationScreen(
                 kind = state.kind,
                 expressionContextFound = state.expressionContextFound,
             )
+
+            LookupAlternativePanel(state, onLookupAlternative, onReturnToOriginalLookup)
 
             when (val flowState = state.flowState) {
                 is CardCreationFlowState.LookingUp -> {
@@ -243,6 +249,73 @@ fun CardCreationScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LookupAlternativePanel(
+    state: CardCreationState,
+    onLookupAlternative: (LookupAlternative) -> Unit,
+    onReturnToOriginalLookup: () -> Unit,
+) {
+    val alternative = state.alternatives.firstOrNull()
+    val canSwitch = state.flowState !is CardCreationFlowState.CreatingCard && state.flowState !is CardCreationFlowState.CardCreated
+    if (alternative == null && state.displayedAlternative == null && state.alternativeLookupStatus == AlternativeLookupStatus.Idle) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+        if (state.displayedAlternative != null) {
+            TextButton(
+                onClick = onReturnToOriginalLookup,
+                enabled = canSwitch,
+                modifier = Modifier.testTag("return-to-original-lookup"),
+            ) {
+                Text(stringResource(R.string.lookup_return_to_original))
+            }
+        } else if (alternative != null) {
+            if (alternative.prominence == "normal") {
+                Button(
+                    onClick = { onLookupAlternative(alternative) },
+                    enabled = canSwitch,
+                    modifier = Modifier.fillMaxWidth().testTag("lookup-alternative"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                ) {
+                    Text(stringResource(R.string.lookup_also_look_up, alternative.lemma), color = Color.White)
+                }
+            } else {
+                TextButton(
+                    onClick = { onLookupAlternative(alternative) },
+                    enabled = canSwitch,
+                    modifier = Modifier.testTag("lookup-alternative"),
+                ) {
+                    Text(stringResource(R.string.lookup_also_look_up, alternative.lemma))
+                }
+            }
+        }
+
+        when (state.alternativeLookupStatus) {
+            AlternativeLookupStatus.Idle -> Unit
+            AlternativeLookupStatus.Loading ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = GreenPrimary)
+                    Text(stringResource(R.string.lookup_alternative_loading), modifier = Modifier.padding(start = 8.dp))
+                }
+            AlternativeLookupStatus.Miss ->
+                Text(
+                    stringResource(R.string.lookup_alternative_miss, alternative?.lemma ?: state.displayedAlternative?.lemma.orEmpty()),
+                    color = TextSecondary,
+                )
+            AlternativeLookupStatus.Failed ->
+                Text(
+                    stringResource(R.string.lookup_alternative_failed),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            AlternativeLookupStatus.SelectionChanged ->
+                Text(
+                    stringResource(R.string.lookup_alternative_selection_changed),
+                    color = TextSecondary,
+                )
         }
     }
 }
@@ -1005,15 +1078,16 @@ private fun CardCreationError.toStringRes(): Int =
 /** Shows a kind chip ("phrasal verb" / "expression") and, when relevant, a context-not-found warning. */
 @Composable
 private fun ExpressionKindIndicator(
-    kind: LexicalKind,
+    kind: LexicalEntryKind,
     expressionContextFound: Boolean?,
     modifier: Modifier = Modifier,
 ) {
     val kindLabelRes =
         when (kind) {
-            LexicalKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
-            LexicalKind.EXPRESSION -> R.string.review_kind_expression
-            LexicalKind.WORD -> null
+            LexicalEntryKind.PHRASAL_VERB -> R.string.review_kind_phrasal_verb
+            LexicalEntryKind.EXPRESSION -> R.string.review_kind_expression
+            LexicalEntryKind.IDIOM -> R.string.review_kind_idiom
+            LexicalEntryKind.WORD -> null
         }
     if (kindLabelRes == null) return
 

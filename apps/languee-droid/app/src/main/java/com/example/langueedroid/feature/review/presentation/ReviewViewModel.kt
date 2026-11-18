@@ -7,7 +7,7 @@ import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.GradeAnswerResult
-import com.example.langueedroid.core.domain.RevealedWord
+import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
@@ -185,7 +185,7 @@ class ReviewViewModel
                     index = current.index,
                     total = current.total,
                     matchedForm = current.typedAnswer.ifBlank { null },
-                    revealed = RevealedWord(lemma = lemma, ipa = null, inflectionForms = null),
+                    revealed = RevealedEntry(lemma = lemma, ipa = null, inflectionForms = null),
                     typedForms = current.typedForms.takeIf { it.isNotEmpty() },
                 )
         }

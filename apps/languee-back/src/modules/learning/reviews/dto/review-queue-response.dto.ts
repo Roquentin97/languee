@@ -26,7 +26,7 @@ export class ClozeCardPayloadDto {
   partOfSpeech!: string;
 
   @ApiProperty({
-    enum: ['word', 'phrasal_verb', 'expression'],
+    enum: ['word', 'phrasal_verb', 'expression', 'idiom'],
     example: 'phrasal_verb',
   })
   kind!: string;
@@ -49,7 +49,7 @@ export class InflectionCardPayloadDto {
   partOfSpeech!: string;
 
   @ApiProperty({
-    enum: ['word', 'phrasal_verb', 'expression'],
+    enum: ['word', 'phrasal_verb', 'expression', 'idiom'],
     example: 'word',
   })
   kind!: string;
@@ -81,7 +81,7 @@ export class DefinitionCardPayloadDto {
   partOfSpeech!: string;
 
   @ApiProperty({
-    enum: ['word', 'phrasal_verb', 'expression'],
+    enum: ['word', 'phrasal_verb', 'expression', 'idiom'],
     example: 'phrasal_verb',
   })
   kind!: string;

@@ -1,12 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
+import { CaptureRangeDto } from '../../capture/capture-range.dto';
 
 export class CreateCardDto {
   @ApiPropertyOptional({
     format: 'uuid',
     description:
-      'Lookup correlation ID for evaluation. Retrying the same save returns the existing cards.',
+      'Lookup correlation ID for evaluation and save retries. If optional expression-base enrichment is unavailable during a retry, existing sense cards are returned without changing shared inflection-card membership or scheduling.',
   })
   @IsOptional()
   @IsUUID()
@@ -33,6 +43,24 @@ export class CreateCardDto {
   @IsOptional()
   @IsString()
   context?: string;
+
+  @ApiPropertyOptional({
+    type: [CaptureRangeDto],
+    example: [
+      { start: 5, end: 9 },
+      { start: 13, end: 15 },
+    ],
+    nullable: true,
+    description:
+      'Chosen target components as ordered, non-overlapping half-open Unicode code-point ranges in context.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(6)
+  @ValidateNested({ each: true })
+  @Type(() => CaptureRangeDto)
+  targetRanges?: CaptureRangeDto[] | null;
 
   @ApiPropertyOptional({
     description: 'Inflection forms for the word',

@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { Definition as DbDefinition, Word } from '@prisma/client';
+import type { Definition as DbDefinition, LexicalEntry } from '@prisma/client';
 import { PrismaService } from '../../../system/core/prisma/prisma.service';
 import type { RawDefinitionEntry } from '../../types/definition-entry.types';
 import { DefinitionAlreadyExistsError } from './definitions.errors';
 
 export type { DbDefinition };
 
-export type DefinitionWithWord = DbDefinition & { word: Word };
+export type DefinitionWithEntry = DbDefinition & { entry: LexicalEntry };
 
 export type DefinitionSummary = {
   id: string;
   partOfSpeech: string;
   definition: string;
-  word: { lemma: string; kind: string };
+  entry: { lemma: string; kind: string };
 };
 
 @Injectable()
@@ -21,22 +21,22 @@ export class DefinitionService {
   private readonly activeWrites = new Map<string, Promise<DbDefinition[]>>();
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByWordId(wordId: string): Promise<DbDefinition[]> {
-    return this.prisma.definition.findMany({ where: { wordId } });
+  async findByEntryId(entryId: string): Promise<DbDefinition[]> {
+    return this.prisma.definition.findMany({ where: { entryId } });
   }
 
-  findByWordIds(wordIds: string[]): Promise<DbDefinition[]> {
-    if (!wordIds.length) return Promise.resolve([]);
+  findByEntryIds(entryIds: string[]): Promise<DbDefinition[]> {
+    if (!entryIds.length) return Promise.resolve([]);
     return this.prisma.definition.findMany({
-      where: { wordId: { in: wordIds } },
+      where: { entryId: { in: entryIds } },
       orderBy: { id: 'asc' },
     });
   }
 
-  findByIdWithWord(id: string): Promise<DefinitionWithWord | null> {
+  findByIdWithEntry(id: string): Promise<DefinitionWithEntry | null> {
     return this.prisma.definition.findUnique({
       where: { id },
-      include: { word: true },
+      include: { entry: true },
     });
   }
 
@@ -47,20 +47,20 @@ export class DefinitionService {
         id: true,
         partOfSpeech: true,
         definition: true,
-        word: { select: { lemma: true, kind: true } },
+        entry: { select: { lemma: true, kind: true } },
       },
     });
   }
 
   async createMany(
-    wordId: string,
+    entryId: string,
     entries: RawDefinitionEntry[],
     providerName: string,
   ): Promise<DbDefinition[]> {
-    const key = JSON.stringify([wordId, entries, providerName]);
+    const key = JSON.stringify([entryId, entries, providerName]);
     const existing = this.activeWrites.get(key);
     if (existing) return existing;
-    const work = this.createManyOnce(wordId, entries, providerName);
+    const work = this.createManyOnce(entryId, entries, providerName);
     this.activeWrites.set(key, work);
     void work.then(
       () => this.activeWrites.delete(key),
@@ -70,14 +70,14 @@ export class DefinitionService {
   }
 
   private async createManyOnce(
-    wordId: string,
+    entryId: string,
     entries: RawDefinitionEntry[],
     providerName: string,
   ): Promise<DbDefinition[]> {
     if (!entries.length) return [];
     await this.prisma.definition.createMany({
       data: entries.map((entry) => ({
-        wordId,
+        entryId,
         partOfSpeech: entry.partOfSpeech,
         definition: entry.definition,
         example: entry.example ?? null,
@@ -87,7 +87,7 @@ export class DefinitionService {
     });
     const rows = await this.prisma.definition.findMany({
       where: {
-        wordId,
+        entryId,
         OR: entries.map(({ partOfSpeech, definition }) => ({
           partOfSpeech,
           definition,
@@ -110,14 +110,14 @@ export class DefinitionService {
   }
 
   async createOne(
-    wordId: string,
+    entryId: string,
     entry: RawDefinitionEntry,
     providerName: string,
   ): Promise<DbDefinition> {
     try {
       return await this.prisma.definition.create({
         data: {
-          wordId,
+          entryId,
           partOfSpeech: entry.partOfSpeech,
           definition: entry.definition,
           example: entry.example ?? null,

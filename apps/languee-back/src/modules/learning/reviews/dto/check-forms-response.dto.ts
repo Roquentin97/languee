@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { RevealedWordDto } from './answer-card-response.dto';
+import { RevealedEntryDto } from './answer-card-response.dto';
 
 export class FormCheckResultDto {
   @ApiProperty({ example: 'ran' })
@@ -28,7 +28,7 @@ export class CheckFormsResponseDto {
 
   @ApiPropertyOptional({
     description: 'Word details revealed alongside the per-form feedback',
-    type: RevealedWordDto,
+    type: RevealedEntryDto,
   })
-  revealed!: RevealedWordDto;
+  revealed!: RevealedEntryDto;
 }

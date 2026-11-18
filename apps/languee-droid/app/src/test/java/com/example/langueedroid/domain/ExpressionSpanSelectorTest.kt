@@ -43,13 +43,13 @@ class ExpressionSpanSelectorTest {
     }
 
     @Test
-    fun `tapping a non-adjacent word restarts the selection at that word`() {
+    fun `tapping a distant word toggles it without clearing earlier selections`() {
         val tokens = tokensOf("I ran into a friend")
         val ranIndex = 2
         val friendIndex = 8
         val afterFirstTap = ExpressionSpanSelector.onWordTapped(tokens, emptyList(), ranIndex)
         val afterSecondTap = ExpressionSpanSelector.onWordTapped(tokens, afterFirstTap, friendIndex)
-        assertEquals(listOf(friendIndex), afterSecondTap)
+        assertEquals(listOf(ranIndex, friendIndex), afterSecondTap)
     }
 
     // -------------------------------------------------------------------------
@@ -131,7 +131,7 @@ class ExpressionSpanSelectorTest {
     }
 
     @Test
-    fun `tapping a non-adjacent word outside a discontiguous selection restarts it`() {
+    fun `tapping a distant word outside a discontiguous selection keeps all three`() {
         val tokens = tokensOf("He looked the long word up very quickly")
         val wordIndices =
             tokens
@@ -144,7 +144,7 @@ class ExpressionSpanSelectorTest {
         val discontiguous = listOf(lookedIndex, upIndex)
 
         val restarted = ExpressionSpanSelector.onWordTapped(tokens, discontiguous, quicklyIndex)
-        assertEquals(listOf(quicklyIndex), restarted)
+        assertEquals(listOf(lookedIndex, upIndex, quicklyIndex), restarted)
     }
 
     // -------------------------------------------------------------------------

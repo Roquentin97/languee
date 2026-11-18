@@ -3,7 +3,9 @@ package com.example.langueedroid.feature.cardcreation.presentation
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.LookupAlternative
+import com.example.langueedroid.core.domain.SelectionRange
 
 enum class CardCreationError {
     LOAD_DECKS_FAILED,
@@ -45,13 +47,29 @@ data class CardCreationState(
     val contextTooLong: Boolean = false,
     val language: String = "en",
     val lookupContext: String? = null,
-    val selectionStart: Int? = null,
-    val selectionEnd: Int? = null,
+    val selectionRanges: List<SelectionRange> = emptyList(),
+    val targetRanges: List<SelectionRange> = emptyList(),
+    val includeSuggestions: Boolean = true,
+    val alternatives: List<LookupAlternative> = emptyList(),
+    val displayedAlternative: LookupAlternative? = null,
+    val alternativeLookupStatus: AlternativeLookupStatus = AlternativeLookupStatus.Idle,
     val deckSelectionState: DeckSelectionState = DeckSelectionState.Loading,
     val flowState: CardCreationFlowState = CardCreationFlowState.LookingUp,
-    val kind: LexicalKind = LexicalKind.WORD,
+    val kind: LexicalEntryKind = LexicalEntryKind.WORD,
     val expressionContextFound: Boolean? = null,
 )
+
+sealed class AlternativeLookupStatus {
+    object Idle : AlternativeLookupStatus()
+
+    object Loading : AlternativeLookupStatus()
+
+    object Miss : AlternativeLookupStatus()
+
+    object Failed : AlternativeLookupStatus()
+
+    object SelectionChanged : AlternativeLookupStatus()
+}
 
 sealed class DeckSelectionState {
     object Loading : DeckSelectionState()

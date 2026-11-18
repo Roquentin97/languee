@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import type { Card, Definition, Deck, Word } from '@prisma/client';
+import type { Card, Definition, Deck, LexicalEntry } from '@prisma/client';
 import { MS_PER_MINUTE } from '../../system/core/time/time.constants';
 import { PrismaService } from '../../system/core/prisma/prisma.service';
 import { CardsService } from '../cards/cards.service';
@@ -20,7 +20,7 @@ const mockDeck: Deck = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
-const mockWord: Word = {
+const mockEntry: LexicalEntry = {
   id: 'word-id-1',
   lemma: 'run into',
   language: 'en',
@@ -31,7 +31,7 @@ const mockWord: Word = {
 
 const mockDefinition: Definition = {
   id: 'def-id-1',
-  wordId: 'word-id-1',
+  entryId: 'word-id-1',
   partOfSpeech: 'verb',
   definition: 'To encounter unexpectedly.',
   example: 'I ran into an old friend yesterday.',
@@ -46,9 +46,10 @@ function baseCard(overrides: Partial<Card>): Card {
     type: 'cloze',
     userId: 'user-id-1',
     definitionId: 'def-id-1',
-    wordId: null,
+    entryId: null,
     partOfSpeech: null,
     context: null,
+    targetRanges: null,
     inflectionForms: { type: 'verb', base: 'run into', past: 'ran into' },
     state: 'review',
     dueAt: new Date('2026-07-01T00:00:00.000Z'),
@@ -69,8 +70,8 @@ const mockClozeCard: CardWithRelations = {
   ...baseCard({
     context: 'Guess who I ran into at the station!',
   }),
-  definition: { ...mockDefinition, word: mockWord },
-  word: null,
+  definition: { ...mockDefinition, entry: mockEntry },
+  entry: null,
   decks: [{ id: 'deck-id-1', name: 'English basics' }],
 };
 
@@ -79,7 +80,7 @@ const mockInflectionCard: CardWithRelations = {
     id: 'card-id-2',
     type: 'inflection',
     definitionId: null,
-    wordId: 'word-id-1',
+    entryId: 'word-id-1',
     partOfSpeech: 'verb',
     inflectionForms: {
       type: 'verb',
@@ -89,7 +90,7 @@ const mockInflectionCard: CardWithRelations = {
     },
   }),
   definition: null,
-  word: mockWord,
+  entry: mockEntry,
   decks: [{ id: 'deck-id-1', name: 'English basics' }],
 };
 
@@ -98,8 +99,8 @@ const mockDefinitionCard: CardWithRelations = {
     id: 'card-id-3',
     type: 'definition',
   }),
-  definition: { ...mockDefinition, word: mockWord },
-  word: null,
+  definition: { ...mockDefinition, entry: mockEntry },
+  entry: null,
   decks: [{ id: 'deck-id-1', name: 'English basics' }],
 };
 
@@ -119,7 +120,7 @@ const mockCardsService = {
   countDue: jest.fn(),
   countNew: jest.fn(),
   findClozeCardContexts: jest.fn(),
-  findSavedSensesByWordId: jest.fn(),
+  findSavedSensesByEntryId: jest.fn(),
   buildGradeUpdate: jest.fn(),
 };
 
@@ -134,7 +135,7 @@ describe('ReviewsService', () => {
     jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(NOW);
     mockCardsService.findClozeCardContexts.mockResolvedValue(new Map());
-    mockCardsService.findSavedSensesByWordId.mockResolvedValue(new Map());
+    mockCardsService.findSavedSensesByEntryId.mockResolvedValue(new Map());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -267,6 +268,26 @@ describe('ReviewsService', () => {
       });
     });
 
+    it('cloze card payload masks exactly the saved ranges and preserves intervening text', async () => {
+      mockCardsService.findDueCards.mockResolvedValue([
+        {
+          ...mockClozeCard,
+          context: 'She gave the old machine up, then gave up.',
+          targetRanges: [
+            { start: 4, end: 8 },
+            { start: 25, end: 27 },
+          ],
+        },
+      ]);
+      mockCardsService.findUnreviewedCards.mockResolvedValue([]);
+
+      const result = await service.getQueue('user-id-1', { limit: 20 });
+
+      expect(result[0]?.cloze?.maskedSentence).toBe(
+        'She ____ the old machine ____, then gave up.',
+      );
+    });
+
     it('inflection card payload — exposes form keys but never the values', async () => {
       mockCardsService.findDueCards.mockResolvedValue([]);
       mockCardsService.findUnreviewedCards.mockResolvedValue([
@@ -288,7 +309,7 @@ describe('ReviewsService', () => {
     it('definition card payload — hint1 lists other saved senses when >=2 senses exist', async () => {
       mockCardsService.findDueCards.mockResolvedValue([mockDefinitionCard]);
       mockCardsService.findUnreviewedCards.mockResolvedValue([]);
-      mockCardsService.findSavedSensesByWordId.mockResolvedValue(
+      mockCardsService.findSavedSensesByEntryId.mockResolvedValue(
         new Map([
           [
             'word-id-1',
@@ -324,7 +345,7 @@ describe('ReviewsService', () => {
     it('definition card payload — hint1 is null with fewer than 2 saved senses, hint2 falls back to the dictionary example', async () => {
       mockCardsService.findDueCards.mockResolvedValue([mockDefinitionCard]);
       mockCardsService.findUnreviewedCards.mockResolvedValue([]);
-      mockCardsService.findSavedSensesByWordId.mockResolvedValue(
+      mockCardsService.findSavedSensesByEntryId.mockResolvedValue(
         new Map([
           [
             'word-id-1',
@@ -387,6 +408,33 @@ describe('ReviewsService', () => {
           lemma: 'run into',
           ipa: null,
         },
+      });
+    });
+
+    it('accepts the joined selected components without requiring an intervening object', async () => {
+      mockCardsService.findOwnedOrThrow.mockResolvedValue({
+        ...mockClozeCard,
+        context: 'She gave the old machine up, then gave up.',
+        targetRanges: [
+          { start: 4, end: 8 },
+          { start: 25, end: 27 },
+        ],
+        definition: {
+          ...mockDefinition,
+          entry: { ...mockEntry, lemma: 'give up' },
+        },
+      });
+
+      const result = await service.checkTypedAnswer(
+        'user-id-1',
+        'card-id-1',
+        'gave up',
+      );
+
+      expect(result).toMatchObject({
+        result: 'correct',
+        matchedForm: 'gave up',
+        revealed: { lemma: 'give up' },
       });
     });
 

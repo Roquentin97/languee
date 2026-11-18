@@ -13,4 +13,7 @@ data class OfflineEntry(
     val pendingLookupId: String? = null,
     val pendingDeckId: String? = null,
     val pendingInflectionForms: String? = null,
+    val selectionRanges: List<SelectionRange> = SelectionRanges.fromLegacySpan(selectionStart, selectionEnd),
+    val targetRanges: List<SelectionRange> = selectionRanges,
+    val includeSuggestions: Boolean = true,
 )

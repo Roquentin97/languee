@@ -24,10 +24,10 @@ import { JwtAuthGuard } from '../../../identity/auth/guards/jwt-auth.guard';
 import { ProviderUnavailableError } from '../../entries/definitions/definitions.errors';
 import { DefinitionsNotFoundException } from './dictionary.errors';
 import { LookupWordDto } from './dto/lookup-word.dto';
-import { LookupWordResponseDto } from './dto/lookup-word-response.dto';
-import type { LookupWordOutput } from './types/lookup-word.types';
+import { LookupEntryResponseDto } from './dto/lookup-entry-response.dto';
+import type { LookupEntryOutput } from './types/lookup-entry.types';
 import { DictionaryService } from './dictionary.service';
-import { LexicalKind } from '@prisma/client';
+import { LexicalEntryKind } from '@prisma/client';
 
 @ApiTags('dictionary')
 @ApiBearerAuth('access-token')
@@ -49,7 +49,7 @@ export class DictionaryController {
   @ApiBadRequestResponse({
     description: 'Unsupported language or invalid morphology input',
   })
-  @ApiOkResponse({ type: LookupWordResponseDto })
+  @ApiOkResponse({ type: LookupEntryResponseDto })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiNotFoundResponse({
     description: 'No dictionary definitions were found for this word.',
@@ -58,32 +58,36 @@ export class DictionaryController {
     description:
       'Dictionary lookup is temporarily unavailable. Please try again later.',
   })
-  async lookup(@Query() query: LookupWordDto): Promise<LookupWordOutput> {
+  async lookup(@Query() query: LookupWordDto): Promise<LookupEntryOutput> {
     try {
       return await this.dictionaryService.lookup({
-        word: query.word,
+        text: query.word,
         language: query.language ?? 'en',
-        kind: LexicalKind.word,
+        kind: LexicalEntryKind.word,
       });
     } catch (e: unknown) {
-      if (e instanceof NlpInputInvalidError)
-        throw new BadRequestException('INPUT_INVALID');
-      if (e instanceof NlpUnavailableError)
-        throw new BadGatewayException('NLP_UNAVAILABLE');
-      if (e instanceof DefinitionsNotFoundException) {
-        throw new NotFoundException({
-          message: 'No dictionary definitions were found for this word.',
-          error: 'DICTIONARY_DEFINITIONS_NOT_FOUND',
-        });
-      }
-      if (e instanceof ProviderUnavailableError) {
-        throw new BadGatewayException({
-          message:
-            'Dictionary lookup is temporarily unavailable. Please try again later.',
-          error: 'DICTIONARY_PROVIDER_UNAVAILABLE',
-        });
-      }
-      throw e;
+      this.rethrowLookupError(e);
     }
+  }
+
+  private rethrowLookupError(e: unknown): never {
+    if (e instanceof NlpInputInvalidError)
+      throw new BadRequestException('INPUT_INVALID');
+    if (e instanceof NlpUnavailableError)
+      throw new BadGatewayException('NLP_UNAVAILABLE');
+    if (e instanceof DefinitionsNotFoundException) {
+      throw new NotFoundException({
+        message: 'No dictionary definitions were found for this word.',
+        error: 'DICTIONARY_DEFINITIONS_NOT_FOUND',
+      });
+    }
+    if (e instanceof ProviderUnavailableError) {
+      throw new BadGatewayException({
+        message:
+          'Dictionary lookup is temporarily unavailable. Please try again later.',
+        error: 'DICTIONARY_PROVIDER_UNAVAILABLE',
+      });
+    }
+    throw e;
   }
 }

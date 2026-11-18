@@ -3,7 +3,7 @@ import { AuthModule } from '../../identity/auth/auth.module';
 import { CardsModule } from '../cards/cards.module';
 import { DictionaryModule } from '../../lexicon/enrichment/dictionary/dictionary.module';
 import { NlpModule } from '../../lexicon/enrichment/nlp/nlp.module';
-import { WordsModule } from '../../lexicon/entries/words/words.module';
+import { LexicalEntriesModule } from '../../lexicon/entries/lexical-entries/lexical-entries.module';
 import { DefinitionsModule } from '../../lexicon/entries/definitions/definitions.module';
 import { VocabularyService } from './vocabulary.service';
 import { VocabularyController } from './vocabulary.controller';
@@ -16,7 +16,7 @@ import { LexicalEvaluationModule } from '../../evaluation/lexical/lexical-evalua
     CardsModule,
     AuthModule,
     NlpModule,
-    WordsModule,
+    LexicalEntriesModule,
     DefinitionsModule,
   ],
   providers: [VocabularyService],

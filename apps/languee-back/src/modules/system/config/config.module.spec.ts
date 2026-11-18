@@ -1,4 +1,5 @@
 import { configuration } from './configuration';
+import { validateEnvironment } from './config.validation';
 
 describe('configuration()', () => {
   const ORIGINAL_ENV = process.env;
@@ -10,6 +11,32 @@ describe('configuration()', () => {
 
   afterAll(() => {
     process.env = ORIGINAL_ENV;
+  });
+
+  describe('validateEnvironment()', () => {
+    const validEnvironment = {
+      DATABASE_URL: 'postgresql://user:password@localhost/languee',
+      REDIS_HOST: 'localhost',
+      REDIS_PORT: 6379,
+      JWT_SECRET: '0123456789abcdef',
+      BASIC_AUTH: 'test-user',
+      BASIC_PASSWORD: 'test-password',
+      LANGUEE_NLP_BASE_URL: 'http://localhost:8000',
+      LANGUEE_NLP_BASIC_AUTH_LOGIN: 'test-user',
+      LANGUEE_NLP_BASIC_AUTH_PASSWORD: 'test-password',
+    };
+
+    it('allows host-provided environment variables outside the app schema', () => {
+      expect(() =>
+        validateEnvironment({ ...validEnvironment, PATH: '/usr/bin' }),
+      ).not.toThrow();
+    });
+
+    it('continues to reject invalid configured values', () => {
+      expect(() =>
+        validateEnvironment({ ...validEnvironment, REDIS_PORT: 0 }),
+      ).toThrow();
+    });
   });
 
   it('returns the expected namespace keys', () => {

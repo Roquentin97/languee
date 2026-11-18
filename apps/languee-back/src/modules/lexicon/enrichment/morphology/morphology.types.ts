@@ -1,7 +1,7 @@
 import type { InflectionForms } from '../../types/inflection-forms.types';
 
 export type CanonicalEntry = {
-  wordId: string;
+  entryId: string;
   lemma: string;
   partOfSpeech: string;
 };
@@ -12,10 +12,10 @@ export type LexicalParadigm = {
   snapshot: InflectionForms | null;
 };
 
-export type ParadigmsByWord = Map<string, Map<string, LexicalParadigm>>;
+export type ParadigmsByEntry = Map<string, Map<string, LexicalParadigm>>;
 
 export type FormOrigin = {
-  wordId: string;
+  entryId: string;
   partOfSpeech: string;
   relationType: string;
 };

@@ -1,5 +1,6 @@
 import { PartOfSpeech } from '../../types/part-of-speech.enum';
 import type { InflectionForms } from '../../types/inflection-forms.types';
+import type { CaptureRange } from '../../../learning/capture/capture-ranges';
 
 type NlpTokenMorphologyKey = 'verb_form';
 
@@ -35,8 +36,9 @@ export type NlpToken = {
 export type NlpWordResponse = {
   kind: 'word';
   tokens: NlpToken[];
-} & Partial<Record<'model_version', string>> &
+} & Record<'model_version', string> &
   Record<'input_text', string> &
+  Record<'selection_analysis', NlpSelectionAnalysisResponse | null> &
   Record<'is_multi_word', boolean> &
   Partial<Record<'language', string>>;
 
@@ -47,6 +49,17 @@ export type NlpAnalysis = {
   modelVersion?: string;
   isIrregular: boolean;
   inflectionForms: InflectionForms | null;
+  selectionAnalysis?: NlpSelectionAnalysis | null;
+};
+
+export type NlpSelectionAnalysisResponse = Record<'head_lemma', string> &
+  Record<'pos', string> &
+  Record<'head_range', CaptureRange>;
+
+export type NlpSelectionAnalysis = {
+  headLemma: string;
+  pos: string;
+  headRange: CaptureRange;
 };
 
 export type NlpWordAnalysis = { kind: 'word' } & NlpAnalysis;
@@ -72,6 +85,8 @@ export type NlpExpressionResponse = {
   tokens: NlpExpressionToken[];
 } & Record<'input_text', string> &
   Record<'head_lemma', string> &
+  Record<'selection_analysis', NlpSelectionAnalysisResponse | null> &
+  Record<'model_version', string> &
   Partial<Record<'context_match', NlpExpressionContextMatch>> &
   Partial<Record<'language', string>>;
 
@@ -79,12 +94,30 @@ export type NlpExpressionAnalysis = {
   canonical: string;
   kind: NlpExpressionKind;
   headLemma: string;
+  modelVersion?: string;
   contextMatch: {
     found: boolean;
     matchedText: string | null;
     confidence: 'high' | 'low' | null;
   } | null;
+  selectionAnalysis?: NlpSelectionAnalysis | null;
 };
+
+export type NlpExpressionCandidate = Record<'entry_id', string> &
+  Record<'canonical_text', string>;
+
+export type NlpExpressionMatch = Record<'entry_id', string> &
+  Record<'canonical_text', string> &
+  Record<'surface_text', string> &
+  Record<'component_ranges', CaptureRange[]>;
+
+export type NlpExpressionMatchInput = {
+  language: string;
+} & Record<'input_text', string> &
+  Record<'selected_verb_range', CaptureRange> &
+  Record<'candidates', NlpExpressionCandidate[]>;
+
+export type NlpExpressionMatchResponse = { matches: NlpExpressionMatch[] };
 
 export type NlpAnalyzeResponse = NlpWordResponse | NlpExpressionResponse;
 

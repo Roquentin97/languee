@@ -2,22 +2,27 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.dto.CardDeckDto
 import com.example.langueedroid.core.network.dto.CardDefinitionDto
+import com.example.langueedroid.core.network.dto.CardEntryDto
 import com.example.langueedroid.core.network.dto.CardResponseDto
-import com.example.langueedroid.core.network.dto.CardWordDto
+import com.example.langueedroid.core.network.dto.CreateCardRequest
 import com.example.langueedroid.core.network.dto.CreateCardsResponseDto
 import com.example.langueedroid.core.telemetry.Logger
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import retrofit2.Response
 
@@ -50,6 +55,30 @@ class CardRepositoryTest {
 
             assertTrue(result.isSuccess)
             org.junit.Assert.assertEquals("cloze-id", result.getOrThrow())
+        }
+
+    @Test
+    fun `createCard sends exact target ranges with the chosen lookup ID`() =
+        runTest {
+            whenever(cardsApi.createCard(any())).thenReturn(
+                Response.success(CreateCardsResponseDto(cards = listOf(aCardResponseDto(type = "cloze")))),
+            )
+
+            val ranges = listOf(SelectionRange(5, 9), SelectionRange(13, 15))
+            val result =
+                repository.createCard(
+                    deckId = "d1",
+                    definitionId = "definition-alt",
+                    context = "They gave it up.",
+                    lookupId = "lookup-alt",
+                    targetRanges = ranges,
+                )
+
+            assertTrue(result.isSuccess)
+            val request = argumentCaptor<CreateCardRequest>()
+            verify(cardsApi).createCard(request.capture())
+            assertEquals("lookup-alt", request.firstValue.lookupId)
+            assertEquals(ranges.map { it.start to it.end }, request.firstValue.targetRanges?.map { it.start to it.end })
         }
 
     // -------------------------------------------------------------------------
@@ -194,7 +223,7 @@ class CardRepositoryTest {
         userId = "u1",
         decks = listOf(CardDeckDto(id = "d1", name = "English")),
         definitionId = if (type == "inflection") null else "def1",
-        wordId = if (type == "inflection") "w1" else null,
+        entryId = if (type == "inflection") "w1" else null,
         partOfSpeech = if (type == "inflection") "verb" else null,
         context = null,
         createdAt = "2024-01-01T00:00:00Z",
@@ -213,6 +242,6 @@ class CardRepositoryTest {
                 null
             },
         inflectionForms = if (type == "inflection") mapOf("type" to "verb", "base" to "run", "past" to "ran") else null,
-        word = CardWordDto(id = "w1", lemma = "cat", language = "en"),
+        entry = CardEntryDto(id = "w1", lemma = "cat", language = "en"),
     )
 }

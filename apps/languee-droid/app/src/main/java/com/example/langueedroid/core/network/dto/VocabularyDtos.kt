@@ -33,7 +33,7 @@ data class SurfaceRelationDto(
 )
 
 data class PreferredInterpretationDto(
-    val wordId: String,
+    val entryId: String,
     val partOfSpeech: String?,
 )
 
@@ -43,11 +43,35 @@ data class VocabularyPosGroupDto(
 )
 
 data class VocabularyHeadwordDto(
-    val wordId: String,
+    val entryId: String,
     val lemma: String,
     val language: String,
     val relations: List<SurfaceRelationDto>,
     val partsOfSpeech: List<VocabularyPosGroupDto>,
+)
+
+data class SelectionRangeDto(
+    val start: Int,
+    val end: Int,
+)
+
+data class LookupVocabularyRequestDto(
+    val text: String,
+    val language: String,
+    val context: String? = null,
+    val selectionRanges: List<SelectionRangeDto>? = null,
+    val disablePosFiltering: Boolean? = null,
+    val includeSuggestions: Boolean? = null,
+)
+
+data class LookupAlternativeDto(
+    val type: String,
+    val text: String,
+    val lemma: String,
+    val entryId: String?,
+    val selectionRanges: List<SelectionRangeDto>,
+    val reason: String,
+    val prominence: String,
 )
 
 data class LookupVocabularyResponseDto(
@@ -61,6 +85,7 @@ data class LookupVocabularyResponseDto(
     val meta: LookupMetaDto,
     val orderedGroups: List<PreferredInterpretationDto>? = null,
     val lookupId: String? = null,
+    val alternatives: List<LookupAlternativeDto>? = null,
 )
 
 data class CreateUserDefinitionRequestDto(
@@ -73,7 +98,7 @@ data class CreateUserDefinitionRequestDto(
 
 data class CreateUserDefinitionResponseDto(
     val id: String,
-    val wordId: String,
+    val entryId: String,
     val lemma: String,
     val kind: String,
     val partOfSpeech: String,
@@ -101,7 +126,7 @@ data class SavedMatchDefinitionDto(
 )
 
 data class SavedMatchHeadwordDto(
-    val wordId: String,
+    val entryId: String,
     val lemma: String,
     val definitions: List<SavedMatchDefinitionDto>,
 )

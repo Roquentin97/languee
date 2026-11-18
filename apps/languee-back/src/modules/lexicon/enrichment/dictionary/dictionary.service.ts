@@ -3,17 +3,17 @@ import { DefinitionsNotFoundException } from './dictionary.errors';
 import { HeadwordDiscoveryService } from './headword-discovery.service';
 import { normalizeSpelling } from '../morphology/morphology-provider';
 import type {
-  LookupWordInput,
-  LookupWordOutput,
-} from './types/lookup-word.types';
+  LookupEntryInput,
+  LookupEntryOutput,
+} from './types/lookup-entry.types';
 
 @Injectable()
 export class DictionaryService {
   constructor(private readonly discovery: HeadwordDiscoveryService) {}
 
-  async lookup(input: LookupWordInput): Promise<LookupWordOutput> {
+  async lookup(input: LookupEntryInput): Promise<LookupEntryOutput> {
     const surface =
-      input.kind === 'word' ? input.word : (input.lemma ?? input.word);
+      input.kind === 'word' ? input.text : (input.lemma ?? input.text);
     const result = await this.discovery.discover(
       surface,
       input.language,
@@ -29,13 +29,13 @@ export class DictionaryService {
     if (!selected)
       throw new DefinitionsNotFoundException(surface, input.language);
     return {
-      input: input.word,
+      input: input.text,
       language: input.language,
       kind: input.kind,
       source: result.source,
-      preferred: { wordId: selected.wordId, partOfSpeech: null },
+      preferred: { entryId: selected.entryId, partOfSpeech: null },
       headwords: result.headwords.map((headword) => ({
-        wordId: headword.wordId,
+        entryId: headword.entryId,
         lemma: headword.lemma,
         language: input.language,
         relations: headword.relations,

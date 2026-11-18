@@ -2,10 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   PreferredInterpretationDto,
   SurfaceRelationDto,
-} from '../../../lexicon/enrichment/dictionary/dto/lookup-word-response.dto';
+} from '../../../lexicon/enrichment/dictionary/dto/lookup-entry-response.dto';
 import { PartOfSpeech } from '../../../lexicon/types/part-of-speech.enum';
 import type { InflectionForms } from '../../../lexicon/types/inflection-forms.types';
 import { INFLECTION_FORMS_SWAGGER } from '../../../lexicon/types/inflection-forms.types';
+import { CaptureRangeDto } from '../../capture/capture-range.dto';
 
 export class DeckRefDto {
   @ApiProperty({ example: 'deck_123' })
@@ -81,7 +82,7 @@ export class VocabularyPosGroupDto {
 
 export class VocabularyHeadwordDto {
   @ApiProperty({ example: 'word_123' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ example: 'good' })
   lemma!: string;
@@ -98,10 +99,35 @@ export class VocabularyHeadwordDto {
 
 export class OrderedVocabularyGroupDto {
   @ApiProperty({ format: 'uuid' })
-  wordId!: string;
+  entryId!: string;
 
   @ApiProperty({ enum: PartOfSpeech })
   partOfSpeech!: PartOfSpeech;
+}
+
+export class LookupAlternativeDto {
+  @ApiProperty({ enum: ['expression', 'base_verb'] })
+  type!: 'expression' | 'base_verb';
+
+  @ApiProperty({ example: 'ran into' })
+  text!: string;
+
+  @ApiProperty({ example: 'run into' })
+  lemma!: string;
+
+  @ApiProperty({ format: 'uuid', nullable: true })
+  entryId!: string | null;
+
+  @ApiProperty({ type: [CaptureRangeDto] })
+  selectionRanges!: CaptureRangeDto[];
+
+  @ApiProperty({
+    enum: ['context_match', 'expression_not_found', 'verb_alternative'],
+  })
+  reason!: 'context_match' | 'expression_not_found' | 'verb_alternative';
+
+  @ApiProperty({ enum: ['normal', 'subtle'] })
+  prominence!: 'normal' | 'subtle';
 }
 
 export class LookupVocabularyResponseDto {
@@ -114,7 +140,7 @@ export class LookupVocabularyResponseDto {
   @ApiProperty({ example: 'en' })
   language!: string;
 
-  @ApiProperty({ enum: ['word', 'phrasal_verb', 'expression'] })
+  @ApiProperty({ enum: ['word', 'phrasal_verb', 'expression', 'idiom'] })
   kind!: string;
 
   @ApiProperty({ enum: ['cache', 'provider'] })
@@ -125,6 +151,9 @@ export class LookupVocabularyResponseDto {
 
   @ApiProperty({ type: [VocabularyHeadwordDto] })
   headwords!: VocabularyHeadwordDto[];
+
+  @ApiProperty({ type: [LookupAlternativeDto] })
+  alternatives!: LookupAlternativeDto[];
 
   @ApiPropertyOptional({ type: [OrderedVocabularyGroupDto] })
   orderedGroups?: OrderedVocabularyGroupDto[];

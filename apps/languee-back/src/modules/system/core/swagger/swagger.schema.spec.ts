@@ -163,12 +163,12 @@ const expectations: OperationExpectation[] = [
     method: 'get',
     parameters: ['word', 'language'],
     responses: ['200', '401', '404', '502'],
-    responseSchema: 'LookupWordResponseDto',
+    responseSchema: 'LookupEntryResponseDto',
   },
   {
     path: '/api/v1/vocabulary/lookup',
-    method: 'get',
-    parameters: ['word', 'language', 'context', 'disablePosFiltering'],
+    method: 'post',
+    requestBodySchema: 'LookupVocabularyDto',
     responses: ['200', '400', '401', '404', '502'],
     responseSchema: 'LookupVocabularyResponseDto',
   },
@@ -379,7 +379,7 @@ describe('generated Swagger schema', () => {
   it('documents hierarchical lookup responses and their preferred interpretation', () => {
     const schemas = document.components?.schemas ?? {};
     for (const name of [
-      'LookupWordResponseDto',
+      'LookupEntryResponseDto',
       'LookupVocabularyResponseDto',
     ]) {
       const schema = schemas[name];
@@ -397,5 +397,16 @@ describe('generated Swagger schema', () => {
     expect(JSON.stringify(schemas.VocabularyPosGroupDto)).toContain(
       'definitions',
     );
+    expect(JSON.stringify(schemas.LookupVocabularyResponseDto)).toContain(
+      'alternatives',
+    );
+    expect(JSON.stringify(schemas.CreateCardDto)).toContain('targetRanges');
+    expect(
+      (
+        schemas.LookupVocabularyDto as {
+          properties: Record<string, { description?: string }>;
+        }
+      ).properties.text?.description,
+    ).toContain('six whitespace-separated components');
   });
 });
