@@ -49,3 +49,10 @@ The model/package identity, fixture hashes, timing sample counts, and per-case
 predictions are included in the JSON output. Residual semantic ambiguities remain
 outside this syntactic matcher; for example, the known candidate `look after` is
 matched in “She looked after lunch,” where the intended reading is temporal.
+
+The NLP pytest suite runs the reviewed corpora with the pinned `en_core_web_md`
+3.8.0 model and fails if precision or recall falls below the exact counts in
+`report.md` for either candidate inventory. It also checks corpus and inventory
+sizes so changes to the evaluation inputs require an explicit baseline review.
+The gate compares aggregate accuracy; an improvement on one case can offset a
+regression on another. Timing measurements are not gated.
