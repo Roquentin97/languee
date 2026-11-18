@@ -3,7 +3,10 @@ ARG GIT_SHA=unknown
 ARG BUILD_ID=unknown
 
 FROM python:3.15-slim AS base
-RUN pip install uv
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y gcc \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install uv
 WORKDIR /app
 
 FROM base AS deps
