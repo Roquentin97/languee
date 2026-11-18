@@ -1,0 +1,952 @@
+{
+  "version": 1,
+  "label_status": "fixed before classical detector implementation/evaluation; not independently reviewed",
+  "provenance": "40 original new-context examples in 12 lexical families. WordNet coverage inspected before corpus creation; no benchmark scores inspected. Includes intentional inventory gaps.",
+  "cases": [
+    {
+      "id": "classical-001",
+      "family": "call",
+      "split": "heldout",
+      "context": "They called off the picnic.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "called",
+      "expected_action": "expand",
+      "alternative_lemma": "call off",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 15
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-002",
+      "family": "call",
+      "split": "heldout",
+      "context": "They called the picnic off.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "called",
+      "expected_action": "expand",
+      "alternative_lemma": "call off",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 23,
+          "end": 26
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-003",
+      "family": "call",
+      "split": "heldout",
+      "context": "She called after dinner.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "called",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-004",
+      "family": "set",
+      "split": "heldout",
+      "context": "We set up the equipment.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "selected_text": "set",
+      "expected_action": "expand",
+      "alternative_lemma": "set up",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 7,
+          "end": 9
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-005",
+      "family": "set",
+      "split": "heldout",
+      "context": "We set the new laboratory equipment up.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "selected_text": "set",
+      "expected_action": "expand",
+      "alternative_lemma": "set up",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 6
+        },
+        {
+          "start": 36,
+          "end": 38
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-006",
+      "family": "set",
+      "split": "heldout",
+      "context": "She set the vase on the shelf.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "selected_text": "set",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-007",
+      "family": "carry",
+      "split": "heldout",
+      "context": "They carried out the inspection.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 12
+        }
+      ],
+      "selected_text": "carried",
+      "expected_action": "expand",
+      "alternative_lemma": "carry out",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 12
+        },
+        {
+          "start": 13,
+          "end": 16
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-008",
+      "family": "carry",
+      "split": "heldout",
+      "context": "The inspection was carried out yesterday.",
+      "selection": [
+        {
+          "start": 19,
+          "end": 26
+        }
+      ],
+      "selected_text": "carried",
+      "expected_action": "expand",
+      "alternative_lemma": "carry out",
+      "alternative_ranges": [
+        {
+          "start": 19,
+          "end": 26
+        },
+        {
+          "start": 27,
+          "end": 30
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-009",
+      "family": "carry",
+      "split": "heldout",
+      "context": "They carried bags during the trip.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 12
+        }
+      ],
+      "selected_text": "carried",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-010",
+      "family": "hold",
+      "split": "heldout",
+      "context": "He held back his tears.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "selected_text": "held",
+      "expected_action": "expand",
+      "alternative_lemma": "hold back",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 7
+        },
+        {
+          "start": 8,
+          "end": 12
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-011",
+      "family": "hold",
+      "split": "heldout",
+      "context": "He held his tears back.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "selected_text": "held",
+      "expected_action": "expand",
+      "alternative_lemma": "hold back",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 7
+        },
+        {
+          "start": 18,
+          "end": 22
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-012",
+      "family": "hold",
+      "split": "heldout",
+      "context": "He held a bag after class.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "selected_text": "held",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-013",
+      "family": "get",
+      "split": "heldout",
+      "context": "She got over the flu.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 7
+        }
+      ],
+      "selected_text": "got",
+      "expected_action": "expand",
+      "alternative_lemma": "get over",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 7
+        },
+        {
+          "start": 8,
+          "end": 12
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-014",
+      "family": "get",
+      "split": "heldout",
+      "context": "Has she gotten over the illness?",
+      "selection": [
+        {
+          "start": 8,
+          "end": 14
+        }
+      ],
+      "selected_text": "gotten",
+      "expected_action": "expand",
+      "alternative_lemma": "get over",
+      "alternative_ranges": [
+        {
+          "start": 8,
+          "end": 14
+        },
+        {
+          "start": 15,
+          "end": 19
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-015",
+      "family": "get",
+      "split": "heldout",
+      "context": "He got a parcel over the weekend.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 6
+        }
+      ],
+      "selected_text": "got",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-016",
+      "family": "figure",
+      "split": "heldout",
+      "context": "We figured out the answer.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "figured",
+      "expected_action": "expand",
+      "alternative_lemma": "figure out",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 14
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-017",
+      "family": "figure",
+      "split": "heldout",
+      "context": "We figured the complicated answer out.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "figured",
+      "expected_action": "expand",
+      "alternative_lemma": "figure out",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 34,
+          "end": 37
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-018",
+      "family": "figure",
+      "split": "heldout",
+      "context": "The cost figured in their decision.",
+      "selection": [
+        {
+          "start": 9,
+          "end": 16
+        }
+      ],
+      "selected_text": "figured",
+      "expected_action": "expand",
+      "alternative_lemma": "figure in",
+      "alternative_ranges": [
+        {
+          "start": 9,
+          "end": 16
+        },
+        {
+          "start": 17,
+          "end": 19
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-019",
+      "family": "fill",
+      "split": "heldout",
+      "context": "She filled in the form.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "filled",
+      "expected_action": "expand",
+      "alternative_lemma": "fill in",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-020",
+      "family": "fill",
+      "split": "heldout",
+      "context": "She filled the long application form in.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "filled",
+      "expected_action": "expand",
+      "alternative_lemma": "fill in",
+      "alternative_ranges": [
+        {
+          "start": 4,
+          "end": 10
+        },
+        {
+          "start": 37,
+          "end": 39
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-021",
+      "family": "fill",
+      "split": "heldout",
+      "context": "He filled a glass in the kitchen.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 9
+        }
+      ],
+      "selected_text": "filled",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-022",
+      "family": "hand",
+      "split": "heldout",
+      "context": "They handed in their reports.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "handed",
+      "expected_action": "expand",
+      "alternative_lemma": "hand in",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 12,
+          "end": 14
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-023",
+      "family": "hand",
+      "split": "heldout",
+      "context": "They handed their reports in.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "handed",
+      "expected_action": "expand",
+      "alternative_lemma": "hand in",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 11
+        },
+        {
+          "start": 26,
+          "end": 28
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-024",
+      "family": "hand",
+      "split": "heldout",
+      "context": "They handed a letter to the teacher.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 11
+        }
+      ],
+      "selected_text": "handed",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-025",
+      "family": "point",
+      "split": "heldout",
+      "context": "He pointed out the error.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "pointed",
+      "expected_action": "expand",
+      "alternative_lemma": "point out",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 11,
+          "end": 14
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-026",
+      "family": "point",
+      "split": "heldout",
+      "context": "He pointed the spelling error out.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "pointed",
+      "expected_action": "expand",
+      "alternative_lemma": "point out",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 10
+        },
+        {
+          "start": 30,
+          "end": 33
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-027",
+      "family": "point",
+      "split": "heldout",
+      "context": "He pointed at the map after lunch.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 10
+        }
+      ],
+      "selected_text": "pointed",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-028",
+      "family": "wear",
+      "split": "heldout",
+      "context": "The machine wore out quickly.",
+      "selection": [
+        {
+          "start": 12,
+          "end": 16
+        }
+      ],
+      "selected_text": "wore",
+      "expected_action": "expand",
+      "alternative_lemma": "wear out",
+      "alternative_ranges": [
+        {
+          "start": 12,
+          "end": 16
+        },
+        {
+          "start": 17,
+          "end": 20
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-029",
+      "family": "wear",
+      "split": "heldout",
+      "context": "The long hike wore the children out.",
+      "selection": [
+        {
+          "start": 14,
+          "end": 18
+        }
+      ],
+      "selected_text": "wore",
+      "expected_action": "expand",
+      "alternative_lemma": "wear out",
+      "alternative_ranges": [
+        {
+          "start": 14,
+          "end": 18
+        },
+        {
+          "start": 32,
+          "end": 35
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-030",
+      "family": "wear",
+      "split": "heldout",
+      "context": "She wore a coat during winter.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 8
+        }
+      ],
+      "selected_text": "wore",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-031",
+      "family": "go",
+      "split": "heldout",
+      "context": "They went over the plan carefully.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "selected_text": "went",
+      "expected_action": "expand",
+      "alternative_lemma": "go over",
+      "alternative_ranges": [
+        {
+          "start": 5,
+          "end": 9
+        },
+        {
+          "start": 10,
+          "end": 14
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-032",
+      "family": "go",
+      "split": "heldout",
+      "context": "Can we go over the details?",
+      "selection": [
+        {
+          "start": 7,
+          "end": 9
+        }
+      ],
+      "selected_text": "go",
+      "expected_action": "expand",
+      "alternative_lemma": "go over",
+      "alternative_ranges": [
+        {
+          "start": 7,
+          "end": 9
+        },
+        {
+          "start": 10,
+          "end": 14
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-033",
+      "family": "go",
+      "split": "heldout",
+      "context": "She went to school after breakfast.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 8
+        }
+      ],
+      "selected_text": "went",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-034",
+      "family": "stand",
+      "split": "heldout",
+      "context": "We stood by our decision.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 8
+        }
+      ],
+      "selected_text": "stood",
+      "expected_action": "expand",
+      "alternative_lemma": "stand by",
+      "alternative_ranges": [
+        {
+          "start": 3,
+          "end": 8
+        },
+        {
+          "start": 9,
+          "end": 11
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-035",
+      "family": "stand",
+      "split": "heldout",
+      "context": "They will stand by their promise.",
+      "selection": [
+        {
+          "start": 10,
+          "end": 15
+        }
+      ],
+      "selected_text": "stand",
+      "expected_action": "expand",
+      "alternative_lemma": "stand by",
+      "alternative_ranges": [
+        {
+          "start": 10,
+          "end": 15
+        },
+        {
+          "start": 16,
+          "end": 18
+        }
+      ],
+      "category": "expression",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-036",
+      "family": "stand",
+      "split": "heldout",
+      "context": "They stood after the music stopped.",
+      "selection": [
+        {
+          "start": 5,
+          "end": 10
+        }
+      ],
+      "selected_text": "stood",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-037",
+      "family": "call",
+      "split": "heldout",
+      "context": "She called while he turned the radio off.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "called",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-038",
+      "family": "fill",
+      "split": "heldout",
+      "context": "He filled a glass, and she handed the form in.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 9
+        }
+      ],
+      "selected_text": "filled",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-039",
+      "family": "hold",
+      "split": "heldout",
+      "context": "He held the door as she walked out.",
+      "selection": [
+        {
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "selected_text": "held",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    },
+    {
+      "id": "classical-040",
+      "family": "hand",
+      "split": "heldout",
+      "context": "She handed a letter to him before he got in.",
+      "selection": [
+        {
+          "start": 4,
+          "end": 10
+        }
+      ],
+      "selected_text": "handed",
+      "expected_action": "abstain",
+      "alternative_lemma": null,
+      "alternative_ranges": [],
+      "category": "control",
+      "rationale": "Original evaluation example for dictionary-backed expression suggestion. Literal dictionary senses included; no plain-verb corrections scored. Labels remain agent-reviewed."
+    }
+  ]
+}

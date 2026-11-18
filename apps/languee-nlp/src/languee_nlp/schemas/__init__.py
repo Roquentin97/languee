@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class HealthResponse(BaseModel):
@@ -29,6 +29,71 @@ class WordResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class SelectionRange(BaseModel):
+    start: int = Field(
+        ge=0, strict=True, description="Inclusive Unicode code-point offset."
+    )
+    end: int = Field(
+        gt=0, strict=True, description="Exclusive Unicode code-point offset."
+    )
+
+    @model_validator(mode="after")
+    def validate_order(self) -> "SelectionRange":
+        if self.end <= self.start:
+            raise ValueError("end must be greater than start")
+        return self
+
+
+class AnalyzeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(description="Word or expression to analyze (1-6 words).")
+    input_text: str | None = Field(
+        default=None,
+        description="Optional original context containing the selected text.",
+    )
+    language: str = Field(default="en", description="Only 'en' is supported.")
+    selection_ranges: list[SelectionRange] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=6,
+        description=(
+            "Ordered, non-overlapping code-point ranges, one per selected word."
+        ),
+    )
+
+
+class SelectionAnalysis(BaseModel):
+    head_lemma: str
+    pos: str = Field(description="spaCy Universal POS, currently 'VERB'.")
+    head_range: SelectionRange
+
+
+class MatchCandidate(BaseModel):
+    entry_id: str
+    canonical_text: str = Field(min_length=1, max_length=200)
+
+
+class MatchExpressionsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: str = "en"
+    input_text: str = Field(description="Original context to parse.")
+    selected_verb_range: SelectionRange
+    candidates: list[MatchCandidate]
+
+
+class ExpressionMatch(BaseModel):
+    entry_id: str
+    canonical_text: str
+    surface_text: str
+    component_ranges: list[SelectionRange]
+
+
+class MatchExpressionsResponse(BaseModel):
+    matches: list[ExpressionMatch]
 
 
 class MorphologyResult(BaseModel):
@@ -83,6 +148,7 @@ class WordAnalysisResponse(BaseModel):
     )
     tokens: list[TokenResult]
     input_text_analysis: InputTextAnalysis | None = None
+    selection_analysis: SelectionAnalysis | None
 
 
 class ExpressionTokenResult(BaseModel):
@@ -107,5 +173,9 @@ class ExpressionAnalysisResponse(BaseModel):
     kind: Literal["phrasal_verb", "expression"]
     head_lemma: str
     language: str
+    model_version: str = Field(
+        description="Loaded spaCy model package and version, joined by @."
+    )
     tokens: list[ExpressionTokenResult]
     context_match: ContextMatch | None = None
+    selection_analysis: SelectionAnalysis | None

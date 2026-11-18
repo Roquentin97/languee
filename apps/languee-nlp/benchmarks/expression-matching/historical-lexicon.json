@@ -1,0 +1,6 @@
+{
+  "provenance": "Original small experimental pattern list authored for Languee. Not a comprehensive dictionary. Held-out families are included as lexical knowledge, without example-specific semantic rules.",
+  "patterns": ["turn off", "look up", "look after", "give up", "put up", "put up with", "walk out on", "take off", "switch off", "pick up", "break up", "run out of", "run into", "bring in", "bring up", "depend on"],
+  "ambiguous_patterns": ["turn off", "look up", "run into"],
+  "prepositional_patterns": ["look after", "depend on"]
+}

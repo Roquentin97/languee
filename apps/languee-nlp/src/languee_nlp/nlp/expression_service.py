@@ -1,5 +1,4 @@
 import logging
-import unicodedata
 
 import spacy.language
 import spacy.tokens
@@ -117,14 +116,21 @@ def find_context_match(
     head_lemma: str,
     sanitized_expression: str,
     input_text: str,
+    context_doc: spacy.tokens.Doc | None = None,
 ) -> ContextMatch:
-    normalized_input = unicodedata.normalize("NFC", input_text)
+    normalized_input = input_text
 
     exact = _match_exact(normalized_input, sanitized_expression)
     if exact is not None:
         return exact
 
-    lemma_match = _match_by_lemma(nlp, expression_tokens, head_lemma, normalized_input)
+    lemma_match = _match_by_lemma(
+        nlp,
+        expression_tokens,
+        head_lemma,
+        normalized_input,
+        context_doc,
+    )
     if lemma_match is not None:
         return lemma_match
 
@@ -154,8 +160,9 @@ def _match_by_lemma(
     expression_tokens: list[spacy.tokens.Token],
     head_lemma: str,
     normalized_input: str,
+    context_doc: spacy.tokens.Doc | None = None,
 ) -> ContextMatch | None:
-    doc = nlp(normalized_input)
+    doc = context_doc if context_doc is not None else nlp(normalized_input)
     remaining = expression_tokens[1:]
 
     for i, tok in enumerate(doc):

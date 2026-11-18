@@ -4,10 +4,17 @@ meta {
   seq: 20
 }
 
-get {
-  url: {{base_url}}/analyze?text=saw&input_text=I%20saw%20the%20saw.&selection_start=10&selection_end=13
-  body: none
+post {
+  url: {{base_url}}/analyze
+  body: json
   auth: inherit
+}
+body:json {
+  {
+    "text": "saw",
+    "input_text": "I saw the saw.",
+    "selection_ranges": [{ "start": 10, "end": 13 }]
+  }
 }
 
 tests {
@@ -16,5 +23,6 @@ tests {
     expect(res.body.model_version).to.be.a("string");
     expect(res.body.tokens[0].lemma).to.be.a("string");
     expect(res.body.tokens[0].pos).to.be.a("string");
+    expect(res.body.selection_analysis).to.equal(null);
   });
 }

@@ -8,10 +8,15 @@ meta {
   ]
 }
 
-get {
-  url: {{base_url}}/analyze?text={{expression}}
-  body: none
+post {
+  url: {{base_url}}/analyze
+  body: json
   auth: inherit
+}
+body:json {
+  {
+    "text": "{{expression}}"
+  }
 }
 
 tests {

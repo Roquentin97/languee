@@ -160,9 +160,9 @@ def test_post_words_meeting_as_verb_in_planning_context():
             from languee_nlp.main import app
 
             client = TestClient(app)
-            response = client.get(
+            response = client.post(
                 "/analyze",
-                params={
+                json={
                     "text": word,
                     "input_text": context,
                 },
@@ -218,9 +218,9 @@ def test_post_words_meeting_as_noun_in_went_to_context():
             from languee_nlp.main import app
 
             client = TestClient(app)
-            response = client.get(
+            response = client.post(
                 "/analyze",
-                params={
+                json={
                     "text": word,
                     "input_text": context,
                 },
