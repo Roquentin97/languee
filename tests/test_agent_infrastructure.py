@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class AgentInfrastructureTest(unittest.TestCase):
     def test_skill_links_and_metadata(self):
-        for name in ('open-pr', 'trello-card', 'dependabot', 'local-artifact'):
+        for name in ('open-pr', 'trello-card', 'dependabot', 'local-artifact', 'remote-log-analysis'):
             canonical = ROOT / '.agents' / 'skills' / name / 'SKILL.md'
             adapter = ROOT / '.claude' / 'skills' / name / 'SKILL.md'
             self.assertEqual(canonical.resolve(), adapter.resolve())
@@ -39,6 +39,11 @@ class AgentInfrastructureTest(unittest.TestCase):
             self.assertTrue(text.startswith('---\npaths:\n'))
             self.assertTrue((ROOT / '.agents' / 'rules' / adapter.name).is_file())
             self.assertIn(f'.agents/rules/{adapter.name}', text)
+
+
+def load_tests(loader, tests, pattern):
+    tests.addTests(unittest.TestLoader().discover(str(ROOT / '.agents/skills/remote-log-analysis/tests')))
+    return tests
 
 
 if __name__ == '__main__':
