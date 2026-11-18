@@ -3,6 +3,7 @@ package com.example.langueedroid.offline
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.feature.offline.presentation.OfflineCardCreationRequest
 import com.example.langueedroid.feature.offline.presentation.OfflineQueueViewModel
 import kotlinx.coroutines.Dispatchers
@@ -101,6 +102,8 @@ class OfflineQueueViewModelTest {
                     lookupContext = "I saw the saw.",
                     selectionStart = 10,
                     selectionEnd = 13,
+                    selectionRanges = listOf(SelectionRange(10, 13)),
+                    targetRanges = listOf(SelectionRange(10, 13)),
                 )
             var received: OfflineCardCreationRequest? = null
             launch { received = viewModel.navigateToCardCreation.first() }
@@ -110,8 +113,8 @@ class OfflineQueueViewModelTest {
             assertEquals("en", received?.language)
             assertEquals("Edited example", received?.context)
             assertEquals("I saw the saw.", received?.lookupContext)
-            assertEquals(10, received?.selectionStart)
-            assertEquals(13, received?.selectionEnd)
+            assertEquals(listOf(SelectionRange(10, 13)), received?.selectionRanges)
+            assertEquals(listOf(SelectionRange(10, 13)), received?.targetRanges)
         }
 
     @Test

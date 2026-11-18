@@ -6,6 +6,7 @@ data class CreateCardRequest(
     val context: String? = null,
     val inflectionForms: Map<String, String>?,
     val lookupId: String? = null,
+    val targetRanges: List<SelectionRangeDto>? = null,
 )
 
 data class CardDefinitionDto(
@@ -37,6 +38,7 @@ data class CardResponseDto(
     val entryId: String?,
     val partOfSpeech: String?,
     val context: String?,
+    val targetRanges: List<SelectionRangeDto>? = null,
     val inflectionForms: Map<String, String>?,
     val createdAt: String,
     val updatedAt: String,

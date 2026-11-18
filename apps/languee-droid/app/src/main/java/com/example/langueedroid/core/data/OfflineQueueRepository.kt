@@ -4,6 +4,8 @@ import com.example.langueedroid.core.data.local.OfflineEntryDao
 import com.example.langueedroid.core.data.local.OfflineEntryEntity
 import com.example.langueedroid.core.data.local.toDomain
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.example.langueedroid.core.domain.SelectionRange
+import com.example.langueedroid.core.domain.SelectionRanges
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -25,6 +27,9 @@ class OfflineQueueRepository(
         selectionStart: Int? = null,
         selectionEnd: Int? = null,
         language: String? = null,
+        selectionRanges: List<SelectionRange>? = null,
+        targetRanges: List<SelectionRange>? = null,
+        includeSuggestions: Boolean = true,
     ) {
         dao.insert(
             OfflineEntryEntity(
@@ -36,6 +41,9 @@ class OfflineQueueRepository(
                 lookupContext = lookupContext,
                 selectionStart = selectionStart,
                 selectionEnd = selectionEnd,
+                selectionRanges = selectionRanges?.takeIf { it.isNotEmpty() }?.let(SelectionRanges::encode),
+                targetRanges = targetRanges?.takeIf { it.isNotEmpty() }?.let(SelectionRanges::encode),
+                includeSuggestions = includeSuggestions,
             ),
         )
     }
@@ -56,6 +64,9 @@ class OfflineQueueRepository(
         lookupContext: String? = null,
         selectionStart: Int? = null,
         selectionEnd: Int? = null,
+        selectionRanges: List<SelectionRange>? = null,
+        targetRanges: List<SelectionRange>? = null,
+        includeSuggestions: Boolean = true,
     ) {
         dao.insert(
             OfflineEntryEntity(
@@ -67,6 +78,9 @@ class OfflineQueueRepository(
                 lookupContext = lookupContext,
                 selectionStart = selectionStart,
                 selectionEnd = selectionEnd,
+                selectionRanges = selectionRanges?.takeIf { it.isNotEmpty() }?.let(SelectionRanges::encode),
+                targetRanges = targetRanges?.takeIf { it.isNotEmpty() }?.let(SelectionRanges::encode),
+                includeSuggestions = includeSuggestions,
                 pendingDefinitionId = definitionId,
                 pendingLookupId = lookupId,
                 pendingDeckId = deckId,

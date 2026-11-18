@@ -42,8 +42,8 @@ class OfflineQueueViewModel
                     entryId = entry.id,
                     language = entry.language,
                     lookupContext = entry.lookupContext,
-                    selectionStart = entry.selectionStart,
-                    selectionEnd = entry.selectionEnd,
+                    selectionRanges = entry.selectionRanges,
+                    targetRanges = entry.targetRanges,
                 ),
             )
         }

@@ -13,6 +13,8 @@ import com.example.langueedroid.core.domain.AnkiDroidSetupIssue
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
+import com.example.langueedroid.core.domain.SelectionRange
+import com.example.langueedroid.core.domain.SelectionRanges
 import com.example.langueedroid.core.domain.UnauthorizedException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -31,8 +33,15 @@ import javax.inject.Inject
 /** One-shot navigation event emitted when the capture flow produces a word ready for card creation. */
 data class LookupSelection(
     val context: String,
-    val start: Int,
-    val end: Int,
+    val ranges: List<SelectionRange>,
+    val captureContext: String? = context,
+    val sourceOffsetCodePoints: Int = 0,
+)
+
+private data class PreparedEntry(
+    val context: String?,
+    val language: String,
+    val selection: LookupSelection?,
 )
 
 data class CardCreationRequest(
@@ -118,18 +127,23 @@ class MainViewModel
             definition: String,
             deck: Deck,
             cardId: String? = null,
+            targetRanges: List<SelectionRange> = emptyList(),
+            capturedContext: String? = null,
+            targetWord: String? = null,
         ): Boolean {
             val current = workspace ?: return false
             val operation = cardId?.let { it to deck.id }
             if (operation != null && operation in completedOperations) return true
-            if (current.selectedIndices.isEmpty()) return false
-            if (current.completed.any { completed -> completed.indices.any { it in current.selectedIndices } }) return false
+            val sourceRanges = targetRangesInCaptureContext(targetRanges, capturedContext, targetWord, current)
+            val capturedIndices = tokenIndicesForRanges(current.tokens, sourceRanges).ifEmpty { current.selectedIndices }
+            if (capturedIndices.isEmpty()) return false
+            if (current.completed.any { completed -> completed.indices.any { it in capturedIndices } }) return false
             preferredDeckId = deck.id
             if (operation != null) completedOperations.add(operation)
             val updated =
                 current.copy(
                     selectedIndices = emptyList(),
-                    completed = current.completed + CompletedTarget(current.selectedIndices, definition, deck.name),
+                    completed = current.completed + CompletedTarget(capturedIndices, definition, deck.name),
                 )
             workspace = updated
             _state.value = updated
@@ -196,49 +210,85 @@ class MainViewModel
         ) {
             val trimmedWord = word.trim()
             if (trimmedWord.isEmpty()) return
-            val normalizedContext = context?.trim()?.ifBlank { null }
-            if (!EntryValidator.isContextWithinLimit(normalizedContext)) return
-            val review = _state.value as? AppState.Screen.ContextReview
-            if (review?.selection != null) {
-                val range = review.selection
-                lookupSelection =
-                    LookupSelection(
-                        review.context,
-                        review.context.codePointCount(0, range.first),
-                        review.context.codePointCount(
-                            0,
-                            range.last + 1,
-                        ),
-                    )
-            }
-            val language = currentSelectedLanguage()
-            val selection = lookupSelection
+            val prepared = prepareEntry(trimmedWord, context) ?: return
             if (isOffline.value) {
-                if (offlineQueued) return
-                offlineQueued = true
-                val generation = sessionGeneration
-                viewModelScope.launch {
-                    try {
-                        offlineQueueRepository.add(
-                            trimmedWord,
-                            normalizedContext,
-                            selection?.context,
-                            selection?.start,
-                            selection?.end,
-                            language,
-                        )
-                        _offlineWordSaved.tryEmit(generation)
-                    } catch (error: Exception) {
-                        if (error is CancellationException) throw error
-                        if (generation == sessionGeneration) {
-                            offlineQueued = false
-                            _offlineQueueError.value = true
-                        }
-                    }
-                }
+                queueOfflineEntry(trimmedWord, prepared)
                 return
             }
-            _cardCreationRequest.tryEmit(CardCreationRequest(trimmedWord, normalizedContext, language, sessionGeneration, selection))
+            _cardCreationRequest.tryEmit(
+                CardCreationRequest(trimmedWord, prepared.context, prepared.language, sessionGeneration, prepared.selection),
+            )
+        }
+
+        private fun prepareEntry(
+            word: String,
+            context: String?,
+        ): PreparedEntry? {
+            val review = _state.value as? AppState.Screen.ContextReview
+            if (review != null && SelectionRanges.matchesTarget(review.context, review.selectionRanges, review.targetWord)) {
+                lookupSelection =
+                    LookupSelection(
+                        context = review.context,
+                        ranges = review.selectionRanges,
+                        captureContext = review.captureContext,
+                        sourceOffsetCodePoints = review.sourceOffsetCodePoints,
+                    )
+            }
+            val normalizedContext =
+                context
+                    ?.let { value ->
+                        if (lookupSelection?.context == value) value else value.trim()
+                    }?.ifBlank { null }
+            if (!EntryValidator.isContextWithinLimit(normalizedContext)) return null
+            val selection =
+                lookupSelection?.takeIf { selected ->
+                    selected.context == normalizedContext &&
+                        SelectionRanges.matchesTarget(selected.context, selected.ranges, word) &&
+                        SelectionRanges.matchesTarget(normalizedContext, selected.ranges, word)
+                }
+            if (selection == null) lookupSelection = null
+            return PreparedEntry(normalizedContext, currentSelectedLanguage(), selection)
+        }
+
+        private fun queueOfflineEntry(
+            word: String,
+            prepared: PreparedEntry,
+        ) {
+            if (offlineQueued) return
+            offlineQueued = true
+            val generation = sessionGeneration
+            viewModelScope.launch {
+                try {
+                    offlineQueueRepository.add(
+                        word,
+                        prepared.context,
+                        lookupContext = prepared.selection?.context,
+                        selectionStart =
+                            prepared.selection
+                                ?.ranges
+                                ?.singleOrNull()
+                                ?.start,
+                        selectionEnd =
+                            prepared.selection
+                                ?.ranges
+                                ?.singleOrNull()
+                                ?.end,
+                        language = prepared.language,
+                        selectionRanges = prepared.selection?.ranges,
+                        targetRanges =
+                            prepared.selection?.ranges?.takeIf {
+                                SelectionRanges.matchesTarget(prepared.context, it, word)
+                            },
+                    )
+                    _offlineWordSaved.tryEmit(generation)
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    if (generation == sessionGeneration) {
+                        offlineQueued = false
+                        _offlineQueueError.value = true
+                    }
+                }
+            }
         }
 
         private var lastPendingSaveKey: String? = null
@@ -252,6 +302,8 @@ class MainViewModel
             entryId: String? = null,
             selection: LookupSelection? = null,
             lookupContext: String? = null,
+            targetRanges: List<SelectionRange>? = null,
+            includeSuggestions: Boolean = true,
         ) {
             val key = listOf(sessionGeneration, entryId, definition.id, definition.lookupId, deck.id).joinToString(":")
             if (lastPendingSaveKey == key) return
@@ -269,8 +321,11 @@ class MainViewModel
                         definition.inflectionForms,
                         entryId,
                         selection?.context ?: lookupContext,
-                        selection?.start,
-                        selection?.end,
+                        selection?.ranges?.singleOrNull()?.start,
+                        selection?.ranges?.singleOrNull()?.end,
+                        selectionRanges = selection?.ranges,
+                        targetRanges = targetRanges?.takeIf { SelectionRanges.matchesTarget(context, it, word) },
+                        includeSuggestions = includeSuggestions,
                     )
                     _offlineWordSaved.tryEmit(generation)
                 } catch (error: Exception) {
@@ -371,6 +426,12 @@ class MainViewModel
             _state.value = current.copy(selectedIndices = updatedSelection, inspectedIndex = index).also { workspace = it }
         }
 
+        fun clearWordSelection() {
+            val current = _state.value as? AppState.Screen.SharedContextCapture ?: return
+            lookupSelection = null
+            _state.value = current.copy(selectedIndices = emptyList()).also { workspace = it }
+        }
+
         /**
          * Called when the user confirms the current word selection in the SharedContextCapture
          * screen. Joins the selected words into the target expression and navigates to
@@ -381,20 +442,8 @@ class MainViewModel
             if (current.selectedIndices.isEmpty()) return
             val targetWord = ExpressionSpanSelector.joinSelection(current.tokens, current.selectedIndices)
             val context = current.rawContext
-            val highlights =
-                if (current.selectedIndices.size == 1) {
-                    val index = current.selectedIndices.single()
-                    val start =
-                        current.tokens.take(index).sumOf { token ->
-                            when (token) {
-                                is com.example.langueedroid.core.domain.Token.Word -> token.text.length
-                                is com.example.langueedroid.core.domain.Token.Separator -> token.text.length
-                            }
-                        }
-                    listOf(start until start + targetWord.length)
-                } else {
-                    EntryValidator.findStandaloneMatches(targetWord, context)
-                }
+            val ranges = SelectionRanges.fromTokenIndices(current.tokens, current.selectedIndices)
+            val highlights = ranges.mapNotNull { SelectionRanges.toUtf16Range(context, it) }
             val sentenceCount = EntryValidator.countSentences(context)
             _state.value =
                 AppState.Screen.ContextReview(
@@ -402,8 +451,10 @@ class MainViewModel
                     context = context,
                     isMultiSentence = sentenceCount > 1,
                     highlightRanges = highlights,
+                    selectionRanges = ranges,
+                    captureContext = current.rawContext,
+                    sourceOffsetCodePoints = 0,
                     selectedLanguage = current.selectedLanguage,
-                    selection = highlights.singleOrNull().takeIf { current.selectedIndices.size == 1 },
                 )
         }
 
@@ -415,52 +466,39 @@ class MainViewModel
          */
         fun confirmTruncation() {
             val current = _state.value as? AppState.Screen.ContextReview ?: return
-            val selection = workspace
-            val index = selection?.selectedIndices?.firstOrNull()
-            val offset =
-                if (selection != null && index != null) {
-                    selection.tokens.take(index).sumOf { token ->
-                        when (token) {
-                            is com.example.langueedroid.core.domain.Token.Word -> token.text.length
-                            is com.example.langueedroid.core.domain.Token.Separator -> token.text.length
-                        }
-                    }
-                } else {
-                    null
-                }
+            val bounds = sentenceBounds(current.context, current.selectionRanges)
             val sentence =
-                if (offset == null) {
-                    EntryValidator.extractSentenceContaining(current.targetWord, current.context)
-                } else {
-                    val start = current.context.lastIndexOfAny(charArrayOf('.', '!', '?'), (offset - 1).coerceAtLeast(0)) + 1
-                    val end =
-                        current.context.indexOfAny(charArrayOf('.', '!', '?'), offset).let {
-                            if (it < 0) current.context.length else it + 1
-                        }
-                    current.context.substring(start, end).trim()
-                }
+                bounds?.let { current.context.substring(it.first, it.second) }
+                    ?: EntryValidator.extractSentenceContaining(current.targetWord, current.context)
             if (sentence == null) {
                 _state.value = current.copy(isMultiSentence = false)
                 return
             }
+            val sourceStart = bounds?.first ?: current.context.indexOf(sentence).coerceAtLeast(0)
+            val prefixCodePoints = current.context.codePointCount(0, sourceStart)
             val rebased =
-                current.selection?.let { selected ->
-                    val segmentStart = current.context.lastIndexOfAny(charArrayOf('.', '!', '?'), (selected.first - 1).coerceAtLeast(0)) + 1
-                    val leading =
-                        current.context
-                            .substring(segmentStart, selected.first)
-                            .takeWhile { it.isWhitespace() }
-                            .length
-                    val start = selected.first - segmentStart - leading
-                    start until start + (selected.last - selected.first + 1)
+                current.selectionRanges
+                    .mapNotNull { range ->
+                        val utf16 = SelectionRanges.toUtf16Range(current.context, range) ?: return@mapNotNull null
+                        val sentenceEnd = sourceStart + sentence.length
+                        if (utf16.first < sourceStart || utf16.last >= sentenceEnd) return@mapNotNull null
+                        SelectionRange(range.start - prefixCodePoints, range.end - prefixCodePoints)
+                    }.takeIf { it.size == current.selectionRanges.size }
+                    .orEmpty()
+            val highlights =
+                if (rebased.isNotEmpty()) {
+                    rebased.mapNotNull { SelectionRanges.toUtf16Range(sentence, it) }
+                } else {
+                    EntryValidator.findStandaloneMatches(current.targetWord, sentence)
                 }
-            val highlights = rebased?.let(::listOf) ?: EntryValidator.findStandaloneMatches(current.targetWord, sentence)
             _state.value =
                 current.copy(
                     context = sentence,
                     isMultiSentence = false,
                     highlightRanges = highlights,
-                    selection = rebased,
+                    selectionRanges = rebased,
+                    captureContext = current.captureContext ?: workspace?.rawContext ?: current.context,
+                    sourceOffsetCodePoints = current.sourceOffsetCodePoints + prefixCodePoints,
                 )
         }
 
@@ -534,23 +572,27 @@ class MainViewModel
             context: String,
         ) {
             val review = _state.value as? AppState.Screen.ContextReview
-            review?.selection?.let { range ->
-                lookupSelection =
-                    LookupSelection(
-                        review.context,
-                        review.context.codePointCount(0, range.first),
-                        review.context.codePointCount(
-                            0,
-                            range.last + 1,
-                        ),
-                    )
-            }
-            val highlightRanges = EntryValidator.findStandaloneMatches(targetWord, context)
+            lookupSelection = null
+            val ranges =
+                if (review != null && SelectionRanges.matchesTarget(review.context, review.selectionRanges, targetWord)) {
+                    review.selectionRanges
+                } else {
+                    emptyList()
+                }
+            val highlightRanges =
+                ranges
+                    .mapNotNull { SelectionRanges.toUtf16Range(context, it) }
+                    .ifEmpty {
+                        if (ranges.isEmpty()) EntryValidator.findStandaloneMatches(targetWord, context) else emptyList()
+                    }
             _state.value =
                 AppState.Screen.ContextEdit(
                     targetWord = targetWord,
                     context = context,
                     highlightRanges = highlightRanges,
+                    selectionRanges = ranges,
+                    captureContext = review?.captureContext,
+                    sourceOffsetCodePoints = review?.sourceOffsetCodePoints ?: 0,
                     selectedLanguage = currentSelectedLanguage(),
                 )
         }
@@ -569,7 +611,20 @@ class MainViewModel
                 ContextEditSaveResult.EmptyContextPendingConfirmation
             } else if (!EntryValidator.isContextWithinLimit(editedContext)) {
                 ContextEditSaveResult.ContextTooLong
-            } else if (EntryValidator.isContextValid(targetWord, editedContext)) {
+            } else if (SelectionRanges.matchesTarget(editedContext, current.selectionRanges, targetWord) ||
+                EntryValidator.isContextValid(targetWord, editedContext)
+            ) {
+                lookupSelection =
+                    if (SelectionRanges.matchesTarget(editedContext, current.selectionRanges, targetWord)) {
+                        LookupSelection(
+                            context = editedContext,
+                            ranges = current.selectionRanges,
+                            captureContext = current.captureContext.takeIf { editedContext == current.context },
+                            sourceOffsetCodePoints = current.sourceOffsetCodePoints.takeIf { editedContext == current.context } ?: 0,
+                        )
+                    } else {
+                        null
+                    }
                 addEntry(targetWord, editedContext)
                 ContextEditSaveResult.Valid
             } else {
@@ -579,7 +634,61 @@ class MainViewModel
 
         /** Continue without context after the empty-context confirmation. */
         fun confirmSaveWithoutContext(targetWord: String) {
+            lookupSelection = null
             addEntry(targetWord, null)
+        }
+
+        private fun sentenceBounds(
+            context: String,
+            ranges: List<SelectionRange>,
+        ): Pair<Int, Int>? {
+            val offsets = ranges.map { SelectionRanges.toUtf16Range(context, it) ?: return null }
+            val first = offsets.firstOrNull()?.first ?: return null
+            val start = context.lastIndexOfAny(charArrayOf('.', '!', '?'), first - 1) + 1
+            val punctuation = context.indexOfAny(charArrayOf('.', '!', '?'), offsets.first().last + 1)
+            val end = if (punctuation < 0) context.length else punctuation + 1
+            if (offsets.any { it.first < start || it.last + 1 > end }) return null
+            val segment = context.substring(start, end)
+            val leading = segment.indexOfFirst { !it.isWhitespace() }.takeIf { it >= 0 } ?: return null
+            val trailing = segment.indexOfLast { !it.isWhitespace() }.takeIf { it >= 0 } ?: return null
+            return (start + leading) to (start + trailing + 1)
+        }
+
+        private fun tokenIndicesForRanges(
+            tokens: List<com.example.langueedroid.core.domain.Token>,
+            ranges: List<SelectionRange>,
+        ): List<Int> {
+            if (ranges.isEmpty()) return emptyList()
+            val indices =
+                ranges.mapNotNull { requested ->
+                    tokens.indices.firstOrNull { index ->
+                        SelectionRanges.fromTokenIndices(tokens, listOf(index)).singleOrNull() == requested
+                    }
+                }
+            return indices.takeIf { it.size == ranges.size }.orEmpty()
+        }
+
+        private fun targetRangesInCaptureContext(
+            ranges: List<SelectionRange>,
+            context: String?,
+            target: String?,
+            current: AppState.Screen.SharedContextCapture,
+        ): List<SelectionRange> {
+            val selection = lookupSelection ?: return emptyList()
+            val source = selection.captureContext ?: return emptyList()
+            if (source != current.rawContext || context != selection.context || target == null) return emptyList()
+            if (!SelectionRanges.matchesTarget(context, ranges, target)) return emptyList()
+            val codePointCount = source.codePointCount(0, source.length)
+            if (selection.sourceOffsetCodePoints > codePointCount) return emptyList()
+            val sourceStart = source.offsetByCodePoints(0, selection.sourceOffsetCodePoints)
+            val sourceEnd = sourceStart + selection.context.length
+            if (sourceEnd > source.length || source.substring(sourceStart, sourceEnd) != selection.context) return emptyList()
+            return ranges.map { range ->
+                SelectionRange(
+                    start = range.start + selection.sourceOffsetCodePoints,
+                    end = range.end + selection.sourceOffsetCodePoints,
+                )
+            }
         }
 
         /** Request navigation to the AnkiDroid bulk sync screen. */

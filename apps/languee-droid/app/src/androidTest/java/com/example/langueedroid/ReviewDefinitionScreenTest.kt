@@ -9,7 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.DefinitionReview
-import com.example.langueedroid.core.domain.LexicalKind
+import com.example.langueedroid.core.domain.LexicalEntryKind
 import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
@@ -36,7 +36,7 @@ class ReviewDefinitionScreenTest {
                 deckId = "deck-1",
                 deckName = "Words",
                 isNew = true,
-                prompt = ReviewPrompt("What does run mean?", null, "verb", LexicalKind.WORD, 3),
+                prompt = ReviewPrompt("What does run mean?", null, "verb", LexicalEntryKind.WORD, 3),
                 type = ReviewCardType.DEFINITION,
                 definition = DefinitionReview("run", null, null),
             )

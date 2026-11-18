@@ -18,15 +18,19 @@ import com.example.langueedroid.core.domain.DefinitionResult
 import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.LookupAlternative
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.VocabularyNotFoundException
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationViewModel
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -44,6 +48,7 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -85,11 +90,16 @@ class CardCreationViewModelTest {
         context: String? = "I have a cat",
         language: String = "en",
         offlineEntryId: String? = null,
+        lookupContext: String? = null,
+        selectionRanges: List<SelectionRange> = emptyList(),
         offlineQueueRepository: OfflineQueueRepository = mock(),
     ) = CardCreationViewModel(
         targetWord = targetWord,
         context = context,
         language = language,
+        lookupContext = lookupContext,
+        selectionRanges = selectionRanges,
+        targetRanges = selectionRanges,
         offlineEntryId = offlineEntryId,
         offlineQueueRepository = offlineQueueRepository,
         deckRepository = deckRepository,
@@ -151,6 +161,17 @@ class CardCreationViewModelTest {
         providerMiss = providerMiss,
         expressionContextFound = expressionContextFound,
     )
+
+    private fun giveUpAlternative() =
+        LookupAlternative(
+            type = "expression",
+            text = "gave up",
+            lemma = "give up",
+            entryId = "entry-give-up",
+            selectionRanges = listOf(SelectionRange(5, 9), SelectionRange(13, 15)),
+            reason = "context_match",
+            prominence = "normal",
+        )
 
     private fun aCreatedUserDefinition(
         id: String = "def_user_1",
@@ -658,18 +679,86 @@ class CardCreationViewModelTest {
             )
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(chosen)))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card"))
             stubAnkiSetupNotReady()
             val vm = buildViewModel(offlineEntryId = "entry", offlineQueueRepository = queue)
             advanceUntilIdle()
-            verify(vocabularyRepository).lookup(eq("cat"), eq("en"), eq("I have a cat"), eq(9), eq(12))
+            verify(vocabularyRepository).lookup(
+                eq("cat"),
+                eq("en"),
+                eq("I have a cat"),
+                eq(listOf(SelectionRange(9, 12))),
+                eq(true),
+            )
             val flow = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
             assertEquals("chosen", flow.selectedDefinition?.id)
             assertEquals("old-lookup", flow.selectedDefinition?.lookupId)
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository).createCard(eq(deck.id), eq("chosen"), anyOrNull(), eq(mapOf("singular" to "cat")), eq("old-lookup"))
+            verify(
+                cardRepository,
+            ).createCard(eq(deck.id), eq("chosen"), anyOrNull(), eq(mapOf("singular" to "cat")), eq("old-lookup"), anyOrNull())
             verify(ankiDroidExportService).checkSetup(prefsStore)
+        }
+
+    @Test
+    fun `queued expression retry keeps its selected lookup and suppresses recursive suggestions`() =
+        runTest {
+            val deck = aDeck()
+            val context = "They gave it up."
+            val ranges = listOf(SelectionRange(5, 9), SelectionRange(13, 15))
+            val chosen = aDefinition().copy(id = "expression-definition", lookupId = "refreshed-lookup")
+            val queue: OfflineQueueRepository = mock()
+            whenever(queue.find("expression-entry")).thenReturn(
+                OfflineEntry(
+                    id = "expression-entry",
+                    word = "gave up",
+                    context = context,
+                    capturedAt = 1,
+                    lookupContext = context,
+                    selectionRanges = ranges,
+                    targetRanges = ranges,
+                    pendingDefinitionId = "expression-definition",
+                    pendingLookupId = "chosen-expression-lookup",
+                    pendingDeckId = deck.id,
+                    includeSuggestions = false,
+                ),
+            )
+            stubDecks(deck)
+            stubLookup(aLookupResult(definitions = listOf(chosen), kind = LexicalEntryKind.PHRASAL_VERB))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.success("card"))
+            stubAnkiSetupNotReady()
+
+            val vm =
+                buildViewModel(
+                    targetWord = "gave up",
+                    context = context,
+                    offlineEntryId = "expression-entry",
+                    lookupContext = context,
+                    selectionRanges = ranges,
+                    offlineQueueRepository = queue,
+                )
+            advanceUntilIdle()
+
+            verify(vocabularyRepository).lookup(eq("gave up"), eq("en"), eq(context), eq(ranges), eq(false))
+            val loaded = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            assertEquals("expression-definition", loaded.selectedDefinition?.id)
+            assertEquals("chosen-expression-lookup", loaded.selectedDefinition?.lookupId)
+            assertEquals(false, vm.state.value.includeSuggestions)
+
+            vm.createCard()
+            advanceUntilIdle()
+            verify(cardRepository).createCard(
+                eq(deck.id),
+                eq("expression-definition"),
+                eq(context),
+                anyOrNull(),
+                eq("chosen-expression-lookup"),
+                eq(ranges),
+            )
         }
 
     @Test
@@ -737,7 +826,9 @@ class CardCreationViewModelTest {
             val chosen = aDefinition().copy(id = "chosen", preferred = false, lookupId = "lookup")
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(first, chosen)))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card-id"))
             stubAnkiSetupNotReady()
             val vm = buildViewModel()
             advanceUntilIdle()
@@ -746,7 +837,7 @@ class CardCreationViewModelTest {
             vm.onDeckSelected(deck)
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository).createCard(eq(deck.id), eq("chosen"), anyOrNull(), anyOrNull(), eq("lookup"))
+            verify(cardRepository).createCard(eq(deck.id), eq("chosen"), anyOrNull(), anyOrNull(), eq("lookup"), anyOrNull())
         }
 
     @Test
@@ -756,7 +847,9 @@ class CardCreationViewModelTest {
             val definition = aDefinition()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(definition)))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card-id"))
             stubAnkiSetupNotReady()
 
             val vm = buildViewModel()
@@ -799,7 +892,7 @@ class CardCreationViewModelTest {
             vm.createCard()
             advanceUntilIdle()
 
-            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
+            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -812,7 +905,9 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card-id"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card-id"))
             stubAnkiSetupNotReady()
 
             val vm = buildViewModel()
@@ -829,7 +924,7 @@ class CardCreationViewModelTest {
             advanceUntilIdle()
 
             // createCard should only be called once in the repository
-            verify(cardRepository, times(1)).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
+            verify(cardRepository, times(1)).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -842,7 +937,7 @@ class CardCreationViewModelTest {
             val deck = aDeck(id = "d1")
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(CardAlreadyExistsException()))
 
             val vm = buildViewModel()
@@ -873,7 +968,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(StaleReferenceException()))
 
             val vm = buildViewModel()
@@ -905,7 +1000,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(UnauthorizedException()))
 
             val vm = buildViewModel()
@@ -938,7 +1033,7 @@ class CardCreationViewModelTest {
             val deck = aDeck()
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("HTTP 500")))
 
             val vm = buildViewModel()
@@ -964,7 +1059,7 @@ class CardCreationViewModelTest {
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
             stubAnkiSetupNotReady()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(RuntimeException("temporary")), Result.success("card"))
             val vm = buildViewModel()
             advanceUntilIdle()
@@ -976,7 +1071,7 @@ class CardCreationViewModelTest {
             advanceUntilIdle()
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository, times(2)).createCard(eq(deck.id), any(), eq("I have a cat"), anyOrNull(), anyOrNull())
+            verify(cardRepository, times(2)).createCard(eq(deck.id), any(), eq("I have a cat"), anyOrNull(), anyOrNull(), anyOrNull())
             assertTrue(vm.state.value.flowState is CardCreationFlowState.CardCreated)
         }
 
@@ -987,7 +1082,9 @@ class CardCreationViewModelTest {
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
             stubAnkiSetupNotReady()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card"))
             val vm = buildViewModel(targetWord = "looked up", context = "He looked the word up.")
             advanceUntilIdle()
             val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
@@ -996,7 +1093,7 @@ class CardCreationViewModelTest {
             vm.onDeckSelected(deck)
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository).createCard(eq(deck.id), any(), eq("He looked the word up."), anyOrNull(), anyOrNull())
+            verify(cardRepository).createCard(eq(deck.id), any(), eq("He looked the word up."), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     @Test
@@ -1006,7 +1103,9 @@ class CardCreationViewModelTest {
             stubDecks(deck)
             stubLookup(aLookupResult(definitions = listOf(aDefinition())))
             stubAnkiSetupNotReady()
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card"))
             val vm = buildViewModel()
             advanceUntilIdle()
             val definitions = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
@@ -1015,7 +1114,7 @@ class CardCreationViewModelTest {
             vm.onDeckSelected(deck)
             vm.createCard()
             advanceUntilIdle()
-            verify(cardRepository).createCard(eq(deck.id), any(), eq("The cat slept."), anyOrNull(), anyOrNull())
+            verify(cardRepository).createCard(eq(deck.id), any(), eq("The cat slept."), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
@@ -1040,10 +1139,210 @@ class CardCreationViewModelTest {
             vm.createCard()
             advanceUntilIdle()
 
-            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
+            verify(cardRepository, never()).createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
     // -------------------------------------------------------------------------
+    @Test
+    fun `alternative lookup uses surface ranges returns to original and saves chosen metadata`() =
+        runTest {
+            val deck = aDeck()
+            val context = "They gave it up quickly."
+            val alternative = giveUpAlternative()
+            val originalDefinition = aDefinition().copy(id = "original-definition", lookupId = "original-lookup", lemma = "give")
+            val alternativeDefinition =
+                aDefinition().copy(
+                    id = "alternative-definition",
+                    lookupId = "alternative-lookup",
+                    lemma = "give up",
+                )
+            val originalResult =
+                aLookupResult(definitions = listOf(originalDefinition)).copy(
+                    input = "gave",
+                    lemma = "give",
+                    alternatives = listOf(alternative),
+                )
+            val alternativeResult =
+                aLookupResult(definitions = listOf(alternativeDefinition), kind = LexicalEntryKind.PHRASAL_VERB).copy(
+                    input = alternative.text,
+                    lemma = alternative.lemma,
+                )
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.success(originalResult))
+                .thenReturn(Result.success(alternativeResult))
+                .thenReturn(Result.success(alternativeResult))
+            whenever(deckRepository.getDecks()).thenReturn(Result.success(listOf(deck)))
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.success("card"))
+            stubAnkiSetupNotReady()
+
+            val vm =
+                buildViewModel(
+                    targetWord = "gave",
+                    context = context,
+                    lookupContext = context,
+                    selectionRanges = listOf(SelectionRange(5, 9)),
+                )
+            advanceUntilIdle()
+            vm.lookupAlternative(alternative)
+            advanceUntilIdle()
+
+            verify(vocabularyRepository).lookup(
+                eq("gave up"),
+                eq("en"),
+                eq(context),
+                eq(alternative.selectionRanges),
+                eq(false),
+            )
+            assertEquals("gave up", vm.state.value.targetWord)
+            assertEquals(alternative, vm.state.value.displayedAlternative)
+
+            vm.returnToOriginalLookup()
+            assertEquals("gave", vm.state.value.targetWord)
+            assertEquals(
+                "original-definition",
+                (vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded).definitions.single().id,
+            )
+
+            vm.lookupAlternative(alternative)
+            advanceUntilIdle()
+            val loaded = vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded
+            vm.onDefinitionSelected(loaded.definitions.single())
+            vm.onExampleConfirmed(context)
+            vm.createCard()
+            advanceUntilIdle()
+
+            verify(cardRepository).createCard(
+                eq(deck.id),
+                eq("alternative-definition"),
+                eq(context),
+                anyOrNull(),
+                eq("alternative-lookup"),
+                eq(alternative.selectionRanges),
+            )
+        }
+
+    @Test
+    fun `saving an alternative prevents target switching and retains its capture metadata`() =
+        runTest {
+            val context = "They gave it up quickly."
+            val alternative = giveUpAlternative()
+            val chosen = aDefinition().copy(id = "chosen", lookupId = "chosen-lookup", lemma = "give up")
+            val original = aLookupResult().copy(alternatives = listOf(alternative))
+            val result = aLookupResult(listOf(chosen), LexicalEntryKind.PHRASAL_VERB)
+            stubDecks(aDeck())
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.success(original))
+                .thenReturn(Result.success(result))
+            val save = CompletableDeferred<Result<String>>()
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .doSuspendableAnswer { save.await() }
+            stubAnkiSetupNotReady()
+            val vm = buildViewModel(targetWord = "gave", context = context, selectionRanges = listOf(SelectionRange(5, 9)))
+            advanceUntilIdle()
+            vm.lookupAlternative(alternative)
+            advanceUntilIdle()
+            vm.onDefinitionSelected(chosen)
+            vm.onExampleConfirmed(context)
+            vm.createCard()
+            advanceUntilIdle()
+
+            vm.returnToOriginalLookup()
+            vm.lookupAlternative(alternative)
+            assertEquals("gave up", vm.state.value.targetWord)
+            assertTrue(vm.state.value.flowState is CardCreationFlowState.CreatingCard)
+            save.complete(Result.success("saved"))
+            advanceUntilIdle()
+
+            val event = vm.cardCreatedEvent.first()
+            assertEquals("gave up", event.targetWord)
+            assertEquals(context, event.capturedContext)
+            assertEquals(alternative.selectionRanges, event.targetRanges)
+            verify(
+                cardRepository,
+            ).createCard(eq("d1"), eq("chosen"), eq(context), anyOrNull(), eq("chosen-lookup"), eq(alternative.selectionRanges))
+            verify(vocabularyRepository, times(2)).lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+    @Test
+    fun `saving the visible original cancels a pending alternative lookup`() =
+        runTest {
+            val context = "They gave it up quickly."
+            val alternative = giveUpAlternative()
+            val definition = aDefinition().copy(lookupId = "original-lookup")
+            val original = aLookupResult(listOf(definition)).copy(alternatives = listOf(alternative))
+            val pending = CompletableDeferred<Result<LookupResult>>()
+            stubDecks(aDeck())
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .doSuspendableAnswer { invocation ->
+                    if (invocation.getArgument<String>(0) == "gave") Result.success(original) else pending.await()
+                }
+            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.success("saved"))
+            stubAnkiSetupNotReady()
+            val ranges = listOf(SelectionRange(5, 9))
+            val vm = buildViewModel(targetWord = "gave", context = context, selectionRanges = ranges)
+            advanceUntilIdle()
+            vm.onDefinitionSelected(definition)
+            vm.onExampleConfirmed(context)
+            vm.lookupAlternative(alternative)
+            advanceUntilIdle()
+            vm.createCard()
+            advanceUntilIdle()
+            pending.complete(Result.success(aLookupResult(kind = LexicalEntryKind.PHRASAL_VERB)))
+            advanceUntilIdle()
+
+            assertEquals("gave", vm.state.value.targetWord)
+            assertTrue(vm.state.value.flowState is CardCreationFlowState.CardCreated)
+            assertEquals("gave", vm.cardCreatedEvent.first().targetWord)
+            verify(cardRepository).createCard(eq("d1"), eq(definition.id), eq(context), anyOrNull(), eq("original-lookup"), eq(ranges))
+        }
+
+    @Test
+    fun `alternative dictionary miss and provider failure preserve original lookup distinctly`() =
+        runTest {
+            val alternative = giveUpAlternative()
+            val context = "They gave it up."
+            val originalDefinition = aDefinition().copy(id = "original", lookupId = "original-lookup")
+            val originalResult =
+                aLookupResult(definitions = listOf(originalDefinition)).copy(
+                    input = "gave",
+                    lemma = "give",
+                    alternatives = listOf(alternative),
+                )
+            whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+                .thenReturn(Result.success(originalResult))
+                .thenReturn(Result.failure(VocabularyNotFoundException()))
+                .thenReturn(Result.failure(IllegalStateException("provider unavailable")))
+            stubDecks(aDeck())
+
+            val vm =
+                buildViewModel(
+                    targetWord = "gave",
+                    context = context,
+                    lookupContext = context,
+                    selectionRanges = listOf(SelectionRange(5, 9)),
+                )
+            advanceUntilIdle()
+            vm.lookupAlternative(alternative)
+            advanceUntilIdle()
+
+            assertEquals(
+                com.example.langueedroid.feature.cardcreation.presentation.AlternativeLookupStatus.Miss,
+                vm.state.value.alternativeLookupStatus,
+            )
+            assertEquals("gave", vm.state.value.targetWord)
+            assertEquals("original", (vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded).definitions.single().id)
+
+            vm.lookupAlternative(alternative)
+            advanceUntilIdle()
+            assertEquals(
+                com.example.langueedroid.feature.cardcreation.presentation.AlternativeLookupStatus.Failed,
+                vm.state.value.alternativeLookupStatus,
+            )
+            assertEquals("original", (vm.state.value.flowState as CardCreationFlowState.DefinitionsLoaded).definitions.single().id)
+        }
+
     // Expression lookup — kind and context-not-found warning
     // -------------------------------------------------------------------------
 
@@ -1133,7 +1432,9 @@ class CardCreationViewModelTest {
             val flowState = vm.state.value.flowState as CardCreationFlowState.SelectingExample
             assertEquals("", flowState.selectedDefinition.id)
             verify(vocabularyRepository, never()).createUserDefinition(any(), any(), anyOrNull(), anyOrNull())
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card"))
             stubAnkiSetupNotReady()
             vm.onExampleConfirmed(null)
             vm.onDeckSelected(aDeck())
@@ -1162,7 +1463,9 @@ class CardCreationViewModelTest {
             vm.submitManualDefinition()
             vm.onExampleConfirmed(null)
             vm.onDeckSelected(aDeck())
-            whenever(cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Result.success("card"))
+            whenever(
+                cardRepository.createCard(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()),
+            ).thenReturn(Result.success("card"))
             stubAnkiSetupNotReady()
             vm.createCard()
             advanceUntilIdle()

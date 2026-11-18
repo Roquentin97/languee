@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.langueedroid.core.domain.EntryValidator
+import com.example.langueedroid.core.domain.SelectionRanges
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.GreenPrimary
 import com.example.langueedroid.core.ui.theme.SurfaceWarm
@@ -57,7 +58,9 @@ fun ContextEditScreen(
     var showConfirmDialog by remember { mutableStateOf(false) }
 
     val isBlank = editedContext.isBlank()
-    val containsWord = EntryValidator.isContextValid(state.targetWord, editedContext)
+    val containsWord =
+        SelectionRanges.matchesTarget(editedContext, state.selectionRanges, state.targetWord) ||
+            EntryValidator.isContextValid(state.targetWord, editedContext)
     val contextWithinLimit = EntryValidator.isContextWithinLimit(editedContext)
     val saveEnabled = contextWithinLimit && (isBlank || containsWord)
 

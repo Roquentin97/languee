@@ -6,6 +6,7 @@ import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.OfflineStateManager
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.Token
 import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CardCreationRequest
@@ -100,7 +101,46 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `edited example keeps the original selected lookup occurrence`() =
+    fun `completion ranges rebase to the selected repeated sentence after truncation`() =
+        runTest {
+            val source = "They gave up. They gave it up. They gave up."
+            viewModel.startTextWorkspace(source)
+            val capture = currentState as AppState.Screen.SharedContextCapture
+            val wordIndices =
+                capture.tokens
+                    .withIndex()
+                    .filter { it.value is Token.Word }
+                    .map { it.index }
+            viewModel.onWordTokenTapped(wordIndices[4])
+            viewModel.confirmWordSelection()
+            viewModel.confirmTruncation()
+            val review = currentState as AppState.Screen.ContextReview
+            assertEquals("They gave it up.", review.context)
+
+            var request: CardCreationRequest? = null
+            launch { request = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
+            viewModel.addEntry("gave", review.context)
+            advanceUntilIdle()
+            val expressionRanges = listOf(SelectionRange(5, 9), SelectionRange(13, 15))
+            assertTrue(
+                viewModel.captureCompleted(
+                    "Stop believing",
+                    com.example.langueedroid.core.domain
+                        .Deck("d1", "English"),
+                    cardId = "card-1",
+                    targetRanges = expressionRanges,
+                    capturedContext = request?.context,
+                    targetWord = "gave up",
+                ),
+            )
+
+            val completed = (currentState as AppState.Screen.SharedContextCapture).completed.single()
+            assertEquals(listOf(wordIndices[4], wordIndices[6]), completed.indices)
+        }
+
+    @Test
+    fun `edited example drops stale selected lookup occurrence`() =
         runTest {
             val source = "😀 I saw the saw."
             viewModel.startTextWorkspace(source)
@@ -119,11 +159,28 @@ class MainViewModelTest {
             viewModel.onContextEditSave("A saw cuts wood.")
             advanceUntilIdle()
             assertEquals("A saw cuts wood.", request?.context)
-            assertEquals(source, request?.selection?.context)
-            assertEquals(12, request?.selection?.start)
-            assertEquals(15, request?.selection?.end)
+            assertEquals(null, request?.selection?.context)
+            assertEquals(null, request?.selection)
             assertTrue(viewModel.returnToCapture())
             assertEquals(source, (currentState as AppState.Screen.SharedContextCapture).rawContext)
+        }
+
+    @Test
+    fun `trimming a captured context drops stale selection offsets`() =
+        runTest {
+            viewModel.startTextWorkspace("  cat")
+            val capture = currentState as AppState.Screen.SharedContextCapture
+            viewModel.onWordTokenTapped(capture.tokens.indexOfFirst { it is Token.Word })
+            viewModel.confirmWordSelection()
+
+            var request: CardCreationRequest? = null
+            launch { request = viewModel.cardCreationRequest.first() }
+            advanceUntilIdle()
+            viewModel.addEntry("cat", "cat")
+            advanceUntilIdle()
+
+            assertEquals("cat", request?.context)
+            assertEquals(null, request?.selection)
         }
 
     @Test
@@ -265,7 +322,17 @@ class MainViewModelTest {
             viewModel.addEntry("bank", "The bank is open.")
             viewModel.addEntry("bank", "The bank is open.")
             advanceUntilIdle()
-            verify(offlineQueueRepository, times(1)).add("bank", "The bank is open.", "The bank is open.", 4, 8, "en")
+            verify(offlineQueueRepository, times(1)).add(
+                "bank",
+                "The bank is open.",
+                "The bank is open.",
+                4,
+                8,
+                "en",
+                listOf(SelectionRange(4, 8)),
+                listOf(SelectionRange(4, 8)),
+                true,
+            )
             assertTrue(viewModel.returnToCapture())
             assertTrue((currentState as AppState.Screen.SharedContextCapture).completed.isEmpty())
         }

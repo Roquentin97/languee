@@ -1,8 +1,10 @@
 package com.example.langueedroid.core.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.example.langueedroid.core.domain.SelectionRanges
 
 @Entity(tableName = "offline_entries")
 data class OfflineEntryEntity(
@@ -18,6 +20,9 @@ data class OfflineEntryEntity(
     val pendingLookupId: String? = null,
     val pendingDeckId: String? = null,
     val pendingInflectionForms: String? = null,
+    val selectionRanges: String? = null,
+    val targetRanges: String? = null,
+    @ColumnInfo(defaultValue = "1") val includeSuggestions: Boolean = true,
 )
 
 fun OfflineEntryEntity.toDomain() =
@@ -34,4 +39,10 @@ fun OfflineEntryEntity.toDomain() =
         pendingLookupId = pendingLookupId,
         pendingDeckId = pendingDeckId,
         pendingInflectionForms = pendingInflectionForms,
+        selectionRanges = SelectionRanges.decode(selectionRanges).ifEmpty { SelectionRanges.fromLegacySpan(selectionStart, selectionEnd) },
+        targetRanges =
+            SelectionRanges.decode(targetRanges).ifEmpty {
+                SelectionRanges.decode(selectionRanges).ifEmpty { SelectionRanges.fromLegacySpan(selectionStart, selectionEnd) }
+            },
+        includeSuggestions = includeSuggestions,
     )

@@ -27,3 +27,7 @@ class ExpressionTooLongException(
 class LookupInputInvalidException(
     message: String = "Lookup input was rejected as invalid",
 ) : Exception(message)
+
+class VocabularyNotFoundException(
+    message: String = "No dictionary entry was found",
+) : Exception(message)

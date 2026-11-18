@@ -22,11 +22,15 @@ import com.example.langueedroid.core.domain.DefinitionState
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExportPreference
 import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupAlternative
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.example.langueedroid.core.domain.SelectionRange
+import com.example.langueedroid.core.domain.SelectionRanges
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.VocabularyNotFoundException
 import com.example.langueedroid.di.ApplicationScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -51,6 +55,18 @@ data class CardCreatedEvent(
     val cardId: String,
     val definition: String,
     val deck: Deck,
+    val targetRanges: List<SelectionRange>,
+    val capturedContext: String?,
+    val targetWord: String,
+)
+
+private data class ContextRangeValidation(
+    val rangesMatch: Boolean,
+    val selectionInvalidated: Boolean,
+    val safeRanges: List<SelectionRange>,
+    val safeTargetRanges: List<SelectionRange>,
+    val alternatives: List<LookupAlternative>,
+    val alternativesInvalidated: Boolean,
 )
 
 @HiltViewModel(assistedFactory = CardCreationViewModel.Factory::class)
@@ -61,8 +77,8 @@ class CardCreationViewModel
         @Assisted("context") private val context: String?,
         @Assisted("language") private val language: String,
         @Assisted("lookupContext") private val lookupContext: String? = null,
-        @Assisted("selectionStart") private val selectionStart: Int? = null,
-        @Assisted("selectionEnd") private val selectionEnd: Int? = null,
+        @Assisted("selectionRanges") private val selectionRanges: List<SelectionRange> = emptyList(),
+        @Assisted("targetRanges") private val targetRanges: List<SelectionRange> = selectionRanges,
         @Assisted("offlineEntryId") private val offlineEntryId: String? = null,
         private val deckRepository: DeckRepository,
         private val vocabularyRepository: VocabularyRepository,
@@ -82,8 +98,8 @@ class CardCreationViewModel
                 @Assisted("context") context: String?,
                 @Assisted("language") language: String,
                 @Assisted("lookupContext") lookupContext: String?,
-                @Assisted("selectionStart") selectionStart: Int?,
-                @Assisted("selectionEnd") selectionEnd: Int?,
+                @Assisted("selectionRanges") selectionRanges: List<SelectionRange>,
+                @Assisted("targetRanges") targetRanges: List<SelectionRange>,
                 @Assisted("offlineEntryId") offlineEntryId: String?,
             ): CardCreationViewModel
         }
@@ -97,8 +113,8 @@ class CardCreationViewModel
                     contextTooLong = !EntryValidator.isContextWithinLimit(context),
                     language = language,
                     lookupContext = lookupContext ?: context,
-                    selectionStart = selectionStart,
-                    selectionEnd = selectionEnd,
+                    selectionRanges = selectionRanges,
+                    targetRanges = targetRanges,
                 ),
             )
         val state: StateFlow<CardCreationState> = _state.asStateFlow()
@@ -114,6 +130,9 @@ class CardCreationViewModel
         private var initialDeckId: String? = null
         private var restoredDeckId: String? = null
         private var pendingEntry: OfflineEntry? = null
+        private var originalLookupState: CardCreationState? = null
+        private var originalLookupResult: LookupResult? = null
+        private var activeLookupResult: LookupResult? = null
 
         fun setInitialDeck(id: String?) {
             initialDeckId = restoredDeckId ?: id
@@ -129,6 +148,15 @@ class CardCreationViewModel
                     if (error is kotlinx.coroutines.CancellationException) throw error
                     handleLookupFailure(error)
                     return@launch
+                }
+                pendingEntry?.let { entry ->
+                    _state.value =
+                        _state.value.copy(
+                            lookupContext = entry.lookupContext ?: _state.value.lookupContext,
+                            selectionRanges = entry.selectionRanges,
+                            targetRanges = entry.targetRanges,
+                            includeSuggestions = entry.includeSuggestions,
+                        )
                 }
                 restoredDeckId = pendingEntry?.pendingDeckId
                 initialDeckId = restoredDeckId ?: initialDeckId
@@ -215,57 +243,140 @@ class CardCreationViewModel
         fun onContextChanged(value: String) {
             val updated = value.ifBlank { null }
             val current = _state.value
-            val flow = current.flowState as? CardCreationFlowState.DefinitionsLoaded
-            val updatedFlow =
-                if (flow?.exampleConfirmed == true && flow.confirmedExample == current.context) {
-                    flow.copy(confirmedExample = updated)
-                } else {
-                    current.flowState
-                }
+            val validation = validateContextRanges(current, updated)
+            val snapshotInvalidated = updateOriginalLookupContext(updated)
+            val canReturnToOriginal = originalLookupState != null
             _state.value =
                 current.copy(
                     context = updated,
-                    contextValid =
-                        updated == null ||
-                            (
-                                EntryValidator.isContextWithinLimit(updated) &&
-                                    (updated == context || EntryValidator.isContextValid(targetWord, updated))
-                            ),
+                    lookupContext = updated,
+                    selectionRanges = validation.safeRanges,
+                    targetRanges = validation.safeTargetRanges,
+                    alternatives = validation.alternatives,
+                    displayedAlternative = current.displayedAlternative.takeIf { validation.rangesMatch && canReturnToOriginal },
+                    alternativeLookupStatus = contextChangeStatus(current, validation, snapshotInvalidated, canReturnToOriginal),
+                    contextValid = isContextValid(current.targetWord, updated, validation.safeRanges),
                     contextTooLong = !EntryValidator.isContextWithinLimit(updated),
-                    flowState = updatedFlow,
+                    flowState = updateConfirmedExample(current, updated),
                 )
+        }
+
+        private fun validateContextRanges(
+            current: CardCreationState,
+            context: String?,
+        ): ContextRangeValidation {
+            val rangesMatch =
+                current.selectionRanges.isEmpty() ||
+                    SelectionRanges.matchesTarget(context, current.selectionRanges, current.targetWord)
+            val safeTargetRanges =
+                current.targetRanges
+                    .takeIf {
+                        rangesMatch && SelectionRanges.matchesTarget(context, it, current.targetWord)
+                    }.orEmpty()
+            val alternatives = current.alternatives.filter { SelectionRanges.matchesTarget(context, it.selectionRanges, it.text) }
+            return ContextRangeValidation(
+                rangesMatch = rangesMatch,
+                selectionInvalidated = current.selectionRanges.isNotEmpty() && !rangesMatch,
+                safeRanges = current.selectionRanges.takeIf { rangesMatch }.orEmpty(),
+                safeTargetRanges = safeTargetRanges,
+                alternatives = alternatives,
+                alternativesInvalidated = alternatives.size != current.alternatives.size,
+            )
+        }
+
+        private fun updateOriginalLookupContext(context: String?): Boolean {
+            val snapshot = originalLookupState ?: return false
+            val snapshotValid =
+                snapshot.selectionRanges.isEmpty() ||
+                    SelectionRanges.matchesTarget(context, snapshot.selectionRanges, snapshot.targetWord)
+            if (!snapshotValid) {
+                originalLookupState = null
+                originalLookupResult = null
+                return true
+            }
+            originalLookupState =
+                snapshot.copy(
+                    context = context,
+                    lookupContext = context,
+                    alternatives = snapshot.alternatives.filter { SelectionRanges.matchesTarget(context, it.selectionRanges, it.text) },
+                )
+            return false
+        }
+
+        private fun contextChangeStatus(
+            current: CardCreationState,
+            validation: ContextRangeValidation,
+            snapshotInvalidated: Boolean,
+            canReturnToOriginal: Boolean,
+        ): AlternativeLookupStatus =
+            if (validation.selectionInvalidated ||
+                validation.alternativesInvalidated ||
+                snapshotInvalidated ||
+                (current.displayedAlternative != null && !canReturnToOriginal)
+            ) {
+                AlternativeLookupStatus.SelectionChanged
+            } else {
+                AlternativeLookupStatus.Idle
+            }
+
+        private fun isContextValid(
+            targetWord: String,
+            context: String?,
+            ranges: List<SelectionRange>,
+        ): Boolean =
+            context == null ||
+                (
+                    EntryValidator.isContextWithinLimit(
+                        context,
+                    ) &&
+                        (ranges.isNotEmpty() || EntryValidator.isContextValid(targetWord, context))
+                )
+
+        private fun updateConfirmedExample(
+            current: CardCreationState,
+            context: String?,
+        ): CardCreationFlowState {
+            val flow = current.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return current.flowState
+            return if (flow.exampleConfirmed && flow.confirmedExample == current.context) {
+                flow.copy(confirmedExample = context)
+            } else {
+                current.flowState
+            }
         }
 
         private fun lookupVocabulary(notice: CardCreationError? = null) {
             lookupJob?.cancel()
+            originalLookupState = null
+            originalLookupResult = null
             lookupJob =
                 viewModelScope.launch {
-                    _state.value = _state.value.copy(flowState = CardCreationFlowState.LookingUp)
+                    val current = _state.value
+                    _state.value =
+                        current.copy(flowState = CardCreationFlowState.LookingUp, alternativeLookupStatus = AlternativeLookupStatus.Idle)
+                    val requestContext =
+                        (current.lookupContext ?: current.context)
+                            ?.takeIf(EntryValidator::isContextWithinLimit)
+                    val requestedRanges = current.selectionRanges
+                    val safeRanges =
+                        requestedRanges
+                            .takeIf {
+                                SelectionRanges.matchesTarget(
+                                    requestContext,
+                                    it,
+                                    current.targetWord,
+                                )
+                            }.orEmpty()
+                    if (safeRanges.isEmpty() && requestedRanges.isNotEmpty()) {
+                        _state.value = _state.value.copy(selectionRanges = emptyList(), targetRanges = emptyList())
+                    }
                     val lookupResult =
-                        vocabularyRepository
-                            .lookup(
-                                text = targetWord,
-                                language = language,
-                                context =
-                                    (
-                                        if (pendingEntry?.pendingDefinitionId !=
-                                            null
-                                        ) {
-                                            pendingEntry?.lookupContext
-                                        } else {
-                                            lookupContext ?: context
-                                        }
-                                    )?.takeIf(EntryValidator::isContextWithinLimit),
-                                selectionStart =
-                                    if (pendingEntry?.pendingDefinitionId !=
-                                        null
-                                    ) {
-                                        pendingEntry?.selectionStart
-                                    } else {
-                                        selectionStart
-                                    },
-                                selectionEnd = if (pendingEntry?.pendingDefinitionId != null) pendingEntry?.selectionEnd else selectionEnd,
-                            )
+                        vocabularyRepository.lookup(
+                            text = current.targetWord,
+                            language = current.language,
+                            context = requestContext,
+                            selectionRanges = safeRanges,
+                            includeSuggestions = current.includeSuggestions,
+                        )
                     coroutineContext.ensureActive()
                     lookupResult.fold(
                         onSuccess = { result -> handleLookupSuccess(result, notice) },
@@ -274,13 +385,90 @@ class CardCreationViewModel
                 }
         }
 
+        fun lookupAlternative(alternative: LookupAlternative) {
+            if (createCardJob?.isActive == true) return
+            val current = _state.value
+            val exactContext = (current.lookupContext ?: current.context)?.takeIf(EntryValidator::isContextWithinLimit)
+            if (!SelectionRanges.matchesTarget(exactContext, alternative.selectionRanges, alternative.text)) {
+                _state.value = current.copy(alternativeLookupStatus = AlternativeLookupStatus.SelectionChanged)
+                return
+            }
+            if (originalLookupState == null) {
+                originalLookupState = current.copy(alternativeLookupStatus = AlternativeLookupStatus.Idle)
+                originalLookupResult = activeLookupResult
+            }
+            val originalState = originalLookupState ?: return
+            _state.value = _state.value.copy(alternativeLookupStatus = AlternativeLookupStatus.Loading)
+            lookupJob?.cancel()
+            lookupJob =
+                viewModelScope.launch {
+                    val result =
+                        vocabularyRepository.lookup(
+                            text = alternative.text,
+                            language = originalState.language,
+                            context = exactContext,
+                            selectionRanges = alternative.selectionRanges,
+                            includeSuggestions = false,
+                        )
+                    coroutineContext.ensureActive()
+                    result.fold(
+                        onSuccess = { lookup ->
+                            if (lookup.definitions.isEmpty()) {
+                                _state.value = originalState.copy(alternativeLookupStatus = AlternativeLookupStatus.Miss)
+                            } else {
+                                activeLookupResult = lookup
+                                _state.value =
+                                    stateForLookup(
+                                        base = originalState,
+                                        result = lookup,
+                                        target = alternative.text,
+                                        ranges = alternative.selectionRanges,
+                                        alternative = alternative,
+                                    )
+                            }
+                        },
+                        onFailure = { error ->
+                            when (error) {
+                                is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
+                                is VocabularyNotFoundException -> {
+                                    _state.value = originalState.copy(alternativeLookupStatus = AlternativeLookupStatus.Miss)
+                                }
+                                else -> _state.value = originalState.copy(alternativeLookupStatus = AlternativeLookupStatus.Failed)
+                            }
+                        },
+                    )
+                }
+        }
+
+        fun returnToOriginalLookup() {
+            if (createCardJob?.isActive == true) return
+            lookupJob?.cancel()
+            val original = originalLookupState ?: return
+            activeLookupResult = originalLookupResult
+            _state.value = original.copy(alternativeLookupStatus = AlternativeLookupStatus.Idle)
+            originalLookupState = null
+            originalLookupResult = null
+        }
+
         private fun handleLookupSuccess(
             result: LookupResult,
             notice: CardCreationError?,
         ) {
-            val (definitions, selected) = restorePending(result)
+            activeLookupResult = result
+            _state.value = stateForLookup(_state.value, result, _state.value.targetWord, _state.value.selectionRanges, null, notice)
             if (result.definitions.isNotEmpty()) pendingEntry = null
-            val deck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
+        }
+
+        private fun stateForLookup(
+            base: CardCreationState,
+            result: LookupResult,
+            target: String,
+            ranges: List<SelectionRange>,
+            alternative: LookupAlternative?,
+            notice: CardCreationError? = null,
+        ): CardCreationState {
+            val (definitions, selected) = restorePending(result)
+            val deck = (base.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck
             val flow =
                 when {
                     result.definitions.isEmpty() && result.providerMiss -> CardCreationFlowState.ManualDefinition()
@@ -291,12 +479,25 @@ class CardCreationViewModel
                             selectedDefinition = selected,
                             definitionState = selected?.let { resolveDefinitionState(it, deck) },
                             lemma = result.lemma,
-                            confirmedExample = if (selected != null) context else null,
+                            confirmedExample = if (selected != null) base.context else null,
                             exampleConfirmed = selected != null,
                             notice = notice,
                         )
                 }
-            _state.value = _state.value.copy(kind = result.kind, expressionContextFound = result.expressionContextFound, flowState = flow)
+            val isValidTargetRange = SelectionRanges.matchesTarget(base.context, ranges, target)
+            return base.copy(
+                targetWord = target,
+                kind = result.kind,
+                expressionContextFound = result.expressionContextFound,
+                flowState = flow,
+                lookupContext = base.lookupContext ?: base.context,
+                selectionRanges = ranges,
+                targetRanges = ranges.takeIf { isValidTargetRange }.orEmpty(),
+                alternatives = result.alternatives,
+                displayedAlternative = alternative,
+                includeSuggestions = if (alternative == null) base.includeSuggestions else false,
+                alternativeLookupStatus = AlternativeLookupStatus.Idle,
+            )
         }
 
         private fun restorePending(result: LookupResult): Pair<List<DefinitionResult>, DefinitionResult?> {
@@ -359,7 +560,7 @@ class CardCreationViewModel
                     flowState =
                         CardCreationFlowState.SelectingExample(
                             definitions = listOf(draft),
-                            lemma = targetWord,
+                            lemma = _state.value.targetWord,
                             selectedDefinition = draft,
                             definitionState = DefinitionState.Available,
                         ),
@@ -444,19 +645,27 @@ class CardCreationViewModel
         fun createCard() {
             if (createCardJob?.isActive == true) return
 
-            val currentFlowState = _state.value.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
+            val current = _state.value
+            val currentFlowState = current.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
             val selectedDefinition = currentFlowState.selectedDefinition ?: return
-            val selectedDeck = (_state.value.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
-            val draftContext = _state.value.context
-            if (!_state.value.contextValid) return
+            val selectedDeck = (current.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
+            val draftContext = current.context
+            if (!current.contextValid) return
 
             if (currentFlowState.definitionState == DefinitionState.AlreadyInSelectedDeck) return
             if (!currentFlowState.exampleConfirmed) return
 
             val confirmedExample = currentFlowState.confirmedExample
+            val savedContext = confirmedExample ?: draftContext
+            val safeTargetRanges = targetRangesForSave(current, savedContext)
+            lookupJob?.cancel()
             createCardJob =
                 appScope.launch {
-                    _state.value = _state.value.copy(flowState = CardCreationFlowState.CreatingCard)
+                    _state.value =
+                        current.copy(
+                            flowState = CardCreationFlowState.CreatingCard,
+                            alternativeLookupStatus = AlternativeLookupStatus.Idle,
+                        )
                     val resolvedDefinition = resolveDraftDefinition(selectedDefinition, currentFlowState) ?: return@launch
                     val resolvedFlow =
                         currentFlowState.copy(
@@ -470,10 +679,20 @@ class CardCreationViewModel
                             context = confirmedExample ?: draftContext,
                             inflectionForms = resolvedDefinition.inflectionForms,
                             lookupId = resolvedDefinition.lookupId,
+                            targetRanges = safeTargetRanges,
                         ).fold(
                             onSuccess = { cardId ->
                                 _state.value = _state.value.copy(flowState = CardCreationFlowState.CardCreated())
-                                _cardCreatedEvent.tryEmit(CardCreatedEvent(cardId, resolvedDefinition.definition, selectedDeck))
+                                _cardCreatedEvent.tryEmit(
+                                    CardCreatedEvent(
+                                        cardId,
+                                        resolvedDefinition.definition,
+                                        selectedDeck,
+                                        safeTargetRanges,
+                                        savedContext,
+                                        current.targetWord,
+                                    ),
+                                )
                                 triggerAnkiExportIfConfigured(
                                     cardId = cardId,
                                     selectedDefinition = resolvedDefinition,
@@ -486,6 +705,11 @@ class CardCreationViewModel
                         )
                 }
         }
+
+        private fun targetRangesForSave(
+            current: CardCreationState,
+            context: String?,
+        ): List<SelectionRange> = current.targetRanges.takeIf { SelectionRanges.matchesTarget(context, it, current.targetWord) }.orEmpty()
 
         private fun handleCreateFailure(
             error: Throwable,
@@ -514,7 +738,7 @@ class CardCreationViewModel
             if (definition.id.isNotEmpty()) return definition
             val result =
                 vocabularyRepository.createUserDefinition(
-                    text = targetWord,
+                    text = _state.value.targetWord,
                     definition = definition.definition,
                     language = language,
                     example = definition.example,

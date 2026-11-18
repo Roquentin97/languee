@@ -12,12 +12,14 @@ import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeOutcome
 import com.example.langueedroid.core.domain.InflectionReview
 import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.LookupAlternative
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewPrompt
 import com.example.langueedroid.core.domain.ReviewSummary
+import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.network.dto.CardResponseDto
 import com.example.langueedroid.core.network.dto.CheckAnswerResponseDto
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionResponseDto
@@ -102,6 +104,18 @@ fun LookupVocabularyResponseDto.toLookupResult(): LookupResult {
         isExpression = meta.isExpression ?: false,
         providerMiss = meta.providerMiss ?: false,
         expressionContextFound = meta.expressionContextFound,
+        alternatives =
+            alternatives.orEmpty().map { alternative ->
+                LookupAlternative(
+                    type = alternative.type,
+                    text = alternative.text,
+                    lemma = alternative.lemma,
+                    entryId = alternative.entryId,
+                    selectionRanges = alternative.selectionRanges.map { SelectionRange(it.start, it.end) },
+                    reason = alternative.reason,
+                    prominence = alternative.prominence,
+                )
+            },
     )
 }
 

@@ -20,6 +20,7 @@ import com.example.langueedroid.feature.capture.presentation.AppState
 import com.example.langueedroid.feature.capture.presentation.CompletedTarget
 import com.example.langueedroid.feature.capture.presentation.ContextEditSaveResult
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -119,7 +120,26 @@ class CaptureWorkspaceTest {
         composeRule.onNodeWithText("Done").assertIsDisplayed()
     }
 
-    private fun showWorkspace(state: AppState.Screen.SharedContextCapture) {
+    @Test
+    fun selectedWordsCanBeExplicitlyCleared() {
+        var cleared = false
+        showWorkspace(
+            AppState.Screen.SharedContextCapture(
+                tokens = EntryValidator.splitIntoTokens("They turned the lamp off."),
+                rawContext = "They turned the lamp off.",
+                selectedIndices = listOf(2, 8),
+            ),
+            onClearSelection = { cleared = true },
+        )
+
+        composeRule.onNodeWithTag("clear-selection").assertIsDisplayed().performClick()
+        assertTrue(cleared)
+    }
+
+    private fun showWorkspace(
+        state: AppState.Screen.SharedContextCapture,
+        onClearSelection: () -> Unit = {},
+    ) {
         composeRule.setContent {
             MaterialTheme {
                 CaptureScreen(
@@ -135,6 +155,7 @@ class CaptureWorkspaceTest {
                     onContextEditSave = { ContextEditSaveResult.Valid },
                     onConfirmSaveWithoutContext = {},
                     onSelectLanguage = {},
+                    onClearSelection = onClearSelection,
                 )
             }
         }

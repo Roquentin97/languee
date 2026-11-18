@@ -50,6 +50,30 @@ data class VocabularyHeadwordDto(
     val partsOfSpeech: List<VocabularyPosGroupDto>,
 )
 
+data class SelectionRangeDto(
+    val start: Int,
+    val end: Int,
+)
+
+data class LookupVocabularyRequestDto(
+    val text: String,
+    val language: String,
+    val context: String? = null,
+    val selectionRanges: List<SelectionRangeDto>? = null,
+    val disablePosFiltering: Boolean? = null,
+    val includeSuggestions: Boolean? = null,
+)
+
+data class LookupAlternativeDto(
+    val type: String,
+    val text: String,
+    val lemma: String,
+    val entryId: String?,
+    val selectionRanges: List<SelectionRangeDto>,
+    val reason: String,
+    val prominence: String,
+)
+
 data class LookupVocabularyResponseDto(
     val input: String,
     val context: String?,
@@ -61,6 +85,7 @@ data class LookupVocabularyResponseDto(
     val meta: LookupMetaDto,
     val orderedGroups: List<PreferredInterpretationDto>? = null,
     val lookupId: String? = null,
+    val alternatives: List<LookupAlternativeDto>? = null,
 )
 
 data class CreateUserDefinitionRequestDto(

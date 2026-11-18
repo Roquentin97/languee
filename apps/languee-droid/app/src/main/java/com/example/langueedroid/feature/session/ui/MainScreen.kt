@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -30,7 +31,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.SelectionRanges
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
@@ -39,6 +40,7 @@ import com.example.langueedroid.feature.capture.presentation.AnkiStatusNotificat
 import com.example.langueedroid.feature.capture.presentation.LookupSelection
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
 import com.example.langueedroid.feature.capture.ui.CaptureScreen
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreatedEvent
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
@@ -148,8 +150,8 @@ private fun ObserveMainNavigation(
                     request.context,
                     language = request.language,
                     lookupContext = request.selection?.context,
-                    selectionStart = request.selection?.start,
-                    selectionEnd = request.selection?.end,
+                    selectionRanges = request.selection?.ranges.orEmpty(),
+                    targetRanges = request.selection?.ranges.orEmpty(),
                 )
             navController.navigate(route) {
                 popUpTo(MainNavRoutes.CAPTURE) { inclusive = false }
@@ -333,6 +335,7 @@ private fun NavGraphBuilder.captureRoute(
             onAddEntry = { word, context -> mainViewModel.addEntry(word, context) },
             onStartManualAdd = { prefilledWord -> mainViewModel.startManualAdd(prefilledWord) },
             onWordTokenTapped = { index -> mainViewModel.onWordTokenTapped(index) },
+            onClearSelection = { mainViewModel.clearWordSelection() },
             onConfirmWordSelection = { mainViewModel.confirmWordSelection() },
             onConfirmTruncation = { mainViewModel.confirmTruncation() },
             onKeepFullContext = { mainViewModel.keepFullContext() },
@@ -375,8 +378,8 @@ private fun cardCreationArguments() =
         navArgument("offlineEntryId") { type = NavType.StringType },
         navArgument("language") { type = NavType.StringType },
         navArgument("lookupContext") { type = NavType.StringType },
-        navArgument("selectionStart") { type = NavType.IntType },
-        navArgument("selectionEnd") { type = NavType.IntType },
+        navArgument("selectionRanges") { type = NavType.StringType },
+        navArgument("targetRanges") { type = NavType.StringType },
     )
 
 private fun NavGraphBuilder.cardCreationRoute(
@@ -399,20 +402,23 @@ private fun NavGraphBuilder.cardCreationRoute(
         val language = URLDecoder.decode(encodedLanguage, "UTF-8").ifEmpty { "en" }
 
         val lookupContext = URLDecoder.decode(backStackEntry.arguments?.getString("lookupContext") ?: "", "UTF-8").ifEmpty { null }
-        val selectionStart = backStackEntry.arguments?.getInt("selectionStart")?.takeIf { it >= 0 }
-        val selectionEnd = backStackEntry.arguments?.getInt("selectionEnd")?.takeIf { it >= 0 }
+        val selectionRanges =
+            SelectionRanges.decode(
+                URLDecoder.decode(backStackEntry.arguments?.getString("selectionRanges") ?: "", "UTF-8"),
+            )
+        val targetRanges = SelectionRanges.decode(URLDecoder.decode(backStackEntry.arguments?.getString("targetRanges") ?: "", "UTF-8"))
 
         val cardCreationViewModel: CardCreationViewModel =
             hiltViewModel<CardCreationViewModel, CardCreationViewModel.Factory>(
-                key = "$targetWord:$context:$language:$lookupContext:$selectionStart:$selectionEnd",
+                key = "$targetWord:$context:$language:$lookupContext:$selectionRanges:$targetRanges",
             ) { factory ->
                 factory.create(
                     targetWord = targetWord,
                     context = context,
                     language = language,
                     lookupContext = lookupContext,
-                    selectionStart = selectionStart,
-                    selectionEnd = selectionEnd,
+                    selectionRanges = selectionRanges,
+                    targetRanges = targetRanges,
                     offlineEntryId = offlineEntryId,
                 )
             }
@@ -424,26 +430,56 @@ private fun NavGraphBuilder.cardCreationRoute(
         }
         LaunchedEffect(cardCreationViewModel) {
             cardCreationViewModel.cardCreatedEvent.collect { result ->
-                if (navController.currentBackStackEntry != backStackEntry) return@collect
-                if (offlineEntryId != null) {
-                    mainViewModel.removeOfflineEntry(offlineEntryId)
-                    mainViewModel.dismissCapture()
-                    navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
-                } else if (captureSessionId == mainViewModel.sessionId) {
-                    if (mainViewModel.captureCompleted(result.definition, result.deck, result.cardId)) {
-                        navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = false)
-                    } else {
-                        endCapture(mainViewModel, onExitSharedCapture) {
-                            navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = true)
-                        }
-                    }
-                }
+                completeCardCreation(
+                    result,
+                    backStackEntry,
+                    captureSessionId,
+                    offlineEntryId,
+                    navController,
+                    mainViewModel,
+                    onExitSharedCapture,
+                )
             }
         }
         LaunchedEffect(cardCreationViewModel) {
             cardCreationViewModel.setInitialDeck(mainViewModel.preferredDeckId)
         }
         CardCreationRouteContent(cardCreationViewModel, mainViewModel, navController, offlineEntryId, onExitSharedCapture)
+    }
+}
+
+private fun completeCardCreation(
+    result: CardCreatedEvent,
+    backStackEntry: NavBackStackEntry,
+    captureSessionId: Int,
+    offlineEntryId: String?,
+    navController: NavHostController,
+    mainViewModel: MainViewModel,
+    onExitSharedCapture: () -> Unit,
+) {
+    if (navController.currentBackStackEntry != backStackEntry) return
+    if (offlineEntryId != null) {
+        mainViewModel.removeOfflineEntry(offlineEntryId)
+        mainViewModel.dismissCapture()
+        navController.popBackStack(MainNavRoutes.OFFLINE_QUEUE, inclusive = false)
+        return
+    }
+    if (captureSessionId != mainViewModel.sessionId) return
+    val markedCapture =
+        mainViewModel.captureCompleted(
+            result.definition,
+            result.deck,
+            result.cardId,
+            result.targetRanges,
+            result.capturedContext,
+            result.targetWord,
+        )
+    if (markedCapture) {
+        navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = false)
+    } else {
+        endCapture(mainViewModel, onExitSharedCapture) {
+            navController.popBackStack(MainNavRoutes.CAPTURE, inclusive = true)
+        }
     }
 }
 
@@ -494,6 +530,8 @@ private fun CardCreationRouteContent(
         onManualDefinitionTextChanged = { text -> cardCreationViewModel.onManualDefinitionTextChanged(text) },
         onManualExampleTextChanged = { text -> cardCreationViewModel.onManualExampleTextChanged(text) },
         onSubmitManualDefinition = { cardCreationViewModel.submitManualDefinition() },
+        onLookupAlternative = { cardCreationViewModel.lookupAlternative(it) },
+        onReturnToOriginalLookup = { cardCreationViewModel.returnToOriginalLookup() },
     )
 }
 
@@ -522,13 +560,13 @@ private fun queueCurrentSave(
     val flow = state.flowState as? CardCreationFlowState.DefinitionsLoaded ?: return
     val definition = flow.selectedDefinition ?: return
     val deck = (state.deckSelectionState as? DeckSelectionState.Loaded)?.selectedDeck ?: return
-    if (state.kind != LexicalEntryKind.WORD || definition.id.isBlank()) {
+    if (definition.id.isBlank()) {
         if (entryId == null) mainViewModel.addEntry(state.targetWord, state.context)
         return
     }
     val selection =
-        if (state.lookupContext != null && state.selectionStart != null && state.selectionEnd != null) {
-            LookupSelection(state.lookupContext, state.selectionStart, state.selectionEnd)
+        if (state.lookupContext != null && state.selectionRanges.isNotEmpty()) {
+            LookupSelection(state.lookupContext, state.selectionRanges)
         } else {
             null
         }
@@ -541,6 +579,8 @@ private fun queueCurrentSave(
         entryId,
         selection,
         state.lookupContext,
+        state.targetRanges,
+        state.includeSuggestions,
     )
 }
 
@@ -650,8 +690,8 @@ private fun NavGraphBuilder.offlineQueueRoute(navController: NavHostController) 
                         offlineEntryId = request.entryId,
                         language = request.language ?: "en",
                         lookupContext = request.lookupContext,
-                        selectionStart = request.selectionStart,
-                        selectionEnd = request.selectionEnd,
+                        selectionRanges = request.selectionRanges,
+                        targetRanges = request.targetRanges,
                     )
                 navController.navigate(route)
             }

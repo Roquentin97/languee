@@ -12,12 +12,19 @@
     <string name="btn_edit_context">Edit context</string>
     <string name="btn_add_context_manually">Add context manually</string>
     <string name="btn_continue_selection">Continue</string>
+    <string name="btn_clear_selection">Clear selection</string>
+    <string name="lookup_also_look_up">Also look up %1$s</string>
+    <string name="lookup_return_to_original">Return to original lookup</string>
+    <string name="lookup_alternative_loading">Loading alternative definition…</string>
+    <string name="lookup_alternative_miss">No dictionary entry was found for %1$s. Your original lookup is still here.</string>
+    <string name="lookup_alternative_failed">Couldn’t load this definition. Check your connection and try again.</string>
+    <string name="lookup_alternative_selection_changed">The selected words changed in the edited context. Reopen capture to choose a new occurrence.</string>
     <string name="btn_submit_definition">Continue</string>
 
     <!-- Input labels -->
     <string name="label_target_word">Target word</string>
     <string name="label_context_optional">Context (optional)</string>
-    <string name="label_tap_word_to_learn">Tap a word to start. Tap adjacent words to extend the selection (up to 6 words).</string>
+    <string name="label_tap_word_to_learn">Tap any words to select or deselect them (up to 6 words). Clear selection to start over.</string>
     <string name="label_selection_preview">Selected: %1$s</string>
     <string name="label_definition">Definition</string>
     <string name="label_example_optional">Example (optional)</string>
@@ -171,7 +178,7 @@
     <string name="error_create_card_failed">Could not add this card. Try again.</string>
     <string name="error_stale_reference">The deck or definition no longer exists. Choose an available deck or definition.</string>
     <string name="error_export_record_failed">Failed to record export</string>
-    <string name="error_expression_too_long">Expression is too long (maximum 10 words)</string>
+    <string name="error_expression_too_long">Expression is too long (maximum 6 words)</string>
     <string name="error_lookup_input_invalid">This selection can\'t be analyzed — try a shorter or simpler selection</string>
     <string name="error_manual_definition_failed">Failed to save your definition</string>
     <string name="error_definition_already_exists">This definition already exists</string>
