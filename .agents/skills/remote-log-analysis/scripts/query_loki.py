@@ -2,6 +2,7 @@
 """Run a bounded Loki range query through Grafana's datasource proxy."""
 
 import argparse
+import ipaddress
 import json
 import os
 import sys
@@ -18,12 +19,18 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("query", help="LogQL expression")
-    parser.add_argument("--start", required=True, type=int, help="start Unix time in seconds")
-    parser.add_argument("--end", required=True, type=int, help="end Unix time in seconds")
+    start_group = parser.add_mutually_exclusive_group(required=True)
+    start_group.add_argument("--start", type=int, help="start Unix time in seconds")
+    start_group.add_argument("--start-ns", type=int, help="start Unix time in nanoseconds")
+    end_group = parser.add_mutually_exclusive_group(required=True)
+    end_group.add_argument("--end", type=int, help="exclusive end Unix time in seconds")
+    end_group.add_argument("--end-ns", type=int, help="exclusive end Unix time in nanoseconds")
     parser.add_argument("--limit", type=int, default=100, help="maximum entries (1-1000)")
     parser.add_argument("--direction", choices=("forward", "backward"), default="backward")
     args = parser.parse_args()
-    if args.start < 0 or args.end <= args.start or args.end - args.start > 86400:
+    start = args.start_ns if args.start_ns is not None else args.start * 10**9
+    end = args.end_ns if args.end_ns is not None else args.end * 10**9
+    if start < 0 or end <= start or end - start > 86400 * 10**9:
         parser.error("time range must be positive and at most 24 hours")
     if not 1 <= args.limit <= 1000:
         parser.error("limit must be between 1 and 1000")
@@ -37,8 +44,16 @@ def main():
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         print("Invalid GRAFANA_URL", file=sys.stderr)
         return 2
-    params = urllib.parse.urlencode({"query": args.query, "start": str(args.start * 10**9),
-                                     "end": str(args.end * 10**9), "limit": args.limit,
+    if parsed.scheme == "http":
+        try:
+            loopback = ipaddress.ip_address(parsed.hostname).is_loopback
+        except ValueError:
+            loopback = False
+        if not loopback:
+            print("GRAFANA_URL requires HTTPS unless using a loopback IP address", file=sys.stderr)
+            return 2
+    params = urllib.parse.urlencode({"query": args.query, "start": str(start),
+                                     "end": str(end), "limit": args.limit,
                                      "direction": args.direction})
     url = f"{base}/api/datasources/proxy/uid/{urllib.parse.quote(uid, safe='')}/loki/api/v1/query_range?{params}"
     request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})

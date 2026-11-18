@@ -47,9 +47,9 @@ class QueryTest(unittest.TestCase):
         self.env.update(GRAFANA_URL=f"http://127.0.0.1:{self.server.server_port}/grafana",
                         GRAFANA_SERVICE_ACCOUNT_TOKEN=TOKEN, GRAFANA_LOKI_DATASOURCE_UID="custom uid")
 
-    def run_query(self, *extra):
+    def run_query(self, *extra, bounds=("--start", "100", "--end", "200")):
         return subprocess.run([sys.executable, str(SCRIPT), '{service="back"} |= "a & b"',
-                               "--start", "100", "--end", "200", *extra],
+                               *bounds, *extra],
                               env=self.env, text=True, capture_output=True, timeout=5)
 
     def test_query_encoding_and_authentication(self):
@@ -63,6 +63,24 @@ class QueryTest(unittest.TestCase):
                          "start": ["100000000000"], "end": ["200000000000"],
                          "limit": ["10"], "direction": ["backward"]})
         self.assertEqual(auth, "Bearer " + TOKEN)
+
+    def test_nanosecond_bounds(self):
+        result = self.run_query(bounds=("--start-ns", "100000000001", "--end-ns", "100000000002"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        params = parse_qs(urlsplit(Handler.last_request[0]).query)
+        self.assertEqual(params["start"], ["100000000001"])
+        self.assertEqual(params["end"], ["100000000002"])
+        self.assertEqual(self.run_query(bounds=("--start-ns", "2", "--end-ns", "2")).returncode, 2)
+        self.assertEqual(self.run_query(bounds=("--start-ns", "1", "--end-ns", "86400000000002")).returncode, 2)
+
+    def test_remote_http_is_rejected_before_request(self):
+        for url in ("http://example.com", "http://localhost", "http://127.0.0.1.example.com"):
+            with self.subTest(url=url):
+                self.env["GRAFANA_URL"] = url
+                result = self.run_query()
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("requires HTTPS", result.stderr)
+                self.assertNotIn(TOKEN, result.stderr)
 
     def test_missing_config_and_bounds(self):
         del self.env["GRAFANA_SERVICE_ACCOUNT_TOKEN"]
