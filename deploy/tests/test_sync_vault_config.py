@@ -597,9 +597,16 @@ def test_retention_optional_and_positive_integer():
             svc.validate(config)
 
 
-def test_smtp_is_optional_but_requires_complete_configuration():
+
+def test_disk_healthcheck_is_optional_and_rendered_without_exposure():
     config = valid_config()
-    assert 'GRAFANA_SMTP_ENABLED=false' in svc.render(config, 'a', 'b', 1)[svc.STACK_ENV]
-    config['GRAFANA_SMTP_HOST'] = 'smtp.example.com:587'
-    with pytest.raises(svc.ConfigError):
-        svc.validate(config)
+    svc.validate(config)
+    assert "DISK_HEALTHCHECK_URL=" not in svc.render(config, "a", "b", 1)[svc.STACK_ENV]
+    config["DISK_HEALTHCHECK_URL"] = "https://hc-ping.com/example-id"
+    svc.validate(config)
+    assert "DISK_HEALTHCHECK_URL=https://hc-ping.com/example-id" in svc.render(config, "a", "b", 1)[svc.STACK_ENV]
+    for value in ("http://hc-ping.com/id", "https://hc-ping.com/id?secret=x", "https://hc-ping.com/id/fail", "bad"):
+        config["DISK_HEALTHCHECK_URL"] = value
+        with pytest.raises(svc.ConfigError) as error:
+            svc.validate(config)
+        assert value not in str(error.value)

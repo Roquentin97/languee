@@ -216,18 +216,11 @@ services:
     image: grafana/grafana:13.0.1-security-01@sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
     restart: unless-stopped
     environment:
-      GF_SMTP_ENABLED: ${GRAFANA_SMTP_ENABLED:-false}
-      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-localhost:25}
-      GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
-      GF_SMTP_PASSWORD: ${GRAFANA_SMTP_PASSWORD:-}
-      GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_FROM_ADDRESS:-admin@example.com}
-      GRAFANA_ALERT_EMAIL: ${GRAFANA_ALERT_EMAIL:-admin@example.com}
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - ./provision/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       - ./provision/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./provision/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - grafana_data:/var/lib/grafana

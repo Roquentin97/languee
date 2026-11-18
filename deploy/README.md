@@ -344,5 +344,4 @@ containers and current or previous deployment state. Shared image IDs are
 protected across repositories. Cleanup never removes volumes and failures are
 reported as warnings without failing an otherwise successful deployment. Check
 the deployment log for `image cleanup complete` or warnings after rollout.
-See [Vault configuration](VAULT.md#disk-alerts-and-log-retention) for Loki
-retention, SMTP setup, notification testing, and alert verification.
+See [Vault configuration](VAULT.md#disk-health-check) for Healthchecks.io setup, cron installation, and safe testing. Loki retention defaults to five days and is configured with `LOKI_RETENTION_DAYS`.
