@@ -61,6 +61,7 @@ class ReviewViewModel
         private var lastLimit: Int = DEFAULT_LIMIT
 
         private var actionJob: Job? = null
+        private var operationGeneration: Long = 0
 
         init {
             loadQueue(deckId = deckId)
@@ -70,11 +71,16 @@ class ReviewViewModel
             deckId: String? = lastDeckId,
             limit: Int = DEFAULT_LIMIT,
         ) {
+            // A later load supersedes pending actions. Its generation prevents an old response
+            // from replacing the newly loaded queue if the request completes after the reload.
+            val operation = beginOperation()
             lastDeckId = deckId
             lastLimit = limit
             _state.value = ReviewSessionState.Loading
             viewModelScope.launch {
-                reviewRepository.queue(deckId = deckId, limit = limit).fold(
+                val result = reviewRepository.queue(deckId = deckId, limit = limit)
+                if (!isCurrentOperation(operation)) return@launch
+                result.fold(
                     onSuccess = { items ->
                         queue = items
                         currentIndex = 0
@@ -87,7 +93,7 @@ class ReviewViewModel
                             }
                     },
                     onFailure = { error ->
-                        handleFailure(error, ReviewError.LOAD_FAILED, ReviewRetryAction.LOAD_QUEUE)
+                        handleFailure(error, ReviewError.LOAD_FAILED, ReviewRetryAction.LOAD_QUEUE, operation = operation)
                     },
                 )
             }
@@ -120,17 +126,21 @@ class ReviewViewModel
                 showSelfRatedAnswer(current)
                 return
             }
+            val operation = beginOperation()
             actionJob =
                 viewModelScope.launch {
                     if (current.item.type == ReviewCardType.INFLECTION) {
-                        submitInflectionAnswer(current)
+                        submitInflectionAnswer(current, operation)
                     } else {
-                        submitTextAnswer(current)
+                        submitTextAnswer(current, operation)
                     }
                 }
         }
 
-        private suspend fun submitInflectionAnswer(current: ReviewSessionState.Question) {
+        private suspend fun submitInflectionAnswer(
+            current: ReviewSessionState.Question,
+            operation: Long,
+        ) {
             reviewRepository
                 .checkForms(
                     cardId = current.item.cardId,
@@ -140,6 +150,7 @@ class ReviewViewModel
                             .associateWith { current.typedForms[it].orEmpty() },
                 ).fold(
                     onSuccess = { response ->
+                        if (!isCurrentOperation(operation)) return@fold
                         _state.value =
                             ReviewSessionState.Correct(
                                 item = current.item,
@@ -151,18 +162,22 @@ class ReviewViewModel
                             )
                     },
                     onFailure = { error ->
-                        handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.SUBMIT_FORMS, current)
+                        handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.SUBMIT_FORMS, current, operation)
                     },
                 )
         }
 
-        private suspend fun submitTextAnswer(current: ReviewSessionState.Question) {
+        private suspend fun submitTextAnswer(
+            current: ReviewSessionState.Question,
+            operation: Long,
+        ) {
             reviewRepository
                 .checkAnswer(
                     cardId = current.item.cardId,
                     typedAnswer = current.typedAnswer,
                 ).fold(
                     onSuccess = { check ->
+                        if (!isCurrentOperation(operation)) return@fold
                         _state.value =
                             when (check.result) {
                                 AnswerResult.CORRECT ->
@@ -181,7 +196,7 @@ class ReviewViewModel
                             }
                     },
                     onFailure = { error ->
-                        handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.SUBMIT_TEXT, current)
+                        handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.SUBMIT_TEXT, current, operation)
                     },
                 )
         }
@@ -207,12 +222,14 @@ class ReviewViewModel
                 return
             }
             if (current.item.type == ReviewCardType.DEFINITION) {
+                val operation = beginOperation()
                 actionJob =
                     viewModelScope.launch {
-                        revealDefinition(current)
+                        revealDefinition(current, operation)
                     }
                 return
             }
+            val operation = beginOperation()
             actionJob =
                 viewModelScope.launch {
                     reviewRepository
@@ -223,6 +240,7 @@ class ReviewViewModel
                             answerResult = GradeAnswerResult.REVEALED,
                         ).fold(
                             onSuccess = { outcome ->
+                                if (!isCurrentOperation(operation)) return@fold
                                 reviewedCount += 1
                                 _state.value =
                                     ReviewSessionState.Revealed(
@@ -233,7 +251,7 @@ class ReviewViewModel
                                         intervalDays = outcome.intervalDays,
                                     )
                             },
-                            onFailure = { error -> handleFailure(error, ReviewError.GRADE_FAILED) },
+                            onFailure = { error -> handleFailure(error, ReviewError.GRADE_FAILED, operation = operation) },
                         )
                 }
         }
@@ -241,6 +259,7 @@ class ReviewViewModel
         fun grade(rating: ReviewRating) {
             val current = _state.value as? ReviewSessionState.Correct ?: return
             if (actionJob?.isActive == true) return
+            val operation = beginOperation()
             actionJob =
                 viewModelScope.launch {
                     reviewRepository
@@ -256,10 +275,11 @@ class ReviewViewModel
                             typedForms = current.typedForms?.takeIf { it.isNotEmpty() },
                         ).fold(
                             onSuccess = {
+                                if (!isCurrentOperation(operation)) return@fold
                                 reviewedCount += 1
                                 advance()
                             },
-                            onFailure = { error -> handleFailure(error, ReviewError.GRADE_FAILED) },
+                            onFailure = { error -> handleFailure(error, ReviewError.GRADE_FAILED, operation = operation) },
                         )
                 }
         }
@@ -271,6 +291,7 @@ class ReviewViewModel
 
         fun retry() {
             val error = _state.value as? ReviewSessionState.Error ?: return
+            if (error.retryInProgress || actionJob?.isActive == true) return
             when (error.retryAction) {
                 ReviewRetryAction.LOAD_QUEUE -> loadQueue(deckId = lastDeckId, limit = lastLimit)
                 ReviewRetryAction.SUBMIT_TEXT,
@@ -278,13 +299,14 @@ class ReviewViewModel
                 ReviewRetryAction.REVEAL_DEFINITION,
                 -> {
                     val question = error.previousQuestion ?: return
+                    val operation = beginOperation()
+                    _state.value = error.copy(retryInProgress = true)
                     actionJob =
                         viewModelScope.launch {
                             when (error.retryAction) {
-                                ReviewRetryAction.SUBMIT_TEXT -> submitTextAnswer(question)
-                                ReviewRetryAction.SUBMIT_FORMS -> submitInflectionAnswer(question)
-                                ReviewRetryAction.REVEAL_DEFINITION -> revealDefinition(question)
-                                else -> Unit
+                                ReviewRetryAction.SUBMIT_TEXT -> submitTextAnswer(question, operation)
+                                ReviewRetryAction.SUBMIT_FORMS -> submitInflectionAnswer(question, operation)
+                                ReviewRetryAction.REVEAL_DEFINITION -> revealDefinition(question, operation)
                             }
                         }
                 }
@@ -317,8 +339,13 @@ class ReviewViewModel
             type: ReviewError,
             retryAction: ReviewRetryAction? = null,
             previousQuestion: ReviewSessionState.Question? = null,
+            operation: Long,
         ) {
+            if (!isCurrentOperation(operation)) return
             if (error is UnauthorizedException) {
+                (_state.value as? ReviewSessionState.Error)
+                    ?.takeIf { it.retryInProgress }
+                    ?.let { _state.value = it.copy(retryInProgress = false) }
                 _unauthorizedEvent.tryEmit(Unit)
             } else {
                 val failureKind = error.remoteFailureKind()
@@ -341,9 +368,13 @@ class ReviewViewModel
             }
         }
 
-        private suspend fun revealDefinition(current: ReviewSessionState.Question) {
+        private suspend fun revealDefinition(
+            current: ReviewSessionState.Question,
+            operation: Long,
+        ) {
             reviewRepository.revealDefinition(current.item.cardId).fold(
                 onSuccess = { revealed ->
+                    if (!isCurrentOperation(operation)) return@fold
                     _state.value =
                         ReviewSessionState.Correct(
                             item = current.item,
@@ -354,8 +385,16 @@ class ReviewViewModel
                         )
                 },
                 onFailure = { error ->
-                    handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.REVEAL_DEFINITION, current)
+                    handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.REVEAL_DEFINITION, current, operation)
                 },
             )
         }
+
+        private fun beginOperation(): Long {
+            operationGeneration++
+            actionJob = null
+            return operationGeneration
+        }
+
+        private fun isCurrentOperation(operation: Long): Boolean = operation == operationGeneration
     }

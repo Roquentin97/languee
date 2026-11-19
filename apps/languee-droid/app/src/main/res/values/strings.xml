@@ -50,6 +50,7 @@
     <string name="auth_error_generic">Something went wrong. Please try again.</string>
     <string name="auth_error_required_fields">Enter your email and password to continue.</string>
     <string name="auth_error_invalid_credentials">That email and password combination wasn’t recognized. Check them and try again.</string>
+    <string name="auth_error_account_mismatch">Use the account that was active before the session expired to keep your current work open.</string>
     <string name="auth_error_account_exists">An account with this email already exists. Sign in instead.</string>
     <string name="auth_session_expired_notice">Your session expired. Sign in again to continue. Your current screen will stay open.</string>
     <string name="auth_refresh_unavailable_notice">We couldn’t verify your session. Sign in to continue. Your current screen will stay open.</string>
@@ -238,6 +239,7 @@
     <string name="review_finished_summary">You reviewed %1$d card(s).</string>
     <string name="review_done_button">Done</string>
     <string name="review_retry_button">Retry</string>
+    <string name="review_retrying">Retrying…</string>
     <string name="error_review_load_failed">Failed to load review queue</string>
     <string name="error_review_submit_failed">Failed to submit answer</string>
     <string name="error_review_grade_failed">Failed to save your review</string>

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.domain.AccountMismatchException
 import com.example.langueedroid.core.domain.InvalidCredentialsException
 import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.remoteFailureKind
@@ -43,7 +44,7 @@ class LoginViewModel
             _password.value = value
         }
 
-        fun onLoginClick() {
+        fun onLoginClick(requiredUserId: String? = null) {
             if (_uiState.value is AuthUiState.Loading) return
             val email = _email.value.trim()
             val password = _password.value
@@ -53,7 +54,12 @@ class LoginViewModel
             }
             _uiState.value = AuthUiState.Loading
             viewModelScope.launch {
-                val result = authRepository.login(email, password)
+                val result =
+                    if (requiredUserId == null) {
+                        authRepository.login(email, password)
+                    } else {
+                        authRepository.login(email, password, requiredUserId)
+                    }
                 val session = result.getOrNull()
                 if (session != null) {
                     _uiState.value = AuthUiState.Idle
@@ -67,6 +73,7 @@ class LoginViewModel
 
 private fun Throwable?.toAuthUiError(): AuthUiError =
     when (this) {
+        is AccountMismatchException -> AuthUiError.ACCOUNT_MISMATCH
         is InvalidCredentialsException -> AuthUiError.INVALID_CREDENTIALS
         else ->
             when (this?.remoteFailureKind()) {

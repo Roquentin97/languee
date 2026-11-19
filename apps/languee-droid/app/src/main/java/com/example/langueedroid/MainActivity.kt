@@ -170,7 +170,7 @@ private fun AuthenticatedSessionContent(
         }
         is AppSessionState.AuthenticationRequired -> {
             userId = state.userId
-            userEmail = state.userEmail
+            userEmail = state.userEmail.orEmpty()
             required = state
         }
         else -> error("AuthenticatedSessionContent requires an authenticated session")
@@ -178,18 +178,22 @@ private fun AuthenticatedSessionContent(
     val authNotice = required?.reason?.toAuthEntryNotice()
     if (required != null && !required.keepMainScreen) {
         AuthNavGraph(
-            onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
+            onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session, requiredUserId = userId) },
             startAtLogin = true,
             notice = authNotice,
+            requiredUserId = userId,
         )
     } else {
+        // Keep this call at a stable composition position during same-account recovery so
+        // its navigation and ViewModel state (including unsaved capture input) stays alive.
         MainScreen(
             userEmail = userEmail,
             onLogout = { appSessionViewModel.onLogout() },
             logoutInProgress = logoutInProgress,
             onUnauthorized = { appSessionViewModel.onSessionExpired(userId, userEmail) },
             sessionAuthNotice = authNotice,
-            onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
+            onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session, requiredUserId = userId) },
+            requiredUserId = userId,
             sharedText = sharedText,
             shareId = shareId,
             onExitSharedCapture = onExitSharedCapture,

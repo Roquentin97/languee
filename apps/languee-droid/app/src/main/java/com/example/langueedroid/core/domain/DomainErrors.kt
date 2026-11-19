@@ -36,6 +36,8 @@ class VocabularyNotFoundException(
 
 class InvalidCredentialsException : Exception("Invalid credentials")
 
+class AccountMismatchException : Exception("Recovery requires the original account")
+
 class AccountAlreadyExistsException : Exception("Account already exists")
 
 class ContextTooLongException : Exception("Context is too long")

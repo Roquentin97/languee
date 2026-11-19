@@ -2,6 +2,7 @@ package com.example.langueedroid.presentation.auth
 
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.domain.AccountMismatchException
 import com.example.langueedroid.core.domain.InvalidCredentialsException
 import com.example.langueedroid.feature.auth.presentation.AuthUiError
 import com.example.langueedroid.feature.auth.presentation.AuthUiState
@@ -216,6 +217,45 @@ class LoginViewModelTest {
             assertEquals(AuthUiError.INVALID_CREDENTIALS, (vm.uiState.value as AuthUiState.Error).type)
             assertEquals("user@example.com", vm.email.value)
             assertEquals("wrong", vm.password.value)
+        }
+
+    @Test
+    fun `recovery login rejects a different account without emitting success`() =
+        runTest {
+            val vm = buildViewModel()
+            whenever(authRepository.login(any(), any(), any()))
+                .thenReturn(Result.failure(AccountMismatchException()))
+            vm.onEmailChange("other@example.com")
+            vm.onPasswordChange("secret")
+            val capturedSessions = mutableListOf<AuthSession>()
+            val job = launch { vm.authSuccessEvent.collect { capturedSessions.add(it) } }
+
+            vm.onLoginClick(requiredUserId = "uid1")
+            advanceUntilIdle()
+            job.cancel()
+
+            assertEquals(AuthUiError.ACCOUNT_MISMATCH, (vm.uiState.value as AuthUiState.Error).type)
+            assertTrue(capturedSessions.isEmpty())
+            verify(authRepository).login("other@example.com", "secret", "uid1")
+        }
+
+    @Test
+    fun `recovery login for the same account emits success`() =
+        runTest {
+            val vm = buildViewModel()
+            val session = fakeSession()
+            whenever(authRepository.login(any(), any(), any())).thenReturn(Result.success(session))
+            vm.onEmailChange("user@example.com")
+            vm.onPasswordChange("secret")
+            val capturedSessions = mutableListOf<AuthSession>()
+            val job = launch { vm.authSuccessEvent.collect { capturedSessions.add(it) } }
+
+            vm.onLoginClick(requiredUserId = session.userId)
+            advanceUntilIdle()
+            job.cancel()
+
+            assertEquals(listOf(session), capturedSessions)
+            verify(authRepository).login("user@example.com", "secret", session.userId)
         }
 
     // -----------------------------------------------------------------------

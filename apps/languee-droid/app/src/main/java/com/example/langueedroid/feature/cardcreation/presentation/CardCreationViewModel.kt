@@ -891,6 +891,9 @@ class CardCreationViewModel
         }
 
         fun retryLookup() {
+            val flowState = _state.value.flowState
+            if (flowState is CardCreationFlowState.LookupError && !flowState.type.canRetryLookup) return
+            if (lookupJob?.isActive == true) return
             lookupVocabulary()
         }
 

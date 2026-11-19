@@ -87,6 +87,7 @@ import com.example.langueedroid.feature.cardcreation.presentation.CardCreationEr
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.presentation.DeckSelectionState
+import com.example.langueedroid.feature.cardcreation.presentation.canRetryLookup
 import com.example.langueedroid.feature.cardcreation.presentation.groupDefinitionsByDeck
 import com.languee.droid.R
 
@@ -215,12 +216,15 @@ fun CardCreationScreen(
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        Button(
-                            onClick = onRetryLookup,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                        ) {
-                            Text(stringResource(R.string.card_creation_retry), color = Color.White)
+                        if (flowState.type.canRetryLookup) {
+                            Button(
+                                onClick = onRetryLookup,
+                                modifier = Modifier.testTag("lookup-retry"),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                            ) {
+                                Text(stringResource(R.string.card_creation_retry), color = Color.White)
+                            }
                         }
                     }
                 }

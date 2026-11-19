@@ -54,5 +54,6 @@ sealed class ReviewSessionState {
         val failureKind: RemoteFailureKind? = null,
         val retryAction: ReviewRetryAction? = null,
         val previousQuestion: Question? = null,
+        val retryInProgress: Boolean = false,
     ) : ReviewSessionState()
 }

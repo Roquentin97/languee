@@ -77,12 +77,13 @@ fun MainScreen(
     onExitSharedCapture: () -> Unit = {},
     sessionAuthNotice: AuthEntryNotice? = null,
     onAuthSuccess: (AuthSession) -> Unit = {},
+    requiredUserId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     LaunchedEffect(mainViewModel) { mainViewModel.unauthorizedEvent.collect { onUnauthorized() } }
     val navController = rememberNavController()
-    SessionAuthDialog(sessionAuthNotice, onAuthSuccess)
+    SessionAuthDialog(sessionAuthNotice, onAuthSuccess, requiredUserId)
     ObserveExportFailures(mainViewModel)
     OfflineQueueFailureDialog(mainViewModel)
     ObserveMainNavigation(sharedText, shareId, mainViewModel, navController, onExitSharedCapture)
@@ -122,6 +123,7 @@ fun MainScreen(
 private fun SessionAuthDialog(
     notice: AuthEntryNotice?,
     onAuthSuccess: (AuthSession) -> Unit,
+    requiredUserId: String?,
 ) {
     if (notice == null) return
     Dialog(
@@ -133,6 +135,7 @@ private fun SessionAuthDialog(
                 onAuthSuccess = onAuthSuccess,
                 startAtLogin = true,
                 notice = notice,
+                requiredUserId = requiredUserId,
             )
         }
     }

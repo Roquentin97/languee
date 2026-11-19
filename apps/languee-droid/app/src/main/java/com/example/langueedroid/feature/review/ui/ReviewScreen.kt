@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -214,14 +215,27 @@ private fun ErrorContent(
         if (error.retryAction != null) {
             Button(
                 onClick = onRetry,
+                enabled = !error.retryInProgress,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
             ) {
-                Text(
-                    text = stringResource(R.string.review_retry_button),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (error.retryInProgress) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    Text(
+                        text =
+                            stringResource(
+                                if (error.retryInProgress) R.string.review_retrying else R.string.review_retry_button,
+                            ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                    )
+                }
             }
         } else {
             Button(

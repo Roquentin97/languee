@@ -2,6 +2,7 @@ package com.example.langueedroid.core.data
 
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.AccountMismatchException
 import com.example.langueedroid.core.domain.InvalidCredentialsException
 import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.UnauthorizedException
@@ -23,6 +24,13 @@ class AuthRepository(
     suspend fun login(
         email: String,
         password: String,
+    ): Result<AuthSession> = login(email, password, requiredUserId = null)
+
+    /** Keeps recovery sign-in bound to the account whose local work is still on screen. */
+    suspend fun login(
+        email: String,
+        password: String,
+        requiredUserId: String?,
     ): Result<AuthSession> {
         val result =
             runCatchingCancellable {
@@ -37,6 +45,9 @@ class AuthRepository(
                         userId = body.user.id,
                         userEmail = body.user.email,
                     )
+                if (requiredUserId != null && session.userId != requiredUserId) {
+                    throw AccountMismatchException()
+                }
                 sessionStore.save(session)
                 logger.info("auth.login_succeeded")
                 session
@@ -84,7 +95,7 @@ class AuthRepository(
                 try {
                     response.throwIfUnsuccessful(ApiOperation.AUTH_REFRESH)
                 } catch (error: UnauthorizedException) {
-                    sessionStore.clear()
+                    clearCredentialsForRecovery(stored.userId)
                     throw error
                 }
                 val body =
@@ -95,7 +106,7 @@ class AuthRepository(
                     } catch (error: Exception) {
                         // A successful refresh may already have rotated the server-side token.
                         // Without the new pair, the stored refresh token cannot be retried safely.
-                        sessionStore.clear()
+                        clearCredentialsForRecovery(stored.userId)
                         throw error
                     }
                 try {
@@ -109,7 +120,7 @@ class AuthRepository(
                 } catch (error: Exception) {
                     // The backend rotates refresh tokens on success. The old token can no longer
                     // safely be retried if persisting the new pair fails.
-                    sessionStore.clear()
+                    clearCredentialsForRecovery(stored.userId)
                     throw error
                 }
                 logger.info("auth.session_refreshed")
@@ -164,9 +175,16 @@ class AuthRepository(
     ) {
         when (error) {
             is InvalidCredentialsException -> logger.warn(event, mapOf("http.status_code" to "401"))
+            is AccountMismatchException -> logger.warn(event, mapOf("auth.account_mismatch" to "true"))
             is RemoteOperationFailureException ->
                 logger.warn(event, mapOf("http.status_code" to error.statusCode?.toString().orEmpty()))
             else -> logger.error(event, error = error)
+        }
+    }
+
+    private fun clearCredentialsForRecovery(userId: String) {
+        if (sessionStore.requireReauthentication(userId)) {
+            sessionStore.clearCredentials()
         }
     }
 }

@@ -3,6 +3,7 @@ package com.example.langueedroid.data
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.AccountMismatchException
 import com.example.langueedroid.core.domain.InvalidCredentialsException
 import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.RemoteOperationFailureException
@@ -60,6 +61,29 @@ class AuthRepositoryTest {
             assertEquals("uid1", session.userId)
             assertEquals("a@b.com", session.userEmail)
             verify(sessionStore).save(session)
+        }
+
+    @Test
+    fun `recovery login for original account persists the returned session`() =
+        runTest {
+            whenever(authApi.login(any())).thenReturn(successLoginResponse())
+
+            val result = repository.login("a@b.com", "pw", requiredUserId = "uid1")
+
+            assertTrue(result.isSuccess)
+            assertEquals("uid1", result.getOrThrow().userId)
+            verify(sessionStore).save(result.getOrThrow())
+        }
+
+    @Test
+    fun `recovery login for another account is rejected before replacing stored credentials`() =
+        runTest {
+            whenever(authApi.login(any())).thenReturn(successLoginResponse())
+
+            val result = repository.login("other@b.com", "pw", requiredUserId = "uid-original")
+
+            assertTrue(result.exceptionOrNull() is AccountMismatchException)
+            verify(sessionStore, never()).save(any())
         }
 
     // -----------------------------------------------------------------------
@@ -217,12 +241,15 @@ class AuthRepositoryTest {
         runTest {
             val stored = storedSession()
             whenever(sessionStore.read()).thenReturn(stored)
+            whenever(sessionStore.requireReauthentication(stored.userId)).thenReturn(true)
             whenever(authApi.refresh(any())).thenReturn(Response.success(null))
 
             val result = repository.refreshSession()
 
             assertTrue(result.isFailure)
-            verify(sessionStore).clear()
+            verify(sessionStore).requireReauthentication(stored.userId)
+            verify(sessionStore).clearCredentials()
+            verify(sessionStore, never()).clear()
         }
 
     // -----------------------------------------------------------------------
@@ -234,6 +261,7 @@ class AuthRepositoryTest {
         runTest {
             val stored = storedSession()
             whenever(sessionStore.read()).thenReturn(stored)
+            whenever(sessionStore.requireReauthentication(stored.userId)).thenReturn(true)
             whenever(authApi.refresh(any())).thenReturn(
                 Response.error(401, """{"message":"Invalid or expired refresh token"}""".toResponseBody()),
             )
@@ -242,7 +270,9 @@ class AuthRepositoryTest {
 
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull() is UnauthorizedException)
-            verify(sessionStore).clear()
+            verify(sessionStore).requireReauthentication(stored.userId)
+            verify(sessionStore).clearCredentials()
+            verify(sessionStore, never()).clear()
         }
 
     // -----------------------------------------------------------------------

@@ -28,6 +28,17 @@ enum class CardCreationError {
     UNEXPECTED,
 }
 
+val CardCreationError.canRetryLookup: Boolean
+    get() =
+        this in
+            setOf(
+                CardCreationError.LOOKUP_FAILED,
+                CardCreationError.CONNECTION,
+                CardCreationError.RATE_LIMITED,
+                CardCreationError.SERVICE_UNAVAILABLE,
+                CardCreationError.UNEXPECTED,
+            )
+
 sealed class AnkiExportTriggerStatus {
     object NotTriggered : AnkiExportTriggerStatus()
 

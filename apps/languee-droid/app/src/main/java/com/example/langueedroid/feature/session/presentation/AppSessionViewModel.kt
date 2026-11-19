@@ -43,7 +43,17 @@ class AppSessionViewModel
                 _sessionState.value = AppSessionState.CheckingSession
                 val stored = sessionStore.read()
                 if (stored == null) {
-                    sessionStore.clear()
+                    sessionStore.clearCredentials()
+                    val recoveryUserId = sessionStore.requiredRecoveryUserId()
+                    if (recoveryUserId != null) {
+                        _sessionState.value =
+                            AppSessionState.AuthenticationRequired(
+                                userId = recoveryUserId,
+                                userEmail = null,
+                                reason = AppSessionState.AuthenticationRequiredReason.SESSION_EXPIRED,
+                            )
+                        return@launch
+                    }
                     _sessionState.value = AppSessionState.Unauthorized
                     return@launch
                 }
@@ -94,7 +104,11 @@ class AppSessionViewModel
             }
         }
 
-        fun onAuthSuccess(session: AuthSession) {
+        fun onAuthSuccess(
+            session: AuthSession,
+            requiredUserId: String? = null,
+        ) {
+            if (requiredUserId != null && session.userId != requiredUserId) return
             viewModelScope.launch {
                 transitionToAuthorized(session.userId, session.userEmail)
             }

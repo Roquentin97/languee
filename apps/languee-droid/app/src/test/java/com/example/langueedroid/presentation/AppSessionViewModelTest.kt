@@ -76,6 +76,27 @@ class AppSessionViewModelTest {
             assertEquals(AppSessionState.Unauthorized, vm.sessionState.value)
         }
 
+    @Test
+    fun `startup after expired credentials were cleared still requires the marked account`() =
+        runTest {
+            whenever(sessionStore.read()).thenReturn(null)
+            whenever(sessionStore.requiredRecoveryUserId()).thenReturn("uid1")
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+
+            assertEquals(
+                AppSessionState.AuthenticationRequired(
+                    userId = "uid1",
+                    userEmail = null,
+                    reason = AppSessionState.AuthenticationRequiredReason.SESSION_EXPIRED,
+                ),
+                vm.sessionState.value,
+            )
+            verify(sessionStore).clearCredentials()
+            verify(sessionStore, never()).clear()
+        }
+
     // -----------------------------------------------------------------------
     // Startup — partial session (only some keys stored → store returns null)
     // Represented by sessionStore.read() returning null even when prefs exist partially.
@@ -205,6 +226,41 @@ class AppSessionViewModelTest {
             assertTrue(state is AppSessionState.Authorized)
             assertEquals("uid1", (state as AppSessionState.Authorized).userId)
             assertEquals("a@b.com", state.userEmail)
+        }
+
+    @Test
+    fun `recovery rejects a different account and retains the expired account state`() =
+        runTest {
+            val stored = storedSession()
+            whenever(sessionStore.read()).thenReturn(stored)
+            whenever(authRepository.refreshSession()).thenReturn(Result.failure(UnauthorizedException()))
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            val expiredState = vm.sessionState.value
+
+            vm.onAuthSuccess(stored.copy(userId = "uid-other"), requiredUserId = stored.userId)
+            advanceUntilIdle()
+
+            assertEquals(expiredState, vm.sessionState.value)
+            verify(prefsStore, never()).read()
+        }
+
+    @Test
+    fun `recovery with the same account returns to Authorized without replacing the screen identity`() =
+        runTest {
+            val stored = storedSession()
+            whenever(sessionStore.read()).thenReturn(stored)
+            whenever(authRepository.refreshSession()).thenReturn(Result.failure(UnauthorizedException()))
+            whenever(prefsStore.read()).thenReturn(setupCompletedPrefs())
+            val vm = buildViewModel()
+            advanceUntilIdle()
+
+            vm.onAuthSuccess(stored, requiredUserId = stored.userId)
+            advanceUntilIdle()
+
+            val state = vm.sessionState.value as AppSessionState.Authorized
+            assertEquals(stored.userId, state.userId)
+            assertEquals(stored.userEmail, state.userEmail)
         }
 
     // -----------------------------------------------------------------------

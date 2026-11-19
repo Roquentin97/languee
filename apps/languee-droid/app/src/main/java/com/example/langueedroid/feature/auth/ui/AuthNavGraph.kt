@@ -22,6 +22,7 @@ fun AuthNavGraph(
     modifier: Modifier = Modifier,
     startAtLogin: Boolean = false,
     notice: AuthEntryNotice? = null,
+    requiredUserId: String? = null,
 ) {
     val navController = rememberNavController()
 
@@ -44,6 +45,7 @@ fun AuthNavGraph(
                 showBackButton = !startAtLogin,
                 showRegisterPrompt = !startAtLogin,
                 notice = notice,
+                requiredUserId = requiredUserId,
             )
         }
 
@@ -82,6 +84,7 @@ private fun LoginRoute(
     showBackButton: Boolean,
     showRegisterPrompt: Boolean,
     notice: AuthEntryNotice?,
+    requiredUserId: String?,
 ) {
     val loginViewModel: LoginViewModel = hiltViewModel()
     val uiState by loginViewModel.uiState.collectAsState()
@@ -100,7 +103,7 @@ private fun LoginRoute(
         password = password,
         onEmailChange = { loginViewModel.onEmailChange(it) },
         onPasswordChange = { loginViewModel.onPasswordChange(it) },
-        onLoginClick = { loginViewModel.onLoginClick() },
+        onLoginClick = { loginViewModel.onLoginClick(requiredUserId) },
         onNavigateBack = {
             navController.navigate(AuthNavRoutes.LANDING) {
                 popUpTo(AuthNavRoutes.LANDING) { inclusive = false }

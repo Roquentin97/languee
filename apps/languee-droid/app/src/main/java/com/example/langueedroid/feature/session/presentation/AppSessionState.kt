@@ -9,7 +9,7 @@ sealed class AppSessionState {
 
     data class AuthenticationRequired(
         val userId: String,
-        val userEmail: String,
+        val userEmail: String?,
         val reason: AuthenticationRequiredReason,
         val keepMainScreen: Boolean = false,
     ) : AppSessionState()

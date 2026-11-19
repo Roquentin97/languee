@@ -15,6 +15,7 @@ internal fun AuthErrorMessage(type: AuthUiError) {
                     AuthUiError.REQUIRED_FIELDS -> R.string.auth_error_required_fields
                     AuthUiError.PASSWORDS_DO_NOT_MATCH -> R.string.auth_passwords_do_not_match
                     AuthUiError.INVALID_CREDENTIALS -> R.string.auth_error_invalid_credentials
+                    AuthUiError.ACCOUNT_MISMATCH -> R.string.auth_error_account_mismatch
                     AuthUiError.ACCOUNT_ALREADY_EXISTS -> R.string.auth_error_account_exists
                     AuthUiError.CONNECTION -> R.string.error_connection
                     AuthUiError.RATE_LIMITED -> R.string.error_rate_limited

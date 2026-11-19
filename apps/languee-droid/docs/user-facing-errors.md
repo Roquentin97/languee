@@ -9,7 +9,8 @@ backend response text and exception messages are not shown in the UI.
 | --- | --- | --- | --- |
 | Mobile login | `401`, `message: "Invalid credentials"` | Inline invalid-credentials message; retain email/password and stay on login | Correct credentials and submit again |
 | Mobile login | Any other `401` body | Generic service error; never infer invalid credentials from status alone | Retry after checking connectivity/service status |
-| Mobile refresh | `401` for invalid or expired refresh token | Clear the rejected session and require sign-in with an explanation | Sign in again |
+| Recovery login | Authenticated user ID differs from the expired account | Reject before saving returned credentials; keep the current screen and recovery identity; show localized guidance | Sign in with the original account, or explicitly log out first |
+| Mobile refresh | `401` for invalid or expired refresh token | Persist the required account ID, clear credentials, and require same-account sign-in | Sign in again with the original account |
 | Mobile refresh | Connection, timeout, `429`, or `5xx` | Preserve stored session and show retry/sign-in choice | Retry refresh or explicitly sign in |
 | Vocabulary lookup | `404`, `message: "DEFINITIONS_NOT_FOUND"` | Dictionary miss; open the manual-definition form where supported | Add a definition or return to the lookup |
 | Vocabulary lookup | Route-level `Cannot POST ...`, unknown or malformed `404` | Service/route failure, never a dictionary miss | Retry later |
@@ -19,7 +20,7 @@ backend response text and exception messages are not shown in the UI.
 | Card creation | `409`, `CARD_ALREADY_EXISTS` | Mark the selected definition as already saved | Choose another deck/definition |
 | Card creation | `404`, `DECK_NOT_FOUND` or `DEFINITION_NOT_FOUND` | Explain that a selected reference became stale; reload available decks | Select a current deck/definition |
 | Card/review/export reads | Verified `CARD_NOT_FOUND`, `DECK_NOT_FOUND`, or `EXPORT_NOT_FOUND` | Show a stale/missing-item message; do not label arbitrary 404s as absent data | Return and refresh the list |
-| Review answer check | Connection or retryable service failure | Preserve typed answers/forms and offer a safe retry of the same read/check | Retry without re-entering the answer |
+| Review answer check | Connection or retryable service failure | Preserve typed answers/forms; allow one retry at a time and ignore stale results after a queue reload | Retry without re-entering the answer |
 | Review grade/reveal-grade | Any ambiguous failure | Explain that the grade may have been saved; do not offer a blind duplicate grade | Return to decks and refresh the queue |
 | Pending export sync | Failure to load pending records or decks | Show a sync failure; never show “up to date” for an unsuccessful read | Retry sync |
 | AnkiDroid setup | Setup is incomplete | Explain setup is required and open integration settings | Complete setup, then retry |
@@ -29,8 +30,12 @@ Connection errors are identified from `IOException` causes, including timeouts.
 `401` on authenticated requests still follows the existing authenticator flow;
 only a rejected refresh token expires the session. A transient refresh failure is
 surfaced as an I/O failure and does not force logout. When an authenticated request
-does prove the session expired, the login dialog is shown over the still-composed
-main screen so capture and review input remain available after sign-in.
+proves expiry, a noncredential account ID is durably recorded before credentials
+are cleared. It survives process restart and is removed after same-account sign-in
+or explicit logout. The login dialog stays over the composed main screen during
+in-process recovery so capture and review input remain available after sign-in.
+Lookup retry is offered for connection, rate-limit, service-unavailable, and
+unexpected failures; rejected input and forbidden requests do not offer retry.
 
 `core/ui/components/ErrorMessage.kt` provides the shared live-region text treatment
 for screen and inline failures. It uses normal Compose text measurement and typography
