@@ -27,42 +27,54 @@ control runtime versions or image tags.
 
 ## Deployment (`deploy.yml`, "Deploy (dev)")
 
-Trigger: `push` to `develop` (that is, a merged PR; the ruleset forbids direct
-pushes). The workflow builds and deploys `github.sha`, the merged commit.
+Trigger: every push to `develop` and manual dispatch on `develop`. Before
+building, the `languee-dev` job reads the host's last verified state and compares
+it with the latest develop commit affecting each component. A skipped, failed,
+canceled, or superseded run therefore leaves a detectable gap for the next run,
+even when that run changes an unrelated service or configuration file.
 
-1. `resolve` — computes the build patch as
-   `github.run_number * 1000 + github.run_attempt` and skips the run if the
-   commit is no longer the `develop` head. Concurrency group `deploy-dev` (no
-   cancel) serializes runs; a run queued behind another is replaced by newer
-   ones, so the latest head wins.
-2. `build` — builds the backend, backend migrator, and NLP images for
-   `linux/arm64` on a native ARM64 runner. Backend and NLP publish independent
-   immutable tags `dev-<PATCH>-<12-character-commit-sha>`. Both service
-   repositories use the same tag when both are built. The runtime version is
-   `0.0.<PATCH>`, where `PATCH = github.run_number * 1000 + github.run_attempt`.
-   Build arguments/environment provide `APP_VERSION`, full `GIT_SHA`, and
-   `BUILD_ID`. OCI labels `org.opencontainers.image.version`,
-   `org.opencontainers.image.revision`, and `org.opencontainers.image.build-id`
-   carry those values. Do not use a mutable alias to identify a deployed
-   artifact.
-3. `deploy` (environment `languee-dev`) — copies compose, Caddyfile, backup
-   script, `deploy-stack.sh`, `sync-vault-config.py` to `/opt/languee`, then
-   deploys the selected backend and NLP tags ([details](VAULT.md#what-the-deploy-does)):
-   Vault fetch/validate, pull, Postgres/Redis up, `migrate`, recreate services,
-   wait for liveness, then gates completion on the backend's `/health/ready`
-   endpoint over local Caddy HTTPS and public HTTPS from the runner. It also
-   performs an internal NLP check over the compose network.
+The workflow serializes with `Apply config (dev)` in concurrency group
+`deploy-dev` and does not cancel a running deployment. It computes the build
+patch as `github.run_number * 1000 + github.run_attempt`; stale develop heads
+fail visibly before apply. A final head check runs after image builds and before
+the server is changed.
+
+Backend and NLP are reconciled independently. Only stale or explicitly forced
+service images are built; missing or corrupt applied state selects both. The
+backend runtime and migrator images are checked and built separately so a
+partial registry upload cannot leave a tag without its migration image. Images
+use immutable tags `dev-<PATCH>-<12-character-commit-sha>`, runtime version
+`0.0.<PATCH>`, and OCI labels for the build version, full image source revision,
+and build id.
+
+The deployment applies selected artifacts and configuration
+([details](VAULT.md#what-the-deploy-does)): Vault fetch/validate, pinned image
+verification, migrations when backend code changes, service recreation, local
+readiness checks, and public backend readiness from the runner. The NLP image
+is also checked internally over the Compose network. Only after these checks
+pass does a separate atomic state write record each applied source revision,
+image tag, artifact revision, and configuration revision. A failed state write
+fails the workflow; the next run retries the still-unrecorded source state.
+
+Every run's summary lists desired versus last verified source revisions and
+whether backend, NLP, or deployment configuration will be applied. A run with
+no drift says that no deployment was attempted. An SSH failure while reading
+state fails before builds, and a stale run cannot report a successful deploy.
 
 Manual runs (`workflow_dispatch`, branch `develop` only):
 
 - **Deploy (dev)**: build and deploy the develop head, or set
   `rollback_back_tag` and/or `rollback_nlp_tag` to roll back only the selected
-  service. These inputs set `LANGUEE_BACK_TAG` and `LANGUEE_NLP_TAG` in
-  deployment state. Tags identify already-built artifacts and are not rebuilt
-  during rollback. Migrations are forward-only; rolling code back does not
-  reverse a migration.
+  service. A rollback records the artifact's actual source revision, so a later
+  normal reconciliation still detects that it differs from desired develop
+  source. Tags identify existing artifacts and are not rebuilt during rollback.
+  Migrations are forward-only; rolling code back does not reverse a migration.
+  Check application compatibility before rolling code back across a schema
+  change.
 - **Apply config (dev)**: Vault config-only apply, both service tags preserved, no migrations,
-  no new code (see [VAULT.md](VAULT.md)).
+  no new code (see [VAULT.md](VAULT.md)). Its summary compares current source
+  revisions with the verified host state and calls out any code/config drift; a
+  successful Vault apply does not certify source convergence.
 
 After a deploy, compare each `GET /version` response with its image's
 `org.opencontainers.image.revision` label and the image digest reported by
@@ -102,15 +114,45 @@ secrets across, then delete `production` if unused).
 ```text
 /opt/languee/
   docker-compose.prod.yml, caddy/Caddyfile, provision/ # synced
-  scripts/{backup-db.sh,deploy-stack.sh,sync-vault-config.py}   # synced
+  scripts/{backup-db.sh,deploy-stack.sh,deploy-state.py,sync-vault-config.py} # synced
   .env languee-back.env languee-nlp.env           # generated from Vault, 0600
-  .deploy-state.json  .config-previous/           # bookkeeping, 0600/0700
+  .deploy-state.json  .applied-deploy-state.json  # bookkeeping, 0600
+  .config-previous/                               # snapshots, 0700
   backups/
 ```
 
 Existing hand-maintained env files are replaced on the first Vault deploy (the
 old copies land in `.config-previous/`). Populate the secret and run
 `OCI_REGION=eu-frankfurt-1 sync-vault-config.py --check --preserve-tags` first.
+
+### Recovering deployment drift
+
+After this workflow is installed, every develop push compares current desired
+component revisions with `.applied-deploy-state.json`; the next successful run
+automatically retries components left behind by a failed, canceled, or skipped
+run. If the applied state file is absent or invalid, the workflow rebuilds both
+application artifacts and reapplies configuration conservatively. If the host
+cannot be reached to read that state, the workflow fails before building or
+claiming convergence.
+
+For the previously observed backend/NLP split deployment, run **Deploy (dev)**
+manually on `develop` with `force_deploy` enabled after this change is available.
+That builds and deploys both current develop services. Do not use rollback tags
+for this recovery. The run must finish its public readiness check and state
+write; verify the backend `/version`, internal NLP `/version`, and
+`python3 /opt/languee/scripts/deploy-state.py status` before considering the
+stack reconciled. Merging this change does not run recovery on the current
+server.
+
+Migrations run before backend recreation and remain forward-only. If migration
+or readiness fails, the deployment workflow fails and the verified source
+state is not advanced. A failure during the deployment script restores the
+previous image/config references and attempts to recreate affected services;
+it never resets the database or reverses a migration. A public readiness
+failure after the host-side apply leaves the candidate services in place but
+still leaves applied source state unchanged, so the next reconciliation retries
+the desired artifacts. Inspect migration/readiness logs and verify schema/code
+compatibility before any rollback.
 
 ## Build identity and releases
 

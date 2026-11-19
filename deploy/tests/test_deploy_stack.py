@@ -18,12 +18,15 @@ case "$1" in --app-dir) shift 2 ;; esac
 case "$1" in
   --status) cat "$APP_DIR/state" ;;
   --restore-previous) echo restored ;;
-  *) echo '{"back_tag": "new", "nlp_tag": "new"}' > "$APP_DIR/state"; echo 'updated: .env' ;;
+  *) echo '{"back_tag": "new", "nlp_tag": "new"}' > "$APP_DIR/state"; echo 'updated: no env changes' ;;
 esac
 """
 
 DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
+if [ "$1" = compose ] && [ "$2" = config ]; then
+  echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+fi
 if [ "$1" = image ] && [ "$2" = inspect ]; then
   case "$4" in
     *version*) echo "${ARTIFACT_VERSION:-0.0.123001}" ;;
@@ -35,10 +38,16 @@ if [ "$2" = run ]; then echo "migration boom" >&2; exit 1; fi
 
 SUCCESS_DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
+if [ "$1" = compose ] && [ "$2" = config ]; then
+  echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+fi
 """
 
 MONITORING_FAILURE_DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
+if [ "$1" = compose ] && [ "$2" = config ]; then
+  echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+fi
 if [[ "$*" == *"loki tempo prometheus alloy grafana"* ]]; then
   echo "monitoring unavailable" >&2
   exit 1
@@ -78,7 +87,7 @@ def _deploy(
         "ARTIFACT_VERSION": artifact_version,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
     }
-    _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
+    _executable(bin_dir / "python3", '#!/bin/bash\nif [[ "$1" = -* ]]; then exec /usr/bin/python3 "$@"; else exec "$@"; fi\n')
     _executable(bin_dir / "curl", "#!/bin/bash\nexit 0\n")
     result = subprocess.run(
         ["bash", str(SCRIPT), "--back-tag", TAG, "--nlp-tag", TAG],
@@ -100,7 +109,7 @@ def _deploy_readiness(
     _executable(app / "scripts" / "sync-vault-config.py", SYNC_STUB)
     _executable(bin_dir / "docker", docker_stub)
     _executable(bin_dir / "curl", curl_stub)
-    _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
+    _executable(bin_dir / "python3", '#!/bin/bash\nif [[ "$1" = -* ]]; then exec /usr/bin/python3 "$@"; else exec "$@"; fi\n')
     (app / "state").write_text('{"back_tag": "old", "nlp_tag": "old"}')
     (app / ".env").write_text("DOMAIN=example.test\n")
     result = subprocess.run(
@@ -121,12 +130,16 @@ def test_failure_on_initial_apply_reports_without_restoring(tmp_path):
     assert "--restore-previous" not in calls
 
 
-def test_failure_after_established_deploy_restores_only_affected_apps(tmp_path):
+def test_nlp_is_verified_before_migration_and_restored_when_migration_fails(tmp_path):
     result, calls = _deploy(tmp_path, '{"back_tag": "old", "nlp_tag": "old"}')
     assert result.returncode == 1
     assert "restoring the previous image references" in result.stderr
     assert "--restore-previous" in calls
-    assert "up -d --force-recreate --no-deps" not in calls  # migration failed before app mutation
+    nlp_apply = calls.index("docker compose up -d --force-recreate --no-deps --wait languee-nlp")
+    migration = calls.index("docker compose run --rm migrate")
+    assert nlp_apply < migration
+    assert "docker compose up -d --force-recreate --no-deps languee-nlp" in calls
+    assert "docker compose up -d --force-recreate --no-deps languee-back" not in calls
 
 
 def test_legacy_artifact_version_is_accepted_for_rollback(tmp_path):
@@ -154,7 +167,7 @@ def test_persistent_infrastructure_requires_explicit_maintenance_approval(tmp_pa
     _executable(app / "scripts" / "sync-vault-config.py", SYNC_STUB)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    _executable(bin_dir / "python3", '#!/bin/bash\nexec "$@"\n')
+    _executable(bin_dir / "python3", '#!/bin/bash\nif [[ "$1" = -* ]]; then exec /usr/bin/python3 "$@"; else exec "$@"; fi\n')
     result = subprocess.run(
         ["bash", str(SCRIPT), "--infra", "postgres"],
         env={**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"},
@@ -187,7 +200,7 @@ def test_monitoring_failure_does_not_block_application_deployment(tmp_path):
 
     assert result.returncode == 0
     assert "WARNING: monitoring stack did not become healthy" in result.stderr
-    assert "up -d --wait caddy" in calls
+    assert "up -d --no-deps --wait caddy" in calls
 
 
 def test_production_backend_healthcheck_uses_liveness_endpoint():

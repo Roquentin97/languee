@@ -24,11 +24,12 @@ Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
   docker-compose.prod.yml   # synced by the Deploy workflow
   caddy/Caddyfile           # synced by the Deploy workflow
   provision/                # Grafana, Loki, Tempo, Prometheus, Alloy config
-  scripts/                  # backup-db.sh, deploy-stack.sh, sync-vault-config.py (synced)
+  scripts/                  # deployment and backup scripts (synced)
   .env                      # generated from OCI Vault on deploy (0600, never edit)
   languee-back.env          # generated from OCI Vault on deploy
   languee-nlp.env           # generated from OCI Vault on deploy
-  .deploy-state.json        # backend/NLP image tags + secret version
+  .deploy-state.json        # image tags + Vault secret version
+  .applied-deploy-state.json # last health-verified source and artifact revisions
   backups/                  # local dump retention (7 days)
 ```
 
@@ -150,14 +151,27 @@ checks backend readiness over local and public HTTPS, and checks NLP from
 inside the compose network. This readiness gate depends on the backend health
 endpoint change being merged first.
 
+Each run compares the latest develop source revision for backend, NLP, and
+deployment configuration with `.applied-deploy-state.json` on the VM. A failed,
+canceled, skipped, or superseded run leaves its component revision unadvanced,
+so a later unrelated push still selects that component. Missing or corrupt
+state causes both application images and configuration to be reconciled
+conservatively. The workflow summary shows desired and last verified revisions;
+it writes new state atomically only after host and public readiness pass.
+
 - **Rollback:** run Deploy (dev) manually on `develop`, setting
   `rollback_back_tag` and/or `rollback_nlp_tag` to select an immutable artifact
   for that service. This deploys selected existing artifacts; it does not
   rebuild them. Migrations are forward-only. Check application compatibility
   before rolling code back across a schema change.
+  The state records the selected artifact's source revision, leaving the next
+  ordinary run able to detect and reconcile a rollback behind current develop.
   Historical `0.1.<PATCH>` images remain valid rollback targets.
 - **Config-only change:** edit the Vault secret and run **Apply config (dev)**;
   deployed image artifacts and tags are preserved and no migrations run.
+  Its green result confirms the Vault-backed configuration apply only; the
+  workflow summary separately reports whether application or deployment source
+  revisions still need a Deploy (dev) run.
 - **Verify deployed identity:** check the backend's public `/version` response,
   perform the internal NLP `/version` check, then compare each full commit SHA
   with the `org.opencontainers.image.revision` label, verify version and
@@ -167,6 +181,14 @@ endpoint change being merged first.
 First deploy on a fresh server is the same workflow — Postgres initializes
 from the Vault credentials, migrations create the schema, Caddy fetches
 certificates on first request.
+
+To recover the previously observed backend/NLP split deployment after this
+workflow is merged, manually run **Deploy (dev)** on `develop` with
+`force_deploy` enabled. That rebuilds and applies both current services; do not
+set rollback tags. Wait for the public readiness check and verified-state write,
+then compare `/version` for both services with the OCI image revision labels
+and inspect `python3 /opt/languee/scripts/deploy-state.py status`. Merging this
+change does not initiate that recovery.
 
 Images build natively on a GitHub-hosted ARM64 runner; the GHA layer cache
 makes rebuilds fast until `uv.lock` changes.
