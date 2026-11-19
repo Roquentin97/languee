@@ -106,7 +106,14 @@ export class NlpService {
       message: 'request',
       event: 'nlp.request',
       method: this.analyze.name,
-      data: { text, language, hasContext: Boolean(context?.trim()) },
+      data: {
+        textBytes: Buffer.byteLength(text, 'utf8'),
+        language,
+        hasContext: Boolean(context?.trim()),
+        contextBytes:
+          context === undefined ? 0 : Buffer.byteLength(context, 'utf8'),
+        selectionRangeCount: selectionRanges?.length ?? 0,
+      },
     });
 
     const start = Date.now();
@@ -193,7 +200,10 @@ export class NlpService {
             message: 'input rejected',
             event: 'nlp.input_invalid',
             method: this.analyze.name,
-            data: { text: analysisText, status: err.status },
+            data: {
+              textBytes: Buffer.byteLength(analysisText, 'utf8'),
+              status: err.status,
+            },
           });
         throw new NlpInputInvalidError();
       }
@@ -372,11 +382,11 @@ export class NlpService {
       method: this.analyze.name,
       duration_ms: durationMs,
       data: {
-        text,
+        textBytes: Buffer.byteLength(text, 'utf8'),
         language,
-        canonical: body.canonical,
+        canonicalBytes: Buffer.byteLength(body.canonical, 'utf8'),
         kind: body.kind,
-        headLemma: body.head_lemma,
+        hasContext: Boolean(contextMatch),
       },
     });
 
@@ -411,9 +421,9 @@ export class NlpService {
       method: this.analyze.name,
       duration_ms: durationMs,
       data: {
-        text,
+        textBytes: Buffer.byteLength(text, 'utf8'),
         language,
-        lemma: token.lemma,
+        lemmaBytes: Buffer.byteLength(token.lemma, 'utf8'),
         pos: token.pos,
         isIrregular: token['is_irregular'],
       },

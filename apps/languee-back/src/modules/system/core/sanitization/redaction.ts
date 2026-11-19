@@ -8,6 +8,8 @@ const SENSITIVE_KEY_PATTERNS = [
   'accesstoken',
   'refreshtoken',
   'jwt',
+  'sessionid',
+  'email',
   'cookie',
   'set-cookie',
   'secret',

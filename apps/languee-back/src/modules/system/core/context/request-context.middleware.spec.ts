@@ -1,14 +1,32 @@
 import type { NextFunction, Request, Response } from 'express';
-import { requestContextStorage } from './request-context';
+import {
+  parseTraceparent,
+  requestContextStorage,
+  resolveRequestId,
+} from './request-context';
 import { RequestContextMiddleware } from './request-context.middleware';
 
-function makeReq(headers: Record<string, string> = {}): Request {
+function makeReq(headers: Record<string, string | string[]> = {}): Request {
   return { headers } as unknown as Request;
 }
 
-function makeRes(): { res: Response; setHeader: jest.Mock } {
+function makeRes(): {
+  res: Response;
+  setHeader: jest.Mock;
+  finish: () => void;
+} {
   const setHeader = jest.fn();
-  return { res: { setHeader } as unknown as Response, setHeader };
+  let finishHandler: (() => void) | undefined;
+  const res = {
+    setHeader,
+    statusCode: 200,
+    locals: {},
+    once: jest.fn((event: string, handler: () => void) => {
+      if (event === 'finish') finishHandler = handler;
+      return res;
+    }),
+  } as unknown as Response;
+  return { res, setHeader, finish: () => finishHandler?.() };
 }
 
 describe('RequestContextMiddleware', () => {
@@ -46,6 +64,18 @@ describe('RequestContextMiddleware', () => {
     };
 
     middleware.use(req, res, next);
+  });
+
+  it('replaces malformed request ids rather than echoing unsafe header values', () => {
+    const { res, setHeader } = makeRes();
+    middleware.use(
+      makeReq({ 'x-request-id': 'bad\nrequest-id' }),
+      res,
+      () => {},
+    );
+
+    const id = (setHeader.mock.calls as [string, string][])[0]?.[1];
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('stores the requestId in AsyncLocalStorage before calling next', (done) => {
@@ -86,5 +116,72 @@ describe('RequestContextMiddleware', () => {
     };
 
     middleware.use(req, res, next);
+  });
+
+  it('logs a route-level 404 with a safe path and generated request id', () => {
+    const stdout = jest
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true);
+    const req = makeReq({
+      traceparent: '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+    });
+    Object.assign(req, {
+      method: 'GET',
+      path: '/api/v1/missing?token=do-not-log',
+      query: {},
+    });
+    const { res, finish } = makeRes();
+    Object.assign(res, { statusCode: 404 });
+
+    let requestContext: ReturnType<typeof requestContextStorage.getStore>;
+    const next: NextFunction = () => {
+      requestContext = requestContextStorage.getStore();
+    };
+    middleware.use(req, res, next);
+    requestContextStorage.run(requestContext!, finish);
+
+    const line = stdout.mock.calls[0]?.[0] as string;
+    const event = JSON.parse(line) as Record<string, unknown>;
+    expect(event['event']).toBe('http.request.failed');
+    expect(event['failure_stage']).toBe('route');
+    expect(event['error.code']).toBe('ROUTE_NOT_FOUND');
+    expect(event['url.path']).toBe('/api/v1/missing');
+    expect(event['requestId']).toMatch(/^[0-9a-f-]{36}$/);
+    expect(event['trace_id']).toBe('aabbccddeeff00112233445566778899');
+    expect(line).not.toContain('do-not-log');
+    stdout.mockRestore();
+  });
+});
+
+describe('request header validation', () => {
+  it('accepts bounded ids and creates a UUID for malformed or oversized values', () => {
+    expect(resolveRequestId('safe-id.123')).toBe('safe-id.123');
+    expect(resolveRequestId('bad id')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(resolveRequestId('x'.repeat(129))).toMatch(/^[0-9a-f-]{36}$/);
+    expect(resolveRequestId(['first', 'second'])).toBe('first');
+  });
+
+  it('extracts valid W3C trace ids and ignores missing or malformed headers', () => {
+    expect(
+      parseTraceparent(
+        '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+      ),
+    ).toEqual({
+      traceId: 'aabbccddeeff00112233445566778899',
+      parentSpanId: '0011223344556677',
+      traceFlags: '01',
+    });
+    expect(parseTraceparent(undefined)).toEqual({});
+    expect(parseTraceparent('not-a-traceparent')).toEqual({});
+    expect(
+      parseTraceparent(
+        'ff-aabbccddeeff00112233445566778899-0011223344556677-01',
+      ),
+    ).toEqual({});
+    expect(
+      parseTraceparent(
+        '00-00000000000000000000000000000000-0011223344556677-01',
+      ),
+    ).toEqual({});
   });
 });

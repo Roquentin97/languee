@@ -62,6 +62,7 @@ def valid_config() -> dict[str, str]:
         "SERVICE_NAME": "languee-back",
         "PRINT_DEBUG_LOGS": "false",
         "PRINT_PRETTY_JSON_LOGS": "false",
+        "LOG_LOOKUP_DETAILS": "false",
         "TRACING_ENABLED": "true",
         "OTEL_TRACES_SAMPLER": "parentbased_always_on",
         "OTEL_TRACES_SAMPLER_ARG": "1.0",
@@ -161,6 +162,20 @@ def test_missing_required_keys_are_all_reported_without_values():
     message = str(err.value)
     assert "JWT_SECRET: missing" in message and "DOMAIN: missing" in message
     assert PG_PASSWORD not in message
+
+
+@pytest.mark.parametrize("value", ["true", "false"])
+def test_lookup_details_flag_is_optional_and_boolean(value: str):
+    config = valid_config()
+    config["LOG_LOOKUP_DETAILS"] = value
+    svc.validate(config)
+
+    del config["LOG_LOOKUP_DETAILS"]
+    svc.validate(config)
+
+    config["LOG_LOOKUP_DETAILS"] = "yes"
+    with pytest.raises(svc.ConfigError, match="LOG_LOOKUP_DETAILS"):
+        svc.validate(config)
 
 
 def test_unknown_key_is_rejected():

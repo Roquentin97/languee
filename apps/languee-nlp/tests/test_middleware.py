@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from languee_nlp.middleware import RequestLoggingMiddleware
 
@@ -33,7 +34,23 @@ def _make_app() -> FastAPI:
     def words():
         return {"result": "data"}
 
+    @app.get("/application-error")
+    def application_error():
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "INPUT_INVALID"},
+        )
+
     return app
+
+
+class NoClientAddress:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope["client"] = None
+        await self.app(scope, receive, send)
 
 
 @pytest.fixture()
@@ -65,6 +82,13 @@ def test_non_health_response_has_x_request_id(client: TestClient):
 def test_incoming_request_id_propagated_for_non_health(client: TestClient):
     response = client.get("/words", headers={"x-request-id": "my-trace-id"})
     assert response.headers["x-request-id"] == "my-trace-id"
+
+
+def test_malformed_incoming_request_id_is_replaced(client: TestClient):
+    response = client.get("/words", headers={"x-request-id": "bad request id"})
+    assert response.status_code == 200
+    assert response.headers["x-request-id"] != "bad request id"
+    assert len(response.headers["x-request-id"]) == 36
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +166,47 @@ def test_request_log_record_has_correct_fields(
     assert record.request["path"] == "/words"  # type: ignore[attr-defined]
     assert record.response["statusCode"] == 200  # type: ignore[attr-defined]
     assert isinstance(record.duration, float)  # type: ignore[attr-defined]
+    assert record.http["status_code"] == 200  # type: ignore[attr-defined]
+
+
+def test_request_log_does_not_capture_query_values(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+):
+    with caplog.at_level(logging.INFO, logger="languee_nlp.http"):
+        client.get("/words?token=private-value&text=private-text")
+
+    record = next(r for r in caplog.records if "Request completed" in r.getMessage())
+    assert record.request["path"] == "/words"  # type: ignore[attr-defined]
+    assert "url" not in record.request  # type: ignore[attr-defined]
+    assert "client" not in record.request  # type: ignore[attr-defined]
+    assert "private-value" not in str(record.__dict__)
+    assert "private-text" not in str(record.__dict__)
+
+
+def test_application_error_logs_safe_response_code(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+):
+    with caplog.at_level(logging.WARNING, logger="languee_nlp.http"):
+        response = client.get("/application-error")
+
+    assert response.status_code == 422
+    record = next(r for r in caplog.records if "Request failed" in r.getMessage())
+    assert record.failure["stage"] == "application"  # type: ignore[attr-defined]
+    assert record.response["errorCode"] == "INPUT_INVALID"  # type: ignore[attr-defined]
+
+
+def test_route_level_404_is_classified_without_reading_response_body(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+):
+    with caplog.at_level(logging.WARNING, logger="languee_nlp.http"):
+        response = client.get("/missing?password=private")
+
+    assert response.status_code == 404
+    record = next(r for r in caplog.records if "Request failed" in r.getMessage())
+    assert record.failure["stage"] == "route"  # type: ignore[attr-defined]
+    assert record.failure["classification"] == "route_not_found"  # type: ignore[attr-defined]
+    assert record.request["path"] == "/missing"  # type: ignore[attr-defined]
+    assert "private" not in str(record.__dict__)
 
 
 # ---------------------------------------------------------------------------
@@ -151,59 +216,20 @@ def test_request_log_record_has_correct_fields(
 
 def test_middleware_handles_none_client_without_error():
     """When request.client is None the middleware must not raise AttributeError."""
-    from starlette.requests import Request
-    from starlette.testclient import TestClient as StarletteTestClient
-
-    app = FastAPI()
-    app.add_middleware(RequestLoggingMiddleware)
-
-    @app.get("/words")
-    def words():
-        return {"result": "ok"}
-
-    original_dispatch = RequestLoggingMiddleware.dispatch
-
-    async def patched_dispatch(self, request: Request, call_next):
-        # Force request.client to be None
-        request._client = None  # type: ignore[attr-defined]
-        return await original_dispatch(self, request, call_next)
-
-    with patch.object(RequestLoggingMiddleware, "dispatch", patched_dispatch):
-        starlette_client = StarletteTestClient(app)
-        response = starlette_client.get("/words")
+    client = TestClient(NoClientAddress(_make_app()))
+    response = client.get("/words")
 
     assert response.status_code == 200
 
 
-def test_middleware_client_none_logs_none_ip(caplog: pytest.LogCaptureFixture):
-    """When client is None, the logged request.client field must be None (not raise)."""
-    from starlette.requests import Request
-
-    app = FastAPI()
-    app.add_middleware(RequestLoggingMiddleware)
-
-    @app.get("/check")
-    def check():
-        return {"ok": True}
-
-    original_dispatch = RequestLoggingMiddleware.dispatch
-
-    async def patched_dispatch(self, request: Request, call_next):
-        # Patch the client property to return None on this request instance
-        with patch.object(
-            type(request),
-            "client",
-            new_callable=lambda: property(lambda self: None),
-        ):
-            return await original_dispatch(self, request, call_next)
-
-    with patch.object(RequestLoggingMiddleware, "dispatch", patched_dispatch):
-        test_client = TestClient(app)
-        with caplog.at_level(logging.INFO, logger="languee_nlp.http"):
-            test_client.get("/check")
+def test_middleware_does_not_log_client_ip(caplog: pytest.LogCaptureFixture):
+    """Request logs intentionally omit the client IP address."""
+    test_client = TestClient(NoClientAddress(_make_app()))
+    with caplog.at_level(logging.INFO, logger="languee_nlp.http"):
+        test_client.get("/words")
 
     completion_records = [
         r for r in caplog.records if "Request completed" in r.getMessage()
     ]
     assert len(completion_records) == 1
-    assert completion_records[0].request["client"] is None  # type: ignore[attr-defined]
+    assert "client" not in completion_records[0].request  # type: ignore[attr-defined]

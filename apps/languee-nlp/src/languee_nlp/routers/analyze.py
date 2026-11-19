@@ -138,7 +138,10 @@ def _find_word_span(input_text: str, word: str) -> tuple[str, int, int]:
         extra={
             "event": "nlp.word_not_in_context",
             "method": _find_word_span.__name__,
-            "data": {"word": word, "context_length": len(input_text)},
+            "data": {
+                "word_length": len(word),
+                "context_length": len(input_text),
+            },
         },
     )
     raise HTTPException(status_code=422, detail="SELECTION_DOES_NOT_MATCH_INPUT")
@@ -274,8 +277,8 @@ def _analyze_word_in_context(
             "event": "nlp.token_resolved_from_context",
             "method": _analyze_word_in_context.__name__,
             "data": {
-                "word": word,
-                "matched_text": result.token.text,
+                "word_length": len(word),
+                "matched_text_length": len(result.token.text),
                 "confidence": result.confidence,
             },
         },
@@ -340,7 +343,11 @@ def _analyze_expression(
         extra={
             "event": "nlp.expression_classified",
             "method": _analyze_expression.__name__,
-            "data": {"expression": sanitized, "kind": kind, "canonical": canonical},
+            "data": {
+                "expression_length": len(sanitized),
+                "kind": kind,
+                "canonical_length": len(canonical),
+            },
         },
     )
 
@@ -375,7 +382,8 @@ def _analyze_expression(
                 "event": "nlp.expression_context_match",
                 "method": _analyze_expression.__name__,
                 "data": {
-                    "expression": sanitized,
+                    "expression_length": len(sanitized),
+                    "context_length": len(input_text),
                     "found": context_match.found,
                     "confidence": context_match.confidence,
                 },
@@ -415,10 +423,10 @@ def analyze(request: AnalyzeRequest) -> JSONResponse:
             "event": "nlp.request",
             "method": analyze.__name__,
             "data": {
-                "text": request.text,
+                "text_length": len(request.text),
                 "language": request.language,
-                "has_input_text": request.input_text is not None
-                and bool(request.input_text.strip()),
+                "input_text_length": len(request.input_text or ""),
+                "selection_range_count": len(request.selection_ranges or []),
             },
         },
     )

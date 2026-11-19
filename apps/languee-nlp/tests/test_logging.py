@@ -60,6 +60,9 @@ def test_json_formatter_required_fields_present():
     assert "level" in parsed
     assert "message" in parsed
     assert "service" in parsed
+    assert "service_version" in parsed
+    assert "vcs_revision" in parsed
+    assert "build_id" in parsed
     assert "context" in parsed
     assert "pid" in parsed
     assert "environment" in parsed
@@ -129,7 +132,7 @@ def test_json_formatter_output_is_single_line():
 # ---------------------------------------------------------------------------
 
 
-def test_json_formatter_exception_includes_error_fields():
+def test_json_formatter_exception_omits_message_and_keeps_safe_stack_context():
     import sys
 
     formatter = _make_formatter()
@@ -143,12 +146,12 @@ def test_json_formatter_exception_includes_error_fields():
 
     assert "error" in parsed
     assert parsed["error"]["type"] == "ValueError"
-    assert parsed["error"]["message"] == "something went wrong"
+    assert "message" not in parsed["error"]
     assert "stack" in parsed["error"]
     assert len(parsed["error"]["stack"]) > 0
 
 
-def test_json_formatter_exception_stack_is_string():
+def test_json_formatter_exception_stack_is_a_bounded_list_of_frames():
     import sys
 
     formatter = _make_formatter()
@@ -159,7 +162,8 @@ def test_json_formatter_exception_stack_is_string():
 
     record = _make_record(level=logging.ERROR, exc_info=exc_info)
     parsed = json.loads(formatter.format(record))
-    assert isinstance(parsed["error"]["stack"], str)
+    assert isinstance(parsed["error"]["stack"], list)
+    assert len(parsed["error"]["stack"]) <= 12
 
 
 def test_json_formatter_no_exception_has_no_error_key():
@@ -188,8 +192,38 @@ def test_json_formatter_omits_extra_fields_when_absent():
     formatter = _make_formatter()
     record = _make_record()
     parsed = json.loads(formatter.format(record))
-    for field in ("requestId", "request", "response", "duration", "meta"):
+    for field in (
+        "requestId",
+        "request",
+        "response",
+        "duration",
+        "meta",
+        "http",
+        "failure",
+        "error",
+    ):
         assert field not in parsed
+
+
+def test_json_formatter_redacts_nested_secrets_and_user_text_in_data():
+    formatter = _make_formatter()
+    record = _make_record()
+    record.data = {
+        "text": "private lookup text",
+        "language": "en",
+        "password": "do-not-log",
+        "nested": {"authorization": "Bearer secret-token"},
+    }
+
+    parsed = json.loads(formatter.format(record))
+    assert parsed["data"] == {
+        "text": "[OMITTED]",
+        "language": "en",
+        "password": "[REDACTED]",
+        "nested": {"authorization": "[REDACTED]"},
+    }
+    assert "private lookup text" not in json.dumps(parsed)
+    assert "secret-token" not in json.dumps(parsed)
 
 
 # ---------------------------------------------------------------------------

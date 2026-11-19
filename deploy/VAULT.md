@@ -52,7 +52,7 @@ tests assert it matches the script's allowlist. Unknown keys are rejected.
 | Written to          | Keys |
 | ------------------- | ---- |
 | `.env` (compose + backup script) | `DOMAIN`, `MONITOR_DOMAIN`, `TELEMETRY_DOMAIN`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `TELEMETRY_USERNAME`, `TELEMETRY_PASSWORD_HASH`, `LANGUEE_BACK_POSTGRES_USER`, `LANGUEE_BACK_POSTGRES_PASSWORD`, `LANGUEE_BACK_POSTGRES_DB`, `LANGUEE_BACK_REDIS_PASSWORD`, `BACKUP_RCLONE_REMOTE`, `BACKUP_RETENTION_DAYS`, `BACKUP_HEALTHCHECK_URL`, `DISK_HEALTHCHECK_URL` (optional, may be empty; sensitive) |
-| `languee-back.env`  | `PORT`, `NODE_ENV`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `BASIC_AUTH`, `BASIC_PASSWORD`, `LANGUEE_NLP_BASE_URL`, `LANGUEE_NLP_BASIC_AUTH_LOGIN`, `LANGUEE_NLP_BASIC_AUTH_PASSWORD`, `LOG_FORMAT`, `SERVICE_NAME`, `PRINT_DEBUG_LOGS`, `PRINT_PRETTY_JSON_LOGS`, `TRACING_ENABLED=true`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318` |
+| `languee-back.env`  | `PORT`, `NODE_ENV`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `BASIC_AUTH`, `BASIC_PASSWORD`, `LANGUEE_NLP_BASE_URL`, `LANGUEE_NLP_BASIC_AUTH_LOGIN`, `LANGUEE_NLP_BASIC_AUTH_PASSWORD`, `LOG_FORMAT`, `SERVICE_NAME`, `PRINT_DEBUG_LOGS`, `PRINT_PRETTY_JSON_LOGS`, `TRACING_ENABLED=true`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318`, `LOG_LOOKUP_DETAILS` (optional; defaults to `false`) |
 | `languee-nlp.env`   | `LANGUEE_NLP_SPACY_MODEL`, `LANGUEE_NLP_LOG_FORMAT`, `LANGUEE_NLP_LOG_LEVEL`, `LANGUEE_NLP_SERVICE_NAME`, `LANGUEE_NLP_ENVIRONMENT`, `LANGUEE_NLP_TRACING_ENABLED=true`, `LANGUEE_NLP_OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318` |
 | derived             | `languee-nlp.env` `BASIC_LOGIN` / `BASIC_PASSWORD` come from `LANGUEE_NLP_BASIC_AUTH_LOGIN` / `LANGUEE_NLP_BASIC_AUTH_PASSWORD` (stored once). The backend's `BASIC_PASSWORD` is Swagger auth and is never used for NLP. |
 | fixed by the deploy | `COMPOSE_FILE=docker-compose.prod.yml`, `LANGUEE_BACK_TAG`, `LANGUEE_NLP_TAG` (deployment-controlled) — not in Vault |
@@ -67,6 +67,14 @@ OTLP endpoints must equal the fixed private Compose values. `MONITOR_DOMAIN`
 and `TELEMETRY_DOMAIN` are lowercase public DNS hostnames. The telemetry hash
 must be a Caddy-compatible bcrypt hash; the plaintext `TELEMETRY_PASSWORD` is
 an Android build-time secret and is intentionally not accepted by this schema.
+
+Keep `LOG_LOOKUP_DETAILS` unset or set to `false` for normal operation. It is an
+incident-only switch: when enabled, failed vocabulary and dictionary lookups can
+include allowlisted user text in Loki. Captured text and context are each capped at
+1,024 UTF-8 bytes; authentication bodies, credentials, arbitrary query values, and
+upstream response bodies are excluded. Anyone with Grafana log access can see
+captured lookup content. Set it back to `false` after investigation; existing Loki
+records expire under `LOKI_RETENTION_DAYS` (five days by default).
 
 `GRAFANA_ADMIN_PASSWORD` bootstraps a new Grafana database only. For rotation on
 an existing `grafana_data` volume, update the Vault value, apply configuration,

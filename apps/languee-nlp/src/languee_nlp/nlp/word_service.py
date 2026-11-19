@@ -130,7 +130,11 @@ def _is_irregular(token: spacy.tokens.Token) -> bool:
                     extra={
                         "event": "nlp.irregular_form_detected",
                         "method": _is_irregular.__name__,
-                        "data": {"text": text, "lemma": lemma, "pos": pos},
+                        "data": {
+                            "text_length": len(text),
+                            "lemma_length": len(lemma),
+                            "pos": pos,
+                        },
                     },
                 )
             return not regular
@@ -145,7 +149,11 @@ def _is_irregular(token: spacy.tokens.Token) -> bool:
                     extra={
                         "event": "nlp.irregular_form_detected",
                         "method": _is_irregular.__name__,
-                        "data": {"text": text, "lemma": lemma, "pos": pos},
+                        "data": {
+                            "text_length": len(text),
+                            "lemma_length": len(lemma),
+                            "pos": pos,
+                        },
                     },
                 )
             return not regular
@@ -159,7 +167,11 @@ def _is_irregular(token: spacy.tokens.Token) -> bool:
                     extra={
                         "event": "nlp.irregular_form_detected",
                         "method": _is_irregular.__name__,
-                        "data": {"text": text, "lemma": lemma, "pos": pos},
+                        "data": {
+                            "text_length": len(text),
+                            "lemma_length": len(lemma),
+                            "pos": pos,
+                        },
                     },
                 )
             return not regular
@@ -182,8 +194,8 @@ def analyze_single_token(token: spacy.tokens.Token) -> TokenResult:
             "event": "nlp.token_analyzed",
             "method": analyze_single_token.__name__,
             "data": {
-                "text": result.text,
-                "lemma": result.lemma,
+                "text_length": len(result.text),
+                "lemma_length": len(result.lemma),
                 "pos": result.pos,
                 "is_irregular": result.is_irregular,
             },
