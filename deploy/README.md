@@ -156,8 +156,18 @@ deployment configuration with `.applied-deploy-state.json` on the VM. A failed,
 canceled, skipped, or superseded run leaves its component revision unadvanced,
 so a later unrelated push still selects that component. Missing or corrupt
 state causes both application images and configuration to be reconciled
-conservatively. The workflow summary shows desired and last verified revisions;
-it writes new state atomically only after host and public readiness pass.
+conservatively. Before changing the stack, Deploy (dev) marks the state
+untrusted; only successful host and public readiness checks allow it to write
+new verified source and artifact revisions atomically. A failed readiness or
+state write leaves the marker in place, so the next run rebuilds both services
+and reapplies configuration. The workflow summary shows desired and last
+verified revisions.
+
+App tags, Vault-rendered env files, and tracked app service definitions are
+reconciled independently. Compose applies the new image or service configuration
+only for services whose rendered config changed. The persistent Postgres and
+Redis containers remain protected by `--no-recreate` unless their image change
+was explicitly approved.
 
 - **Rollback:** run Deploy (dev) manually on `develop`, setting
   `rollback_back_tag` and/or `rollback_nlp_tag` to select an immutable artifact

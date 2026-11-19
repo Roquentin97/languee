@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read and atomically record verified development deployment identities."""
+"""Invalidate, inspect, and atomically record verified deployment identities."""
 
 from __future__ import annotations
 
@@ -53,10 +53,16 @@ def state_problem(value: Any) -> str | None:
         or REVISION.fullmatch(configuration["source_revision"]) is None
     ):
         return "configuration state is missing or malformed"
+    if value.get("phase", "verified") == "applying":
+        return "a previous deployment did not reach verification"
+    if value.get("phase", "verified") != "verified":
+        return "deployment state has an unsupported phase"
     return None
 
 
-def load_state(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+def load_state(
+    path: Path, *, allow_applying: bool = False
+) -> tuple[dict[str, Any] | None, str | None]:
     """Read trusted state; missing and corrupt files request conservative repair."""
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -65,7 +71,13 @@ def load_state(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None, "corrupt"
     problem = state_problem(state)
-    return (state, None) if problem is None else (None, "corrupt")
+    if allow_applying and problem == "a previous deployment did not reach verification":
+        return state, None
+    if problem is None:
+        return state, None
+    if problem == "a previous deployment did not reach verification":
+        return None, problem
+    return None, "corrupt"
 
 
 def status(app_dir: Path) -> dict[str, Any]:
@@ -74,6 +86,23 @@ def status(app_dir: Path) -> dict[str, Any]:
     if state is None:
         return {"known": False, "reason": reason or "corrupt"}
     return {"known": True, "state": state}
+
+
+def begin(app_dir: Path) -> dict[str, Any]:
+    """Mark state untrusted before a workflow mutates the running stack."""
+    state_path = app_dir / STATE_FILE
+    current, _reason = load_state(state_path, allow_applying=True)
+    if current is None:
+        current = {
+            "schema_version": 1,
+            "components": {},
+            "configuration": {},
+        }
+    current = json.loads(json.dumps(current))
+    current["phase"] = "applying"
+    current["started_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    _atomic_write(state_path, current)
+    return {"known": False, "reason": "deployment in progress"}
 
 
 def _artifact_revision(service: str, tag: str, prefix: str) -> str:
@@ -121,7 +150,7 @@ def _atomic_write(path: Path, state: dict[str, Any]) -> None:
 def record(args: argparse.Namespace) -> None:
     """Record only artifacts verified by the caller after readiness succeeds."""
     state_path = args.app_dir / STATE_FILE
-    current, _reason = load_state(state_path)
+    current, _reason = load_state(state_path, allow_applying=True)
     if current is None:
         current = {"schema_version": 1, "components": {}, "configuration": {}}
     else:
@@ -158,6 +187,8 @@ def record(args: argparse.Namespace) -> None:
     if updates == 0:
         raise StateError("no verified deployment component was supplied")
     current["schema_version"] = 1
+    current["phase"] = "verified"
+    current.pop("started_at", None)
     current["verified_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     _atomic_write(state_path, current)
     result = status(args.app_dir)
@@ -170,7 +201,7 @@ def record(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("status", "record"))
+    parser.add_argument("action", choices=("status", "begin", "record"))
     parser.add_argument("--app-dir", type=Path, default=Path("/opt/languee"))
     parser.add_argument("--image-prefix", default=os.environ.get("IMAGE_PREFIX", IMAGE_PREFIX))
     parser.add_argument("--backend-tag", default="")
@@ -187,6 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.action == "status":
             print(json.dumps(status(args.app_dir), sort_keys=True))
+        elif args.action == "begin":
+            print(json.dumps(begin(args.app_dir), sort_keys=True))
         else:
             record(args)
     except (OSError, StateError) as exc:

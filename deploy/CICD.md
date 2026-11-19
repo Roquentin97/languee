@@ -51,10 +51,18 @@ The deployment applies selected artifacts and configuration
 ([details](VAULT.md#what-the-deploy-does)): Vault fetch/validate, pinned image
 verification, migrations when backend code changes, service recreation, local
 readiness checks, and public backend readiness from the runner. The NLP image
-is also checked internally over the Compose network. Only after these checks
-pass does a separate atomic state write record each applied source revision,
-image tag, artifact revision, and configuration revision. A failed state write
-fails the workflow; the next run retries the still-unrecorded source state.
+is also checked internally over the Compose network. App service updates use
+Compose's rendered image and service configuration, so a tag-only backend
+change leaves NLP alone, while Vault env-file or tracked Compose changes update
+the affected services. Persistent Postgres and Redis services still use
+`--no-recreate` unless an explicitly approved infrastructure update is selected.
+
+Before applying stack changes, the workflow marks applied state as in progress.
+Only after host and public readiness pass does a separate atomic state write
+record each applied source revision, image tag, artifact revision, and
+configuration revision. A failed apply, readiness check, or state write leaves
+state untrusted. The next run rebuilds both application services and reapplies
+configuration conservatively, including after force deploys and rollbacks.
 
 Every run's summary lists desired versus last verified source revisions and
 whether backend, NLP, or deployment configuration will be applied. A run with
@@ -145,14 +153,13 @@ stack reconciled. Merging this change does not run recovery on the current
 server.
 
 Migrations run before backend recreation and remain forward-only. If migration
-or readiness fails, the deployment workflow fails and the verified source
-state is not advanced. A failure during the deployment script restores the
-previous image/config references and attempts to recreate affected services;
-it never resets the database or reverses a migration. A public readiness
-failure after the host-side apply leaves the candidate services in place but
-still leaves applied source state unchanged, so the next reconciliation retries
-the desired artifacts. Inspect migration/readiness logs and verify schema/code
-compatibility before any rollback.
+or readiness fails, the deployment workflow fails and the state remains
+untrusted. A failure during the deployment script restores the previous
+image/config references and attempts to recreate affected services; it never
+resets the database or reverses a migration. Any failure after the in-progress
+marker leaves source state untrusted, so the next reconciliation rebuilds both
+application artifacts and reapplies configuration. Inspect migration/readiness
+logs and verify schema/code compatibility before any rollback.
 
 ## Build identity and releases
 

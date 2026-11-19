@@ -5,6 +5,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 SCRIPTS = Path(__file__).parents[1] / "scripts"
 
@@ -88,16 +90,18 @@ def _repo(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     return directory, {"base": base, "backend": backend, "nlp": nlp, "config": config}
 
 
-def test_partial_failure_then_nlp_only_push_still_selects_backend(tmp_path, monkeypatch):
+def test_nlp_only_followup_reconciles_backend_skipped_after_failed_nlp_build(tmp_path, monkeypatch):
     repo, commits = _repo(tmp_path)
     monkeypatch.chdir(repo)
-    # Models #261 failing during the NLP build and #263 applying only NLP.
-    host = state(backend=commits["base"], nlp=commits["nlp"], config=commits["config"])
+    # #261 built backend but failed NLP, so Deploy was skipped and state stayed
+    # at the pre-incident revisions. The later NLP-only #263 head must retry both.
+    host = state(backend=commits["base"], nlp=commits["base"], config=commits["base"])
     result = reconcile.decisions(
-        raw_state=json.dumps(host), ref=commits["config"], head=commits["config"]
+        raw_state=json.dumps(host), ref=commits["nlp"], head=commits["nlp"]
     )
     assert result["backend"] is True
-    assert result["nlp"] is False
+    assert result["nlp"] is True
+    assert result["config"] is False
     assert result["deploy"] is True
 
 
@@ -111,6 +115,99 @@ def test_later_unrelated_or_config_only_push_reconciles_missing_backend(tmp_path
     result = reconcile.decisions(raw_state=json.dumps(host), ref=head, head=head)
     assert result["backend"] is True
     assert result["nlp"] is False
+
+
+def test_latest_queued_head_reconciles_components_from_superseded_pushes(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    (repo / "README.md").write_text("newer queued head\n")
+    latest = _commit(repo, "queued unrelated update")
+    # A pending NLP-only run can be superseded by the latest queued workflow;
+    # reconciliation is against the latest source state, not that event's diff.
+    host = state(backend=commits["base"], nlp=commits["base"], config=commits["base"])
+    stale_run = reconcile.decisions(
+        raw_state=json.dumps(host), ref=commits["nlp"], head=latest
+    )
+    assert stale_run["stale"] is True
+    assert stale_run["deploy"] is False
+    result = reconcile.decisions(raw_state=json.dumps(host), ref=latest, head=latest)
+    assert result["backend"] is True
+    assert result["nlp"] is True
+    assert result["config"] is True
+
+
+def test_canceled_or_failed_apply_state_is_unknown_on_next_resolve(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    host = state(
+        backend=commits["backend"], nlp=commits["nlp"], config=commits["config"]
+    )
+    state_path = tmp_path / state_module.STATE_FILE
+    state_path.write_text(json.dumps(host))
+    state_module.begin(tmp_path)
+
+    # Cancellation after host mutation has no record step; the dirty marker
+    # must make the next resolver abandon the old trusted revisions.
+    interrupted = state_module.status(tmp_path)
+    result = reconcile.decisions(
+        raw_state=json.dumps(interrupted), ref=commits["config"], head=commits["config"]
+    )
+
+    assert interrupted == {"known": False, "reason": "a previous deployment did not reach verification"}
+    assert result["state_known"] is False
+    assert result["state_reason"] == "a previous deployment did not reach verification"
+    assert result["backend"] is True
+    assert result["nlp"] is True
+    assert result["config"] is True
+
+
+@pytest.mark.parametrize("interruption", ["readiness", "state-write", "force", "rollback"])
+def test_interrupted_force_or_rollback_cannot_leave_verified_source_state(
+    tmp_path, monkeypatch, interruption
+):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    host = state(
+        backend=commits["backend"], nlp=commits["nlp"], config=commits["config"]
+    )
+    state_path = tmp_path / state_module.STATE_FILE
+    state_path.write_text(json.dumps(host))
+    previous_run = reconcile.decisions(
+        raw_state=json.dumps(host),
+        ref=commits["config"],
+        head=commits["config"],
+        force=interruption in ("readiness", "state-write", "force"),
+        rollback_backend=("dev-1001-abcdef123456" if interruption == "rollback" else ""),
+    )
+    assert previous_run["deploy"] is True
+    assert previous_run["rollback"] is (interruption == "rollback")
+    state_module.begin(tmp_path)
+
+    # A public readiness failure never reaches `record`; a failed state write
+    # must leave the same marker. Force and rollback use the same begin path.
+    if interruption == "state-write":
+        monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: BACK_NEW)
+        monkeypatch.setattr(
+            state_module,
+            "_atomic_write",
+            lambda *_: (_ for _ in ()).throw(OSError("disk full")),
+        )
+        args = state_module.build_parser().parse_args(
+            ["record", "--app-dir", str(tmp_path), "--backend-tag", "candidate", "--backend-source-revision", BACK_NEW]
+        )
+        with pytest.raises(OSError, match="disk full"):
+            state_module.record(args)
+
+    state_after_failure = state_module.status(tmp_path)
+    result = reconcile.decisions(
+        raw_state=json.dumps(state_after_failure),
+        ref=commits["config"],
+        head=commits["config"],
+    )
+    assert not state_after_failure["known"], interruption
+    assert result["backend"] is True, interruption
+    assert result["nlp"] is True, interruption
+    assert result["config"] is True, interruption
 
 
 def test_successful_incremental_deploy_and_no_change(tmp_path, monkeypatch):
@@ -228,6 +325,7 @@ def test_record_verifies_artifact_before_atomic_state_write(tmp_path, monkeypatc
         "image_tag": "back-tag",
     }
     assert saved["configuration"]["source_revision"] == CONFIG_NEW
+    assert saved["phase"] == "verified"
     assert state_module.status(tmp_path)["known"] is True
     assert json.loads(capsys.readouterr().out)["known"] is True
 
@@ -236,6 +334,7 @@ def test_rollback_records_artifact_revision_for_future_forward_reconciliation(tm
     revision = "b" * 40
     monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: revision)
     (tmp_path / state_module.STATE_FILE).write_text(json.dumps(state()))
+    state_module.begin(tmp_path)
     args = state_module.build_parser().parse_args(
         ["record", "--app-dir", str(tmp_path), "--backend-tag", "old-tag", "--rollback"]
     )
@@ -263,6 +362,8 @@ def test_failed_state_write_preserves_previous_file(tmp_path, monkeypatch):
     path = tmp_path / state_module.STATE_FILE
     original = json.dumps(state(BACK_NEW, NLP_NEW, CONFIG_NEW))
     path.write_text(original)
+    state_module.begin(tmp_path)
+    in_progress = path.read_text()
     monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: "c" * 40)
 
     def fail_write(*_args):
@@ -278,12 +379,14 @@ def test_failed_state_write_preserves_previous_file(tmp_path, monkeypatch):
         pass
     else:
         raise AssertionError("state write failure should be reported")
-    assert path.read_text() == original
+    assert path.read_text() == in_progress
+    assert state_module.status(tmp_path)["known"] is False
 
 
 def test_deployment_workflow_records_state_only_after_public_readiness():
     workflow = (Path(__file__).parents[2] / ".github/workflows/deploy.yml").read_text()
     assert workflow.index("Read last verified deployment state") < workflow.index("build-back:")
+    assert workflow.index("Mark applied state untrusted before mutation") < workflow.index("Apply selected artifacts")
     assert workflow.index("Check public backend readiness") < workflow.index("Record health-verified state")
     assert "runs-on: ubuntu-24.04-arm" in workflow
     assert "cancel-in-progress: false" in workflow

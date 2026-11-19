@@ -124,8 +124,33 @@ trap on_exit EXIT
 sync_result=$(vault_sync "${sync_args[@]}")
 printf '%s\n' "$sync_result"
 if [ "$(vault_sync --status)" != "$state_before" ]; then changed=true; fi
-back_container_before=$(docker compose ps -q languee-back 2>/dev/null || true)
-nlp_container_before=$(docker compose ps -q languee-nlp 2>/dev/null || true)
+updated_files=${sync_result##*updated: }
+has_updated_file() {
+  case ",${updated_files// /}," in
+    *",$1,"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+env_values_changed() {
+  local name=$1 previous="$APP_DIR/.config-previous/$1"
+  has_updated_file "$name" || return 1
+  [ -f "$previous" ] || return 0
+  ! cmp -s <(sed '/^#/d' "$previous") <(sed '/^#/d' "$APP_DIR/$name")
+}
+
+back_env_changed=false
+nlp_env_changed=false
+stack_config_changed=false
+env_values_changed languee-back.env && back_env_changed=true
+env_values_changed languee-nlp.env && nlp_env_changed=true
+if has_updated_file .env; then
+  previous_stack_env="$APP_DIR/.config-previous/.env"
+  if [ ! -f "$previous_stack_env" ] || ! cmp -s \
+    <(sed -E '/^#/d; /^LANGUEE_(BACK|NLP)_TAG=/d' "$previous_stack_env") \
+    <(sed -E '/^#/d; /^LANGUEE_(BACK|NLP)_TAG=/d' "$APP_DIR/.env"); then
+    stack_config_changed=true
+  fi
+fi
 
 # Resolve the desired pinned images from the uploaded Compose file. Existing
 # persistent services never advance implicitly; an image mismatch requires an
@@ -180,21 +205,29 @@ for service in "${infra_services[@]}"; do
   if [ "$service" = postgres ] || [ "$service" = redis ]; then affected+=(languee-back); fi
 done
 
-# Resolve environment changes before sequencing application updates. The backend
-# depends on NLP, so a selected NLP artifact is made healthy and version-checked
-# before backend migrations or recreation begin.
-env_changed=false
-if ! grep -q 'updated: no env changes' <<<"$sync_result"; then env_changed=true; fi
-update_nlp=false
-update_backend=false
-if [ -n "$nlp_tag" ] || [ "$env_changed" = true ]; then update_nlp=true; fi
-if [ -n "$back_tag" ] || [ "$env_changed" = true ]; then update_backend=true; fi
+# Resolve app updates independently from the Vault tag selectors. Compose
+# recreates a service only when its rendered image or service configuration
+# changed, so a backend-only tag update cannot restart an unchanged NLP service.
+reconcile_nlp=false
+reconcile_backend=false
+back_tag_changed=false
+nlp_tag_changed=false
+[ -n "$back_tag" ] && back_tag_changed=true
+[ -n "$nlp_tag" ] && nlp_tag_changed=true
+if [ -n "$nlp_tag" ] || [ "$nlp_env_changed" = true ] || [ "$config_changed" = true ]; then
+  reconcile_nlp=true
+fi
+if [ -n "$back_tag" ] || [ "$back_env_changed" = true ] || [ "$stack_config_changed" = true ] || \
+  [ "$config_changed" = true ] || [[ " ${affected[*]} " == *" languee-back "* ]]; then
+  reconcile_backend=true
+fi
+echo "app deltas: backend tag=$back_tag_changed, backend env=$back_env_changed, NLP tag=$nlp_tag_changed, NLP env=$nlp_env_changed, stack config=$stack_config_changed, tracked config=$config_changed"
 
-if [ "$update_nlp" = true ]; then
-  if [[ " ${affected[*]} " != *" languee-nlp "* ]]; then affected+=(languee-nlp); fi
-  docker compose up -d --force-recreate --no-deps --wait languee-nlp
+if [ "$reconcile_nlp" = true ]; then
+  case " ${affected[*]} " in *" languee-nlp "*) ;; *) affected+=(languee-nlp) ;; esac
+  docker compose up -d --no-deps --wait languee-nlp
 else
-  echo "NLP unchanged; retaining its last verified artifact"
+  echo "NLP selectors and rendered configuration are unchanged"
 fi
 if [ -n "$nlp_tag" ]; then
   docker compose exec -T -e EXPECTED_VERSION="$nlp_version" -e EXPECTED_COMMIT="$nlp_revision" languee-nlp python -c \
@@ -202,11 +235,11 @@ if [ -n "$nlp_tag" ]; then
 fi
 
 if [ -n "$back_tag" ] && [ "$rollback" != true ]; then docker compose run --rm migrate; fi
-if [ "$update_backend" = true ] || [[ " ${affected[*]} " == *" languee-back "* ]]; then
-  if [[ " ${affected[*]} " != *" languee-back "* ]]; then affected+=(languee-back); fi
-  docker compose up -d --force-recreate --no-deps --wait languee-back
+if [ "$reconcile_backend" = true ]; then
+  case " ${affected[*]} " in *" languee-back "*) ;; *) affected+=(languee-back) ;; esac
+  docker compose up -d --no-deps --wait languee-back
 else
-  echo "backend unchanged; retaining its last verified artifact"
+  echo "backend selectors and rendered configuration are unchanged"
 fi
 
 # Start Caddy on a first deployment without disturbing it in ordinary app
@@ -227,17 +260,6 @@ if [ -n "$back_tag" ]; then
     BACK_VERSION="$back_version" BACK_REVISION="$back_revision" \
     python3 -c 'import json, os, sys; value=json.load(sys.stdin); assert value == {"version": os.environ["BACK_VERSION"], "commit": os.environ["BACK_REVISION"]}, value'
 fi
-if [ "$config_changed" != true ] && [ "${#infra_services[@]}" -eq 0 ]; then
-  if [ -z "$back_tag" ] && [ "$back_container_before" != "$(docker compose ps -q languee-back 2>/dev/null || true)" ]; then
-    echo "unchanged backend container was recreated" >&2
-    exit 1
-  fi
-  if [ -z "$nlp_tag" ] && [ "$nlp_container_before" != "$(docker compose ps -q languee-nlp 2>/dev/null || true)" ]; then
-    echo "unchanged NLP container was recreated" >&2
-    exit 1
-  fi
-fi
-
 docker compose ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'
 echo "deployed: $(vault_sync --status | tr -d '\n ')"
 

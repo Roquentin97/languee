@@ -266,6 +266,18 @@ jobs:
           source: provision/
           target: /opt/languee/
 
+      - name: Mark applied state untrusted before mutation
+        id: mark_dirty
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            chmod +x /opt/languee/scripts/deploy-state.py
+            python3 /opt/languee/scripts/deploy-state.py begin --app-dir /opt/languee
+
       - name: Apply selected artifacts
         uses: appleboy/ssh-action@v1.2.5
         env:
@@ -366,10 +378,28 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize failed deployment
-        if: failure()
+        if: failure() && steps.mark_dirty.outcome == 'success' && steps.record.outcome != 'success'
         run: |
           {
             echo '## Deployment failed'
             echo
-            echo 'This run did not complete its full verification and state-record sequence. Inspect the failed step. The last verified source state remains authoritative; the next develop run will reconcile any unrecorded component revisions.'
+            echo 'This run did not complete its full verification and state-record sequence. State was marked in progress before stack mutation. Check python3 /opt/languee/scripts/deploy-state.py status; if it is unknown or in progress, the next Deploy (dev) run rebuilds both application services and reconciles configuration conservatively.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report verified state despite summary failure
+        if: failure() && steps.record.outcome == 'success'
+        run: |
+          {
+            echo '## Deployment state verified'
+            echo
+            echo 'Host and public readiness passed and applied state was recorded. A later workflow-summary step failed; inspect the failure, but the host state is verified.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize failure before state invalidation
+        if: failure() && steps.mark_dirty.outcome != 'success'
+        run: |
+          {
+            echo '## Deployment failed before stack mutation'
+            echo
+            echo 'The workflow did not reach a successful state-invalidation step, so the deployment script did not run. Inspect the failed step before assuming the host state is current.'
           } >> "$GITHUB_STEP_SUMMARY"

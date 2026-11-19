@@ -1,16 +1,30 @@
 """Targeted deployment and recovery behaviour, with command stubs only."""
 
+import base64
+import importlib.util
 import io
+import json
 import os
 import shutil
 import stat
 import subprocess
 import tarfile
+import sys
+import shlex
 from pathlib import Path
+
+from test_sync_vault_config import valid_config
 
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "deploy-stack.sh"
+SYNC_SCRIPT = Path(__file__).parents[1] / "scripts" / "sync-vault-config.py"
 TAG = "dev-123001-abcdef123456"
+
+_sync_spec = importlib.util.spec_from_file_location("sync_vault_config", SYNC_SCRIPT)
+assert _sync_spec and _sync_spec.loader
+sync_vault = importlib.util.module_from_spec(_sync_spec)
+sys.modules["sync_vault_config"] = sync_vault
+_sync_spec.loader.exec_module(sync_vault)
 
 SYNC_STUB = """#!/bin/bash
 echo "sync $*" >> "$APP_DIR/calls.log"
@@ -41,6 +55,12 @@ echo "docker $*" >> "$APP_DIR/calls.log"
 if [ "$1" = compose ] && [ "$2" = config ]; then
   echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
 fi
+if [ "$1" = image ] && [ "$2" = inspect ]; then
+  case "$4" in
+    *version*) echo "${ARTIFACT_VERSION:-0.0.123001}" ;;
+    *revision*) echo "${ARTIFACT_REVISION:-abcdef1234560000000000000000000000000000}" ;;
+  esac
+fi
 """
 
 MONITORING_FAILURE_DOCKER_STUB = """#!/bin/bash
@@ -62,6 +82,14 @@ exit 0
 CURL_FAILURE_STUB = """#!/bin/bash
 echo "curl $*" >> "$APP_DIR/calls.log"
 exit 22
+"""
+
+CURL_ARTIFACT_SUCCESS_STUB = """#!/bin/bash
+echo "curl $*" >> "$APP_DIR/calls.log"
+if [[ "$*" == *"/version"* ]]; then
+  printf '{"version":"%s","commit":"%s"}' "$ARTIFACT_VERSION" "$ARTIFACT_REVISION"
+fi
+exit 0
 """
 
 
@@ -100,7 +128,10 @@ def _deploy(
 
 
 def _deploy_readiness(
-    tmp_path: Path, curl_stub: str, docker_stub: str = SUCCESS_DOCKER_STUB
+    tmp_path: Path,
+    curl_stub: str,
+    docker_stub: str = SUCCESS_DOCKER_STUB,
+    extra_args: tuple[str, ...] = (),
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     app = tmp_path / "app"
     (app / "scripts").mkdir(parents=True)
@@ -113,13 +144,74 @@ def _deploy_readiness(
     (app / "state").write_text('{"back_tag": "old", "nlp_tag": "old"}')
     (app / ".env").write_text("DOMAIN=example.test\n")
     result = subprocess.run(
-        ["bash", str(SCRIPT), "--preserve-tags"],
+        ["bash", str(SCRIPT), "--preserve-tags", *extra_args],
         env={**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"},
         capture_output=True,
         text=True,
         check=False,
     )
     return result, (app / "calls.log").read_text()
+
+
+def _deploy_with_real_vault_sync(
+    tmp_path: Path,
+    config: dict[str, str],
+    *deploy_args: str,
+    version: int = 1,
+) -> tuple[subprocess.CompletedProcess[str], str, Path]:
+    app = tmp_path / "app"
+    (app / "scripts").mkdir(parents=True)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    shutil.copy2(SYNC_SCRIPT, app / "scripts" / "sync-vault-config.py")
+
+    old_tags = ("dev-11001-111111111111", "dev-11002-222222222222")
+    for name, contents in sync_vault.render(valid_config(), *old_tags, 1).items():
+        (app / name).write_text(contents)
+    (app / ".deploy-state.json").write_text(
+        json.dumps({"back_tag": old_tags[0], "nlp_tag": old_tags[1], "secret_version": 1})
+    )
+
+    bundle_path = tmp_path / "secret-bundle.json"
+    payload = json.dumps(config).encode()
+    bundle_path.write_text(
+        json.dumps(
+            {
+                "data": {
+                    "secret-bundle-content": {
+                        "content-type": "BASE64",
+                        "content": base64.b64encode(payload).decode(),
+                    },
+                    "version-number": version,
+                }
+            }
+        )
+    )
+    _executable(bin_dir / "oci", f"#!/bin/sh\ncat {shlex.quote(str(bundle_path))}\n")
+    _executable(bin_dir / "docker", SUCCESS_DOCKER_STUB)
+    _executable(bin_dir / "curl", CURL_ARTIFACT_SUCCESS_STUB)
+    _executable(
+        bin_dir / "python3",
+        '#!/bin/bash\nexec /usr/bin/python3 "$@"\n',
+    )
+    env = {
+        **os.environ,
+        "APP_DIR": str(app),
+        "ARTIFACT_VERSION": "0.0.123001",
+        "ARTIFACT_REVISION": "abcdef1234560000000000000000000000000000",
+        "OCI_CLI_BIN": str(bin_dir / "oci"),
+        "VAULT_SECRET_OCID": "ocid1.test",
+        "OCI_REGION": "eu-test-1",
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+    }
+    result = subprocess.run(
+        ["bash", str(SCRIPT), *deploy_args],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result, (app / "calls.log").read_text(), app
 
 
 def test_failure_on_initial_apply_reports_without_restoring(tmp_path):
@@ -135,11 +227,79 @@ def test_nlp_is_verified_before_migration_and_restored_when_migration_fails(tmp_
     assert result.returncode == 1
     assert "restoring the previous image references" in result.stderr
     assert "--restore-previous" in calls
-    nlp_apply = calls.index("docker compose up -d --force-recreate --no-deps --wait languee-nlp")
+    nlp_apply = calls.index("docker compose up -d --no-deps --wait languee-nlp")
     migration = calls.index("docker compose run --rm migrate")
     assert nlp_apply < migration
     assert "docker compose up -d --force-recreate --no-deps languee-nlp" in calls
     assert "docker compose up -d --force-recreate --no-deps languee-back" not in calls
+
+
+def test_real_vault_tag_only_update_does_not_recreate_unselected_service(tmp_path):
+    result, calls, _app = _deploy_with_real_vault_sync(
+        tmp_path,
+        valid_config(),
+        "--back-tag",
+        TAG,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "updated: .env" in result.stdout
+    assert "backend tag=true, backend env=false, NLP tag=false, NLP env=false" in result.stdout
+    assert "stack config=false" in result.stdout
+    assert "docker compose up -d --no-deps --wait languee-back" in calls
+    assert "docker compose up -d --no-deps --wait languee-nlp" not in calls
+    assert "docker compose up -d --force-recreate --no-deps --wait languee-back" not in calls
+
+
+def test_real_vault_app_env_update_reconciles_both_services_with_preserved_tags(tmp_path):
+    config = valid_config()
+    config["LOG_FORMAT"] = "pretty"
+    config["LANGUEE_NLP_LOG_LEVEL"] = "debug"
+    result, calls, _app = _deploy_with_real_vault_sync(
+        tmp_path, config, "--preserve-tags", version=2
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "languee-back.env" in result.stdout
+    assert "languee-nlp.env" in result.stdout
+    assert "backend tag=false, backend env=true" in result.stdout
+    assert "NLP tag=false, NLP env=true" in result.stdout
+    assert "docker compose up -d --no-deps --wait languee-nlp" in calls
+    assert "docker compose up -d --no-deps --wait languee-back" in calls
+    assert "docker compose run --rm migrate" not in calls
+    assert "docker compose up -d --force-recreate --no-deps --wait languee-nlp" not in calls
+    assert "docker compose up -d --force-recreate --no-deps --wait languee-back" not in calls
+
+
+def test_real_vault_stack_env_change_reconciles_backend_only_and_protects_databases(tmp_path):
+    config = valid_config()
+    config["LANGUEE_BACK_REDIS_PASSWORD"] = "new-redis-password-0987654321"
+    result, calls, _app = _deploy_with_real_vault_sync(
+        tmp_path, config, "--preserve-tags", version=2
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "backend env=false, NLP tag=false, NLP env=false, stack config=true" in result.stdout
+    assert "docker compose up -d --no-deps --wait languee-back" in calls
+    assert "docker compose up -d --no-deps --wait languee-nlp" not in calls
+    assert "docker compose up -d --no-recreate --wait postgres redis" in calls
+    assert "docker compose up -d --force-recreate --no-deps postgres" not in calls
+    assert "docker compose up -d --force-recreate --no-deps redis" not in calls
+
+
+def test_config_only_compose_change_reconciles_app_definitions_without_touching_databases(tmp_path):
+    result, calls = _deploy_readiness(
+        tmp_path,
+        CURL_SUCCESS_STUB,
+        extra_args=("--config",),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "docker compose up -d --no-deps --wait languee-nlp" in calls
+    assert "docker compose up -d --no-deps --wait languee-back" in calls
+    assert "docker compose up -d --no-recreate --wait postgres redis" in calls
+    assert "docker compose up -d --force-recreate --no-deps postgres" not in calls
+    assert "docker compose up -d --force-recreate --no-deps redis" not in calls
 
 
 def test_legacy_artifact_version_is_accepted_for_rollback(tmp_path):

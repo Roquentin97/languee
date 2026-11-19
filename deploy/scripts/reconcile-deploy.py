@@ -80,8 +80,9 @@ def _status(raw: str) -> tuple[dict[str, Any] | None, str]:
     if isinstance(value, dict) and value.get("known") is False:
         reason = value.get("reason")
         return None, reason if isinstance(reason, str) else "unknown"
-    if deploy_state.state_problem(value) is not None:
-        return None, "missing or corrupt"
+    problem = deploy_state.state_problem(value)
+    if problem is not None:
+        return None, problem
     return value, "verified"
 
 
