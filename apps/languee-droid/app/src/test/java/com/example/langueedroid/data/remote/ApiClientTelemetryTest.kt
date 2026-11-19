@@ -28,8 +28,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPOutputStream
 
 class ApiClientTelemetryTest {
     private lateinit var server: MockWebServer
@@ -194,7 +196,7 @@ class ApiClientTelemetryTest {
         assertEquals("retry-request-id", server.takeRequest().getHeader("X-Request-ID"))
     }
 
-    // --- Failure logs retain diagnostics without consuming response bodies ---
+    // --- Failure metadata is immediate; safe body details follow caller reads ---
 
     @Test
     fun `failure log includes safe error code and correlation without request or response content`() {
@@ -211,7 +213,7 @@ class ApiClientTelemetryTest {
             OkHttpClient
                 .Builder()
                 .addInterceptor(NetworkModule.requestIdInterceptor())
-                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
                 .build()
 
         val response =
@@ -226,7 +228,8 @@ class ApiClientTelemetryTest {
                         .build(),
                 ).execute()
         assertEquals("json", response.body.contentType()?.subtype)
-        assertTrue(recordedLogger.warnings.isEmpty())
+        assertEquals(1, recordedLogger.warnings.size)
+        assertTrue(recordedLogger.infos.isEmpty())
         val returnedBody = response.body.string()
         response.close()
         assertEquals(
@@ -239,13 +242,18 @@ class ApiClientTelemetryTest {
         assertEquals("GET", event.attributes["http.method"])
         assertEquals("/api/v1/vocabulary/lookup", event.attributes["url.path"])
         assertEquals("404", event.attributes["http.status_code"])
-        assertEquals("DEFINITIONS_NOT_FOUND", event.attributes["http.response.error_code"])
+        assertFalse(event.attributes.containsKey("http.response.error_code"))
         assertEquals("languee-droid", event.attributes["service.name"])
         assertEquals("aabbccddeeff00112233445566778899", event.attributes["trace_id"])
         assertNotNull(event.attributes["requestId"])
         assertTrue(returnedBody.contains("response-secret"))
 
-        val serialized = event.attributes.toString()
+        val details = recordedLogger.infos.single()
+        assertEquals("http.response.details", details.event)
+        assertEquals("DEFINITIONS_NOT_FOUND", details.attributes["http.response.error_code"])
+        assertEquals(event.attributes["requestId"], details.attributes["requestId"])
+
+        val serialized = event.attributes.toString() + details.attributes
         assertFalse(serialized.contains("ultra-secret-token"))
         assertFalse(serialized.contains("Bearer"))
         assertFalse(serialized.contains("cookie-secret"))
@@ -264,12 +272,14 @@ class ApiClientTelemetryTest {
         val client =
             OkHttpClient
                 .Builder()
-                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
                 .build()
 
-        client.newCall(Request.Builder().url(server.url("/failure")).build()).execute().close()
+        val response = client.newCall(Request.Builder().url(server.url("/failure")).build()).execute()
 
-        assertEquals("true", recordedLogger.warnings.single().attributes["http.response.body_truncated"])
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("true", recordedLogger.infos.single().attributes["http.response.body_truncated"])
+        response.close()
     }
 
     @Test
@@ -280,23 +290,30 @@ class ApiClientTelemetryTest {
                 .setResponseCode(404)
                 .setHeader("Content-Type", "application/json")
                 .setBody(errorBody)
-                .setBodyDelay(300, TimeUnit.MILLISECONDS),
+                .setBodyDelay(1, TimeUnit.SECONDS),
         )
         val client =
             OkHttpClient
                 .Builder()
-                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
                 .build()
 
+        val started = System.nanoTime()
         val response = client.newCall(Request.Builder().url(server.url("/delayed-error")).build()).execute()
 
         assertEquals(404, response.code)
-        assertTrue("logging must not read the delayed response body", recordedLogger.warnings.isEmpty())
+        assertEquals(1, recordedLogger.warnings.size)
+        assertTrue("body details must wait for the caller's read", recordedLogger.infos.isEmpty())
+        assertTrue(
+            "the interceptor must return before the delayed body is delivered",
+            System.nanoTime() - started < TimeUnit.MILLISECONDS.toNanos(750),
+        )
         assertEquals(errorBody, response.body.string())
         response.close()
-        assertEquals("DEFINITIONS_NOT_FOUND", recordedLogger.warnings.single().attributes["http.response.error_code"])
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("DEFINITIONS_NOT_FOUND", recordedLogger.infos.single().attributes["http.response.error_code"])
         assertFalse(
-            recordedLogger.warnings
+            recordedLogger.infos
                 .single()
                 .attributes
                 .containsKey("http.response.body_truncated"),
@@ -315,18 +332,19 @@ class ApiClientTelemetryTest {
         val client =
             OkHttpClient
                 .Builder()
-                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
                 .build()
 
         val response = client.newCall(Request.Builder().url(server.url("/interrupted-error")).build()).execute()
+        assertEquals(1, recordedLogger.warnings.size)
         val bodyResult = runCatching { response.body.string() }
         response.close()
 
         assertTrue("the original body read failure must reach the caller", bodyResult.isFailure)
         assertEquals(1, recordedLogger.warnings.size)
-        assertEquals("true", recordedLogger.warnings.single().attributes["http.response.body_truncated"])
+        assertEquals("true", recordedLogger.infos.single().attributes["http.response.body_truncated"])
         assertFalse(
-            recordedLogger.warnings
+            recordedLogger.infos
                 .single()
                 .attributes
                 .containsKey("http.response.error_code"),
@@ -334,13 +352,97 @@ class ApiClientTelemetryTest {
     }
 
     @Test
-    fun `unknown length JSON error bodies are marked truncated without reading`() {
-        assertUnreadBodyIsMarkedTruncated(contentLength = -1L)
+    fun `failure metadata is visible before an unread response body is closed`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(422)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"message":"DEFINITIONS_NOT_FOUND"}"""),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/unread-error")).build()).execute()
+
+        assertEquals(422, response.code)
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("http.request.failed", recordedLogger.warnings.single().event)
+        assertTrue(recordedLogger.infos.isEmpty())
+        response.close()
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("true", recordedLogger.infos.single().attributes["http.response.body_truncated"])
+    }
+
+    @Test
+    fun `unknown length JSON is observed only when the caller reads the decoded body`() {
+        val errorBody = """{"message":"DEFINITIONS_NOT_FOUND"}"""
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(400)
+                .setHeader("Content-Type", "application/json")
+                .setChunkedBody(errorBody, 8),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/chunked-error")).build()).execute()
+
+        assertEquals(1, recordedLogger.warnings.size)
+        assertTrue(recordedLogger.infos.isEmpty())
+        assertEquals(errorBody, response.body.string())
+        response.close()
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("DEFINITIONS_NOT_FOUND", recordedLogger.infos.single().attributes["http.response.error_code"])
+    }
+
+    @Test
+    fun `gzip JSON error details are parsed after OkHttp decodes the response`() {
+        val errorBody = """{"message":"DEFINITIONS_NOT_FOUND"}"""
+        val compressed =
+            ByteArrayOutputStream()
+                .also { bytes ->
+                    GZIPOutputStream(bytes).use { gzip -> gzip.write(errorBody.toByteArray()) }
+                }.toByteArray()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(404)
+                .setHeader("Content-Type", "application/json")
+                .setHeader("Content-Encoding", "gzip")
+                .setBody(Buffer().write(compressed)),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/gzip-error")).build()).execute()
+
+        assertEquals(1, recordedLogger.warnings.size)
+        assertTrue(recordedLogger.infos.isEmpty())
+        assertEquals(errorBody, response.body.string())
+        response.close()
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("DEFINITIONS_NOT_FOUND", recordedLogger.infos.single().attributes["http.response.error_code"])
+    }
+
+    @Test
+    fun `unknown length JSON error bodies are not marked truncated without evidence`() {
+        assertUnreadBodyAttributes(contentLength = -1L, expected = emptyMap())
     }
 
     @Test
     fun `large JSON error bodies are marked truncated without reading`() {
-        assertUnreadBodyIsMarkedTruncated(contentLength = 4097L)
+        assertUnreadBodyAttributes(
+            contentLength = 4097L,
+            expected = mapOf("http.response.body_truncated" to "true"),
+        )
     }
 
     @Test
@@ -377,16 +479,20 @@ class ApiClientTelemetryTest {
         val client =
             OkHttpClient
                 .Builder()
-                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
                 .build()
 
         client.newCall(Request.Builder().url(server.url("/success")).build()).execute().close()
 
         assertTrue(recordedLogger.warnings.isEmpty())
+        assertTrue(recordedLogger.infos.isEmpty())
         assertTrue(recordedLogger.errors.isEmpty())
     }
 
-    private fun assertUnreadBodyIsMarkedTruncated(contentLength: Long) {
+    private fun assertUnreadBodyAttributes(
+        contentLength: Long,
+        expected: Map<String, String>,
+    ) {
         var sourceRequested = false
         val body =
             object : ResponseBody() {
@@ -410,7 +516,7 @@ class ApiClientTelemetryTest {
                 .build()
 
         assertEquals(
-            mapOf("http.response.body_truncated" to "true"),
+            expected,
             NetworkModule.responseErrorAttributes(response),
         )
         assertFalse("large/unknown bodies must not be read by logging", sourceRequested)
@@ -424,6 +530,7 @@ private data class LoggedEvent(
 
 private class RecordingLogger : Logger {
     val warnings = mutableListOf<LoggedEvent>()
+    val infos = mutableListOf<LoggedEvent>()
     val errors = mutableListOf<LoggedEvent>()
 
     override fun debug(
@@ -434,7 +541,9 @@ private class RecordingLogger : Logger {
     override fun info(
         event: String,
         attributes: Map<String, String>,
-    ) = Unit
+    ) {
+        infos += LoggedEvent(event, attributes)
+    }
 
     override fun warn(
         event: String,
@@ -454,6 +563,7 @@ private class RecordingLogger : Logger {
 
     fun clear() {
         warnings.clear()
+        infos.clear()
         errors.clear()
     }
 }

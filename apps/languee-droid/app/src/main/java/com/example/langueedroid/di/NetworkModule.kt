@@ -59,7 +59,7 @@ object NetworkModule {
             .Builder()
             .addInterceptor(requestIdInterceptor())
             .addInterceptor(authInterceptor(sessionStore))
-            .addNetworkInterceptor(failureLoggingInterceptor(logger))
+            .addInterceptor(failureLoggingInterceptor(logger))
             .authenticator(authAuthenticator)
             .build()
 
@@ -203,34 +203,28 @@ object NetworkModule {
         val body = response.body
         val isJson = body.contentType()?.subtype?.endsWith("json", ignoreCase = true) == true
         val contentLength = body.contentLength()
-        val attributes = responseErrorAttributes(response)
-        val canObserveSmallJson = isJson && contentLength in 1..MAX_ERROR_BODY_BYTES
-        if (!canObserveSmallJson) {
-            val errorAttributes =
-                if (isJson && contentLength == 0L) {
-                    responseErrorAttributes("", truncated = false)
-                } else {
-                    attributes
-                }
-            logHttpResponseFailure(
-                logger,
-                requestAttributes,
-                response.code,
-                started,
-                errorAttributes,
-            )
+        logHttpResponseFailure(logger, requestAttributes, response.code, started)
+
+        val knownBodyAttributes = responseErrorAttributes(response)
+        if (knownBodyAttributes.isNotEmpty()) {
+            logHttpResponseDetails(logger, requestAttributes, response.code, knownBodyAttributes)
+        }
+
+        if (!isJson || contentLength == 0L || contentLength > MAX_ERROR_BODY_BYTES) {
             return response
         }
 
         val observedBody =
             FailureLoggingResponseBody(body, MAX_ERROR_BODY_BYTES) { preview, truncated ->
-                logHttpResponseFailure(
-                    logger,
-                    requestAttributes,
-                    response.code,
-                    started,
-                    responseErrorAttributes(preview, truncated),
-                )
+                val detailAttributes = responseErrorAttributes(preview, truncated)
+                if (detailAttributes.isNotEmpty()) {
+                    logHttpResponseDetails(
+                        logger,
+                        requestAttributes,
+                        response.code,
+                        detailAttributes,
+                    )
+                }
             }
         return response.newBuilder().body(observedBody).build()
     }
@@ -240,7 +234,6 @@ object NetworkModule {
         requestAttributes: Map<String, String>,
         statusCode: Int,
         started: Long,
-        errorAttributes: Map<String, String>,
     ) {
         logger.warn(
             "http.request.failed",
@@ -250,7 +243,23 @@ object NetworkModule {
                     "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
                     "failure.kind" to "http",
                     "failure.stage" to "response",
-                ) + errorAttributes,
+                ),
+        )
+    }
+
+    private fun logHttpResponseDetails(
+        logger: Logger,
+        requestAttributes: Map<String, String>,
+        statusCode: Int,
+        detailAttributes: Map<String, String>,
+    ) {
+        logger.info(
+            "http.response.details",
+            requestAttributes +
+                mapOf(
+                    "http.status_code" to statusCode.toString(),
+                    "failure.stage" to "response",
+                ) + detailAttributes,
         )
     }
 
@@ -259,7 +268,7 @@ object NetworkModule {
         if (body.contentType()?.subtype?.endsWith("json", ignoreCase = true) != true) return emptyMap()
 
         val contentLength = body.contentLength()
-        return if (contentLength < 0 || contentLength > MAX_ERROR_BODY_BYTES) {
+        return if (contentLength > MAX_ERROR_BODY_BYTES) {
             mapOf("http.response.body_truncated" to "true")
         } else {
             emptyMap()
@@ -298,7 +307,7 @@ object NetworkModule {
     private val SAFE_ERROR_CODE = Regex("^[A-Z][A-Z0-9_]{0,95}$")
 }
 
-/** Observes bounded JSON bytes during the caller's read so logging never drives network I/O. */
+/** Observes bounded decoded JSON bytes during caller reads without driving network I/O. */
 private class FailureLoggingResponseBody(
     private val delegate: ResponseBody,
     private val maxBytes: Long,
@@ -308,6 +317,7 @@ private class FailureLoggingResponseBody(
     private val captured = Buffer()
     private var completed = false
     private var truncated = false
+    private var reachedEof = false
 
     private val observedSource: BufferedSource by lazy {
         object : ForwardingSource(delegate.source()) {
@@ -324,6 +334,7 @@ private class FailureLoggingResponseBody(
                         throw error
                     }
                 if (read == -1L) {
+                    synchronized(lock) { reachedEof = true }
                     finish(forceTruncated = false)
                 } else if (read > 0L) {
                     capture(sink, offset, read)
@@ -332,10 +343,11 @@ private class FailureLoggingResponseBody(
             }
 
             override fun close() {
+                val wasComplete = synchronized(lock) { reachedEof }
                 try {
                     super.close()
                 } finally {
-                    finish(forceTruncated = false)
+                    finish(forceTruncated = !wasComplete)
                 }
             }
         }.buffer()
@@ -348,7 +360,7 @@ private class FailureLoggingResponseBody(
     override fun source(): BufferedSource =
         try {
             observedSource
-        } catch (error: Throwable) {
+        } catch (error: java.io.IOException) {
             finish(forceTruncated = true)
             throw error
         }
