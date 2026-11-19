@@ -23,6 +23,12 @@ import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry
 import okhttp3.Call
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Response
+import okhttp3.ResponseBody
+import okio.Buffer
+import okio.BufferedSource
+import okio.ForwardingSource
+import okio.buffer
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.UUID
@@ -76,15 +82,11 @@ object NetworkModule {
             try {
                 val response = chain.proceed(request)
                 if (response.code >= 400) {
-                    logger.warn(
-                        "http.request.failed",
-                        requestAttributes +
-                            mapOf(
-                                "http.status_code" to response.code.toString(),
-                                "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
-                                "failure.kind" to "http",
-                                "failure.stage" to "response",
-                            ) + responseErrorAttributes(response),
+                    return@Interceptor logResponseFailure(
+                        response,
+                        logger,
+                        requestAttributes,
+                        started,
                     )
                 }
                 response
@@ -192,22 +194,83 @@ object NetworkModule {
         return mapOf("trace_id" to traceId, "span_id" to spanId)
     }
 
-    internal fun responseErrorAttributes(response: okhttp3.Response): Map<String, String> {
+    private fun logResponseFailure(
+        response: Response,
+        logger: Logger,
+        requestAttributes: Map<String, String>,
+        started: Long,
+    ): Response {
+        val body = response.body
+        val isJson = body.contentType()?.subtype?.endsWith("json", ignoreCase = true) == true
+        val contentLength = body.contentLength()
+        val attributes = responseErrorAttributes(response)
+        val canObserveSmallJson = isJson && contentLength in 1..MAX_ERROR_BODY_BYTES
+        if (!canObserveSmallJson) {
+            val errorAttributes =
+                if (isJson && contentLength == 0L) {
+                    responseErrorAttributes("", truncated = false)
+                } else {
+                    attributes
+                }
+            logHttpResponseFailure(
+                logger,
+                requestAttributes,
+                response.code,
+                started,
+                errorAttributes,
+            )
+            return response
+        }
+
+        val observedBody =
+            FailureLoggingResponseBody(body, MAX_ERROR_BODY_BYTES) { preview, truncated ->
+                logHttpResponseFailure(
+                    logger,
+                    requestAttributes,
+                    response.code,
+                    started,
+                    responseErrorAttributes(preview, truncated),
+                )
+            }
+        return response.newBuilder().body(observedBody).build()
+    }
+
+    private fun logHttpResponseFailure(
+        logger: Logger,
+        requestAttributes: Map<String, String>,
+        statusCode: Int,
+        started: Long,
+        errorAttributes: Map<String, String>,
+    ) {
+        logger.warn(
+            "http.request.failed",
+            requestAttributes +
+                mapOf(
+                    "http.status_code" to statusCode.toString(),
+                    "duration_ms" to ((System.nanoTime() - started) / 1_000_000).toString(),
+                    "failure.kind" to "http",
+                    "failure.stage" to "response",
+                ) + errorAttributes,
+        )
+    }
+
+    internal fun responseErrorAttributes(response: Response): Map<String, String> {
         val body = response.body
         if (body.contentType()?.subtype?.endsWith("json", ignoreCase = true) != true) return emptyMap()
 
         val contentLength = body.contentLength()
-        if (contentLength < 0 || contentLength > MAX_ERROR_BODY_BYTES) {
-            return mapOf("http.response.body_truncated" to "true")
+        return if (contentLength < 0 || contentLength > MAX_ERROR_BODY_BYTES) {
+            mapOf("http.response.body_truncated" to "true")
+        } else {
+            emptyMap()
         }
+    }
 
-        val preview =
-            runCatching { response.peekBody(MAX_ERROR_BODY_BYTES).string() }.getOrNull()
-                ?: return emptyMap()
-        val truncated =
-            preview.toByteArray(Charsets.UTF_8).size.toLong() >= MAX_ERROR_BODY_BYTES
-        val attributes =
-            if (truncated) mapOf("http.response.body_truncated" to "true") else emptyMap()
+    internal fun responseErrorAttributes(
+        preview: String,
+        truncated: Boolean,
+    ): Map<String, String> {
+        if (truncated) return mapOf("http.response.body_truncated" to "true")
         val code =
             runCatching {
                 val json = JsonParser.parseString(preview).asJsonObject
@@ -226,11 +289,92 @@ object NetworkModule {
                             ?.asString
                     }.firstOrNull { candidate -> SAFE_ERROR_CODE.matches(candidate) }
             }.getOrNull()
-        return attributes + if (code == null) emptyMap() else mapOf("http.response.error_code" to code)
+        return if (code == null) emptyMap() else mapOf("http.response.error_code" to code)
     }
 
     private const val MAX_ERROR_BODY_BYTES = 4096L
     private val TRACEPARENT_PATTERN =
         Regex("^([0-9a-fA-F]{2})-([0-9a-fA-F]{32})-([0-9a-fA-F]{16})-([0-9a-fA-F]{2})(?:-([0-9a-fA-F-]+))?$")
     private val SAFE_ERROR_CODE = Regex("^[A-Z][A-Z0-9_]{0,95}$")
+}
+
+/** Observes bounded JSON bytes during the caller's read so logging never drives network I/O. */
+private class FailureLoggingResponseBody(
+    private val delegate: ResponseBody,
+    private val maxBytes: Long,
+    private val onComplete: (String, Boolean) -> Unit,
+) : ResponseBody() {
+    private val lock = Any()
+    private val captured = Buffer()
+    private var completed = false
+    private var truncated = false
+
+    private val observedSource: BufferedSource by lazy {
+        object : ForwardingSource(delegate.source()) {
+            override fun read(
+                sink: Buffer,
+                byteCount: Long,
+            ): Long {
+                val offset = sink.size
+                val read =
+                    try {
+                        super.read(sink, byteCount)
+                    } catch (error: java.io.IOException) {
+                        finish(forceTruncated = true)
+                        throw error
+                    }
+                if (read == -1L) {
+                    finish(forceTruncated = false)
+                } else if (read > 0L) {
+                    capture(sink, offset, read)
+                }
+                return read
+            }
+
+            override fun close() {
+                try {
+                    super.close()
+                } finally {
+                    finish(forceTruncated = false)
+                }
+            }
+        }.buffer()
+    }
+
+    override fun contentType() = delegate.contentType()
+
+    override fun contentLength() = delegate.contentLength()
+
+    override fun source(): BufferedSource =
+        try {
+            observedSource
+        } catch (error: Throwable) {
+            finish(forceTruncated = true)
+            throw error
+        }
+
+    private fun capture(
+        sink: Buffer,
+        offset: Long,
+        byteCount: Long,
+    ) {
+        synchronized(lock) {
+            val remaining = (maxBytes - captured.size).coerceAtLeast(0)
+            val copied = minOf(byteCount, remaining)
+            if (copied > 0) sink.copyTo(captured, offset, copied)
+            if (copied < byteCount) truncated = true
+        }
+    }
+
+    private fun finish(forceTruncated: Boolean) {
+        val result =
+            synchronized(lock) {
+                if (completed) return
+                completed = true
+                val bodyIsIncomplete =
+                    delegate.contentLength() >= 0 && captured.size < delegate.contentLength()
+                captured.clone().readUtf8() to (forceTruncated || truncated || bodyIsIncomplete)
+            }
+        runCatching { onComplete(result.first, result.second) }
+    }
 }

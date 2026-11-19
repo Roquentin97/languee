@@ -17,6 +17,7 @@ import okhttp3.Request
 import okhttp3.ResponseBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
 import okio.BufferedSource
 import org.junit.After
@@ -28,6 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class ApiClientTelemetryTest {
     private lateinit var server: MockWebServer
@@ -224,13 +226,13 @@ class ApiClientTelemetryTest {
                         .build(),
                 ).execute()
         assertEquals("json", response.body.contentType()?.subtype)
-        assertTrue(response.peekBody(4096).string().contains("DEFINITIONS_NOT_FOUND"))
-        assertEquals(
-            "DEFINITIONS_NOT_FOUND",
-            NetworkModule.responseErrorAttributes(response)["http.response.error_code"],
-        )
+        assertTrue(recordedLogger.warnings.isEmpty())
         val returnedBody = response.body.string()
         response.close()
+        assertEquals(
+            "DEFINITIONS_NOT_FOUND",
+            NetworkModule.responseErrorAttributes(returnedBody, truncated = false)["http.response.error_code"],
+        )
 
         val event = recordedLogger.warnings.single()
         assertEquals("http.request.failed", event.event)
@@ -268,6 +270,67 @@ class ApiClientTelemetryTest {
         client.newCall(Request.Builder().url(server.url("/failure")).build()).execute().close()
 
         assertEquals("true", recordedLogger.warnings.single().attributes["http.response.body_truncated"])
+    }
+
+    @Test
+    fun `known length delayed JSON body is observed only as the caller reads it`() {
+        val errorBody = """{"message":"DEFINITIONS_NOT_FOUND"}"""
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(404)
+                .setHeader("Content-Type", "application/json")
+                .setBody(errorBody)
+                .setBodyDelay(300, TimeUnit.MILLISECONDS),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/delayed-error")).build()).execute()
+
+        assertEquals(404, response.code)
+        assertTrue("logging must not read the delayed response body", recordedLogger.warnings.isEmpty())
+        assertEquals(errorBody, response.body.string())
+        response.close()
+        assertEquals("DEFINITIONS_NOT_FOUND", recordedLogger.warnings.single().attributes["http.response.error_code"])
+        assertFalse(
+            recordedLogger.warnings
+                .single()
+                .attributes
+                .containsKey("http.response.body_truncated"),
+        )
+    }
+
+    @Test
+    fun `response body read failure is preserved and logged as truncated`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(500)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"message":"DEFINITIONS_NOT_FOUND"}""")
+                .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/interrupted-error")).build()).execute()
+        val bodyResult = runCatching { response.body.string() }
+        response.close()
+
+        assertTrue("the original body read failure must reach the caller", bodyResult.isFailure)
+        assertEquals(1, recordedLogger.warnings.size)
+        assertEquals("true", recordedLogger.warnings.single().attributes["http.response.body_truncated"])
+        assertFalse(
+            recordedLogger.warnings
+                .single()
+                .attributes
+                .containsKey("http.response.error_code"),
+        )
     }
 
     @Test
