@@ -181,9 +181,54 @@ for service in postgres redis; do
   fi
 done
 
+# `--no-recreate` intentionally protects persistent services from implicit
+# changes to commands, environment, healthchecks, mounts, and other Compose
+# settings. Compare the full rendered definition with the last verified apply
+# so changes cannot be silently certified as applied.
+require_persistent_maintenance() {
+  local service=$1 detail=$2
+  if [ "$allow_persistent_infra" != true ]; then
+    echo "$service Compose definition differs from its running container ($detail); confirm a verified backup and compatibility review before updating it" >&2
+    exit 2
+  fi
+  case " ${infra_services[*]} " in
+    *" $service "*) ;;
+    *) infra_services+=("$service") ;;
+  esac
+  echo "persistent infrastructure update approved: $service ($detail)"
+}
+
+for service in postgres redis; do
+  expected_hash=$(docker compose config --hash "$service" | awk -v service="$service" '$1 == service { print $2; exit }')
+  if [ -z "$expected_hash" ]; then
+    echo "could not determine the rendered $service Compose definition hash" >&2
+    exit 1
+  fi
+  previous_hash=$(
+    python3 - "$APP_DIR/.applied-deploy-state.json" "$service" <<'PY'
+import json
+import pathlib
+import sys
+
+try:
+    state = json.loads(pathlib.Path(sys.argv[1]).read_text())
+except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    state = {}
+if state.get("phase") == "applying" and state.get("baseline_verified") is True:
+    print((state.get("persistent_config_hashes") or {}).get(sys.argv[2], ""))
+PY
+  )
+  container_ids=$(docker compose ps -aq "$service" 2>/dev/null || true)
+  volumes=$(docker volume ls -q --filter "label=com.docker.compose.volume=${service}_data" || true)
+  if { [ -n "$container_ids" ] || [ -n "$volumes" ]; } && [ -z "$previous_hash" ]; then
+    require_persistent_maintenance "$service" "no verified prior service definition is recorded"
+  elif [ -n "$previous_hash" ] && [ "$expected_hash" != "$previous_hash" ]; then
+    require_persistent_maintenance "$service" "the rendered service definition changed since its last verified apply"
+  fi
+done
+
 # --no-recreate starts first-install or stopped dependencies but protects
-# existing persistent databases from Compose-file changes outside the explicit
-# maintenance path below.
+# existing persistent databases when no reviewed definition update was selected.
 docker compose up -d --no-recreate --wait postgres redis
 
 # Monitoring is deliberately non-blocking: API availability, migrations, and

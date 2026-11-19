@@ -21,7 +21,7 @@ on:
         default: false
         type: boolean
       allow_persistent_infra:
-        description: Confirm backup and compatibility review for a PostgreSQL/Redis image update
+        description: Confirm backup and compatibility review for PostgreSQL/Redis Compose changes
         required: false
         default: false
         type: boolean
@@ -71,7 +71,9 @@ jobs:
           script: |
             set -eu
             state=/opt/languee/.applied-deploy-state.json
-            if [ -r "$state" ]; then
+            if [ -e /opt/languee/.applied-deploy-state.dirty ]; then
+              printf '%s\n' '{"known":false,"reason":"a previous deployment did not reach verification"}'
+            elif [ -r "$state" ]; then
               cat "$state"
             else
               printf '%s\n' '{"known":false,"reason":"missing"}'
@@ -238,33 +240,48 @@ jobs:
             exit 1
           fi
 
-      - name: Copy production Compose file
+      - name: Prepare per-run deployment staging area
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DEPLOY_STAGE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_STAGE_ID
+          script: |
+            set -euo pipefail
+            case "$DEPLOY_STAGE_ID" in *[!0-9-]*|'') echo "invalid deployment stage id" >&2; exit 2 ;; esac
+            mkdir -p "/opt/languee/.deploy-staging/$DEPLOY_STAGE_ID"
+            chmod 700 "/opt/languee/.deploy-staging/$DEPLOY_STAGE_ID"
+
+      - name: Stage production Compose file
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: docker-compose.prod.yml
-          target: /opt/languee/
+          target: /opt/languee/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}/
 
-      - name: Copy deployment scripts and proxy configuration
+      - name: Stage deployment scripts and proxy configuration
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/deploy-state.py,deploy/scripts/sync-vault-config.py,deploy/scripts/cleanup-images.py,deploy/scripts/check-disk-health.py
-          target: /opt/languee/
+          source: deploy/caddy/,deploy/scripts/
+          target: /opt/languee/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}/
           strip_components: 1
 
-      - name: Copy observability provisioning
+      - name: Stage observability provisioning
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: provision/
-          target: /opt/languee/
+          target: /opt/languee/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}/
 
       - name: Mark applied state untrusted before mutation
         id: mark_dirty
@@ -275,8 +292,24 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -euo pipefail
-            chmod +x /opt/languee/scripts/deploy-state.py
-            python3 /opt/languee/scripts/deploy-state.py begin --app-dir /opt/languee
+            stage=/opt/languee/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}
+            python3 "$stage/scripts/deploy-state.py" begin --app-dir /opt/languee
+
+      - name: Promote staged deployment assets
+        id: promote
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          DEPLOY_STAGE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_STAGE_ID
+          script: |
+            set -euo pipefail
+            stage="/opt/languee/.deploy-staging/$DEPLOY_STAGE_ID"
+            APP_DIR=/opt/languee DEPLOY_STAGE="$stage" bash "$stage/scripts/promote-deploy-assets.sh"
+            chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh /opt/languee/scripts/deploy-state.py
 
       - name: Apply selected artifacts
         uses: appleboy/ssh-action@v1.2.5
@@ -401,5 +434,23 @@ jobs:
           {
             echo '## Deployment failed before stack mutation'
             echo
-            echo 'The workflow did not reach a successful state-invalidation step, so the deployment script did not run. Inspect the failed step before assuming the host state is current.'
+            echo 'The workflow did not reach a successful state-invalidation step, so staged files were not promoted and the deployment script did not run. Inspect the failed step before assuming the host state is current.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean completed deployment staging payloads
+        if: success()
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -u
+            staging=/opt/languee/.deploy-staging
+            [ -d "$staging" ] || exit 0
+            for candidate in "$staging"/*; do
+              [ -d "$candidate" ] || continue
+              run_id=${candidate##*/}
+              [[ "$run_id" =~ ^[0-9]+-[0-9]+$ ]] || continue
+              rm -rf -- "$candidate" || echo "WARNING: could not remove completed staging payload $run_id" >&2
+            done

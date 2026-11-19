@@ -39,7 +39,7 @@ esac
 DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
 if [ "$1" = compose ] && [ "$2" = config ]; then
-  echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+  if [ "$3" = --hash ]; then echo "$4 test-hash"; else echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'; fi
 fi
 if [ "$1" = image ] && [ "$2" = inspect ]; then
   case "$4" in
@@ -53,7 +53,7 @@ if [ "$2" = run ]; then echo "migration boom" >&2; exit 1; fi
 SUCCESS_DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
 if [ "$1" = compose ] && [ "$2" = config ]; then
-  echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+  if [ "$3" = --hash ]; then echo "$4 test-hash"; else echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'; fi
 fi
 if [ "$1" = image ] && [ "$2" = inspect ]; then
   case "$4" in
@@ -63,10 +63,35 @@ if [ "$1" = image ] && [ "$2" = inspect ]; then
 fi
 """
 
+PERSISTENT_HASH_DOCKER_STUB = """#!/bin/bash
+echo "docker $*" >> "$APP_DIR/calls.log"
+if [ "$1" = compose ] && [ "$2" = config ]; then
+  if [ "$3" = --hash ]; then
+    echo "$4 desired-hash"
+  else
+    echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+  fi
+fi
+if [ "$1" = compose ] && [ "$2" = ps ]; then
+  echo "$4-container"
+fi
+if [ "$1" = inspect ]; then
+  case "$3" in
+    *config-hash*) echo "$PERSISTENT_ACTUAL_HASH" ;;
+    *)
+      case "$4" in
+        postgres-container) echo "postgres:18@sha256:old" ;;
+        redis-container) echo "redis:7@sha256:old" ;;
+      esac
+      ;;
+  esac
+fi
+"""
+
 MONITORING_FAILURE_DOCKER_STUB = """#!/bin/bash
 echo "docker $*" >> "$APP_DIR/calls.log"
 if [ "$1" = compose ] && [ "$2" = config ]; then
-  echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'
+  if [ "$3" = --hash ]; then echo "$4 test-hash"; else echo '{"services":{"postgres":{"image":"postgres:18@sha256:old"},"redis":{"image":"redis:7@sha256:old"}}}'; fi
 fi
 if [[ "$*" == *"loki tempo prometheus alloy grafana"* ]]; then
   echo "monitoring unavailable" >&2
@@ -132,6 +157,7 @@ def _deploy_readiness(
     curl_stub: str,
     docker_stub: str = SUCCESS_DOCKER_STUB,
     extra_args: tuple[str, ...] = (),
+    applied_state: dict | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     app = tmp_path / "app"
     (app / "scripts").mkdir(parents=True)
@@ -143,6 +169,8 @@ def _deploy_readiness(
     _executable(bin_dir / "python3", '#!/bin/bash\nif [[ "$1" = -* ]]; then exec /usr/bin/python3 "$@"; else exec "$@"; fi\n')
     (app / "state").write_text('{"back_tag": "old", "nlp_tag": "old"}')
     (app / ".env").write_text("DOMAIN=example.test\n")
+    if applied_state is not None:
+        (app / ".applied-deploy-state.json").write_text(json.dumps(applied_state))
     result = subprocess.run(
         ["bash", str(SCRIPT), "--preserve-tags", *extra_args],
         env={**os.environ, "APP_DIR": str(app), "PATH": f"{bin_dir}:{os.environ['PATH']}"},
@@ -271,9 +299,9 @@ def test_real_vault_app_env_update_reconciles_both_services_with_preserved_tags(
     assert "docker compose up -d --force-recreate --no-deps --wait languee-back" not in calls
 
 
-def test_real_vault_stack_env_change_reconciles_backend_only_and_protects_databases(tmp_path):
+def test_real_vault_stack_env_change_reconciles_backend_without_persistent_drift(tmp_path):
     config = valid_config()
-    config["LANGUEE_BACK_REDIS_PASSWORD"] = "new-redis-password-0987654321"
+    config["MONITOR_DOMAIN"] = "new-monitor.languee-dev.example.com"
     result, calls, _app = _deploy_with_real_vault_sync(
         tmp_path, config, "--preserve-tags", version=2
     )
@@ -300,6 +328,93 @@ def test_config_only_compose_change_reconciles_app_definitions_without_touching_
     assert "docker compose up -d --no-recreate --wait postgres redis" in calls
     assert "docker compose up -d --force-recreate --no-deps postgres" not in calls
     assert "docker compose up -d --force-recreate --no-deps redis" not in calls
+
+
+def test_persistent_compose_hash_change_fails_before_no_recreate_without_approval(tmp_path):
+    result, calls = _deploy_readiness(
+        tmp_path,
+        CURL_SUCCESS_STUB,
+        PERSISTENT_HASH_DOCKER_STUB,
+        applied_state={
+            "phase": "applying",
+            "baseline_verified": True,
+            "persistent_config_hashes": {"postgres": "old-hash", "redis": "old-hash"},
+        },
+    )
+
+    assert result.returncode == 2
+    assert "rendered service definition changed" in result.stderr
+    assert "docker compose up -d --no-recreate --wait postgres redis" not in calls
+    assert "docker compose pull postgres" not in calls
+
+
+def test_persistent_compose_hash_change_applies_only_with_explicit_maintenance_approval(tmp_path):
+    result, calls = _deploy_readiness(
+        tmp_path,
+        CURL_SUCCESS_STUB,
+        PERSISTENT_HASH_DOCKER_STUB,
+        ("--allow-persistent-infra",),
+        {
+            "phase": "applying",
+            "baseline_verified": True,
+            "persistent_config_hashes": {"postgres": "old-hash", "redis": "old-hash"},
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "persistent infrastructure update approved: postgres" in result.stdout
+    assert "persistent infrastructure update approved: redis" in result.stdout
+    assert "docker compose pull postgres" in calls
+    assert "docker compose pull redis" in calls
+
+
+def test_existing_persistent_volume_without_verified_hash_requires_maintenance(tmp_path):
+    result, calls = _deploy_readiness(
+        tmp_path,
+        CURL_SUCCESS_STUB,
+        PERSISTENT_HASH_DOCKER_STUB,
+    )
+
+    assert result.returncode == 2
+    assert "no verified prior service definition is recorded" in result.stderr
+    assert "docker compose up -d --no-recreate --wait postgres redis" not in calls
+
+
+def test_vault_rendered_persistent_config_change_requires_maintenance(tmp_path):
+    baseline = {
+        "phase": "applying",
+        "baseline_verified": True,
+        "persistent_config_hashes": {"postgres": "desired-hash", "redis": "old-redis-hash"},
+    }
+    result, calls = _deploy_readiness(
+        tmp_path,
+        CURL_SUCCESS_STUB,
+        PERSISTENT_HASH_DOCKER_STUB,
+        applied_state=baseline,
+    )
+
+    assert result.returncode == 2
+    assert "rendered service definition changed since its last verified apply" in result.stderr
+    assert "docker compose pull redis" not in calls
+
+
+def test_unchanged_persistent_service_hash_uses_no_recreate_without_maintenance(tmp_path):
+    baseline = {
+        "phase": "applying",
+        "baseline_verified": True,
+        "persistent_config_hashes": {"postgres": "desired-hash", "redis": "desired-hash"},
+    }
+    result, calls = _deploy_readiness(
+        tmp_path,
+        CURL_SUCCESS_STUB,
+        PERSISTENT_HASH_DOCKER_STUB,
+        applied_state=baseline,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "docker compose up -d --no-recreate --wait postgres redis" in calls
+    assert "docker compose pull postgres" not in calls
+    assert "docker compose pull redis" not in calls
 
 
 def test_legacy_artifact_version_is_accepted_for_rollback(tmp_path):
@@ -403,4 +518,5 @@ def test_pinned_monitoring_images_contain_healthcheck_executables():
 
 def test_deploy_workflow_copies_disk_health_script():
     workflow = (Path(__file__).parents[2] / ".github/workflows/deploy.yml").read_text()
-    assert "deploy/scripts/check-disk-health.py" in workflow
+    assert "source: deploy/caddy/,deploy/scripts/" in workflow
+    assert "deploy/scripts/" in workflow

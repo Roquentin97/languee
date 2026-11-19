@@ -21,6 +21,7 @@ def load_script(name, module_name):
 
 state_module = load_script("deploy-state.py", "deploy_state")
 reconcile = load_script("reconcile-deploy.py", "reconcile_deploy")
+real_persistent_config_hashes = state_module._persistent_config_hashes
 
 BACK_OLD = "1" * 40
 BACK_NEW = "2" * 40
@@ -28,6 +29,15 @@ NLP_OLD = "3" * 40
 NLP_NEW = "4" * 40
 CONFIG_OLD = "5" * 40
 CONFIG_NEW = "6" * 40
+
+
+@pytest.fixture(autouse=True)
+def stub_persistent_config_hashes(monkeypatch):
+    monkeypatch.setattr(
+        state_module,
+        "_persistent_config_hashes",
+        lambda _app_dir: {"postgres": "postgres-hash", "redis": "redis-hash"},
+    )
 
 
 def state(backend=BACK_OLD, nlp=NLP_OLD, config=CONFIG_OLD):
@@ -221,6 +231,13 @@ def test_successful_incremental_deploy_and_no_change(tmp_path, monkeypatch):
     assert result["nlp"] is False
     assert result["config"] is False
     assert result["deploy"] is False
+    status_result = reconcile.decisions(
+        raw_state=json.dumps({"known": True, "state": host}),
+        ref=commits["config"],
+        head=commits["config"],
+    )
+    assert status_result["state_known"] is True
+    assert status_result["deploy"] is False
 
 
 def test_missing_or_corrupt_state_rebuilds_conservatively(tmp_path, monkeypatch):
@@ -276,6 +293,41 @@ def test_rollback_selects_only_requested_service_and_does_not_update_source_revi
     assert result["config"] is False
 
 
+def test_manual_partial_rollback_fails_before_mutation_when_state_is_dirty(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    dirty_state = {"known": False, "reason": "a previous deployment did not reach verification"}
+
+    with pytest.raises(RuntimeError, match="cannot apply a partial manual rollback"):
+        reconcile.decisions(
+            raw_state=json.dumps(dirty_state),
+            ref=commits["config"],
+            head=commits["config"],
+            rollback_backend="dev-1001-abcdef123456",
+        )
+
+
+def test_full_manual_rollback_from_unknown_state_verifies_all_source_components(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    unknown_state = {"known": False, "reason": "a previous deployment did not reach verification"}
+
+    result = reconcile.decisions(
+        raw_state=json.dumps(unknown_state),
+        ref=commits["config"],
+        head=commits["config"],
+        rollback_backend="dev-1001-abcdef123456",
+        rollback_nlp="dev-1002-fedcba654321",
+    )
+
+    assert result["rollback"] is True
+    assert result["backend"] is True
+    assert result["nlp"] is True
+    assert result["config"] is True
+    assert result["build_backend"] is False
+    assert result["build_nlp"] is False
+
+
 def test_config_image_changes_select_only_changed_infrastructure(tmp_path, monkeypatch):
     repo, commits = _repo(tmp_path)
     monkeypatch.chdir(repo)
@@ -288,6 +340,66 @@ def test_config_image_changes_select_only_changed_infrastructure(tmp_path, monke
     assert result["infra"] == "redis"
 
 
+@pytest.mark.parametrize(
+    "old,new,expected",
+    [
+        (
+            "  redis:\n    image: redis:7@sha256:old\n    command: redis-server --requirepass old\n",
+            "  redis:\n    image: redis:7@sha256:old\n    command: redis-server --requirepass new\n",
+            "redis",
+        ),
+        (
+            "  postgres:\n    image: postgres:18@sha256:old\n    healthcheck:\n      retries: 5\n",
+            "  postgres:\n    image: postgres:18@sha256:old\n    healthcheck:\n      retries: 7\n",
+            "postgres",
+        ),
+        (
+            "  redis:\n    image: redis:7@sha256:old\n    environment:\n      REDIS_MODE: standalone\n",
+            "  redis:\n    image: redis:7@sha256:old\n    environment:\n      REDIS_MODE: cluster\n",
+            "redis",
+        ),
+        (
+            "  postgres:\n    image: postgres:18@sha256:old\n    volumes:\n      - postgres_data:/var/lib/postgresql\n",
+            "  postgres:\n    image: postgres:18@sha256:old\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n",
+            "postgres",
+        ),
+    ],
+)
+def test_persistent_service_command_and_healthcheck_changes_require_reviewed_update(
+    tmp_path, monkeypatch, old, new, expected
+):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    compose = repo / "docker-compose.prod.yml"
+    text = compose.read_text().replace(
+        "  postgres:\n    image: postgres:18@sha256:old\n"
+        "  redis:\n    image: redis:7@sha256:old\n",
+        old,
+    )
+    compose.write_text(text)
+    previous_config = _commit(repo, "persistent service definition")
+    compose.write_text(compose.read_text().replace(old, new))
+    new_config = _commit(repo, "persistent service change")
+    host = state(backend=commits["backend"], nlp=commits["nlp"], config=previous_config)
+
+    result = reconcile.decisions(raw_state=json.dumps(host), ref=new_config, head=new_config)
+
+    assert result["infra"] == expected
+
+
+def test_compose_volume_definition_change_requires_review_for_persistent_services(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    compose = repo / "docker-compose.prod.yml"
+    compose.write_text(compose.read_text() + "volumes:\n  postgres_data:\n    name: changed-postgres\n")
+    new_config = _commit(repo, "persistent volume definition")
+    host = state(backend=commits["backend"], nlp=commits["nlp"], config=commits["config"])
+
+    result = reconcile.decisions(raw_state=json.dumps(host), ref=new_config, head=new_config)
+
+    assert result["infra"] == "postgres redis"
+
+
 def test_status_marks_partial_and_corrupt_state_unknown(tmp_path):
     assert state_module.status(tmp_path) == {"known": False, "reason": "missing"}
     path = tmp_path / state_module.STATE_FILE
@@ -297,9 +409,32 @@ def test_status_marks_partial_and_corrupt_state_unknown(tmp_path):
     assert state_module.status(tmp_path) == {"known": False, "reason": "corrupt"}
 
 
+def test_persistent_service_hashes_are_captured_for_both_services(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        state_module, "_persistent_config_hashes", real_persistent_config_hashes
+    )
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs["cwd"]))
+        service = command[-1]
+        return state_module.subprocess.CompletedProcess(
+            command, 0, stdout=f"{service} {service}-hash\n", stderr=""
+        )
+
+    monkeypatch.setattr(state_module.subprocess, "run", fake_run)
+
+    hashes = state_module._persistent_config_hashes(tmp_path)
+
+    assert hashes == {"postgres": "postgres-hash", "redis": "redis-hash"}
+    assert [call[0][-1] for call in calls] == ["postgres", "redis"]
+    assert all(call[1] == tmp_path for call in calls)
+
+
 def test_record_verifies_artifact_before_atomic_state_write(tmp_path, monkeypatch, capsys):
     revision = "a" * 40
     monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: revision)
+    state_module.begin(tmp_path)
     args = state_module.build_parser().parse_args(
         [
             "record",
@@ -325,6 +460,10 @@ def test_record_verifies_artifact_before_atomic_state_write(tmp_path, monkeypatc
         "image_tag": "back-tag",
     }
     assert saved["configuration"]["source_revision"] == CONFIG_NEW
+    assert saved["persistent_config_hashes"] == {
+        "postgres": "postgres-hash",
+        "redis": "redis-hash",
+    }
     assert saved["phase"] == "verified"
     assert state_module.status(tmp_path)["known"] is True
     assert json.loads(capsys.readouterr().out)["known"] is True
@@ -344,15 +483,44 @@ def test_rollback_records_artifact_revision_for_future_forward_reconciliation(tm
     assert state_module.status(tmp_path)["known"] is True
 
 
+def test_full_rollback_record_can_establish_state_only_with_both_artifacts_and_config(tmp_path, monkeypatch):
+    revision = "b" * 40
+    monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: revision)
+    state_module.begin(tmp_path)
+    args = state_module.build_parser().parse_args(
+        [
+            "record",
+            "--app-dir",
+            str(tmp_path),
+            "--backend-tag",
+            "old-back",
+            "--nlp-tag",
+            "old-nlp",
+            "--configuration-source-revision",
+            CONFIG_NEW,
+            "--rollback",
+        ]
+    )
+
+    state_module.record(args)
+
+    saved = json.loads((tmp_path / state_module.STATE_FILE).read_text())
+    assert saved["components"]["backend"]["source_revision"] == revision
+    assert saved["components"]["nlp"]["source_revision"] == revision
+    assert saved["configuration"]["source_revision"] == CONFIG_NEW
+    assert state_module.status(tmp_path)["known"] is True
+
+
 def test_partial_rollback_does_not_report_an_incomplete_state_as_current(tmp_path, monkeypatch):
     monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: "b" * 40)
+    state_module.begin(tmp_path)
     args = state_module.build_parser().parse_args(
         ["record", "--app-dir", str(tmp_path), "--backend-tag", "old-tag", "--rollback"]
     )
     try:
         state_module.record(args)
     except state_module.StateError as error:
-        assert "state remains incomplete" in str(error)
+        assert "cannot record a partial deployment" in str(error)
     else:
         raise AssertionError("partial rollback must not produce a successful state record")
     assert state_module.status(tmp_path)["known"] is False
@@ -383,10 +551,126 @@ def test_failed_state_write_preserves_previous_file(tmp_path, monkeypatch):
     assert state_module.status(tmp_path)["known"] is False
 
 
+def test_successful_vault_apply_preserves_only_a_previously_verified_source_state(tmp_path, capsys):
+    original = state(BACK_NEW, NLP_NEW, CONFIG_NEW)
+    (tmp_path / state_module.STATE_FILE).write_text(json.dumps(original))
+    state_module.begin(tmp_path)
+
+    state_module.finish_vault_apply(tmp_path)
+
+    saved = json.loads((tmp_path / state_module.STATE_FILE).read_text())
+    assert saved["components"] == original["components"]
+    assert saved["configuration"] == original["configuration"]
+    assert saved["phase"] == "verified"
+    assert state_module.status(tmp_path)["known"] is True
+    assert not (tmp_path / state_module.DIRTY_FILE).exists()
+    assert json.loads(capsys.readouterr().out)["known"] is True
+
+
+def test_successful_vault_apply_does_not_promote_unknown_source_state(tmp_path, capsys):
+    state_module.begin(tmp_path)
+    dirty_before = (tmp_path / state_module.DIRTY_FILE).read_text()
+
+    state_module.finish_vault_apply(tmp_path)
+
+    assert state_module.status(tmp_path)["known"] is False
+    assert (tmp_path / state_module.DIRTY_FILE).read_text() == dirty_before
+    assert json.loads(capsys.readouterr().out)["known"] is False
+
+
+def test_interrupted_vault_apply_remains_dirty_for_full_next_reconciliation(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    host = state(
+        backend=commits["backend"],
+        nlp=commits["nlp"],
+        config=commits["config"],
+    )
+    (tmp_path / state_module.STATE_FILE).write_text(json.dumps(host))
+    state_module.begin(tmp_path)
+
+    # The Vault script may have failed, been canceled, or restored its files;
+    # without readiness and finish-vault no prior source state is trusted.
+    unknown = state_module.status(tmp_path)
+    result = reconcile.decisions(
+        raw_state=json.dumps(unknown), ref=commits["config"], head=commits["config"]
+    )
+
+    assert result["state_known"] is False
+    assert result["backend"] is True
+    assert result["nlp"] is True
+    assert result["config"] is True
+
+
+def test_dirty_marker_keeps_old_verified_json_untrusted_after_state_write_failure(tmp_path, monkeypatch):
+    state_path = tmp_path / state_module.STATE_FILE
+    state_path.write_text(json.dumps(state(BACK_NEW, NLP_NEW, CONFIG_NEW)))
+    state_module.begin(tmp_path)
+    monkeypatch.setattr(state_module, "_artifact_revision", lambda *_: BACK_OLD)
+    monkeypatch.setattr(
+        state_module,
+        "_atomic_write",
+        lambda path, value: state_path.write_text(json.dumps(value)),
+    )
+    # Simulate a write that reached the state file but failed while clearing
+    # the separate transaction sentinel.
+    monkeypatch.setattr(
+        state_module,
+        "_clear_dirty_marker",
+        lambda *_: (_ for _ in ()).throw(OSError("fsync failed")),
+    )
+    args = state_module.build_parser().parse_args(
+        ["record", "--app-dir", str(tmp_path), "--backend-tag", "candidate", "--backend-source-revision", BACK_OLD]
+    )
+
+    with pytest.raises(OSError, match="fsync failed"):
+        state_module.record(args)
+
+    assert json.loads(state_path.read_text())["phase"] == "verified"
+    unknown = state_module.status(tmp_path)
+    assert unknown["known"] is False
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    result = reconcile.decisions(
+        raw_state=json.dumps(unknown), ref=commits["config"], head=commits["config"]
+    )
+    assert result["backend"] is True
+    assert result["nlp"] is True
+    assert result["config"] is True
+
+
+def test_vault_apply_preserves_stale_tracked_config_revision_for_deploy(tmp_path, monkeypatch):
+    repo, commits = _repo(tmp_path)
+    monkeypatch.chdir(repo)
+    host = state(
+        backend=commits["backend"],
+        nlp=commits["nlp"],
+        config=commits["base"],
+    )
+    (tmp_path / state_module.STATE_FILE).write_text(json.dumps(host))
+
+    state_module.begin(tmp_path)
+    state_module.finish_vault_apply(tmp_path)
+    after_vault_apply = json.loads((tmp_path / state_module.STATE_FILE).read_text())
+    result = reconcile.decisions(
+        raw_state=json.dumps(after_vault_apply),
+        ref=commits["config"],
+        head=commits["config"],
+    )
+
+    assert result["backend"] is False
+    assert result["nlp"] is False
+    assert result["config"] is True
+    assert result["deploy"] is True
+
+
 def test_deployment_workflow_records_state_only_after_public_readiness():
     workflow = (Path(__file__).parents[2] / ".github/workflows/deploy.yml").read_text()
     assert workflow.index("Read last verified deployment state") < workflow.index("build-back:")
-    assert workflow.index("Mark applied state untrusted before mutation") < workflow.index("Apply selected artifacts")
+    assert workflow.index(".applied-deploy-state.dirty") < workflow.index("cat \"$state\"")
+    assert workflow.index("Stage production Compose file") < workflow.index("Mark applied state untrusted before mutation")
+    assert workflow.index("Mark applied state untrusted before mutation") < workflow.index("Promote staged deployment assets")
+    assert workflow.index("Promote staged deployment assets") < workflow.index("Apply selected artifacts")
     assert workflow.index("Check public backend readiness") < workflow.index("Record health-verified state")
     assert "runs-on: ubuntu-24.04-arm" in workflow
     assert "cancel-in-progress: false" in workflow
@@ -396,6 +680,8 @@ def test_apply_config_is_vault_only_and_reports_source_drift():
     workflow = (Path(__file__).parents[2] / ".github/workflows/apply-config.yml").read_text()
     assert "group: deploy-dev" in workflow
     assert "--preserve-tags" in workflow
-    assert "Read applied source state" in workflow
+    assert workflow.index("Mark applied state untrusted before Vault mutation") < workflow.index("Apply Vault config")
+    assert workflow.index("Check public backend readiness") < workflow.index("Preserve previously verified source state")
+    assert "the host deployment-state helper is outdated" in workflow
+    assert "finish-vault --app-dir /opt/languee" in workflow
     assert "This workflow does not build or deploy application code" in workflow
-    assert "deploy-state.py record" not in workflow
