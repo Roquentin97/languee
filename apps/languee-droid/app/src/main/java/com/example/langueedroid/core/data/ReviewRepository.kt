@@ -8,8 +8,6 @@ import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.ReviewSummary
-import com.example.langueedroid.core.domain.StaleReferenceException
-import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.dto.CheckAnswerRequest
 import com.example.langueedroid.core.network.dto.CheckFormsRequest
@@ -24,99 +22,74 @@ class ReviewRepository(
     private val logger: Logger,
 ) {
     suspend fun summary(): Result<ReviewSummary> =
-        runCatching {
+        runCatchingCancellable {
             val response = reviewsApi.getSummary()
-            when {
-                response.isSuccessful -> {
-                    val body =
-                        response.body()?.toDomain()
-                            ?: throw Exception("Empty response body from review summary")
-                    logger.info(
-                        "review.summary_loaded",
-                        mapOf(
-                            "due_count" to body.dueCount.toString(),
-                            "new_count" to body.newCount.toString(),
-                        ),
-                    )
-                    body
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                else -> throw Exception("Failed to fetch review summary: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.REVIEW_SUMMARY)
+            val body = response.bodyOrThrow(ApiOperation.REVIEW_SUMMARY).toDomain()
+            logger.info(
+                "review.summary_loaded",
+                mapOf(
+                    "due_count" to body.dueCount.toString(),
+                    "new_count" to body.newCount.toString(),
+                ),
+            )
+            body
         }
 
     suspend fun queue(
         deckId: String? = null,
         limit: Int = DEFAULT_QUEUE_LIMIT,
     ): Result<List<ReviewItem>> =
-        runCatching {
+        runCatchingCancellable {
             val response = reviewsApi.getQueue(deckId = deckId, limit = limit)
-            when {
-                response.isSuccessful -> {
-                    val items = response.body()?.items?.map { it.toDomain() } ?: emptyList()
-                    logger.info("review.queue_loaded", mapOf("count" to items.size.toString()))
-                    items
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                else -> throw Exception("Failed to fetch review queue: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.REVIEW_QUEUE)
+            val items =
+                response
+                    .body()
+                    ?.items
+                    ?.map { it.toDomain() }
+                    .orEmpty()
+            logger.info("review.queue_loaded", mapOf("count" to items.size.toString()))
+            items
         }
 
     suspend fun checkAnswer(
         cardId: String,
         typedAnswer: String,
     ): Result<AnswerCheck> =
-        runCatching {
+        runCatchingCancellable {
             val response =
                 reviewsApi.checkAnswer(
                     cardId = cardId,
                     body = CheckAnswerRequest(typedAnswer = typedAnswer),
                 )
-            when {
-                response.isSuccessful -> {
-                    val body =
-                        response.body()?.toDomain()
-                            ?: throw Exception("Empty response body from review answer check")
-                    logger.info("review.answer_checked", mapOf("result" to body.result.toString()))
-                    body
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> throw StaleReferenceException()
-                else -> throw Exception("Failed to check review answer: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.REVIEW_CHECK_ANSWER)
+            val body = response.bodyOrThrow(ApiOperation.REVIEW_CHECK_ANSWER).toDomain()
+            logger.info("review.answer_checked", mapOf("result" to body.result.toString()))
+            body
         }
 
     suspend fun checkForms(
         cardId: String,
         typedForms: Map<String, String>,
     ): Result<CheckFormsResponseDto> =
-        runCatching {
+        runCatchingCancellable {
             val response = reviewsApi.checkForms(cardId, CheckFormsRequest(typedForms))
-            when {
-                response.isSuccessful -> response.body() ?: throw Exception("Empty response body from review forms check")
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> throw StaleReferenceException()
-                else -> throw Exception("Failed to check review forms: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.REVIEW_CHECK_FORMS)
+            response.bodyOrThrow(ApiOperation.REVIEW_CHECK_FORMS)
         }
 
     suspend fun revealDefinition(cardId: String): Result<RevealedEntry> =
-        runCatching {
+        runCatchingCancellable {
             val response = reviewsApi.revealDefinition(cardId)
-            when {
-                response.isSuccessful -> {
-                    val body = response.body() ?: throw Exception("Empty response body from definition reveal")
-                    RevealedEntry(
-                        lemma = body.lemma,
-                        ipa = null,
-                        inflectionForms = null,
-                        definition = body.definition,
-                    )
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> throw StaleReferenceException()
-                else -> throw Exception("Failed to reveal definition: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.REVIEW_REVEAL)
+            val body = response.bodyOrThrow(ApiOperation.REVIEW_REVEAL)
+            RevealedEntry(
+                lemma = body.lemma,
+                ipa = null,
+                inflectionForms = null,
+                definition = body.definition,
+            )
         }
 
     suspend fun grade(
@@ -126,7 +99,7 @@ class ReviewRepository(
         typedForms: Map<String, String>? = null,
         answerResult: GradeAnswerResult? = null,
     ): Result<GradeOutcome> =
-        runCatching {
+        runCatchingCancellable {
             val response =
                 reviewsApi.grade(
                     cardId = cardId,
@@ -138,21 +111,13 @@ class ReviewRepository(
                             answerResult = answerResult?.toWireValue(),
                         ),
                 )
-            when {
-                response.isSuccessful -> {
-                    val body =
-                        response.body()?.toDomain()
-                            ?: throw Exception("Empty response body from review grade")
-                    logger.info(
-                        "review.card_graded",
-                        mapOf("rating" to rating.name, "state" to body.state, "interval_days" to body.intervalDays.toString()),
-                    )
-                    body
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> throw StaleReferenceException()
-                else -> throw Exception("Failed to grade review: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.REVIEW_GRADE)
+            val body = response.bodyOrThrow(ApiOperation.REVIEW_GRADE).toDomain()
+            logger.info(
+                "review.card_graded",
+                mapOf("rating" to rating.name, "state" to body.state, "interval_days" to body.intervalDays.toString()),
+            )
+            body
         }
 
     private fun ReviewRating.toWireValue(): String =

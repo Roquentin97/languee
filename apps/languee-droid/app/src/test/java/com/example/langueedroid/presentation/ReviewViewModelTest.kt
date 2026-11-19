@@ -8,6 +8,7 @@ import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.GradeOutcome
 import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
@@ -16,6 +17,7 @@ import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.feature.review.presentation.QuestionFeedback
 import com.example.langueedroid.feature.review.presentation.ReviewError
+import com.example.langueedroid.feature.review.presentation.ReviewRetryAction
 import com.example.langueedroid.feature.review.presentation.ReviewSessionState
 import com.example.langueedroid.feature.review.presentation.ReviewViewModel
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReviewViewModelTest {
@@ -137,10 +140,16 @@ class ReviewViewModelTest {
             whenever(reviewRepository.queue(deckId = eq("deck-1"), limit = any())).thenReturn(
                 Result.failure(RuntimeException("network failure")),
             )
-            vm.retry()
+            vm.loadQueue()
             advanceUntilIdle()
 
             assertTrue(vm.state.value is ReviewSessionState.Error)
+
+            whenever(reviewRepository.queue(deckId = eq("deck-1"), limit = any())).thenReturn(Result.success(listOf(item)))
+            vm.retry()
+            advanceUntilIdle()
+
+            assertTrue(vm.state.value is ReviewSessionState.Question)
         }
 
     // -------------------------------------------------------------------------
@@ -426,6 +435,67 @@ class ReviewViewModelTest {
             advanceUntilIdle()
 
             assertTrue(vm.state.value is ReviewSessionState.Question)
+        }
+
+    @Test
+    fun `answer check failure preserves typed answer and safely retries same request`() =
+        runTest {
+            val item = anItem()
+            whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
+            whenever(reviewRepository.checkAnswer(cardId = any(), typedAnswer = any())).thenReturn(
+                Result.failure(IOException("timeout")),
+                Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
+            )
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.updateInput("come across")
+            vm.submitAnswer()
+            advanceUntilIdle()
+
+            val error = vm.state.value as ReviewSessionState.Error
+            assertEquals(ReviewError.SUBMIT_FAILED, error.type)
+            assertEquals(RemoteFailureKind.CONNECTION, error.failureKind)
+            assertEquals(ReviewRetryAction.SUBMIT_TEXT, error.retryAction)
+            assertEquals("come across", error.previousQuestion?.typedAnswer)
+
+            vm.retry()
+            advanceUntilIdle()
+
+            val state = vm.state.value
+            assertTrue(state is ReviewSessionState.Correct)
+            verify(reviewRepository, org.mockito.kotlin.times(2)).checkAnswer("card-1", "come across")
+        }
+
+    @Test
+    fun `grade failure is not automatically retryable`() =
+        runTest {
+            val item = anItem()
+            whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
+            whenever(reviewRepository.checkAnswer(cardId = any(), typedAnswer = any())).thenReturn(
+                Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
+            )
+            whenever(
+                reviewRepository.grade(
+                    cardId = any(),
+                    rating = any(),
+                    typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
+                    answerResult = anyOrNull(),
+                ),
+            ).thenReturn(Result.failure(IOException("timeout")))
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.updateInput("come across")
+            vm.submitAnswer()
+            advanceUntilIdle()
+            vm.grade(ReviewRating.GOOD)
+            advanceUntilIdle()
+
+            val error = vm.state.value as ReviewSessionState.Error
+            assertEquals(ReviewError.GRADE_FAILED, error.type)
+            assertEquals(null, error.retryAction)
         }
 
     // -------------------------------------------------------------------------

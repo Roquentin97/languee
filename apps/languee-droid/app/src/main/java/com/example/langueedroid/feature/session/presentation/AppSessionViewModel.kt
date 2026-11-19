@@ -6,6 +6,9 @@ import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.remoteFailureKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +34,10 @@ class AppSessionViewModel
             checkSession()
         }
 
+        fun retrySessionCheck() {
+            checkSession()
+        }
+
         private fun checkSession() {
             viewModelScope.launch {
                 _sessionState.value = AppSessionState.CheckingSession
@@ -45,7 +52,21 @@ class AppSessionViewModel
                 if (refreshed != null) {
                     transitionToAuthorized(refreshed.userId, refreshed.userEmail)
                 } else {
-                    _sessionState.value = AppSessionState.Unauthorized
+                    val error = result.exceptionOrNull()
+                    _sessionState.value =
+                        if (error is UnauthorizedException) {
+                            AppSessionState.AuthenticationRequired(
+                                userId = stored.userId,
+                                userEmail = stored.userEmail,
+                                reason = AppSessionState.AuthenticationRequiredReason.SESSION_EXPIRED,
+                            )
+                        } else {
+                            AppSessionState.SessionCheckFailed(
+                                userId = stored.userId,
+                                userEmail = stored.userEmail,
+                                failureKind = error?.remoteFailureKind() ?: RemoteFailureKind.UNEXPECTED,
+                            )
+                        }
                 }
             }
         }
@@ -77,6 +98,31 @@ class AppSessionViewModel
             viewModelScope.launch {
                 transitionToAuthorized(session.userId, session.userEmail)
             }
+        }
+
+        fun onSessionExpired(
+            userId: String,
+            userEmail: String,
+        ) {
+            _sessionState.value =
+                AppSessionState.AuthenticationRequired(
+                    userId = userId,
+                    userEmail = userEmail,
+                    reason = AppSessionState.AuthenticationRequiredReason.SESSION_EXPIRED,
+                    keepMainScreen = true,
+                )
+        }
+
+        fun onSignInAfterRefreshFailure(
+            userId: String,
+            userEmail: String,
+        ) {
+            _sessionState.value =
+                AppSessionState.AuthenticationRequired(
+                    userId = userId,
+                    userEmail = userEmail,
+                    reason = AppSessionState.AuthenticationRequiredReason.REFRESH_UNAVAILABLE,
+                )
         }
 
         fun onAnkiSetupFinished() {

@@ -2,6 +2,8 @@ package com.example.langueedroid.presentation.auth
 
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.domain.AccountAlreadyExistsException
+import com.example.langueedroid.feature.auth.presentation.AuthUiError
 import com.example.langueedroid.feature.auth.presentation.AuthUiState
 import com.example.langueedroid.feature.auth.presentation.RegisterViewModel
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +25,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RegisterViewModelTest {
@@ -145,7 +148,7 @@ class RegisterViewModelTest {
             advanceUntilIdle()
             val state = vm.uiState.value
             assertTrue(state is AuthUiState.Error)
-            assertEquals("Passwords do not match", (state as AuthUiState.Error).message)
+            assertEquals(AuthUiError.PASSWORDS_DO_NOT_MATCH, (state as AuthUiState.Error).type)
             verify(authRepository, never()).register(any(), any())
         }
 
@@ -204,7 +207,7 @@ class RegisterViewModelTest {
         runTest {
             val vm = buildViewModel()
             whenever(authRepository.register(any(), any()))
-                .thenReturn(Result.failure(RuntimeException("Network error")))
+                .thenReturn(Result.failure(IOException("network detail must stay private")))
             vm.onEmailChange("user@example.com")
             vm.onPasswordChange("secret")
             vm.onConfirmPasswordChange("secret")
@@ -212,7 +215,7 @@ class RegisterViewModelTest {
             advanceUntilIdle()
             val state = vm.uiState.value
             assertTrue(state is AuthUiState.Error)
-            assertEquals("Network error", (state as AuthUiState.Error).message)
+            assertEquals(AuthUiError.CONNECTION, (state as AuthUiState.Error).type)
         }
 
     @Test
@@ -220,7 +223,7 @@ class RegisterViewModelTest {
         runTest {
             val vm = buildViewModel()
             whenever(authRepository.register(any(), any()))
-                .thenReturn(Result.failure(RuntimeException("Network error")))
+                .thenReturn(Result.failure(IOException("timeout")))
             vm.onEmailChange("user@example.com")
             vm.onPasswordChange("secret")
             vm.onConfirmPasswordChange("secret")
@@ -245,6 +248,21 @@ class RegisterViewModelTest {
             vm.onRegisterClick()
             advanceUntilIdle()
             assertTrue(vm.uiState.value is AuthUiState.Error)
+        }
+
+    @Test
+    fun `existing account shows a specific recovery path`() =
+        runTest {
+            val vm = buildViewModel()
+            whenever(authRepository.register(any(), any())).thenReturn(Result.failure(AccountAlreadyExistsException()))
+            vm.onEmailChange("user@example.com")
+            vm.onPasswordChange("secret")
+            vm.onConfirmPasswordChange("secret")
+
+            vm.onRegisterClick()
+            advanceUntilIdle()
+
+            assertEquals(AuthUiError.ACCOUNT_ALREADY_EXISTS, (vm.uiState.value as AuthUiState.Error).type)
         }
 
     // -----------------------------------------------------------------------
@@ -307,7 +325,7 @@ class RegisterViewModelTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `onRegisterClick with null exception message shows fallback error`() =
+    fun `onRegisterClick with null exception message uses safe generic error`() =
         runTest {
             val vm = buildViewModel()
             whenever(authRepository.register(any(), any()))
@@ -318,7 +336,7 @@ class RegisterViewModelTest {
             vm.onRegisterClick()
             advanceUntilIdle()
             val state = vm.uiState.value as AuthUiState.Error
-            assertEquals("Registration failed", state.message)
+            assertEquals(AuthUiError.UNEXPECTED, state.type)
         }
 
     // -----------------------------------------------------------------------

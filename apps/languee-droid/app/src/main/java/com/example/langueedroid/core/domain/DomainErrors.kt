@@ -1,5 +1,7 @@
 package com.example.langueedroid.core.domain
 
+import java.io.IOException
+
 class UnauthorizedException(
     message: String = "Unauthorized",
 ) : Exception(message)
@@ -31,3 +33,52 @@ class LookupInputInvalidException(
 class VocabularyNotFoundException(
     message: String = "No dictionary entry was found",
 ) : Exception(message)
+
+class InvalidCredentialsException : Exception("Invalid credentials")
+
+class AccountAlreadyExistsException : Exception("Account already exists")
+
+class ContextTooLongException : Exception("Context is too long")
+
+enum class RemoteFailureKind {
+    CONNECTION,
+    BAD_REQUEST,
+    FORBIDDEN,
+    NOT_FOUND,
+    CONFLICT,
+    RATE_LIMITED,
+    SERVICE_UNAVAILABLE,
+    UNEXPECTED,
+}
+
+/** A safe, operation-scoped failure. Backend messages and exception details stay out of UI copy. */
+class RemoteOperationFailureException(
+    val kind: RemoteFailureKind,
+    val statusCode: Int? = null,
+) : Exception("Remote operation failed")
+
+fun Throwable.remoteFailureKind(): RemoteFailureKind {
+    var current: Throwable? = this
+    var sawIoFailure = false
+    val seen = mutableSetOf<Throwable>()
+
+    while (current != null && seen.add(current)) {
+        when (current) {
+            is RemoteOperationFailureException -> return current.kind
+            is StaleReferenceException -> return RemoteFailureKind.NOT_FOUND
+            is VocabularyNotFoundException -> return RemoteFailureKind.NOT_FOUND
+            is DeckConflictException,
+            is CardAlreadyExistsException,
+            is DefinitionAlreadyExistsException,
+            is AccountAlreadyExistsException,
+            -> return RemoteFailureKind.CONFLICT
+            is LookupInputInvalidException,
+            is ContextTooLongException,
+            -> return RemoteFailureKind.BAD_REQUEST
+            is IOException -> sawIoFailure = true
+        }
+        current = current.cause
+    }
+
+    return if (sawIoFailure) RemoteFailureKind.CONNECTION else RemoteFailureKind.UNEXPECTED
+}

@@ -2,11 +2,10 @@ package com.example.langueedroid.core.data
 
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.Card
-import com.example.langueedroid.core.domain.CardAlreadyExistsException
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.SelectionRange
-import com.example.langueedroid.core.domain.StaleReferenceException
-import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.CardsApi
 import com.example.langueedroid.core.network.dto.CreateCardRequest
 import com.example.langueedroid.core.network.dto.SelectionRangeDto
@@ -24,7 +23,7 @@ class CardRepository(
         lookupId: String? = null,
         targetRanges: List<SelectionRange>? = null,
     ): Result<String> =
-        runCatching {
+        runCatchingCancellable {
             val response =
                 cardsApi.createCard(
                     CreateCardRequest(
@@ -36,55 +35,28 @@ class CardRepository(
                         targetRanges = targetRanges?.takeIf { it.isNotEmpty() }?.map { SelectionRangeDto(it.start, it.end) },
                     ),
                 )
-            when {
-                response.isSuccessful -> {
-                    val body = response.body() ?: throw Exception("Empty response body from createCard")
-                    val cardId =
-                        body.cards.firstOrNull { it.type == "cloze" }?.id
-                            ?: body.cards.firstOrNull()?.id
-                            ?: throw Exception("Create card response contained no cards")
-                    logger.info("card.created")
-                    cardId
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> throw StaleReferenceException()
-                response.code() == 409 -> throw CardAlreadyExistsException()
-                else -> throw Exception("Failed to create card: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.CARD_CREATE)
+            val body = response.bodyOrThrow(ApiOperation.CARD_CREATE)
+            val cardId =
+                body.cards.firstOrNull { it.type == "cloze" }?.id
+                    ?: body.cards.firstOrNull()?.id
+                    ?: throw RemoteOperationFailureException(RemoteFailureKind.UNEXPECTED)
+            logger.info("card.created")
+            cardId
         }
 
     suspend fun listCards(deckId: String): Result<List<Card>> =
-        runCatching {
+        runCatchingCancellable {
             val response = cardsApi.listCards(deckId)
-            when {
-                response.isSuccessful -> {
-                    val body =
-                        response.body()
-                            ?: throw Exception("Empty response body from listCards")
-                    body.map { it.toDomain(requestedDeckId = deckId) }
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                else -> throw Exception("Failed to list cards: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.CARD_LIST)
+            response.bodyOrThrow(ApiOperation.CARD_LIST).map { it.toDomain(requestedDeckId = deckId) }
         }
 
     suspend fun getCard(cardId: String): Result<Card> =
-        runCatching {
+        runCatchingCancellable {
             val response = cardsApi.getCard(cardId)
-            when {
-                response.isSuccessful -> {
-                    val body =
-                        response.body()
-                            ?: throw Exception("Empty response body from getCard")
-                    body.toDomain()
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> {
-                    logger.warn("card.not_found")
-                    throw StaleReferenceException()
-                }
-                else -> throw Exception("Failed to get card: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.CARD_GET)
+            response.bodyOrThrow(ApiOperation.CARD_GET).toDomain()
         }
 }
 

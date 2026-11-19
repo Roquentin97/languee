@@ -113,8 +113,11 @@ class MainViewModel
         private val completedOperations = mutableSetOf<Pair<String, String>>()
         val sessionId: Int get() = sessionGeneration
         private var offlineQueued = false
+        private var pendingOfflineEntry: Pair<String, PreparedEntry>? = null
         private val _offlineQueueError = MutableStateFlow(false)
         val offlineQueueError = _offlineQueueError.asStateFlow()
+        private val _offlineQueueRetryAvailable = MutableStateFlow(false)
+        val offlineQueueRetryAvailable = _offlineQueueRetryAvailable.asStateFlow()
         val exportFailures = exportStatusNotifier.failures
         private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val unauthorizedEvent = _unauthorizedEvent.asSharedFlow()
@@ -280,11 +283,17 @@ class MainViewModel
                                 SelectionRanges.matchesTarget(prepared.context, it, word)
                             },
                     )
+                    if (generation == sessionGeneration) {
+                        pendingOfflineEntry = null
+                        _offlineQueueRetryAvailable.value = false
+                    }
                     _offlineWordSaved.tryEmit(generation)
                 } catch (error: Exception) {
                     if (error is CancellationException) throw error
                     if (generation == sessionGeneration) {
                         offlineQueued = false
+                        pendingOfflineEntry = word to prepared
+                        _offlineQueueRetryAvailable.value = true
                         _offlineQueueError.value = true
                     }
                 }
@@ -332,6 +341,7 @@ class MainViewModel
                     if (error is CancellationException) throw error
                     if (generation == sessionGeneration) {
                         lastPendingSaveKey = null
+                        _offlineQueueRetryAvailable.value = false
                         _offlineQueueError.value = true
                     }
                 }
@@ -554,6 +564,14 @@ class MainViewModel
 
         fun dismissOfflineQueueError() {
             _offlineQueueError.value = false
+            _offlineQueueRetryAvailable.value = false
+        }
+
+        fun retryOfflineQueueSave() {
+            val pending = pendingOfflineEntry ?: return
+            _offlineQueueError.value = false
+            _offlineQueueRetryAvailable.value = false
+            queueOfflineEntry(pending.first, pending.second)
         }
 
         private fun updateWorkspaceStatus(

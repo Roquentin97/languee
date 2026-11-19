@@ -7,11 +7,14 @@ import com.example.langueedroid.core.data.ReviewRepository
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.domain.AnswerResult
 import com.example.langueedroid.core.domain.GradeAnswerResult
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
+import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.remoteFailureKind
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -83,7 +86,9 @@ class ReviewViewModel
                                 questionStateFor(items[0])
                             }
                     },
-                    onFailure = { error -> handleFailure(error, ReviewError.LOAD_FAILED) },
+                    onFailure = { error ->
+                        handleFailure(error, ReviewError.LOAD_FAILED, ReviewRetryAction.LOAD_QUEUE)
+                    },
                 )
             }
         }
@@ -145,7 +150,9 @@ class ReviewViewModel
                                 typedForms = current.typedForms,
                             )
                     },
-                    onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                    onFailure = { error ->
+                        handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.SUBMIT_FORMS, current)
+                    },
                 )
         }
 
@@ -173,7 +180,9 @@ class ReviewViewModel
                                     )
                             }
                     },
-                    onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
+                    onFailure = { error ->
+                        handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.SUBMIT_TEXT, current)
+                    },
                 )
         }
 
@@ -200,19 +209,7 @@ class ReviewViewModel
             if (current.item.type == ReviewCardType.DEFINITION) {
                 actionJob =
                     viewModelScope.launch {
-                        reviewRepository.revealDefinition(current.item.cardId).fold(
-                            onSuccess = { revealed ->
-                                _state.value =
-                                    ReviewSessionState.Correct(
-                                        item = current.item,
-                                        index = current.index,
-                                        total = current.total,
-                                        matchedForm = null,
-                                        revealed = revealed,
-                                    )
-                            },
-                            onFailure = { error -> handleFailure(error, ReviewError.SUBMIT_FAILED) },
-                        )
+                        revealDefinition(current)
                     }
                 return
             }
@@ -273,7 +270,26 @@ class ReviewViewModel
         }
 
         fun retry() {
-            loadQueue(deckId = lastDeckId, limit = lastLimit)
+            val error = _state.value as? ReviewSessionState.Error ?: return
+            when (error.retryAction) {
+                ReviewRetryAction.LOAD_QUEUE -> loadQueue(deckId = lastDeckId, limit = lastLimit)
+                ReviewRetryAction.SUBMIT_TEXT,
+                ReviewRetryAction.SUBMIT_FORMS,
+                ReviewRetryAction.REVEAL_DEFINITION,
+                -> {
+                    val question = error.previousQuestion ?: return
+                    actionJob =
+                        viewModelScope.launch {
+                            when (error.retryAction) {
+                                ReviewRetryAction.SUBMIT_TEXT -> submitTextAnswer(question)
+                                ReviewRetryAction.SUBMIT_FORMS -> submitInflectionAnswer(question)
+                                ReviewRetryAction.REVEAL_DEFINITION -> revealDefinition(question)
+                                else -> Unit
+                            }
+                        }
+                }
+                null -> loadQueue(deckId = lastDeckId, limit = lastLimit)
+            }
         }
 
         private fun advance() {
@@ -299,11 +315,47 @@ class ReviewViewModel
         private fun handleFailure(
             error: Throwable,
             type: ReviewError,
+            retryAction: ReviewRetryAction? = null,
+            previousQuestion: ReviewSessionState.Question? = null,
         ) {
             if (error is UnauthorizedException) {
                 _unauthorizedEvent.tryEmit(Unit)
             } else {
-                _state.value = ReviewSessionState.Error(type)
+                val failureKind = error.remoteFailureKind()
+                val canRetry =
+                    failureKind !in
+                        setOf(
+                            RemoteFailureKind.BAD_REQUEST,
+                            RemoteFailureKind.FORBIDDEN,
+                            RemoteFailureKind.NOT_FOUND,
+                            RemoteFailureKind.CONFLICT,
+                        ) &&
+                        error !is StaleReferenceException
+                _state.value =
+                    ReviewSessionState.Error(
+                        type = type,
+                        failureKind = failureKind,
+                        retryAction = retryAction.takeIf { canRetry },
+                        previousQuestion = previousQuestion,
+                    )
             }
+        }
+
+        private suspend fun revealDefinition(current: ReviewSessionState.Question) {
+            reviewRepository.revealDefinition(current.item.cardId).fold(
+                onSuccess = { revealed ->
+                    _state.value =
+                        ReviewSessionState.Correct(
+                            item = current.item,
+                            index = current.index,
+                            total = current.total,
+                            matchedForm = null,
+                            revealed = revealed,
+                        )
+                },
+                onFailure = { error ->
+                    handleFailure(error, ReviewError.SUBMIT_FAILED, ReviewRetryAction.REVEAL_DEFINITION, current)
+                },
+            )
         }
     }

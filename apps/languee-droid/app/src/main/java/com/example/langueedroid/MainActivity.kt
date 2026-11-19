@@ -17,11 +17,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.langueedroid.core.ui.theme.LangueeDroidTheme
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
+import com.example.langueedroid.feature.auth.ui.AuthEntryNotice
 import com.example.langueedroid.feature.auth.ui.AuthNavGraph
 import com.example.langueedroid.feature.session.presentation.AppSessionState
 import com.example.langueedroid.feature.session.presentation.AppSessionViewModel
 import com.example.langueedroid.feature.session.ui.CheckingSessionScreen
 import com.example.langueedroid.feature.session.ui.MainScreen
+import com.example.langueedroid.feature.session.ui.SessionCheckFailedScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -75,54 +77,43 @@ private fun LangueeApp(
     val sessionState by appSessionViewModel.sessionState.collectAsState()
     val logoutInProgress by appSessionViewModel.logoutInProgress.collectAsState()
 
-    val permissionLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-        ) { }
+    SessionStateContent(
+        state = sessionState,
+        appSessionViewModel = appSessionViewModel,
+        logoutInProgress = logoutInProgress,
+        sharedText = sharedText,
+        shareId = shareId,
+        onExitSharedCapture = onExitSharedCapture,
+    )
+}
 
-    when (val state = sessionState) {
-        is AppSessionState.CheckingSession -> {
-            CheckingSessionScreen()
-        }
-
+@Composable
+private fun SessionStateContent(
+    state: AppSessionState,
+    appSessionViewModel: AppSessionViewModel,
+    logoutInProgress: Boolean,
+    sharedText: String?,
+    shareId: Long,
+    onExitSharedCapture: () -> Unit,
+) {
+    when (state) {
+        is AppSessionState.CheckingSession -> CheckingSessionScreen()
         is AppSessionState.Unauthorized -> {
-            AuthNavGraph(
-                onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
+            AuthNavGraph(onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) })
+        }
+        is AppSessionState.SessionCheckFailed -> {
+            SessionCheckFailedScreen(
+                failureKind = state.failureKind,
+                onRetry = { appSessionViewModel.retrySessionCheck() },
+                onSignIn = { appSessionViewModel.onSignInAfterRefreshFailure(state.userId, state.userEmail) },
             )
         }
-
-        is AppSessionState.AuthorizedPendingAnkiSetup -> {
-            val setupViewModel: AnkiDroidSetupViewModel = hiltViewModel()
-            val setupUiState by setupViewModel.uiState.collectAsState()
-            LaunchedEffect(setupViewModel) {
-                setupViewModel.setupCompleteEvent.collect {
-                    appSessionViewModel.onAnkiSetupFinished()
-                }
-            }
-            LaunchedEffect(setupViewModel) {
-                setupViewModel.skipEvent.collect {
-                    appSessionViewModel.onAnkiSetupFinished()
-                }
-            }
-            AnkiDroidSetupScreen(
-                uiState = setupUiState,
-                onRequestPermission = {
-                    permissionLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
-                },
-                onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
-                onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
-                onSave = { setupViewModel.onSave() },
-                onSkip = { setupViewModel.onSkipSetup() },
-                onResumeCheck = { setupViewModel.runSetupCheck() },
-            )
-        }
-
-        is AppSessionState.Authorized -> {
-            MainScreen(
-                userEmail = state.userEmail,
-                onLogout = { appSessionViewModel.onLogout() },
+        is AppSessionState.AuthorizedPendingAnkiSetup -> PendingAnkiSetupContent(appSessionViewModel)
+        is AppSessionState.Authorized, is AppSessionState.AuthenticationRequired -> {
+            AuthenticatedSessionContent(
+                state = state,
+                appSessionViewModel = appSessionViewModel,
                 logoutInProgress = logoutInProgress,
-                onUnauthorized = { appSessionViewModel.onLogout() },
                 sharedText = sharedText,
                 shareId = shareId,
                 onExitSharedCapture = onExitSharedCapture,
@@ -130,3 +121,84 @@ private fun LangueeApp(
         }
     }
 }
+
+@Composable
+private fun PendingAnkiSetupContent(appSessionViewModel: AppSessionViewModel) {
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { }
+
+    val setupViewModel: AnkiDroidSetupViewModel = hiltViewModel()
+    val setupUiState by setupViewModel.uiState.collectAsState()
+    LaunchedEffect(setupViewModel) {
+        setupViewModel.setupCompleteEvent.collect { appSessionViewModel.onAnkiSetupFinished() }
+    }
+    LaunchedEffect(setupViewModel) {
+        setupViewModel.skipEvent.collect { appSessionViewModel.onAnkiSetupFinished() }
+    }
+    AnkiDroidSetupScreen(
+        uiState = setupUiState,
+        onRequestPermission = {
+            permissionLauncher.launch("com.ichi2.anki.permission.READ_WRITE_DATABASE")
+        },
+        onNoteTypeSelected = { name -> setupViewModel.onNoteTypeSelected(name) },
+        onExportPreferenceSelected = { pref -> setupViewModel.onExportPreferenceSelected(pref) },
+        onSave = { setupViewModel.onSave() },
+        onSkip = { setupViewModel.onSkipSetup() },
+        onResumeCheck = { setupViewModel.runSetupCheck() },
+    )
+}
+
+@Composable
+private fun AuthenticatedSessionContent(
+    state: AppSessionState,
+    appSessionViewModel: AppSessionViewModel,
+    logoutInProgress: Boolean,
+    sharedText: String?,
+    shareId: Long,
+    onExitSharedCapture: () -> Unit,
+) {
+    val userId: String
+    val userEmail: String
+    val required: AppSessionState.AuthenticationRequired?
+    when (state) {
+        is AppSessionState.Authorized -> {
+            userId = state.userId
+            userEmail = state.userEmail
+            required = null
+        }
+        is AppSessionState.AuthenticationRequired -> {
+            userId = state.userId
+            userEmail = state.userEmail
+            required = state
+        }
+        else -> error("AuthenticatedSessionContent requires an authenticated session")
+    }
+    val authNotice = required?.reason?.toAuthEntryNotice()
+    if (required != null && !required.keepMainScreen) {
+        AuthNavGraph(
+            onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
+            startAtLogin = true,
+            notice = authNotice,
+        )
+    } else {
+        MainScreen(
+            userEmail = userEmail,
+            onLogout = { appSessionViewModel.onLogout() },
+            logoutInProgress = logoutInProgress,
+            onUnauthorized = { appSessionViewModel.onSessionExpired(userId, userEmail) },
+            sessionAuthNotice = authNotice,
+            onAuthSuccess = { session -> appSessionViewModel.onAuthSuccess(session) },
+            sharedText = sharedText,
+            shareId = shareId,
+            onExitSharedCapture = onExitSharedCapture,
+        )
+    }
+}
+
+private fun AppSessionState.AuthenticationRequiredReason.toAuthEntryNotice(): AuthEntryNotice =
+    when (this) {
+        AppSessionState.AuthenticationRequiredReason.SESSION_EXPIRED -> AuthEntryNotice.SESSION_EXPIRED
+        AppSessionState.AuthenticationRequiredReason.REFRESH_UNAVAILABLE -> AuthEntryNotice.REFRESH_UNAVAILABLE
+    }

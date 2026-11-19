@@ -120,11 +120,7 @@ fun RegisterScreen(
 
             if (uiState is AuthUiState.Error) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = uiState.message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                AuthErrorMessage(uiState.type)
             }
 
             Spacer(modifier = Modifier.height(26.dp))

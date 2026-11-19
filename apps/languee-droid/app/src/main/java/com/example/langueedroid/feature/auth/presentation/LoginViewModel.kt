@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.domain.InvalidCredentialsException
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.remoteFailureKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,22 +48,33 @@ class LoginViewModel
             val email = _email.value.trim()
             val password = _password.value
             if (email.isBlank() || password.isBlank()) {
-                _uiState.value = AuthUiState.Error("Email and password must not be blank")
+                _uiState.value = AuthUiState.Error(AuthUiError.REQUIRED_FIELDS)
                 return
             }
+            _uiState.value = AuthUiState.Loading
             viewModelScope.launch {
-                _uiState.value = AuthUiState.Loading
                 val result = authRepository.login(email, password)
                 val session = result.getOrNull()
                 if (session != null) {
                     _uiState.value = AuthUiState.Idle
                     _authSuccessEvent.tryEmit(session)
                 } else {
-                    _uiState.value =
-                        AuthUiState.Error(
-                            result.exceptionOrNull()?.message ?: "Login failed",
-                        )
+                    _uiState.value = AuthUiState.Error(result.exceptionOrNull().toAuthUiError())
                 }
             }
         }
+    }
+
+private fun Throwable?.toAuthUiError(): AuthUiError =
+    when (this) {
+        is InvalidCredentialsException -> AuthUiError.INVALID_CREDENTIALS
+        else ->
+            when (this?.remoteFailureKind()) {
+                RemoteFailureKind.CONNECTION -> AuthUiError.CONNECTION
+                RemoteFailureKind.RATE_LIMITED -> AuthUiError.RATE_LIMITED
+                RemoteFailureKind.SERVICE_UNAVAILABLE -> AuthUiError.SERVICE_UNAVAILABLE
+                RemoteFailureKind.BAD_REQUEST -> AuthUiError.REQUEST_REJECTED
+                RemoteFailureKind.FORBIDDEN -> AuthUiError.FORBIDDEN
+                else -> AuthUiError.UNEXPECTED
+            }
     }

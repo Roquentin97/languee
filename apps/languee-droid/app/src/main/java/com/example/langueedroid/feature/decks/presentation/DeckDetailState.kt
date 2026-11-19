@@ -1,6 +1,7 @@
 package com.example.langueedroid.feature.decks.presentation
 
 import com.example.langueedroid.core.domain.Card
+import com.example.langueedroid.core.domain.RemoteFailureKind
 
 sealed class DeckDetailState {
     object Loading : DeckDetailState()
@@ -11,5 +12,7 @@ sealed class DeckDetailState {
         val cards: List<Card>,
     ) : DeckDetailState()
 
-    object Error : DeckDetailState()
+    data class Error(
+        val failureKind: RemoteFailureKind,
+    ) : DeckDetailState()
 }

@@ -136,7 +136,7 @@ class DecksViewModelTest {
 
             val state = vm.decksState.value
             assertTrue(state is DecksScreenState.Error)
-            assertEquals(DecksError.LOAD_FAILED, (state as DecksScreenState.Error).type)
+            assertEquals(DecksError.UNEXPECTED, (state as DecksScreenState.Error).type)
         }
 
     // -------------------------------------------------------------------------
@@ -178,11 +178,11 @@ class DecksViewModelTest {
         }
 
     // -------------------------------------------------------------------------
-    // createDeck — 409 Conflict → DeckConflictException → Error state
+    // createDeck — 409 Conflict leaves the deck list and dialog state intact
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createDeck 409 Conflict — Error state with message shown`() =
+    fun `createDeck 409 Conflict preserves deck list and exposes inline dialog error`() =
         runTest {
             whenever(deckRepository.getDecks()).thenReturn(Result.success(emptyList()))
             whenever(deckRepository.createDeck(name = "French"))
@@ -195,9 +195,8 @@ class DecksViewModelTest {
             vm.createDeck(name = "French", onCreated = { onCreatedCalled = true })
             advanceUntilIdle()
 
-            val state = vm.decksState.value
-            assertTrue(state is DecksScreenState.Error)
-            assertEquals(DecksError.CREATE_FAILED, (state as DecksScreenState.Error).type)
+            assertEquals(DecksScreenState.Empty, vm.decksState.value)
+            assertEquals(DecksError.NAME_ALREADY_EXISTS, vm.createError.value)
             assertTrue(!onCreatedCalled)
         }
 

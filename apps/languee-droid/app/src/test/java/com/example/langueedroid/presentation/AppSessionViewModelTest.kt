@@ -6,6 +6,9 @@ import com.example.langueedroid.core.data.local.AnkiDroidSetupPrefs
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
 import com.example.langueedroid.core.domain.ExportPreference
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
+import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.feature.session.presentation.AppSessionState
 import com.example.langueedroid.feature.session.presentation.AppSessionViewModel
 import kotlinx.coroutines.Dispatchers
@@ -123,14 +126,49 @@ class AppSessionViewModelTest {
         runTest {
             val stored = storedSession()
             whenever(sessionStore.read()).thenReturn(stored)
+            whenever(authRepository.refreshSession()).thenReturn(Result.failure(UnauthorizedException()))
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+
+            assertEquals(
+                AppSessionState.AuthenticationRequired(
+                    userId = stored.userId,
+                    userEmail = stored.userEmail,
+                    reason = AppSessionState.AuthenticationRequiredReason.SESSION_EXPIRED,
+                ),
+                vm.sessionState.value,
+            )
+        }
+
+    @Test
+    fun `transient refresh failure keeps session available for retry and sign in`() =
+        runTest {
+            val stored = storedSession()
+            whenever(sessionStore.read()).thenReturn(stored)
             whenever(authRepository.refreshSession()).thenReturn(
-                Result.failure(RuntimeException("Token refresh failed: HTTP 401")),
+                Result.failure(RemoteOperationFailureException(RemoteFailureKind.SERVICE_UNAVAILABLE, 503)),
             )
 
             val vm = buildViewModel()
             advanceUntilIdle()
 
-            assertEquals(AppSessionState.Unauthorized, vm.sessionState.value)
+            assertEquals(
+                AppSessionState.SessionCheckFailed(stored.userId, stored.userEmail, RemoteFailureKind.SERVICE_UNAVAILABLE),
+                vm.sessionState.value,
+            )
+            verify(sessionStore, never()).clear()
+
+            vm.onSignInAfterRefreshFailure(stored.userId, stored.userEmail)
+
+            assertEquals(
+                AppSessionState.AuthenticationRequired(
+                    userId = stored.userId,
+                    userEmail = stored.userEmail,
+                    reason = AppSessionState.AuthenticationRequiredReason.REFRESH_UNAVAILABLE,
+                ),
+                vm.sessionState.value,
+            )
         }
 
     // -----------------------------------------------------------------------

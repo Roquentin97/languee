@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.DividerLight
 import com.example.langueedroid.core.ui.theme.GreenPrimary
@@ -64,6 +65,9 @@ fun LoginScreen(
     onLoginClick: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToRegister: () -> Unit,
+    showBackButton: Boolean = true,
+    showRegisterPrompt: Boolean = true,
+    notice: AuthEntryNotice? = null,
     modifier: Modifier = Modifier,
 ) {
     val isLoading = uiState is AuthUiState.Loading
@@ -72,7 +76,7 @@ fun LoginScreen(
         modifier = modifier,
         containerColor = Color.White,
         topBar = {
-            LoginTopBar(onNavigateBack)
+            LoginTopBar(onNavigateBack, showBackButton)
         },
     ) { innerPadding ->
         Column(
@@ -83,6 +87,15 @@ fun LoginScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 32.dp),
         ) {
+            notice?.let { entryNotice ->
+                AuthNotice(
+                    when (entryNotice) {
+                        AuthEntryNotice.SESSION_EXPIRED -> R.string.auth_session_expired_notice
+                        AuthEntryNotice.REFRESH_UNAVAILABLE -> R.string.auth_refresh_unavailable_notice
+                    },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             Text(
                 text = "Welcome\nback",
                 style = MaterialTheme.typography.headlineMedium,
@@ -103,19 +116,17 @@ fun LoginScreen(
 
             if (uiState is AuthUiState.Error) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = uiState.message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                AuthErrorMessage(uiState.type)
             }
 
             Spacer(modifier = Modifier.height(26.dp))
 
             LoginSubmitButton(isLoading, onLoginClick)
 
-            Spacer(modifier = Modifier.height(20.dp))
-            RegisterPrompt(onNavigateToRegister)
+            if (showRegisterPrompt) {
+                Spacer(modifier = Modifier.height(20.dp))
+                RegisterPrompt(onNavigateToRegister)
+            }
         }
     }
 }
@@ -222,16 +233,21 @@ private fun LoginSubmitButton(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LoginTopBar(onNavigateBack: () -> Unit) {
+private fun LoginTopBar(
+    onNavigateBack: () -> Unit,
+    showBackButton: Boolean,
+) {
     TopAppBar(
         title = {},
         navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.btn_cancel),
-                    tint = TextPrimary,
-                )
+            if (showBackButton) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.btn_cancel),
+                        tint = TextPrimary,
+                    )
+                }
             }
         },
         colors =
@@ -240,6 +256,11 @@ private fun LoginTopBar(onNavigateBack: () -> Unit) {
                 scrolledContainerColor = Color.White,
             ),
     )
+}
+
+@Composable
+private fun AuthNotice(messageRes: Int) {
+    ErrorMessage(text = stringResource(messageRes), modifier = Modifier.fillMaxWidth())
 }
 
 @Composable

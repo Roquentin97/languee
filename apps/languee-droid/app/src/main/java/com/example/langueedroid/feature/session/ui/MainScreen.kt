@@ -4,7 +4,9 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,8 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -31,11 +36,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.domain.SelectionRanges
 import com.example.langueedroid.feature.anki.presentation.AnkiDroidSetupViewModel
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSetupScreen
 import com.example.langueedroid.feature.anki.ui.AnkiDroidSyncScreen
+import com.example.langueedroid.feature.auth.ui.AuthEntryNotice
+import com.example.langueedroid.feature.auth.ui.AuthNavGraph
 import com.example.langueedroid.feature.capture.presentation.AnkiStatusNotification
 import com.example.langueedroid.feature.capture.presentation.LookupSelection
 import com.example.langueedroid.feature.capture.presentation.MainViewModel
@@ -67,28 +75,16 @@ fun MainScreen(
     sharedText: String?,
     shareId: Long = 0L,
     onExitSharedCapture: () -> Unit = {},
+    sessionAuthNotice: AuthEntryNotice? = null,
+    onAuthSuccess: (AuthSession) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     LaunchedEffect(mainViewModel) { mainViewModel.unauthorizedEvent.collect { onUnauthorized() } }
     val navController = rememberNavController()
-    val context = LocalContext.current
-    LaunchedEffect(mainViewModel, context) {
-        mainViewModel.exportFailures.collect {
-            Toast.makeText(context, "Added to deck. AnkiDroid sync needs attention; check Sync.", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    val offlineQueueError by mainViewModel.offlineQueueError.collectAsState()
-    if (offlineQueueError) {
-        AlertDialog(
-            onDismissRequest = { mainViewModel.dismissOfflineQueueError() },
-            title = { Text("Could not queue word") },
-            text = { Text("Your word could not be saved for offline review. Please try again.") },
-            confirmButton = { TextButton(onClick = { mainViewModel.dismissOfflineQueueError() }) { Text("OK") } },
-        )
-    }
-
+    SessionAuthDialog(sessionAuthNotice, onAuthSuccess)
+    ObserveExportFailures(mainViewModel)
+    OfflineQueueFailureDialog(mainViewModel)
     ObserveMainNavigation(sharedText, shareId, mainViewModel, navController, onExitSharedCapture)
 
     val ankiStatusNotification by mainViewModel.ankiStatusNotification.collectAsState()
@@ -116,10 +112,74 @@ fun MainScreen(
         captureRoute(navController, mainViewModel, onExitSharedCapture)
         cardCreationRoute(navController, mainViewModel, onUnauthorized, onExitSharedCapture)
         ankiSetupRoute(navController)
-        ankiSyncRoute(navController)
+        ankiSyncRoute(navController, onUnauthorized)
         reviewRoute(navController, onUnauthorized)
         offlineQueueRoute(navController)
     }
+}
+
+@Composable
+private fun SessionAuthDialog(
+    notice: AuthEntryNotice?,
+    onAuthSuccess: (AuthSession) -> Unit,
+) {
+    if (notice == null) return
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+            AuthNavGraph(
+                onAuthSuccess = onAuthSuccess,
+                startAtLogin = true,
+                notice = notice,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ObserveExportFailures(mainViewModel: MainViewModel) {
+    val context = LocalContext.current
+    val message = stringResource(R.string.card_added_sync_attention)
+    LaunchedEffect(mainViewModel, context, message) {
+        mainViewModel.exportFailures.collect {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+@Composable
+private fun OfflineQueueFailureDialog(mainViewModel: MainViewModel) {
+    val hasError by mainViewModel.offlineQueueError.collectAsState()
+    val retryAvailable by mainViewModel.offlineQueueRetryAvailable.collectAsState()
+    if (!hasError) return
+
+    AlertDialog(
+        onDismissRequest = { mainViewModel.dismissOfflineQueueError() },
+        title = { Text(stringResource(R.string.offline_queue_save_failed_title)) },
+        text = { Text(stringResource(R.string.offline_queue_save_failed_message)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (retryAvailable) {
+                        mainViewModel.retryOfflineQueueSave()
+                    } else {
+                        mainViewModel.dismissOfflineQueueError()
+                    }
+                },
+            ) {
+                Text(stringResource(if (retryAvailable) R.string.session_check_retry else R.string.ankidroid_status_ok))
+            }
+        },
+        dismissButton = {
+            if (retryAvailable) {
+                TextButton(onClick = { mainViewModel.dismissOfflineQueueError() }) {
+                    Text(stringResource(R.string.ankidroid_status_ok))
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -223,6 +283,8 @@ private fun NavGraphBuilder.decksRoute(
             decksViewModel.loadDueReviewCount()
         }
         val decksState by decksViewModel.decksState.collectAsState()
+        val createError by decksViewModel.createError.collectAsState()
+        val isCreatingDeck by decksViewModel.isCreatingDeck.collectAsState()
         val availableAnkiDecks by decksViewModel.availableAnkiDecks.collectAsState()
         val isLoadingAnkiDecks by decksViewModel.isLoadingAnkiDecks.collectAsState()
         val dueReviewCount by decksViewModel.dueReviewCount.collectAsState()
@@ -234,8 +296,8 @@ private fun NavGraphBuilder.decksRoute(
             onDeckBrowseClick = { deck ->
                 navController.navigate(MainNavRoutes.deckDetail(deck.id, deck.name))
             },
-            onCreateDeck = { name ->
-                decksViewModel.createDeck(name, onCreated = {})
+            onCreateDeck = { name, onCreated ->
+                decksViewModel.createDeck(name, onCreated = onCreated)
             },
             onLogout = onLogout,
             logoutInProgress = logoutInProgress,
@@ -257,6 +319,9 @@ private fun NavGraphBuilder.decksRoute(
                 mainViewModel.startTextInput()
                 navController.navigate(MainNavRoutes.CAPTURE)
             },
+            onRetryLoadDecks = { decksViewModel.loadDecks() },
+            createError = createError,
+            isCreatingDeck = isCreatingDeck,
         )
     }
 }
@@ -618,15 +683,22 @@ private fun NavGraphBuilder.ankiSetupRoute(navController: NavHostController) {
     }
 }
 
-private fun NavGraphBuilder.ankiSyncRoute(navController: NavHostController) {
+private fun NavGraphBuilder.ankiSyncRoute(
+    navController: NavHostController,
+    onUnauthorized: () -> Unit,
+) {
     composable(MainNavRoutes.ANKI_SYNC) {
         val syncViewModel: SyncViewModel = hiltViewModel()
+        LaunchedEffect(syncViewModel) {
+            syncViewModel.unauthorizedEvent.collect { onUnauthorized() }
+        }
         val syncUiState by syncViewModel.uiState.collectAsState()
         AnkiDroidSyncScreen(
             uiState = syncUiState,
             onSync = { syncViewModel.sync() },
             onDismissResult = { syncViewModel.dismissResult() },
             onNavigateBack = { navController.popBackStack() },
+            onOpenSetup = { navController.navigate(MainNavRoutes.ANKI_SETUP) },
         )
     }
 }

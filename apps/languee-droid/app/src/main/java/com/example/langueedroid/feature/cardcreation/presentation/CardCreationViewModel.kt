@@ -15,6 +15,7 @@ import com.example.langueedroid.core.data.ExportStatusNotifier
 import com.example.langueedroid.core.data.OfflineQueueRepository
 import com.example.langueedroid.core.data.VocabularyRepository
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
+import com.example.langueedroid.core.domain.ContextTooLongException
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.DefinitionResult
@@ -26,11 +27,13 @@ import com.example.langueedroid.core.domain.LookupAlternative
 import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.OfflineEntry
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.SelectionRanges
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.domain.VocabularyNotFoundException
+import com.example.langueedroid.core.domain.remoteFailureKind
 import com.example.langueedroid.di.ApplicationScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -197,7 +200,10 @@ class CardCreationViewModel
                         } else {
                             _state.value =
                                 _state.value.copy(
-                                    deckSelectionState = DeckSelectionState.Error(CardCreationError.LOAD_DECKS_FAILED),
+                                    deckSelectionState =
+                                        DeckSelectionState.Error(
+                                            error.toCardCreationError(CardCreationError.LOAD_DECKS_FAILED),
+                                        ),
                                 )
                         }
                     },
@@ -521,11 +527,16 @@ class CardCreationViewModel
                 _unauthorizedEvent.tryEmit(Unit)
                 return
             }
+            if (error is VocabularyNotFoundException) {
+                _state.value = _state.value.copy(flowState = CardCreationFlowState.ManualDefinition())
+                return
+            }
             val reason =
                 when (error) {
                     is ExpressionTooLongException -> CardCreationError.EXPRESSION_TOO_LONG
                     is LookupInputInvalidException -> CardCreationError.LOOKUP_INPUT_INVALID
-                    else -> CardCreationError.LOOKUP_FAILED
+                    is ContextTooLongException -> CardCreationError.CONTEXT_TOO_LONG
+                    else -> error.toCardCreationError(CardCreationError.LOOKUP_FAILED)
                 }
             _state.value = _state.value.copy(flowState = CardCreationFlowState.LookupError(reason))
         }
@@ -727,7 +738,9 @@ class CardCreationViewModel
                     _state.value = _state.value.copy(flowState = flow.copy(notice = CardCreationError.STALE_REFERENCE))
                     loadDecks()
                 }
-                else -> _state.value = _state.value.copy(flowState = flow.copy(notice = CardCreationError.CREATE_CARD_FAILED))
+                else ->
+                    _state.value =
+                        _state.value.copy(flowState = flow.copy(notice = error.toCardCreationError(CardCreationError.CREATE_CARD_FAILED)))
             }
         }
 
@@ -751,7 +764,11 @@ class CardCreationViewModel
                     when (error) {
                         is UnauthorizedException -> _unauthorizedEvent.tryEmit(Unit)
                         is DefinitionAlreadyExistsException -> lookupVocabulary(notice = CardCreationError.DEFINITION_ALREADY_EXISTS)
-                        else -> _state.value = _state.value.copy(flowState = flow.copy(notice = CardCreationError.MANUAL_DEFINITION_FAILED))
+                        else ->
+                            _state.value =
+                                _state.value.copy(
+                                    flowState = flow.copy(notice = error.toCardCreationError(CardCreationError.MANUAL_DEFINITION_FAILED)),
+                                )
                     }
                     null
                 },
@@ -882,4 +899,30 @@ class CardCreationViewModel
                 lookupVocabulary()
             }
         }
+    }
+
+private fun Throwable.toCardCreationError(unexpectedFallback: CardCreationError): CardCreationError =
+    toKnownCardCreationError() ?: remoteFailureKind().toCardCreationError(unexpectedFallback)
+
+private fun Throwable.toKnownCardCreationError(): CardCreationError? =
+    when (this) {
+        is StaleReferenceException -> CardCreationError.STALE_REFERENCE
+        is CardAlreadyExistsException -> CardCreationError.CREATE_CARD_FAILED
+        is DefinitionAlreadyExistsException -> CardCreationError.DEFINITION_ALREADY_EXISTS
+        is ExpressionTooLongException -> CardCreationError.EXPRESSION_TOO_LONG
+        is LookupInputInvalidException -> CardCreationError.LOOKUP_INPUT_INVALID
+        is ContextTooLongException -> CardCreationError.CONTEXT_TOO_LONG
+        else -> null
+    }
+
+private fun RemoteFailureKind.toCardCreationError(unexpectedFallback: CardCreationError): CardCreationError =
+    when (this) {
+        RemoteFailureKind.CONNECTION -> CardCreationError.CONNECTION
+        RemoteFailureKind.RATE_LIMITED -> CardCreationError.RATE_LIMITED
+        RemoteFailureKind.SERVICE_UNAVAILABLE -> CardCreationError.SERVICE_UNAVAILABLE
+        RemoteFailureKind.BAD_REQUEST -> CardCreationError.REQUEST_REJECTED
+        RemoteFailureKind.FORBIDDEN -> CardCreationError.FORBIDDEN
+        RemoteFailureKind.NOT_FOUND -> CardCreationError.NOT_FOUND
+        RemoteFailureKind.CONFLICT -> CardCreationError.CONFLICT
+        RemoteFailureKind.UNEXPECTED -> unexpectedFallback
     }

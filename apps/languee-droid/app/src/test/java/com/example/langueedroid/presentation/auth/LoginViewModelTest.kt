@@ -2,6 +2,8 @@ package com.example.langueedroid.presentation.auth
 
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
+import com.example.langueedroid.core.domain.InvalidCredentialsException
+import com.example.langueedroid.feature.auth.presentation.AuthUiError
 import com.example.langueedroid.feature.auth.presentation.AuthUiState
 import com.example.langueedroid.feature.auth.presentation.LoginViewModel
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +27,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoginViewModelTest {
@@ -152,14 +155,14 @@ class LoginViewModelTest {
         runTest {
             val vm = buildViewModel()
             whenever(authRepository.login(any(), any()))
-                .thenReturn(Result.failure(RuntimeException("Network error")))
+                .thenReturn(Result.failure(IOException("timeout detail must stay private")))
             vm.onEmailChange("user@example.com")
             vm.onPasswordChange("secret")
             vm.onLoginClick()
             advanceUntilIdle()
             val state = vm.uiState.value
             assertTrue(state is AuthUiState.Error)
-            assertEquals("Network error", (state as AuthUiState.Error).message)
+            assertEquals(AuthUiError.CONNECTION, (state as AuthUiState.Error).type)
         }
 
     @Test
@@ -167,7 +170,7 @@ class LoginViewModelTest {
         runTest {
             val vm = buildViewModel()
             whenever(authRepository.login(any(), any()))
-                .thenReturn(Result.failure(RuntimeException("Network error")))
+                .thenReturn(Result.failure(IOException("timeout")))
             vm.onEmailChange("user@example.com")
             vm.onPasswordChange("secret")
             val capturedSessions = mutableListOf<AuthSession>()
@@ -197,6 +200,22 @@ class LoginViewModelTest {
             job.cancel()
             assertTrue(vm.uiState.value is AuthUiState.Error)
             assertTrue(capturedSessions.isEmpty())
+        }
+
+    @Test
+    fun `invalid credentials show a specific actionable error`() =
+        runTest {
+            val vm = buildViewModel()
+            whenever(authRepository.login(any(), any())).thenReturn(Result.failure(InvalidCredentialsException()))
+            vm.onEmailChange("user@example.com")
+            vm.onPasswordChange("wrong")
+
+            vm.onLoginClick()
+            advanceUntilIdle()
+
+            assertEquals(AuthUiError.INVALID_CREDENTIALS, (vm.uiState.value as AuthUiState.Error).type)
+            assertEquals("user@example.com", vm.email.value)
+            assertEquals("wrong", vm.password.value)
         }
 
     // -----------------------------------------------------------------------
@@ -258,7 +277,7 @@ class LoginViewModelTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `onLoginClick with null exception message shows fallback error`() =
+    fun `onLoginClick with null exception message uses safe generic error`() =
         runTest {
             val vm = buildViewModel()
             whenever(authRepository.login(any(), any()))
@@ -268,7 +287,7 @@ class LoginViewModelTest {
             vm.onLoginClick()
             advanceUntilIdle()
             val state = vm.uiState.value as AuthUiState.Error
-            assertEquals("Login failed", state.message)
+            assertEquals(AuthUiError.UNEXPECTED, state.type)
         }
 
     // -----------------------------------------------------------------------

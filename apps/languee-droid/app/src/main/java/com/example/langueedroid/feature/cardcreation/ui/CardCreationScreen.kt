@@ -1062,18 +1062,29 @@ private fun SavedBadge(
     }
 }
 
-private fun CardCreationError.toStringRes(): Int =
-    when (this) {
-        CardCreationError.LOAD_DECKS_FAILED -> R.string.error_load_decks_for_card_failed
-        CardCreationError.LOOKUP_FAILED -> R.string.error_lookup_failed
-        CardCreationError.CREATE_CARD_FAILED -> R.string.error_create_card_failed
-        CardCreationError.STALE_REFERENCE -> R.string.error_stale_reference
-        CardCreationError.EXPORT_RECORD_FAILED -> R.string.error_export_record_failed
-        CardCreationError.EXPRESSION_TOO_LONG -> R.string.error_expression_too_long
-        CardCreationError.LOOKUP_INPUT_INVALID -> R.string.error_lookup_input_invalid
-        CardCreationError.MANUAL_DEFINITION_FAILED -> R.string.error_manual_definition_failed
-        CardCreationError.DEFINITION_ALREADY_EXISTS -> R.string.error_definition_already_exists
-    }
+private val cardCreationErrorStringResources =
+    mapOf(
+        CardCreationError.LOAD_DECKS_FAILED to R.string.error_load_decks_for_card_failed,
+        CardCreationError.LOOKUP_FAILED to R.string.error_lookup_failed,
+        CardCreationError.CREATE_CARD_FAILED to R.string.error_create_card_failed,
+        CardCreationError.STALE_REFERENCE to R.string.error_stale_reference,
+        CardCreationError.EXPORT_RECORD_FAILED to R.string.error_export_record_failed,
+        CardCreationError.EXPRESSION_TOO_LONG to R.string.error_expression_too_long,
+        CardCreationError.LOOKUP_INPUT_INVALID to R.string.error_lookup_input_invalid,
+        CardCreationError.CONTEXT_TOO_LONG to R.string.error_context_too_long,
+        CardCreationError.MANUAL_DEFINITION_FAILED to R.string.error_manual_definition_failed,
+        CardCreationError.DEFINITION_ALREADY_EXISTS to R.string.error_definition_already_exists,
+        CardCreationError.CONNECTION to R.string.error_connection,
+        CardCreationError.RATE_LIMITED to R.string.error_rate_limited,
+        CardCreationError.SERVICE_UNAVAILABLE to R.string.error_service_unavailable,
+        CardCreationError.REQUEST_REJECTED to R.string.error_request_rejected,
+        CardCreationError.FORBIDDEN to R.string.error_forbidden,
+        CardCreationError.NOT_FOUND to R.string.error_lookup_service_problem,
+        CardCreationError.CONFLICT to R.string.error_generic,
+        CardCreationError.UNEXPECTED to R.string.error_generic,
+    )
+
+private fun CardCreationError.toStringRes(): Int = cardCreationErrorStringResources.getValue(this)
 
 /** Shows a kind chip ("phrasal verb" / "expression") and, when relevant, a context-not-found warning. */
 @Composable
