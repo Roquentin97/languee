@@ -14,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.ResponseBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -80,6 +81,55 @@ class ApiClientTelemetryTest {
     }
 
     @Test
+    fun `failure logs correlate with the traceparent injected by the instrumented call factory`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(404)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"message":"DEFINITIONS_NOT_FOUND"}"""),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(NetworkModule.requestIdInterceptor())
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+        val callFactory = NetworkModule.provideInstrumentedCallFactory(client, otel)
+
+        val response =
+            callFactory
+                .newCall(Request.Builder().url(server.url("/otel-failure")).build())
+                .execute()
+        val wireRequest = server.takeRequest()
+        val wireTraceparent =
+            requireNotNull(wireRequest.getHeader("traceparent")) {
+                "instrumentation must add traceparent on the wire"
+            }
+        assertEquals(wireTraceparent, response.networkResponse?.request?.header("traceparent"))
+
+        val expectedTrace =
+            NetworkModule.traceAttributes(
+                Request
+                    .Builder()
+                    .url(server.url("/otel-failure"))
+                    .header("traceparent", wireTraceparent)
+                    .build(),
+            )
+        assertFalse(expectedTrace.isEmpty())
+        val failure = recordedLogger.warnings.single()
+        assertEquals(expectedTrace["trace_id"], failure.attributes["trace_id"])
+        assertEquals(expectedTrace["span_id"], failure.attributes["span_id"])
+        assertEquals(wireRequest.getHeader("X-Request-ID"), failure.attributes["requestId"])
+
+        assertEquals("{\"message\":\"DEFINITIONS_NOT_FOUND\"}", response.body.string())
+        response.close()
+        val details = recordedLogger.infos.single()
+        assertEquals(failure.attributes["trace_id"], details.attributes["trace_id"])
+        assertEquals(failure.attributes["span_id"], details.attributes["span_id"])
+        assertEquals(failure.attributes["requestId"], details.attributes["requestId"])
+    }
+
+    @Test
     fun `OTel interceptor creates a client span per request`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
@@ -88,6 +138,45 @@ class ApiClientTelemetryTest {
         callFactory.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
 
         assertTrue("at least one span must be exported", exporter.finishedSpanItems.isNotEmpty())
+    }
+
+    @Test
+    fun `failure logging falls back to a valid supplied traceparent without network metadata`() {
+        val suppliedTraceparent = "00-aabbccddeeff00112233445566778899-0011223344556677-01"
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .addInterceptor { chain ->
+                    Response
+                        .Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(400)
+                        .message("Bad Request")
+                        .body(jsonResponseBody("""{"message":"INPUT_INVALID"}"""))
+                        .build()
+                }.build()
+
+        val response =
+            client
+                .newCall(
+                    Request
+                        .Builder()
+                        .url(server.url("/fallback-trace"))
+                        .header("traceparent", suppliedTraceparent)
+                        .build(),
+                ).execute()
+
+        assertEquals(null, response.networkResponse)
+        val failure = recordedLogger.warnings.single()
+        assertEquals("aabbccddeeff00112233445566778899", failure.attributes["trace_id"])
+        assertEquals("0011223344556677", failure.attributes["span_id"])
+        assertEquals("{\"message\":\"INPUT_INVALID\"}", response.body.string())
+        response.close()
+        val details = recordedLogger.infos.single()
+        assertEquals(failure.attributes["trace_id"], details.attributes["trace_id"])
+        assertEquals(failure.attributes["span_id"], details.attributes["span_id"])
     }
 
     @Test
@@ -487,6 +576,17 @@ class ApiClientTelemetryTest {
         assertTrue(recordedLogger.warnings.isEmpty())
         assertTrue(recordedLogger.infos.isEmpty())
         assertTrue(recordedLogger.errors.isEmpty())
+    }
+
+    private fun jsonResponseBody(content: String): ResponseBody {
+        val source = Buffer().writeUtf8(content)
+        return object : ResponseBody() {
+            override fun contentType() = "application/json".toMediaType()
+
+            override fun contentLength() = source.size
+
+            override fun source(): BufferedSource = source
+        }
     }
 
     private fun assertUnreadBodyAttributes(

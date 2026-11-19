@@ -82,10 +82,13 @@ object NetworkModule {
             try {
                 val response = chain.proceed(request)
                 if (response.code >= 400) {
+                    val responseAttributes =
+                        requestAttributes - setOf("trace_id", "span_id") +
+                            responseTraceAttributes(response, request)
                     return@Interceptor logResponseFailure(
                         response,
                         logger,
-                        requestAttributes,
+                        responseAttributes,
                         started,
                     )
                 }
@@ -105,6 +108,18 @@ object NetworkModule {
                 throw error
             }
         }
+
+    private fun responseTraceAttributes(
+        response: Response,
+        originalRequest: okhttp3.Request,
+    ): Map<String, String> {
+        val networkAttributes =
+            response.networkResponse
+                ?.request
+                ?.let(::traceAttributes)
+                .orEmpty()
+        return networkAttributes.ifEmpty { traceAttributes(originalRequest) }
+    }
 
     internal fun requestIdInterceptor(): Interceptor =
         Interceptor { chain ->
