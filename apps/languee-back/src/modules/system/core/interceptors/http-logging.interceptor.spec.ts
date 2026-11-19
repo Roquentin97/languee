@@ -142,4 +142,36 @@ describe('HttpLoggingInterceptor', () => {
         },
       });
   });
+
+  it('logs an untyped error as a 500 even before Express updates its status', (done) => {
+    const stdout = jest
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true);
+    const response = makeResponse();
+    const interceptor = new HttpLoggingInterceptor();
+
+    interceptor
+      .intercept(httpContext(makeRequest(), response), {
+        handle: () => throwError(() => new Error('private failure detail')),
+      } as CallHandler)
+      .subscribe({
+        error: () => {
+          expect(stdout).toHaveBeenCalledTimes(1);
+          const entry = JSON.parse(
+            stdout.mock.calls[0]?.[0] as string,
+          ) as Record<string, unknown>;
+          expect(entry).toEqual(
+            expect.objectContaining({
+              event: 'http.request.failed',
+              'http.status_code': 500,
+              failure_stage: 'application',
+              'error.type': 'Error',
+            }),
+          );
+          expect(entry).not.toHaveProperty('error.message');
+          expect(response.locals.httpFailureLogged).toBe(true);
+          done();
+        },
+      });
+  });
 });

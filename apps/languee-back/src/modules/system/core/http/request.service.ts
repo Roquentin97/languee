@@ -273,6 +273,42 @@ export class RequestService {
     ) {
       headers['X-Request-ID'] = requestId;
     }
+    if (options.target === 'nlp') {
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === 'traceparent') delete headers[key];
+      }
+      const traceparent = this.traceparentHeader();
+      if (traceparent !== undefined) headers.traceparent = traceparent;
+    }
     return Object.keys(headers).length > 0 ? headers : undefined;
+  }
+
+  private traceparentHeader(): string | undefined {
+    const spanContext = trace.getActiveSpan()?.spanContext();
+    if (
+      spanContext !== undefined &&
+      /^[0-9a-f]{32}$/i.test(spanContext.traceId) &&
+      /^[0-9a-f]{16}$/i.test(spanContext.spanId) &&
+      spanContext.traceId !== '00000000000000000000000000000000' &&
+      spanContext.spanId !== '0000000000000000' &&
+      Number.isInteger(spanContext.traceFlags) &&
+      spanContext.traceFlags >= 0 &&
+      spanContext.traceFlags <= 255
+    ) {
+      const traceId = spanContext.traceId.toLowerCase();
+      const spanId = spanContext.spanId.toLowerCase();
+      const flags = spanContext.traceFlags.toString(16).padStart(2, '0');
+      return `00-${traceId}-${spanId}-${flags}`;
+    }
+
+    const context = requestContextStorage.getStore();
+    if (
+      context?.traceId === undefined ||
+      context.parentSpanId === undefined ||
+      context.traceFlags === undefined
+    ) {
+      return undefined;
+    }
+    return `00-${context.traceId}-${context.parentSpanId}-${context.traceFlags}`;
   }
 }

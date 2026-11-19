@@ -10,10 +10,15 @@ import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.ResponseBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okio.Buffer
+import okio.BufferedSource
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -266,6 +271,16 @@ class ApiClientTelemetryTest {
     }
 
     @Test
+    fun `unknown length JSON error bodies are marked truncated without reading`() {
+        assertUnreadBodyIsMarkedTruncated(contentLength = -1L)
+    }
+
+    @Test
+    fun `large JSON error bodies are marked truncated without reading`() {
+        assertUnreadBodyIsMarkedTruncated(contentLength = 4097L)
+    }
+
+    @Test
     fun `malformed or missing traceparent is omitted from failure attributes`() {
         val missing = Request.Builder().url(server.url("/missing")).build()
         val malformed =
@@ -306,6 +321,36 @@ class ApiClientTelemetryTest {
 
         assertTrue(recordedLogger.warnings.isEmpty())
         assertTrue(recordedLogger.errors.isEmpty())
+    }
+
+    private fun assertUnreadBodyIsMarkedTruncated(contentLength: Long) {
+        var sourceRequested = false
+        val body =
+            object : ResponseBody() {
+                override fun contentType() = "application/json".toMediaType()
+
+                override fun contentLength() = contentLength
+
+                override fun source(): BufferedSource {
+                    sourceRequested = true
+                    return Buffer().writeUtf8("{\"message\":\"should-not-read\"}")
+                }
+            }
+        val response =
+            okhttp3.Response
+                .Builder()
+                .request(Request.Builder().url(server.url("/streaming-error")).build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(500)
+                .message("error")
+                .body(body)
+                .build()
+
+        assertEquals(
+            mapOf("http.response.body_truncated" to "true"),
+            NetworkModule.responseErrorAttributes(response),
+        )
+        assertFalse("large/unknown bodies must not be read by logging", sourceRequested)
     }
 }
 

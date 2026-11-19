@@ -39,6 +39,7 @@ describe('HTTP request logging helpers', () => {
       has_context: true,
       context_bytes: 23,
       selection_ranges: 1,
+      selection_ranges_truncated: false,
       include_suggestions: true,
       disable_pos_filtering: false,
     });
@@ -101,6 +102,57 @@ describe('HTTP request logging helpers', () => {
       'unsupported_content_type',
     );
     expect(streamDetails).not.toHaveProperty('request_body');
+  });
+
+  it('marks oversized and malformed selection ranges as truncated', () => {
+    const validRange = { start: 0, end: 1 };
+    const oversized = safeRequestDetails(
+      makeRequest({
+        body: { text: 'running', selectionRanges: Array(7).fill(validRange) },
+      }),
+      true,
+    );
+    expect(oversized['request_summary']).toEqual(
+      expect.objectContaining({
+        selection_ranges: 6,
+        selection_ranges_truncated: true,
+      }),
+    );
+    expect(oversized['request_body_truncated']).toBe(true);
+    expect(
+      (oversized['request_body'] as Record<string, unknown>)['selectionRanges'],
+    ).toHaveLength(6);
+
+    const malformed = safeRequestDetails(
+      makeRequest({
+        body: {
+          text: 'running',
+          selectionRanges: [validRange, { start: 'invalid', end: 2 }],
+        },
+      }),
+      true,
+    );
+    expect(malformed['request_summary']).toEqual(
+      expect.objectContaining({
+        selection_ranges: 1,
+        selection_ranges_truncated: true,
+      }),
+    );
+    expect(malformed['request_body_truncated']).toBe(true);
+
+    const rejected = safeRequestDetails(
+      makeRequest({
+        body: { text: 'running', selectionRanges: { start: 0, end: 1 } },
+      }),
+      true,
+    );
+    expect(rejected['request_summary']).toEqual(
+      expect.objectContaining({
+        selection_ranges: 0,
+        selection_ranges_truncated: true,
+      }),
+    );
+    expect(rejected['request_body_truncated']).toBe(true);
   });
 
   it('captures dictionary query text only with the explicit content flag', () => {

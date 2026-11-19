@@ -5,6 +5,7 @@ export interface RequestContext {
   requestId: string;
   traceId?: string;
   parentSpanId?: string;
+  traceFlags?: string;
 }
 
 export const requestContextStorage = new AsyncLocalStorage<RequestContext>();
@@ -24,21 +25,22 @@ export function resolveRequestId(
 
 export function parseTraceparent(
   header: string | string[] | undefined,
-): Pick<RequestContext, 'traceId' | 'parentSpanId'> {
+): Pick<RequestContext, 'traceId' | 'parentSpanId' | 'traceFlags'> {
   const candidate = Array.isArray(header) ? header[0] : header;
   if (candidate === undefined) return {};
 
   const match = TRACEPARENT_PATTERN.exec(candidate);
   if (!match) return {};
 
-  const [, version, traceId, parentSpanId] = match;
+  const [, version, traceId, parentSpanId, traceFlags] = match;
   if (
     version === undefined ||
     version.toLowerCase() === 'ff' ||
     traceId === undefined ||
     /^0+$/.test(traceId) ||
     parentSpanId === undefined ||
-    /^0+$/.test(parentSpanId)
+    /^0+$/.test(parentSpanId) ||
+    traceFlags === undefined
   ) {
     return {};
   }
@@ -47,5 +49,6 @@ export function parseTraceparent(
   return {
     traceId: traceId.toLowerCase(),
     parentSpanId: parentSpanId.toLowerCase(),
+    traceFlags: traceFlags.toLowerCase(),
   };
 }

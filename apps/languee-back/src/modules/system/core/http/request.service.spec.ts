@@ -19,6 +19,7 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
       addEvent: event,
       setStatus: jest.fn(),
       recordException: jest.fn(),
+      spanContext: jest.fn(),
     } as never);
   });
   afterEach(() => {
@@ -110,7 +111,12 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
     } as Response);
 
     await requestContextStorage.run(
-      { requestId: 'lookup-request-123' },
+      {
+        requestId: 'lookup-request-123',
+        traceId: 'aabbccddeeff00112233445566778899',
+        parentSpanId: '0011223344556677',
+        traceFlags: '01',
+      },
       async () => {
         await new RequestService().postJson(
           'http://languee-nlp:8000/analyze',
@@ -118,7 +124,11 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
           { target: 'nlp' },
         );
         expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
-          expect.objectContaining({ 'X-Request-ID': 'lookup-request-123' }),
+          expect.objectContaining({
+            'X-Request-ID': 'lookup-request-123',
+            traceparent:
+              '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+          }),
         );
 
         await new RequestService().getJson('https://dictionary.test/lookup', {
@@ -126,6 +136,76 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
         });
         expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeUndefined();
       },
+    );
+  });
+
+  it('propagates validated W3C context from request context when no span is active', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    } as Response);
+    jest.mocked(trace.getActiveSpan).mockReturnValue(undefined);
+
+    await requestContextStorage.run(
+      {
+        requestId: 'lookup-request-trace',
+        traceId: 'aabbccddeeff00112233445566778899',
+        parentSpanId: '0011223344556677',
+        traceFlags: '01',
+      },
+      async () => {
+        await new RequestService().postJson(
+          'http://languee-nlp:8000/analyze',
+          { text: 'running' },
+          { target: 'nlp' },
+        );
+      },
+    );
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'X-Request-ID': 'lookup-request-trace',
+        traceparent: '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+      }),
+    );
+  });
+
+  it('uses an active span context when propagating W3C headers to NLP', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    } as Response);
+    jest.mocked(trace.getActiveSpan).mockReturnValue({
+      spanContext: () => ({
+        traceId: '12345678901234567890123456789012',
+        spanId: '1234567890123456',
+        traceFlags: 1,
+      }),
+    } as never);
+
+    await requestContextStorage.run(
+      {
+        requestId: 'lookup-request-active-span',
+        traceId: 'aabbccddeeff00112233445566778899',
+        parentSpanId: '0011223344556677',
+        traceFlags: '00',
+      },
+      async () => {
+        await new RequestService().postJson(
+          'http://languee-nlp:8000/analyze',
+          { text: 'running' },
+          { target: 'nlp' },
+        );
+      },
+    );
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'X-Request-ID': 'lookup-request-active-span',
+        traceparent: '00-12345678901234567890123456789012-1234567890123456-01',
+      }),
     );
   });
 

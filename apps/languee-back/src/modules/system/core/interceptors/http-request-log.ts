@@ -89,7 +89,8 @@ function lookupRequestDetails(
       text_bytes: byteLength(text),
       has_context: context !== undefined,
       context_bytes: byteLength(context),
-      selection_ranges: ranges.length,
+      selection_ranges: ranges.ranges.length,
+      selection_ranges_truncated: ranges.truncated,
       include_suggestions: includeSuggestions,
       disable_pos_filtering: disablePosFiltering,
     },
@@ -110,7 +111,7 @@ function addCapturedLookupBody(
   body: JsonRecord,
   text: string | undefined,
   context: string | undefined,
-  ranges: Array<{ start: number; end: number }>,
+  ranges: ReturnType<typeof safeSelectionRanges>,
 ): void {
   const boundedText = boundUtf8(text, MAX_LOOKUP_TEXT_BYTES);
   const boundedContext = boundUtf8(context, MAX_CONTEXT_BYTES);
@@ -125,10 +126,10 @@ function addCapturedLookupBody(
   if (boundedText.value !== undefined) captured['text'] = boundedText.value;
   if (boundedContext.value !== undefined)
     captured['context'] = boundedContext.value;
-  if (ranges.length > 0) captured['selectionRanges'] = ranges;
+  if (ranges.ranges.length > 0) captured['selectionRanges'] = ranges.ranges;
   details['request_body'] = captured;
   details['request_body_truncated'] =
-    boundedText.truncated || boundedContext.truncated;
+    boundedText.truncated || boundedContext.truncated || ranges.truncated;
 }
 
 function dictionaryLookupDetails(
@@ -270,18 +271,26 @@ function safeCode(value: unknown): string | undefined {
     : undefined;
 }
 
-function safeSelectionRanges(
-  value: unknown,
-): Array<{ start: number; end: number }> {
-  if (!Array.isArray(value)) return [];
-  return value.slice(0, 6).flatMap((range: unknown) => {
+function safeSelectionRanges(value: unknown): {
+  ranges: Array<{ start: number; end: number }>;
+  truncated: boolean;
+} {
+  if (value === undefined) return { ranges: [], truncated: false };
+  if (!Array.isArray(value)) return { ranges: [], truncated: true };
+
+  const truncated = value.length > 6;
+  const ranges = value.slice(0, 6).flatMap((range: unknown) => {
     if (!isRecord(range)) return [];
     const start = range['start'];
     const end = range['end'];
-    return Number.isSafeInteger(start) && Number.isSafeInteger(end)
-      ? [{ start: start as number, end: end as number }]
-      : [];
+    if (Number.isSafeInteger(start) && Number.isSafeInteger(end))
+      return [{ start: start as number, end: end as number }];
+    return [];
   });
+  return {
+    ranges,
+    truncated: truncated || ranges.length !== Math.min(value.length, 6),
+  };
 }
 
 function boundUtf8(value: string | undefined, maxBytes: number) {

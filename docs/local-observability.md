@@ -25,6 +25,8 @@ In Grafana Explore (Loki), useful queries are:
 {service=~"languee-droid|languee-back|languee-nlp",level=~"error|ERROR|critical"}
 {service=~"languee-droid|languee-back|languee-nlp"} |~ "\\\"trace_id\\\":\\\"<trace-id>\\\""
 {service=~"languee-droid|languee-back|languee-nlp"} |~ "\\\"requestId\\\":\\\"<request-id>\\\""
+{service="caddy"} |~ "\\\"requestId\\\":\\\"<request-id>\\\""
+{service="caddy"} |~ "\\\"proxyRequestId\\\":\\\"<proxy-request-id>\\\""
 ```
 
 Select the derived `TraceID` field on a JSON backend/NLP record to open Tempo. In
@@ -43,10 +45,14 @@ redacts those fields.
 Backend and NLP request records include the method, route or path, status, duration,
 request ID, and service build identity. Failures also include a stage and safe error
 code when one is available. Route-level 404s are recorded even when NestJS has no
-route interceptor to handle them. The backend forwards the request ID to NLP; valid
-W3C `traceparent` headers continue the same trace across both services. Caddy records
-the safe path and correlation headers while removing request headers, query strings,
-and client IP fields.
+route interceptor to handle them. The backend forwards the request ID to NLP and
+propagates validated W3C context even when tracing instrumentation is disabled.
+Caddy records the safe path and response request ID while removing request headers,
+query strings, client IP fields, and the untrusted inbound `traceparent` value.
+It also records a Caddy-generated `proxyRequestId`, which remains available when
+Caddy handles a request itself and no backend `X-Request-ID` is returned. Backend
+and NLP records log validated trace IDs; Caddy can be correlated through the request
+ID returned by the backend or its proxy-generated ID for proxy-only responses.
 
 Lookup text and context are excluded from logs by default. Set
 `LOG_LOOKUP_DETAILS=true` only for a temporary incident investigation, then restart

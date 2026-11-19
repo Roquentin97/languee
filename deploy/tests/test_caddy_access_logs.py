@@ -20,9 +20,8 @@ def test_access_records_keep_safe_path_and_request_correlation_fields():
     assert CADDYFILE.count(
         "log_append requestId {http.response.header.X-Request-ID}"
     ) == 3
-    assert CADDYFILE.count(
-        "log_append traceparent {http.request.header.Traceparent}"
-    ) == 3
+    assert CADDYFILE.count("log_append proxyRequestId {http.request.uuid}") == 3
+    assert "traceparent" not in CADDYFILE.lower()
 
 
 def test_access_logs_never_capture_request_bodies():

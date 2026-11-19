@@ -169,6 +169,7 @@ describe('request header validation', () => {
     ).toEqual({
       traceId: 'aabbccddeeff00112233445566778899',
       parentSpanId: '0011223344556677',
+      traceFlags: '01',
     });
     expect(parseTraceparent(undefined)).toEqual({});
     expect(parseTraceparent('not-a-traceparent')).toEqual({});

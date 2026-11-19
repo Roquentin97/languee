@@ -32,6 +32,7 @@ interface ReceivedNlpRequest {
   url: string | undefined;
   authorization: string | undefined;
   requestId: string | string[] | undefined;
+  traceparent: string | string[] | undefined;
   body: unknown;
 }
 
@@ -61,6 +62,7 @@ describe('authenticated vocabulary lookup to NLP over HTTP', () => {
             url: incoming.url,
             authorization: incoming.headers.authorization,
             requestId: incoming.headers['x-request-id'],
+            traceparent: incoming.headers.traceparent,
             body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown,
           };
           outgoing.writeHead(400, { 'content-type': 'application/json' });
@@ -172,6 +174,10 @@ describe('authenticated vocabulary lookup to NLP over HTTP', () => {
       .post('/api/v1/vocabulary/lookup')
       .set('Authorization', `Bearer ${accessToken}`)
       .set('X-Request-ID', TEST_REQUEST_ID)
+      .set(
+        'traceparent',
+        '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+      )
       .send({ text: 'running', language: 'xx' })
       .expect(400);
 
@@ -184,6 +190,7 @@ describe('authenticated vocabulary lookup to NLP over HTTP', () => {
         url: '/analyze',
         authorization: `Basic ${Buffer.from(`${TEST_BASIC_LOGIN}:${TEST_BASIC_PASSWORD}`).toString('base64')}`,
         requestId: TEST_REQUEST_ID,
+        traceparent: '00-aabbccddeeff00112233445566778899-0011223344556677-01',
         body: { text: 'running', language: 'xx' },
       });
     }

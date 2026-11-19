@@ -196,12 +196,16 @@ object NetworkModule {
         val body = response.body
         if (body.contentType()?.subtype?.endsWith("json", ignoreCase = true) != true) return emptyMap()
 
+        val contentLength = body.contentLength()
+        if (contentLength < 0 || contentLength > MAX_ERROR_BODY_BYTES) {
+            return mapOf("http.response.body_truncated" to "true")
+        }
+
         val preview =
             runCatching { response.peekBody(MAX_ERROR_BODY_BYTES).string() }.getOrNull()
                 ?: return emptyMap()
         val truncated =
-            body.contentLength() > MAX_ERROR_BODY_BYTES ||
-                preview.toByteArray(Charsets.UTF_8).size.toLong() >= MAX_ERROR_BODY_BYTES
+            preview.toByteArray(Charsets.UTF_8).size.toLong() >= MAX_ERROR_BODY_BYTES
         val attributes =
             if (truncated) mapOf("http.response.body_truncated" to "true") else emptyMap()
         val code =

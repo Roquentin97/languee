@@ -32,7 +32,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
         this.logCompletion(req, res, res.statusCode, Date.now() - start);
       }),
       catchError((err: unknown) => {
-        const failure = httpErrorDetails(err, res.statusCode || 500);
+        const failure = httpErrorDetails(err, 500);
         this.logCompletion(req, res, failure.status, Date.now() - start, err);
         return throwError(() => err);
       }),

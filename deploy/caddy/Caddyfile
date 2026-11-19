@@ -16,7 +16,7 @@
 	}
 	log_append path {http.request.uri.path}
 	log_append requestId {http.response.header.X-Request-ID}
-	log_append traceparent {http.request.header.Traceparent}
+	log_append proxyRequestId {http.request.uuid}
 	encode gzip
 	reverse_proxy languee-back:3000
 }
@@ -37,7 +37,7 @@
 	}
 	log_append path {http.request.uri.path}
 	log_append requestId {http.response.header.X-Request-ID}
-	log_append traceparent {http.request.header.Traceparent}
+	log_append proxyRequestId {http.request.uuid}
 	encode gzip
 	reverse_proxy grafana:3000
 }
@@ -58,7 +58,7 @@
 	}
 	log_append path {http.request.uri.path}
 	log_append requestId {http.response.header.X-Request-ID}
-	log_append traceparent {http.request.header.Traceparent}
+	log_append proxyRequestId {http.request.uuid}
 	@otlp path /v1/logs /v1/traces
 	handle @otlp {
 		request_body {
