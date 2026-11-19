@@ -148,6 +148,7 @@ BACK_SCHEMA: dict[str, Rule] = {
     "SERVICE_NAME": TOKEN,
     "PRINT_DEBUG_LOGS": BOOL,
     "PRINT_PRETTY_JSON_LOGS": BOOL,
+    "LOG_LOOKUP_DETAILS": Rule(BOOL.check, BOOL.hint, required=False),
     "TRACING_ENABLED": _equals("true", "production telemetry is always sent to private Alloy"),
     "OTEL_TRACES_SAMPLER": TOKEN,
     "OTEL_TRACES_SAMPLER_ARG": _re(r"[0-9]+(\.[0-9]+)?", "a number such as 1.0"),

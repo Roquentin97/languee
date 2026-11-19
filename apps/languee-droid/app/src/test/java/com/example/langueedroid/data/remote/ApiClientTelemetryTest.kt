@@ -1,5 +1,7 @@
 package com.example.langueedroid.data.remote
 
+import com.example.langueedroid.core.telemetry.Logger
+import com.example.langueedroid.di.NetworkModule
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.propagation.ContextPropagators
@@ -8,10 +10,8 @@ import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -29,8 +29,11 @@ class ApiClientTelemetryTest {
     private lateinit var exporter: InMemorySpanExporter
     private lateinit var otel: OpenTelemetry
 
+    private val recordedLogger = RecordingLogger()
+
     @Before
     fun setUp() {
+        recordedLogger.clear()
         server = MockWebServer()
         server.start()
 
@@ -136,7 +139,7 @@ class ApiClientTelemetryTest {
         val client =
             OkHttpClient
                 .Builder()
-                .addInterceptor(buildRequestIdInterceptor())
+                .addInterceptor(NetworkModule.requestIdInterceptor())
                 .build()
 
         client.newCall(Request.Builder().url(server.url("/test")).build()).execute().close()
@@ -154,7 +157,7 @@ class ApiClientTelemetryTest {
         val client =
             OkHttpClient
                 .Builder()
-                .addInterceptor(buildRequestIdInterceptor())
+                .addInterceptor(NetworkModule.requestIdInterceptor())
                 .build()
 
         val url = server.url("/test")
@@ -169,7 +172,7 @@ class ApiClientTelemetryTest {
     @Test
     fun `request-id interceptor preserves an existing id for retries`() {
         server.enqueue(MockResponse().setResponseCode(200))
-        val client = OkHttpClient.Builder().addInterceptor(buildRequestIdInterceptor()).build()
+        val client = OkHttpClient.Builder().addInterceptor(NetworkModule.requestIdInterceptor()).build()
 
         client
             .newCall(
@@ -184,56 +187,165 @@ class ApiClientTelemetryTest {
         assertEquals("retry-request-id", server.takeRequest().getHeader("X-Request-ID"))
     }
 
-    // --- Logging interceptor does not leak auth tokens ---
+    // --- Failure logs retain diagnostics without consuming response bodies ---
 
     @Test
-    fun `logging interceptor at HEADERS level does not log Authorization value`() {
-        server.enqueue(MockResponse().setResponseCode(200))
-
-        val logLines = mutableListOf<String>()
-        val loggingInterceptor =
-            HttpLoggingInterceptor { message -> logLines.add(message) }.apply {
-                level = HttpLoggingInterceptor.Level.HEADERS
-                redactHeader("Authorization")
-                redactHeader("Cookie")
-                redactHeader("Set-Cookie")
-            }
+    fun `failure log includes safe error code and correlation without request or response content`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(404)
+                .setHeader("Content-Type", "application/json")
+                .setBody(
+                    """{"statusCode":404,"message":"DEFINITIONS_NOT_FOUND","error":"Not Found","password":"response-secret"}""",
+                ),
+        )
 
         val client =
             OkHttpClient
                 .Builder()
-                .addInterceptor(loggingInterceptor)
+                .addInterceptor(NetworkModule.requestIdInterceptor())
+                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
                 .build()
 
-        client
-            .newCall(
-                Request
-                    .Builder()
-                    .url(server.url("/test"))
-                    .header("Authorization", "Bearer ultra-secret-token")
-                    .build(),
-            ).execute()
-            .close()
-
-        assertFalse(
-            "Authorization value must not appear in any log line",
-            logLines.any { line -> line.contains("ultra-secret-token") || line.contains("Bearer") },
+        val response =
+            client
+                .newCall(
+                    Request
+                        .Builder()
+                        .url(server.url("/api/v1/vocabulary/lookup?token=query-secret"))
+                        .header("Authorization", "Bearer ultra-secret-token")
+                        .header("Cookie", "session=cookie-secret")
+                        .header("traceparent", "00-aabbccddeeff00112233445566778899-0011223344556677-01")
+                        .build(),
+                ).execute()
+        assertEquals("json", response.body.contentType()?.subtype)
+        assertTrue(response.peekBody(4096).string().contains("DEFINITIONS_NOT_FOUND"))
+        assertEquals(
+            "DEFINITIONS_NOT_FOUND",
+            NetworkModule.responseErrorAttributes(response)["http.response.error_code"],
         )
+        val returnedBody = response.body.string()
+        response.close()
+
+        val event = recordedLogger.warnings.single()
+        assertEquals("http.request.failed", event.event)
+        assertEquals("GET", event.attributes["http.method"])
+        assertEquals("/api/v1/vocabulary/lookup", event.attributes["url.path"])
+        assertEquals("404", event.attributes["http.status_code"])
+        assertEquals("DEFINITIONS_NOT_FOUND", event.attributes["http.response.error_code"])
+        assertEquals("languee-droid", event.attributes["service.name"])
+        assertEquals("aabbccddeeff00112233445566778899", event.attributes["trace_id"])
+        assertNotNull(event.attributes["requestId"])
+        assertTrue(returnedBody.contains("response-secret"))
+
+        val serialized = event.attributes.toString()
+        assertFalse(serialized.contains("ultra-secret-token"))
+        assertFalse(serialized.contains("Bearer"))
+        assertFalse(serialized.contains("cookie-secret"))
+        assertFalse(serialized.contains("query-secret"))
+        assertFalse(serialized.contains("response-secret"))
     }
 
-    // --- helpers ---
+    @Test
+    fun `failure log marks large JSON error previews as truncated`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(500)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{" + "x".repeat(5000) + "}"),
+        )
+        val client =
+            OkHttpClient
+                .Builder()
+                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
 
-    private fun buildRequestIdInterceptor(): Interceptor =
-        Interceptor { chain ->
-            if (chain.request().header("X-Request-ID") != null) {
-                return@Interceptor chain.proceed(chain.request())
-            }
-            chain.proceed(
-                chain
-                    .request()
-                    .newBuilder()
-                    .header("X-Request-ID", UUID.randomUUID().toString())
-                    .build(),
-            )
-        }
+        client.newCall(Request.Builder().url(server.url("/failure")).build()).execute().close()
+
+        assertEquals("true", recordedLogger.warnings.single().attributes["http.response.body_truncated"])
+    }
+
+    @Test
+    fun `malformed or missing traceparent is omitted from failure attributes`() {
+        val missing = Request.Builder().url(server.url("/missing")).build()
+        val malformed =
+            Request
+                .Builder()
+                .url(server.url("/malformed"))
+                .header("traceparent", "not-a-traceparent")
+                .build()
+        val allZero =
+            Request
+                .Builder()
+                .url(server.url("/zero"))
+                .header("traceparent", "00-00000000000000000000000000000000-0011223344556677-01")
+                .build()
+        val valid =
+            Request
+                .Builder()
+                .url(server.url("/valid"))
+                .header("traceparent", "00-AABBCCDDEEFF00112233445566778899-0011223344556677-01")
+                .build()
+
+        assertTrue(NetworkModule.traceAttributes(missing).isEmpty())
+        assertTrue(NetworkModule.traceAttributes(malformed).isEmpty())
+        assertTrue(NetworkModule.traceAttributes(allZero).isEmpty())
+        assertEquals("aabbccddeeff00112233445566778899", NetworkModule.traceAttributes(valid)["trace_id"])
+    }
+
+    @Test
+    fun `successful requests do not create failure records`() {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("ok"))
+        val client =
+            OkHttpClient
+                .Builder()
+                .addNetworkInterceptor(NetworkModule.failureLoggingInterceptor(recordedLogger))
+                .build()
+
+        client.newCall(Request.Builder().url(server.url("/success")).build()).execute().close()
+
+        assertTrue(recordedLogger.warnings.isEmpty())
+        assertTrue(recordedLogger.errors.isEmpty())
+    }
+}
+
+private data class LoggedEvent(
+    val event: String,
+    val attributes: Map<String, String>,
+)
+
+private class RecordingLogger : Logger {
+    val warnings = mutableListOf<LoggedEvent>()
+    val errors = mutableListOf<LoggedEvent>()
+
+    override fun debug(
+        event: String,
+        attributes: Map<String, String>,
+    ) = Unit
+
+    override fun info(
+        event: String,
+        attributes: Map<String, String>,
+    ) = Unit
+
+    override fun warn(
+        event: String,
+        attributes: Map<String, String>,
+        error: Throwable?,
+    ) {
+        warnings += LoggedEvent(event, attributes)
+    }
+
+    override fun error(
+        event: String,
+        attributes: Map<String, String>,
+        error: Throwable?,
+    ) {
+        errors += LoggedEvent(event, attributes)
+    }
+
+    fun clear() {
+        warnings.clear()
+        errors.clear()
+    }
 }

@@ -264,11 +264,12 @@ loki tempo prometheus alloy grafana`, wait for `docker compose ps`, and confirm
 the earlier trace and log remain queryable. These are live-host checks and are
 not run by repository tests.
 
-Loki retains logs for 7 days, Tempo retains traces for 48 hours, and Prometheus
-retains metrics for 30 days. Their named volumes persist across service restarts
-and configuration recreations. On the 2 OCPU / 12 GB Oracle profile, caps are
-512 MB each for Loki and Tempo, 384 MB for Prometheus, and 256 MB each for
-Alloy and Grafana; monitor disk use before increasing retention.
+Loki retains logs for `LOKI_RETENTION_DAYS` (five days by default), Tempo retains
+traces for 48 hours, and Prometheus retains metrics for 30 days. Their named volumes
+persist across service restarts and configuration recreations. On the 2 OCPU /
+12 GB Oracle profile, caps are 512 MB each for Loki and Tempo, 384 MB for
+Prometheus, and 256 MB each for Alloy and Grafana; monitor disk use before
+increasing retention.
 
 Monitoring startup is non-blocking for application deploys. A deploy reports a
 monitoring warning and continues to check the API if collector services are

@@ -101,6 +101,52 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
     await jest.advanceTimersByTimeAsync(10000);
     expect(warn).not.toHaveBeenCalled();
   });
+
+  it('propagates request ids to NLP while keeping them off external provider calls', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    } as Response);
+
+    await requestContextStorage.run(
+      { requestId: 'lookup-request-123' },
+      async () => {
+        await new RequestService().postJson(
+          'http://languee-nlp:8000/analyze',
+          { text: 'running' },
+          { target: 'nlp' },
+        );
+        expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+          expect.objectContaining({ 'X-Request-ID': 'lookup-request-123' }),
+        );
+
+        await new RequestService().getJson('https://dictionary.test/lookup', {
+          target: 'dictionary-provider',
+        });
+        expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeUndefined();
+      },
+    );
+  });
+
+  it('does not read or log a failed upstream response body', async () => {
+    const responseText = jest.fn().mockResolvedValue('secret=must-not-log');
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: responseText,
+    } as unknown as Response);
+
+    await expect(
+      new RequestService().send('http://languee-nlp:8000/missing', {
+        target: 'nlp',
+      }),
+    ).rejects.toMatchObject({ kind: 'http', status: 404 });
+
+    expect(responseText).not.toHaveBeenCalled();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('must-not-log');
+  });
+
   it('enriches the slow warning with request and trace correlation', async () => {
     warn.mockRestore();
     const output = jest

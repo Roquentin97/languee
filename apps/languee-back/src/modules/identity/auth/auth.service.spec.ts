@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -78,6 +78,7 @@ describe('AuthService', () => {
     const updatedAt = new Date('2026-01-01T00:00:00.000Z');
 
     it('hashes password and creates user with normalized email and hash', async () => {
+      const log = jest.spyOn(Logger.prototype, 'log').mockImplementation();
       bcryptMock.hash.mockResolvedValue('hashed-password');
       mockUsersService.create.mockResolvedValue({
         id: 'user-123',
@@ -94,6 +95,9 @@ describe('AuthService', () => {
         dto.email,
         'hashed-password',
       );
+      expect(JSON.stringify(log.mock.calls)).not.toContain(dto.email);
+      expect(JSON.stringify(log.mock.calls)).not.toContain(dto.password);
+      log.mockRestore();
     });
 
     it('normalizes email before creating user (trims and lowercases)', async () => {
@@ -187,6 +191,7 @@ describe('AuthService', () => {
     });
 
     it('throws 401 with "Invalid credentials" when email not found — no email leak', async () => {
+      const log = jest.spyOn(Logger.prototype, 'log').mockImplementation();
       mockUsersService.findByEmail.mockResolvedValue(null);
       bcryptMock.compare.mockResolvedValue(false);
 
@@ -200,6 +205,9 @@ describe('AuthService', () => {
 
       // dummy hash compare must still be called for timing safety
       expect(bcryptMock.compare).toHaveBeenCalled();
+      expect(JSON.stringify(log.mock.calls)).not.toContain(dto.email);
+      expect(JSON.stringify(log.mock.calls)).not.toContain(dto.password);
+      log.mockRestore();
     });
 
     it('throws 401 with "Invalid credentials" when password is wrong', async () => {

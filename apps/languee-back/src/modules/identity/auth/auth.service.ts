@@ -48,7 +48,7 @@ export class AuthService {
       message: 'user registered',
       event: 'auth.user_registered',
       method: this.register.name,
-      data: { userId: user.id, email: user.email },
+      data: { userId: user.id },
     });
 
     return {
@@ -136,7 +136,7 @@ export class AuthService {
       message: 'session created',
       event: 'auth.session_created',
       method: method,
-      data: { userId: user.id, sessionId, userAgent, ip },
+      data: { userId: user.id, sessionId },
     });
 
     return { accessToken, plainRefreshToken, sessionId, user };
@@ -178,7 +178,7 @@ export class AuthService {
         message: 'user not found',
         event: 'auth.user_not_found',
         method: method,
-        data: { email: dto.email },
+        data: {},
       });
       throw new UnauthorizedException('Invalid credentials');
     }

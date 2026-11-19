@@ -74,7 +74,7 @@ describe('AppLogger', () => {
   });
 
   // Edge case 4: Required fields present
-  it('always emits timestamp, level, message, service, context, pid, and environment', () => {
+  it('always emits timestamp, level, message, service identity, context, pid, and environment', () => {
     const logger = new AppLogger('TestContext');
     logger.log('required fields check');
 
@@ -83,6 +83,9 @@ describe('AppLogger', () => {
     expect(entry['level']).toBeDefined();
     expect(entry['message']).toBeDefined();
     expect(entry['service']).toBeDefined();
+    expect(entry['service_version']).toBeDefined();
+    expect(entry['vcs_revision']).toBeDefined();
+    expect(entry['build_id']).toBeDefined();
     expect(entry['context']).toBeDefined();
     expect(entry['pid']).toBeDefined();
     expect(entry['environment']).toBeDefined();
@@ -315,6 +318,27 @@ describe('AppLogger', () => {
       expect(entry['trace_id']).toBeUndefined();
       expect(entry['span_id']).toBeUndefined();
     });
+
+    it('uses a validated incoming trace id when no active span is available', (done) => {
+      requestContextStorage.run(
+        {
+          requestId: 'request-123',
+          traceId: 'aabbccddeeff00112233445566778899',
+          parentSpanId: '0011223344556677',
+        },
+        () => {
+          getActiveSpanSpy.mockReturnValue(undefined);
+          const logger = new AppLogger('TestContext');
+          logger.log('incoming trace fallback');
+
+          const entry = parseStdout();
+          expect(entry['trace_id']).toBe('aabbccddeeff00112233445566778899');
+          expect(entry['parent_span_id']).toBe('0011223344556677');
+          expect(entry['span_id']).toBeUndefined();
+          done();
+        },
+      );
+    });
   });
 
   // Request context enrichment: requestId
@@ -363,6 +387,25 @@ describe('AppLogger', () => {
 
       const entry = parseStdout();
       expect(entry['authorization']).toBe(REDACTED_VALUE);
+    });
+
+    it('redacts secrets nested in error details and bounds long values', () => {
+      const logger = new AppLogger('TestContext');
+      logger.error({
+        message: 'request failed',
+        error: {
+          message: 'Authorization: Bearer nested-secret',
+          cause: { password: 'not-safe' },
+        },
+        detail: 'x'.repeat(5000),
+      });
+
+      const entry = parseStderr();
+      expect(entry['error']).toEqual({
+        message: 'Authorization:[REDACTED]',
+        cause: { password: REDACTED_VALUE },
+      });
+      expect(entry['detail']).toBe(`${'x'.repeat(4096 - 14)}...[TRUNCATED]`);
     });
   });
 

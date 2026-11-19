@@ -37,3 +37,54 @@ then inspect `docker compose logs alloy`. Do not use `alloy:4318` from the emula
 that Docker hostname only works inside Compose. Confirm `TRACING_ENABLED=true` and
 avoid placing credentials or query values in logger attributes; telemetry deliberately
 redacts those fields.
+
+## Request and failure logs
+
+Backend and NLP request records include the method, route or path, status, duration,
+request ID, and service build identity. Failures also include a stage and safe error
+code when one is available. Route-level 404s are recorded even when NestJS has no
+route interceptor to handle them. The backend forwards the request ID to NLP; valid
+W3C `traceparent` headers continue the same trace across both services. Caddy records
+the safe path and correlation headers while removing request headers, query strings,
+and client IP fields.
+
+Lookup text and context are excluded from logs by default. Set
+`LOG_LOOKUP_DETAILS=true` only for a temporary incident investigation, then restart
+the backend. On failed vocabulary lookups the backend can record the explicitly
+allowlisted text, language, context, selection ranges, and lookup options. Text and
+context are capped at 1,024 UTF-8 bytes each and a truncation marker is included.
+Dictionary lookup words are captured only on failed requests and are capped at the
+same size. Successful requests record metadata and lengths only. Authentication
+bodies, credentials, arbitrary query values, and upstream response bodies are never
+captured. Anyone with Loki access can read captured lookup content; it remains there
+until the configured Loki retention expires (five days by default in Compose).
+
+For a local failure record, temporarily set `LOG_LOOKUP_DETAILS=true` in `.env`,
+restart the backend, and send an unsupported language to NLP:
+
+```sh
+curl -i http://localhost:3000/api/v1/vocabulary/lookup \
+  -H 'Content-Type: application/json' \
+  -H 'X-Request-ID: actionable-logs-demo' \
+  -H 'traceparent: 00-aabbccddeeff00112233445566778899-0011223344556677-01' \
+  -d '{"text":"running","language":"xx","context":"She is running.","selectionRanges":[{"start":7,"end":14}]}'
+```
+
+The backend should return the NLP validation failure and emit a bounded failure
+record. The malformed/unsupported language is useful here because NLP accepts only
+English. A missing route also produces a failure record without a request body:
+
+```sh
+curl -i 'http://localhost:3000/api/v1/does-not-exist?token=must-not-be-logged'
+```
+
+Find the records in Grafana Explore with the request ID or trace ID:
+
+```logql
+{service="languee-back"} |~ "actionable-logs-demo"
+{service=~"languee-back|languee-nlp"} |~ "aabbccddeeff00112233445566778899"
+```
+
+Return `LOG_LOOKUP_DETAILS` to `false` after the investigation. Existing records
+expire according to `LOKI_RETENTION_DAYS`; disabling capture does not remove earlier
+records.
