@@ -59,20 +59,29 @@ bodies, credentials, arbitrary query values, and upstream response bodies are ne
 captured. Anyone with Loki access can read captured lookup content; it remains there
 until the configured Loki retention expires (five days by default in Compose).
 
-For a local failure record, temporarily set `LOG_LOOKUP_DETAILS=true` in `.env`,
-restart the backend, and send an unsupported language to NLP:
+For a local failure record, temporarily set `LOG_LOOKUP_DETAILS=true` in `.env`
+and restart the backend. The vocabulary lookup route requires a bearer token. Use
+an access token from a disposable account registered in the local development
+API; if needed, register a throwaway user at `/auth/register`, then sign in at
+`/auth/login`. Do not use production credentials. Read the local response's
+`accessToken` without adding it to shell history, then send an unsupported
+language to NLP:
 
 ```sh
+read -r -s -p 'Local development access token: ' LOCAL_ACCESS_TOKEN
+printf '\n'
 curl -i http://localhost:3000/api/v1/vocabulary/lookup \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${LOCAL_ACCESS_TOKEN}" \
   -H 'X-Request-ID: actionable-logs-demo' \
   -H 'traceparent: 00-aabbccddeeff00112233445566778899-0011223344556677-01' \
   -d '{"text":"running","language":"xx","context":"She is running.","selectionRanges":[{"start":7,"end":14}]}'
+unset LOCAL_ACCESS_TOKEN
 ```
 
-The backend should return the NLP validation failure and emit a bounded failure
-record. The malformed/unsupported language is useful here because NLP accepts only
-English. A missing route also produces a failure record without a request body:
+The backend should return HTTP 400 with `INPUT_INVALID` after NLP rejects `xx`
+with `LANGUAGE_NOT_SUPPORTED`, and emit a bounded failure record. A missing route
+also produces a failure record without a request body:
 
 ```sh
 curl -i 'http://localhost:3000/api/v1/does-not-exist?token=must-not-be-logged'
