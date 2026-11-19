@@ -1,11 +1,9 @@
 name: Apply config (dev)
 
-# Re-reads the OCI Vault secret and recreates the app services on the dev VM
-# without changing the deployed image tag or running migrations. It runs the
-# scripts already installed on the server by the last deploy, so it cannot be
-# used to ship new code. Edit the secret in OCI first; leave `secret_version`
-# empty for the current version, or set it to apply (or roll back to) a
-# specific one.
+# Re-reads the OCI Vault secret and recreates app services without changing
+# image tags or running migrations. This is a Vault-only operation; it does
+# not reconcile application or deployment source revisions. Edit the secret
+# first, then leave `secret_version` empty for CURRENT or choose a version.
 on:
   workflow_dispatch:
     inputs:
@@ -27,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: languee-dev
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
       - name: Apply Vault config
         uses: appleboy/ssh-action@v1.2.5
         env:
@@ -38,8 +40,54 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: SECRET_VERSION,VAULT_SECRET_OCID,OCI_REGION
-          script_stop: true
           script: |
+            set -euo pipefail
             args=(--preserve-tags)
             if [ -n "$SECRET_VERSION" ]; then args+=(--secret-version "$SECRET_VERSION"); fi
             /opt/languee/scripts/deploy-stack.sh "${args[@]}"
+
+      - name: Read applied source state
+        id: applied
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          capture_stdout: true
+          script: |
+            set -eu
+            state=/opt/languee/.applied-deploy-state.json
+            if [ -r "$state" ]; then
+              cat "$state"
+            else
+              printf '%s\n' '{"known":false,"reason":"missing"}'
+            fi
+
+      - name: Report code reconciliation separately from Vault apply
+        env:
+          APPLIED_STATE_JSON: ${{ steps.applied.outputs.stdout }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          head=$(git rev-parse origin/develop)
+          decision=$(printf '%s\n' "$APPLIED_STATE_JSON" | python3 deploy/scripts/reconcile-deploy.py --ref "$head" --head "$head")
+          printf '%s\n' "$decision"
+          {
+            echo '## Apply config (dev)'
+            echo
+            echo 'The Vault-backed environment update completed. This workflow does not build or deploy application code, deployment scripts, or Compose configuration, and it does not update applied source state.'
+            echo
+            if [ "$(jq -r .state_known <<<"$decision")" != true ]; then
+              echo '**Source state is unknown.** Run Deploy (dev) to rebuild and verify both application services.'
+            elif [ "$(jq -r .backend <<<"$decision")" = true ] || [ "$(jq -r .nlp <<<"$decision")" = true ] || [ "$(jq -r .config <<<"$decision")" = true ]; then
+              echo '**Source reconciliation is still required.** Run Deploy (dev) on the current develop head; this successful Vault-only run does not mean the application stack is current.'
+            else
+              echo 'The applied source revisions match current develop at the time of this check. This workflow still applied Vault configuration only.'
+            fi
+            echo
+            echo '| Component | Desired source revision | Last verified source revision |'
+            echo '| --- | --- | --- |'
+            printf '| Backend | %s | %s |\n' "$(jq -r .desired.backend <<<"$decision")" "$(jq -r .applied.backend <<<"$decision")"
+            printf '| NLP | %s | %s |\n' "$(jq -r .desired.nlp <<<"$decision")" "$(jq -r .applied.nlp <<<"$decision")"
+            printf '| Configuration | %s | %s |\n' "$(jq -r .desired.configuration <<<"$decision")" "$(jq -r .applied.configuration <<<"$decision")"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -40,100 +40,99 @@ jobs:
   resolve:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    environment: languee-dev
     outputs:
       back: ${{ steps.resolve.outputs.back }}
       nlp: ${{ steps.resolve.outputs.nlp }}
+      build_back: ${{ steps.resolve.outputs.build_back }}
+      build_nlp: ${{ steps.resolve.outputs.build_nlp }}
       config: ${{ steps.resolve.outputs.config }}
       infra: ${{ steps.resolve.outputs.infra }}
       deploy: ${{ steps.resolve.outputs.deploy }}
-      stale: ${{ steps.resolve.outputs.stale }}
       rollback: ${{ steps.resolve.outputs.rollback }}
-      patch: ${{ steps.resolve.outputs.patch }}
       version: ${{ steps.resolve.outputs.version }}
       tag: ${{ steps.resolve.outputs.tag }}
+      back_source_revision: ${{ steps.resolve.outputs.back_source_revision }}
+      nlp_source_revision: ${{ steps.resolve.outputs.nlp_source_revision }}
+      config_source_revision: ${{ steps.resolve.outputs.config_source_revision }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - id: resolve
+
+      - name: Read last verified deployment state
+        id: applied
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          capture_stdout: true
+          script: |
+            set -eu
+            state=/opt/languee/.applied-deploy-state.json
+            if [ -r "$state" ]; then
+              cat "$state"
+            else
+              printf '%s\n' '{"known":false,"reason":"missing"}'
+            fi
+
+      - name: Reconcile desired develop source with verified state
+        id: resolve
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BEFORE: ${{ github.event.before }}
+          APPLIED_STATE_JSON: ${{ steps.applied.outputs.stdout }}
+          FORCE_DEPLOY: ${{ inputs.force_deploy }}
           ROLLBACK_BACK: ${{ inputs.rollback_back_tag }}
           ROLLBACK_NLP: ${{ inputs.rollback_nlp_tag }}
-          FORCE_DEPLOY: ${{ inputs.force_deploy }}
         run: |
           set -euo pipefail
           if [ "${GITHUB_RUN_ATTEMPT}" -ge 1000 ]; then
             echo "github.run_attempt must be less than 1000" >&2
             exit 1
           fi
-          patch=$((GITHUB_RUN_NUMBER * 1000 + GITHUB_RUN_ATTEMPT))
-          sha12=${GITHUB_SHA:0:12}
-          tag="dev-${patch}-${sha12}"
-          version="0.0.${patch}"
-          rollback=false
-          stale=false
-          printf '' > changed-files
-
-          if [ "$EVENT_NAME" = workflow_dispatch ] && { [ -n "$ROLLBACK_BACK" ] || [ -n "$ROLLBACK_NLP" ]; }; then
-            rollback=true
-            for artifact in "$ROLLBACK_BACK" "$ROLLBACK_NLP"; do
-              if [ -n "$artifact" ] && ! [[ "$artifact" =~ ^dev-[0-9]+-[0-9a-f]{12}$ ]]; then
-                echo "rollback tags must use dev-<patch>-<12-character-sha>" >&2
-                exit 1
-              fi
-            done
-            back=false; nlp=false; config=false; infra=''
-            [ -n "$ROLLBACK_BACK" ] && back=true
-            [ -n "$ROLLBACK_NLP" ] && nlp=true
-            deploy=true
-          else
-            conservative=false
-            manual=false
-            if [ "$EVENT_NAME" = workflow_dispatch ]; then
-              manual=true
-            elif [ -z "$PUSH_BEFORE" ] || [[ "$PUSH_BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
-              conservative=true
-            else
-              git diff --name-only "$PUSH_BEFORE" "$GITHUB_SHA" > changed-files
+          for artifact in "$ROLLBACK_BACK" "$ROLLBACK_NLP"; do
+            if [ -n "$artifact" ] && ! [[ "$artifact" =~ ^dev-[0-9]+-[0-9a-f]{12}$ ]]; then
+              echo "rollback tags must use dev-<patch>-<12-character-sha>" >&2
+              exit 1
             fi
-            if [ "$FORCE_DEPLOY" = true ]; then manual=true; fi
-            flags=()
-            [ "$conservative" = true ] && flags+=(--conservative)
-            [ "$manual" = true ] && flags+=(--manual)
-            decision=$(python3 deploy/scripts/classify-deploy-changes.py --files changed-files "${flags[@]}")
-            back=$(jq -r .back <<<"$decision")
-            nlp=$(jq -r .nlp <<<"$decision")
-            config=$(jq -r .config <<<"$decision")
-            deploy=$(jq -r .relevant <<<"$decision")
-            infra=''
-            if [ "$conservative" = false ] && git diff --unified=0 "$PUSH_BEFORE" "$GITHUB_SHA" -- docker-compose.prod.yml | grep -Eq '^[+-][[:space:]]*image:[[:space:]]*postgres:'; then infra="$infra postgres"; fi
-            if [ "$conservative" = false ] && git diff --unified=0 "$PUSH_BEFORE" "$GITHUB_SHA" -- docker-compose.prod.yml | grep -Eq '^[+-][[:space:]]*image:[[:space:]]*redis:'; then infra="$infra redis"; fi
-            if [ "$conservative" = false ] && git diff --unified=0 "$PUSH_BEFORE" "$GITHUB_SHA" -- docker-compose.prod.yml | grep -Eq '^[+-][[:space:]]*image:[[:space:]]*caddy:'; then infra="$infra caddy"; fi
-            [ -n "$infra" ] && deploy=true
-            head=$(git rev-parse origin/develop)
-            if [ "$head" != "$GITHUB_SHA" ]; then
-              echo "::notice::$GITHUB_SHA is no longer the develop head; skipping stale deploy"
-              stale=true
-            fi
+          done
+          head=$(git rev-parse origin/develop)
+          args=(--ref "$GITHUB_SHA" --head "$head")
+          [ "$FORCE_DEPLOY" = true ] && args+=(--force)
+          [ -n "$ROLLBACK_BACK" ] && args+=(--rollback-back "$ROLLBACK_BACK")
+          [ -n "$ROLLBACK_NLP" ] && args+=(--rollback-nlp "$ROLLBACK_NLP")
+          decision=$(printf '%s\n' "$APPLIED_STATE_JSON" | python3 deploy/scripts/reconcile-deploy.py "${args[@]}")
+          printf '%s\n' "$decision"
+          if [ "$(jq -r .stale <<<"$decision")" = true ]; then
+            echo "This run targets a superseded develop revision and did not deploy it. A run for the current develop head must reconcile the server." >&2
+            exit 1
           fi
+          patch=$((GITHUB_RUN_NUMBER * 1000 + GITHUB_RUN_ATTEMPT))
+          tag="dev-${patch}-${GITHUB_SHA:0:12}"
+          version="0.0.${patch}"
           {
-            echo "back=$back"
-            echo "nlp=$nlp"
-            echo "config=$config"
-            echo "infra=${infra# }"
-            echo "deploy=$deploy"
-            echo "stale=$stale"
-            echo "rollback=$rollback"
-            echo "patch=$patch"
-            echo "version=$version"
+            echo "back=$(jq -r .backend <<<"$decision")"
+            echo "nlp=$(jq -r .nlp <<<"$decision")"
+            echo "build_back=$(jq -r .build_backend <<<"$decision")"
+            echo "build_nlp=$(jq -r .build_nlp <<<"$decision")"
+            echo "config=$(jq -r .config <<<"$decision")"
+            echo "infra=$(jq -r .infra <<<"$decision")"
+            echo "deploy=$(jq -r .deploy <<<"$decision")"
+            echo "rollback=$(jq -r .rollback <<<"$decision")"
             echo "tag=$tag"
+            echo "version=$version"
+            echo "back_source_revision=$(jq -r .desired.backend <<<"$decision")"
+            echo "nlp_source_revision=$(jq -r .desired.nlp <<<"$decision")"
+            echo "config_source_revision=$(jq -r .desired.configuration <<<"$decision")"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Report no deployment needed
+        if: steps.resolve.outputs.deploy != 'true'
+        run: echo "Last verified source revisions match current develop; no deployment was attempted."
 
   build-back:
     needs: resolve
-    if: needs.resolve.outputs.back == 'true' && needs.resolve.outputs.rollback != 'true' && needs.resolve.outputs.stale != 'true'
+    if: needs.resolve.outputs.build_back == 'true'
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -179,7 +178,7 @@ jobs:
 
   build-nlp:
     needs: resolve
-    if: needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.rollback != 'true' && needs.resolve.outputs.stale != 'true'
+    if: needs.resolve.outputs.build_nlp == 'true'
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -220,13 +219,25 @@ jobs:
     needs: [resolve, build-back, build-nlp]
     if: >-
       always() && needs.resolve.result == 'success' && needs.resolve.outputs.deploy == 'true'
-      && needs.resolve.outputs.stale != 'true'
       && (needs.build-back.result == 'success' || needs.build-back.result == 'skipped')
       && (needs.build-nlp.result == 'success' || needs.build-nlp.result == 'skipped')
     runs-on: ubuntu-latest
     environment: languee-dev
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Confirm develop is still at this revision
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          head=$(git rev-parse origin/develop)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "develop advanced to $head while artifacts were building; no deployment was attempted. The current-head run will reconcile applied state." >&2
+            exit 1
+          fi
+
       - name: Copy production Compose file
         uses: appleboy/scp-action@v1.0.0
         with:
@@ -235,15 +246,17 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: docker-compose.prod.yml
           target: /opt/languee/
+
       - name: Copy deployment scripts and proxy configuration
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/sync-vault-config.py,deploy/scripts/cleanup-images.py,deploy/scripts/check-disk-health.py
+          source: deploy/caddy/Caddyfile,deploy/scripts/backup-db.sh,deploy/scripts/deploy-stack.sh,deploy/scripts/deploy-state.py,deploy/scripts/sync-vault-config.py,deploy/scripts/cleanup-images.py,deploy/scripts/check-disk-health.py
           target: /opt/languee/
           strip_components: 1
+
       - name: Copy observability provisioning
         uses: appleboy/scp-action@v1.0.0
         with:
@@ -252,6 +265,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: provision/
           target: /opt/languee/
+
       - name: Apply selected artifacts
         uses: appleboy/ssh-action@v1.2.5
         env:
@@ -268,9 +282,9 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: DEPLOY_BACK_TAG,DEPLOY_NLP_TAG,DEPLOY_ROLLBACK,DEPLOY_INFRA,DEPLOY_CONFIG,ALLOW_PERSISTENT_INFRA,VAULT_SECRET_OCID,OCI_REGION
-          script_stop: true
           script: |
-            chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh
+            set -euo pipefail
+            chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh /opt/languee/scripts/deploy-state.py
             args=()
             if [ -n "$DEPLOY_BACK_TAG" ]; then args+=(--back-tag "$DEPLOY_BACK_TAG"); fi
             if [ -n "$DEPLOY_NLP_TAG" ]; then args+=(--nlp-tag "$DEPLOY_NLP_TAG"); fi
@@ -280,6 +294,7 @@ jobs:
             for service in $DEPLOY_INFRA; do args+=(--infra "$service"); done
             if [ "$ALLOW_PERSISTENT_INFRA" = true ]; then args+=(--allow-persistent-infra); fi
             /opt/languee/scripts/deploy-stack.sh "${args[@]}"
+
       - name: Check public backend readiness
         env:
           DEPLOY_HEALTHCHECK_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
@@ -298,3 +313,63 @@ jobs:
           esac
           curl --fail --show-error --silent --max-time 15 --retry 10 --retry-delay 6 \
             --retry-all-errors "$DEPLOY_HEALTHCHECK_URL" > /dev/null
+
+      - name: Record health-verified state
+        id: record
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          RECORD_BACK_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_back_tag || needs.resolve.outputs.back == 'true' && needs.resolve.outputs.tag || '' }}
+          RECORD_NLP_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_nlp_tag || needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.tag || '' }}
+          RECORD_ROLLBACK: ${{ needs.resolve.outputs.rollback }}
+          RECORD_IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          RECORD_BACK_SOURCE: ${{ needs.resolve.outputs.rollback == 'true' && '' || needs.resolve.outputs.back == 'true' && needs.resolve.outputs.back_source_revision || '' }}
+          RECORD_NLP_SOURCE: ${{ needs.resolve.outputs.rollback == 'true' && '' || needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.nlp_source_revision || '' }}
+          RECORD_CONFIG_SOURCE: ${{ needs.resolve.outputs.config == 'true' && needs.resolve.outputs.config_source_revision || '' }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          capture_stdout: true
+          envs: RECORD_BACK_TAG,RECORD_NLP_TAG,RECORD_ROLLBACK,RECORD_IMAGE_PREFIX,RECORD_BACK_SOURCE,RECORD_NLP_SOURCE,RECORD_CONFIG_SOURCE
+          script: |
+            set -euo pipefail
+            args=(record --app-dir /opt/languee --image-prefix "$RECORD_IMAGE_PREFIX")
+            if [ -n "$RECORD_BACK_TAG" ]; then args+=(--backend-tag "$RECORD_BACK_TAG" --backend-source-revision "$RECORD_BACK_SOURCE"); fi
+            if [ -n "$RECORD_NLP_TAG" ]; then args+=(--nlp-tag "$RECORD_NLP_TAG" --nlp-source-revision "$RECORD_NLP_SOURCE"); fi
+            if [ -n "$RECORD_CONFIG_SOURCE" ]; then args+=(--configuration-source-revision "$RECORD_CONFIG_SOURCE"); fi
+            if [ "$RECORD_ROLLBACK" = true ]; then args+=(--rollback); fi
+            python3 /opt/languee/scripts/deploy-state.py "${args[@]}"
+
+      - name: Summarize verified deployment
+        if: success() && needs.resolve.outputs.deploy == 'true'
+        env:
+          VERIFIED_STATE_JSON: ${{ steps.record.outputs.stdout }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## Deployment completed'
+            echo
+            echo 'Host and public readiness checks passed, and the applied state write completed.'
+            echo
+            echo '| Component | Last verified source revision | Image tag | Artifact source revision |'
+            echo '| --- | --- | --- | --- |'
+            printf '| Backend | %s | %s | %s |\n' \
+              "$(jq -r .state.components.backend.source_revision <<<"$VERIFIED_STATE_JSON")" \
+              "$(jq -r .state.components.backend.image_tag <<<"$VERIFIED_STATE_JSON")" \
+              "$(jq -r .state.components.backend.artifact_revision <<<"$VERIFIED_STATE_JSON")"
+            printf '| NLP | %s | %s | %s |\n' \
+              "$(jq -r .state.components.nlp.source_revision <<<"$VERIFIED_STATE_JSON")" \
+              "$(jq -r .state.components.nlp.image_tag <<<"$VERIFIED_STATE_JSON")" \
+              "$(jq -r .state.components.nlp.artifact_revision <<<"$VERIFIED_STATE_JSON")"
+            printf '| Configuration | %s | — | — |\n' \
+              "$(jq -r .state.configuration.source_revision <<<"$VERIFIED_STATE_JSON")"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize failed deployment
+        if: failure()
+        run: |
+          {
+            echo '## Deployment failed'
+            echo
+            echo 'This run did not complete its full verification and state-record sequence. Inspect the failed step. The last verified source state remains authoritative; the next develop run will reconcile any unrecorded component revisions.'
+          } >> "$GITHUB_STEP_SUMMARY"

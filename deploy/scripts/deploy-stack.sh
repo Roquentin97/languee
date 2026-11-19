@@ -127,8 +127,39 @@ if [ "$(vault_sync --status)" != "$state_before" ]; then changed=true; fi
 back_container_before=$(docker compose ps -q languee-back 2>/dev/null || true)
 nlp_container_before=$(docker compose ps -q languee-nlp 2>/dev/null || true)
 
-# No blanket compose pull: normal app deploys cannot advance infrastructure.
-docker compose up -d --wait postgres redis
+# Resolve the desired pinned images from the uploaded Compose file. Existing
+# persistent services never advance implicitly; an image mismatch requires an
+# explicit backup/compatibility confirmation before it can be pulled.
+compose_config=$(docker compose config --format json)
+for service in postgres redis; do
+  expected_image=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["services"][sys.argv[2]]["image"])' "$compose_config" "$service")
+  containers=$(docker compose ps -aq "$service" 2>/dev/null || true)
+  container=${containers%%$'\n'*}
+  actual_image=
+  if [ -n "$container" ]; then
+    actual_image=$(docker inspect --format '{{.Config.Image}}' "$container")
+  else
+    volumes=$(docker volume ls -q --filter "label=com.docker.compose.volume=${service}_data" || true)
+    volume=${volumes%%$'\n'*}
+    if [ -n "$volume" ]; then actual_image=unknown; fi
+  fi
+  if [ -n "$actual_image" ] && [ "$actual_image" != "$expected_image" ]; then
+    if [ "$allow_persistent_infra" != true ]; then
+      echo "$service image differs from the pinned Compose image; confirm a verified backup and compatibility review before updating it" >&2
+      exit 2
+    fi
+    case " ${infra_services[*]} " in
+      *" $service "*) ;;
+      *) infra_services+=("$service") ;;
+    esac
+    echo "persistent infrastructure update approved: $service ($actual_image -> $expected_image)"
+  fi
+done
+
+# --no-recreate starts first-install or stopped dependencies but protects
+# existing persistent databases from Compose-file changes outside the explicit
+# maintenance path below.
+docker compose up -d --no-recreate --wait postgres redis
 
 # Monitoring is deliberately non-blocking: API availability, migrations, and
 # rollback must not depend on an optional telemetry service being healthy.
@@ -149,21 +180,33 @@ for service in "${infra_services[@]}"; do
   if [ "$service" = postgres ] || [ "$service" = redis ]; then affected+=(languee-back); fi
 done
 
-if [ -n "$back_tag" ] && [ "$rollback" != true ]; then docker compose run --rm migrate; fi
-if [ -n "$back_tag" ]; then affected+=(languee-back); fi
-if [ -n "$nlp_tag" ]; then affected+=(languee-nlp); fi
+# Resolve environment changes before sequencing application updates. The backend
+# depends on NLP, so a selected NLP artifact is made healthy and version-checked
+# before backend migrations or recreation begin.
+env_changed=false
+if ! grep -q 'updated: no env changes' <<<"$sync_result"; then env_changed=true; fi
+update_nlp=false
+update_backend=false
+if [ -n "$nlp_tag" ] || [ "$env_changed" = true ]; then update_nlp=true; fi
+if [ -n "$back_tag" ] || [ "$env_changed" = true ]; then update_backend=true; fi
 
-# A config-only no-op retains running containers. Any changed Vault-rendered
-# app env is applied explicitly; secrets cannot be inferred safely by paths.
-if [ "$preserve_tags" = true ] && ! grep -q 'updated: no env changes' <<<"$sync_result"; then
-  affected+=(languee-back languee-nlp)
+if [ "$update_nlp" = true ]; then
+  if [[ " ${affected[*]} " != *" languee-nlp "* ]]; then affected+=(languee-nlp); fi
+  docker compose up -d --force-recreate --no-deps --wait languee-nlp
+else
+  echo "NLP unchanged; retaining its last verified artifact"
+fi
+if [ -n "$nlp_tag" ]; then
+  docker compose exec -T -e EXPECTED_VERSION="$nlp_version" -e EXPECTED_COMMIT="$nlp_revision" languee-nlp python -c \
+    "import json, os, urllib.request; value=json.load(urllib.request.urlopen('http://localhost:8000/version', timeout=10)); assert value == {'version': os.environ['EXPECTED_VERSION'], 'commit': os.environ['EXPECTED_COMMIT']}, value"
 fi
 
-if [ "${#affected[@]}" -gt 0 ]; then
-  mapfile -t affected < <(printf '%s\n' "${affected[@]}" | awk '!seen[$0]++')
-  docker compose up -d --force-recreate --no-deps --wait "${affected[@]}"
+if [ -n "$back_tag" ] && [ "$rollback" != true ]; then docker compose run --rm migrate; fi
+if [ "$update_backend" = true ] || [[ " ${affected[*]} " == *" languee-back "* ]]; then
+  if [[ " ${affected[*]} " != *" languee-back "* ]]; then affected+=(languee-back); fi
+  docker compose up -d --force-recreate --no-deps --wait languee-back
 else
-  echo "no application container changes"
+  echo "backend unchanged; retaining its last verified artifact"
 fi
 
 # Start Caddy on a first deployment without disturbing it in ordinary app
@@ -172,7 +215,7 @@ if [ "$config_changed" = true ]; then
   affected+=(caddy)
   docker compose up -d --force-recreate --no-deps --wait caddy
 else
-  docker compose up -d --wait caddy
+  docker compose up -d --no-deps --wait caddy
 fi
 
 domain=$(grep '^DOMAIN=' .env | cut -d= -f2-)
@@ -184,11 +227,6 @@ if [ -n "$back_tag" ]; then
     BACK_VERSION="$back_version" BACK_REVISION="$back_revision" \
     python3 -c 'import json, os, sys; value=json.load(sys.stdin); assert value == {"version": os.environ["BACK_VERSION"], "commit": os.environ["BACK_REVISION"]}, value'
 fi
-if [ -n "$nlp_tag" ]; then
-  docker compose exec -T -e EXPECTED_VERSION="$nlp_version" -e EXPECTED_COMMIT="$nlp_revision" languee-nlp python -c \
-    "import json, os, urllib.request; value=json.load(urllib.request.urlopen('http://localhost:8000/version', timeout=10)); assert value == {'version': os.environ['EXPECTED_VERSION'], 'commit': os.environ['EXPECTED_COMMIT']}, value"
-fi
-
 if [ "$config_changed" != true ] && [ "${#infra_services[@]}" -eq 0 ]; then
   if [ -z "$back_tag" ] && [ "$back_container_before" != "$(docker compose ps -q languee-back 2>/dev/null || true)" ]; then
     echo "unchanged backend container was recreated" >&2
