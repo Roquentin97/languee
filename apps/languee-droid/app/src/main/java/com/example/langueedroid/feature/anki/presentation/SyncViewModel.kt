@@ -10,10 +10,16 @@ import com.example.langueedroid.core.data.AnkiDroidPreferencesStore
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.domain.Card
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.remoteFailureKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,6 +33,22 @@ sealed class SyncUiState {
         val syncedCount: Int,
         val failedWords: List<String>,
     ) : SyncUiState()
+
+    data class Failure(
+        val failureKind: RemoteFailureKind,
+    ) : SyncUiState()
+
+    object SetupRequired : SyncUiState()
+}
+
+private sealed class SyncCardOutcome {
+    object Succeeded : SyncCardOutcome()
+
+    data class Failed(
+        val word: String,
+    ) : SyncCardOutcome()
+
+    object Unauthorized : SyncCardOutcome()
 }
 
 @HiltViewModel
@@ -42,6 +64,9 @@ class SyncViewModel
         private val _uiState = MutableStateFlow<SyncUiState>(SyncUiState.Idle)
         val uiState: StateFlow<SyncUiState> = _uiState.asStateFlow()
 
+        private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
+
         private var syncJob: Job? = null
 
         fun sync() {
@@ -51,9 +76,10 @@ class SyncViewModel
                 viewModelScope.launch {
                     _uiState.value = SyncUiState.Syncing
 
+                    val pendingResult = exportRepository.getCardsWithPendingExport()
                     val cardIds =
-                        exportRepository.getCardsWithPendingExport().getOrElse {
-                            _uiState.value = SyncUiState.Result(syncedCount = 0, failedWords = emptyList())
+                        pendingResult.getOrElse { error ->
+                            reportFailure(error)
                             return@launch
                         }
                     if (cardIds.isEmpty()) {
@@ -63,16 +89,18 @@ class SyncViewModel
 
                     val setupResult = exportService.checkSetup(prefsStore)
                     if (!setupResult.isReady) {
-                        _uiState.value = SyncUiState.Result(syncedCount = 0, failedWords = cardIds)
+                        _uiState.value = SyncUiState.SetupRequired
                         return@launch
                     }
 
                     val prefs = prefsStore.read()
-                    val deckNamesById =
-                        deckRepository
-                            .getDecks()
-                            .getOrDefault(emptyList())
-                            .associate { it.id to it.name }
+                    val decksResult = deckRepository.getDecks()
+                    val decks =
+                        decksResult.getOrElse { error ->
+                            reportFailure(error)
+                            return@launch
+                        }
+                    val deckNamesById = decks.associate { it.id to it.name }
 
                     _uiState.value = syncCards(cardIds, deckNamesById, prefs.noteTypeName)
                 }
@@ -82,65 +110,80 @@ class SyncViewModel
             cardIds: List<String>,
             deckNamesById: Map<String, String>,
             noteTypeName: String,
-        ): SyncUiState.Result {
+        ): SyncUiState {
             var syncedCount = 0
             val failedWords = mutableListOf<String>()
 
             for (cardId in cardIds) {
-                val card = cardRepository.getCard(cardId).getOrNull()
-                if (card == null) {
-                    failedWords.add(cardId)
-                    continue
+                when (val outcome = syncCard(cardId, deckNamesById, noteTypeName)) {
+                    SyncCardOutcome.Succeeded -> syncedCount++
+                    is SyncCardOutcome.Failed -> failedWords.add(outcome.word)
+                    SyncCardOutcome.Unauthorized -> return SyncUiState.Failure(RemoteFailureKind.UNEXPECTED)
                 }
-
-                val deckName = deckNamesById[card.deckId]
-                if (deckName == null) {
-                    failedWords.add(card.lemma)
-                    continue
-                }
-
-                val exportRecord = exportRepository.createOrGetExportRecord(cardId).getOrNull()
-                if (exportRecord == null) {
-                    failedWords.add(card.lemma)
-                    continue
-                }
-
-                val fields = buildFields(cardId, card)
-
-                val noteResult =
-                    exportService.exportNote(
-                        noteTypeName = noteTypeName,
-                        deckName = deckName,
-                        fields = fields,
-                        cardId = cardId,
-                    )
-
-                noteResult.fold(
-                    onSuccess = { result ->
-                        exportRepository.recordAttemptCompleted(
-                            exportId = exportRecord.id,
-                            ankiNoteId = result.noteId,
-                            ankiDeckId = result.deckId,
-                            ankiDeckNameSnapshot = deckName,
-                            ankiModelId = result.modelId,
-                            ankiModelNameSnapshot = noteTypeName,
-                            templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
-                        )
-                        syncedCount++
-                    },
-                    onFailure = { error ->
-                        exportRepository.recordAttemptFailed(
-                            exportId = exportRecord.id,
-                            failureReason = error.javaClass.simpleName,
-                            failureMessage = error.message ?: "",
-                        )
-                        failedWords.add(card.lemma)
-                    },
-                )
             }
 
             return SyncUiState.Result(syncedCount = syncedCount, failedWords = failedWords)
         }
+
+        private suspend fun syncCard(
+            cardId: String,
+            deckNamesById: Map<String, String>,
+            noteTypeName: String,
+        ): SyncCardOutcome {
+            val cardResult = cardRepository.getCard(cardId)
+            val card = cardResult.getOrNull() ?: return failureFor(cardResult.exceptionOrNull(), cardId)
+            val deckName = deckNamesById[card.deckId] ?: return SyncCardOutcome.Failed(card.lemma)
+            val exportRecordResult = exportRepository.createOrGetExportRecord(cardId)
+            val exportRecord = exportRecordResult.getOrNull() ?: return failureFor(exportRecordResult.exceptionOrNull(), card.lemma)
+            val noteResult =
+                exportService.exportNote(
+                    noteTypeName = noteTypeName,
+                    deckName = deckName,
+                    fields = buildFields(cardId, card),
+                    cardId = cardId,
+                )
+            val note = noteResult.getOrNull() ?: return recordExportFailure(exportRecord.id, card.lemma, noteResult.exceptionOrNull())
+            val completedResult =
+                exportRepository.recordAttemptCompleted(
+                    exportId = exportRecord.id,
+                    ankiNoteId = note.noteId,
+                    ankiDeckId = note.deckId,
+                    ankiDeckNameSnapshot = deckName,
+                    ankiModelId = note.modelId,
+                    ankiModelNameSnapshot = noteTypeName,
+                    templateVersion = NoteTypeTemplates.TEMPLATE_VERSION,
+                )
+            return completedResult.fold(
+                onSuccess = { SyncCardOutcome.Succeeded },
+                onFailure = { error -> failureFor(error, card.lemma) },
+            )
+        }
+
+        private suspend fun recordExportFailure(
+            exportId: String,
+            word: String,
+            error: Throwable?,
+        ): SyncCardOutcome {
+            if (error != null) {
+                exportRepository.recordAttemptFailed(
+                    exportId = exportId,
+                    failureReason = error.javaClass.simpleName,
+                    failureMessage = error.message ?: "",
+                )
+            }
+            return failureFor(error, word)
+        }
+
+        private fun failureFor(
+            error: Throwable?,
+            word: String,
+        ): SyncCardOutcome =
+            if (error is UnauthorizedException) {
+                _unauthorizedEvent.tryEmit(Unit)
+                SyncCardOutcome.Unauthorized
+            } else {
+                SyncCardOutcome.Failed(word)
+            }
 
         private fun buildFields(
             cardId: String,
@@ -158,5 +201,10 @@ class SyncViewModel
 
         fun dismissResult() {
             _uiState.value = SyncUiState.Idle
+        }
+
+        private fun reportFailure(error: Throwable) {
+            if (error is UnauthorizedException) _unauthorizedEvent.tryEmit(Unit)
+            _uiState.value = SyncUiState.Failure(error.remoteFailureKind())
         }
     }

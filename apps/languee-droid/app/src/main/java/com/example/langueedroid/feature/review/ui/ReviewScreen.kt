@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,8 +54,8 @@ import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.core.ui.components.SpeakerIconButton
-import com.example.langueedroid.core.ui.theme.AmberWarning
 import com.example.langueedroid.core.ui.theme.GreenBorder
 import com.example.langueedroid.core.ui.theme.GreenContainer
 import com.example.langueedroid.core.ui.theme.GreenPrimary
@@ -111,8 +112,9 @@ fun ReviewScreen(
 
                 is ReviewSessionState.Error -> {
                     ErrorContent(
-                        type = state.type,
+                        error = state,
                         onRetry = onRetry,
+                        onDone = onDone,
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
@@ -198,39 +200,70 @@ private fun ReviewChip(
 
 @Composable
 private fun ErrorContent(
-    type: ReviewError,
+    error: ReviewSessionState.Error,
     onRetry: () -> Unit,
+    onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val message =
-        stringResource(
-            when (type) {
-                ReviewError.LOAD_FAILED -> R.string.error_review_load_failed
-                ReviewError.SUBMIT_FAILED -> R.string.error_review_submit_failed
-                ReviewError.GRADE_FAILED -> R.string.error_review_grade_failed
-            },
-        )
+    val message = stringResource(error.toMessageRes())
     Column(
         modifier = modifier.padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = AmberWarning,
-        )
-        Button(
-            onClick = onRetry,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-        ) {
-            Text(
-                text = stringResource(R.string.review_retry_button),
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White,
-            )
+        ErrorMessage(text = message, style = MaterialTheme.typography.bodyMedium)
+        if (error.retryAction != null) {
+            Button(
+                onClick = onRetry,
+                enabled = !error.retryInProgress,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (error.retryInProgress) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    Text(
+                        text =
+                            stringResource(
+                                if (error.retryInProgress) R.string.review_retrying else R.string.review_retry_button,
+                            ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                    )
+                }
+            }
+        } else {
+            Button(
+                onClick = onDone,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+            ) {
+                Text(stringResource(R.string.review_done_button), color = Color.White)
+            }
         }
+    }
+}
+
+private fun ReviewSessionState.Error.toMessageRes(): Int {
+    if (type == ReviewError.GRADE_FAILED) return R.string.error_review_grade_uncertain
+    return when (failureKind) {
+        com.example.langueedroid.core.domain.RemoteFailureKind.CONNECTION -> R.string.error_connection
+        com.example.langueedroid.core.domain.RemoteFailureKind.RATE_LIMITED -> R.string.error_rate_limited
+        com.example.langueedroid.core.domain.RemoteFailureKind.SERVICE_UNAVAILABLE -> R.string.error_service_unavailable
+        com.example.langueedroid.core.domain.RemoteFailureKind.NOT_FOUND -> R.string.error_review_card_missing
+        com.example.langueedroid.core.domain.RemoteFailureKind.FORBIDDEN -> R.string.error_forbidden
+        com.example.langueedroid.core.domain.RemoteFailureKind.BAD_REQUEST -> R.string.error_request_rejected
+        else ->
+            when (type) {
+                ReviewError.LOAD_FAILED -> R.string.error_review_load_failed
+                ReviewError.SUBMIT_FAILED -> R.string.error_review_submit_failed
+                ReviewError.GRADE_FAILED -> R.string.error_review_grade_uncertain
+            }
     }
 }
 

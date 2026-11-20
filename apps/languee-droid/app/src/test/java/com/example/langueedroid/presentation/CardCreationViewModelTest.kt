@@ -443,15 +443,27 @@ class CardCreationViewModelTest {
     fun `vocabulary lookup LookupInputInvalidException — LookupError with LOOKUP_INPUT_INVALID`() =
         runTest {
             stubDecks(aDeck())
+            val context = "She studies state-of-the-art systems."
             whenever(vocabularyRepository.lookup(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
                 .thenReturn(Result.failure(LookupInputInvalidException()))
 
-            val vm = buildViewModel(targetWord = "state-of-the-art")
+            val vm = buildViewModel(targetWord = "state-of-the-art", context = context)
             advanceUntilIdle()
 
             val flowState = vm.state.value.flowState
             assertTrue(flowState is CardCreationFlowState.LookupError)
             assertEquals(CardCreationError.LOOKUP_INPUT_INVALID, (flowState as CardCreationFlowState.LookupError).type)
+            assertEquals("state-of-the-art", vm.state.value.targetWord)
+            assertEquals(context, vm.state.value.context)
+            vm.retryLookup()
+            advanceUntilIdle()
+            verify(vocabularyRepository, times(1)).lookup(
+                "state-of-the-art",
+                "en",
+                context,
+                emptyList(),
+                true,
+            )
         }
 
     // -------------------------------------------------------------------------

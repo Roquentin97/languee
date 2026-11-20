@@ -13,6 +13,8 @@ import com.example.langueedroid.core.domain.AnkiExportStatus
 import com.example.langueedroid.core.domain.Card
 import com.example.langueedroid.core.domain.Deck
 import com.example.langueedroid.core.domain.ExportPreference
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.feature.anki.presentation.SyncUiState
 import com.example.langueedroid.feature.anki.presentation.SyncViewModel
 import kotlinx.coroutines.Dispatchers
@@ -145,32 +147,28 @@ class SyncViewModelTest {
         }
 
     // -------------------------------------------------------------------------
-    // sync — getCardsWithPendingExport fails → empty result, no crash
+    // sync — getCardsWithPendingExport fails → visible failure, never false up-to-date
     // -------------------------------------------------------------------------
 
     @Test
-    fun `sync when fetching pending cards fails reports empty result`() =
+    fun `sync when fetching pending cards fails reports actionable failure`() =
         runTest {
             whenever(exportRepository.getCardsWithPendingExport())
-                .thenReturn(Result.failure(RuntimeException("no network")))
+                .thenReturn(Result.failure(RemoteOperationFailureException(RemoteFailureKind.SERVICE_UNAVAILABLE, 503)))
 
             val vm = buildViewModel()
             vm.sync()
             advanceUntilIdle()
 
-            val state = vm.uiState.value
-            assertTrue(state is SyncUiState.Result)
-            state as SyncUiState.Result
-            assertEquals(0, state.syncedCount)
-            assertTrue(state.failedWords.isEmpty())
+            assertEquals(SyncUiState.Failure(RemoteFailureKind.SERVICE_UNAVAILABLE), vm.uiState.value)
         }
 
     // -------------------------------------------------------------------------
-    // sync — setup not ready → all pending cards reported as failed by id
+    // sync — setup not ready → actionable setup state
     // -------------------------------------------------------------------------
 
     @Test
-    fun `sync when setup not ready reports all pending cards as failed`() =
+    fun `sync when setup not ready asks user to configure AnkiDroid`() =
         runTest {
             whenever(exportRepository.getCardsWithPendingExport())
                 .thenReturn(Result.success(listOf("c1", "c2")))
@@ -180,11 +178,7 @@ class SyncViewModelTest {
             vm.sync()
             advanceUntilIdle()
 
-            val state = vm.uiState.value
-            assertTrue(state is SyncUiState.Result)
-            state as SyncUiState.Result
-            assertEquals(0, state.syncedCount)
-            assertEquals(listOf("c1", "c2"), state.failedWords)
+            assertEquals(SyncUiState.SetupRequired, vm.uiState.value)
         }
 
     // -------------------------------------------------------------------------

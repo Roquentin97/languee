@@ -2,6 +2,7 @@ package com.example.langueedroid.presentation
 
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.domain.Card
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.feature.decks.presentation.DeckDetailState
 import com.example.langueedroid.feature.decks.presentation.DeckDetailViewModel
@@ -90,7 +91,7 @@ class DeckDetailViewModelTest {
             val vm = buildViewModel()
             advanceUntilIdle()
 
-            assertEquals(DeckDetailState.Error, vm.state.value)
+            assertEquals(DeckDetailState.Error(RemoteFailureKind.UNEXPECTED), vm.state.value)
         }
 
     @Test
@@ -101,7 +102,7 @@ class DeckDetailViewModelTest {
             )
             val vm = buildViewModel()
             advanceUntilIdle()
-            assertEquals(DeckDetailState.Error, vm.state.value)
+            assertEquals(DeckDetailState.Error(RemoteFailureKind.UNEXPECTED), vm.state.value)
 
             whenever(cardRepository.listCards("d1")).thenReturn(Result.success(listOf(aCard())))
             vm.loadCards()

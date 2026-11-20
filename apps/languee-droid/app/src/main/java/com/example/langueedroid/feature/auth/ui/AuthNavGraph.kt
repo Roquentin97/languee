@@ -14,16 +14,21 @@ import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.feature.auth.presentation.LoginViewModel
 import com.example.langueedroid.feature.auth.presentation.RegisterViewModel
 
+enum class AuthEntryNotice { SESSION_EXPIRED, REFRESH_UNAVAILABLE }
+
 @Composable
 fun AuthNavGraph(
     onAuthSuccess: (AuthSession) -> Unit,
     modifier: Modifier = Modifier,
+    startAtLogin: Boolean = false,
+    notice: AuthEntryNotice? = null,
+    requiredUserId: String? = null,
 ) {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = AuthNavRoutes.LANDING,
+        startDestination = if (startAtLogin) AuthNavRoutes.LOGIN else AuthNavRoutes.LANDING,
         modifier = modifier,
     ) {
         composable(AuthNavRoutes.LANDING) {
@@ -34,7 +39,14 @@ fun AuthNavGraph(
         }
 
         composable(AuthNavRoutes.LOGIN) {
-            LoginRoute(navController, onAuthSuccess)
+            LoginRoute(
+                navController = navController,
+                onAuthSuccess = onAuthSuccess,
+                showBackButton = !startAtLogin,
+                showRegisterPrompt = !startAtLogin,
+                notice = notice,
+                requiredUserId = requiredUserId,
+            )
         }
 
         composable(AuthNavRoutes.REGISTER) {
@@ -69,6 +81,10 @@ fun AuthNavGraph(
 private fun LoginRoute(
     navController: NavHostController,
     onAuthSuccess: (AuthSession) -> Unit,
+    showBackButton: Boolean,
+    showRegisterPrompt: Boolean,
+    notice: AuthEntryNotice?,
+    requiredUserId: String?,
 ) {
     val loginViewModel: LoginViewModel = hiltViewModel()
     val uiState by loginViewModel.uiState.collectAsState()
@@ -87,12 +103,15 @@ private fun LoginRoute(
         password = password,
         onEmailChange = { loginViewModel.onEmailChange(it) },
         onPasswordChange = { loginViewModel.onPasswordChange(it) },
-        onLoginClick = { loginViewModel.onLoginClick() },
+        onLoginClick = { loginViewModel.onLoginClick(requiredUserId) },
         onNavigateBack = {
             navController.navigate(AuthNavRoutes.LANDING) {
                 popUpTo(AuthNavRoutes.LANDING) { inclusive = false }
             }
         },
         onNavigateToRegister = { navController.navigate(AuthNavRoutes.REGISTER) },
+        showBackButton = showBackButton,
+        showRegisterPrompt = showRegisterPrompt,
+        notice = notice,
     )
 }

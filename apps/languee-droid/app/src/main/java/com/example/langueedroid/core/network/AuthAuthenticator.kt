@@ -2,11 +2,14 @@ package com.example.langueedroid.core.network
 
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.UnauthorizedException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
+import java.io.IOException
 
 class AuthAuthenticator(
     private val sessionStore: AuthSessionStore,
@@ -45,8 +48,12 @@ class AuthAuthenticator(
         val refreshResult = runBlocking { repositoryProvider().refreshSession() }
         val newSession =
             refreshResult.getOrNull() ?: run {
-                sessionStore.clear()
-                return null
+                val error = refreshResult.exceptionOrNull()
+                when (error) {
+                    is UnauthorizedException -> return null
+                    is CancellationException -> throw error
+                    else -> throw IOException("Session refresh could not be completed", error)
+                }
             }
 
         return response.request

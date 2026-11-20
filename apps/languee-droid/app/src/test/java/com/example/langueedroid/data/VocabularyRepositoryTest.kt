@@ -5,6 +5,8 @@ import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.ExpressionLimits
 import com.example.langueedroid.core.domain.ExpressionTooLongException
 import com.example.langueedroid.core.domain.LookupInputInvalidException
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.domain.VocabularyNotFoundException
@@ -109,16 +111,28 @@ class VocabularyRepositoryTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `lookup 404 returns failure with message containing 404`() =
+    fun `lookup verified dictionary miss maps to VocabularyNotFoundException`() =
         runTest {
             whenever(vocabularyApi.lookup(any()))
-                .thenReturn(Response.error(404, "{}".toResponseBody()))
+                .thenReturn(Response.error(404, """{"message":"DEFINITIONS_NOT_FOUND"}""".toResponseBody()))
 
             val result = repository.lookup(text = "cat")
 
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull() is VocabularyNotFoundException)
-            assertTrue(result.exceptionOrNull()?.message?.contains("404") == true)
+        }
+
+    @Test
+    fun `lookup route-level 404 stays a service failure`() =
+        runTest {
+            whenever(vocabularyApi.lookup(any())).thenReturn(
+                Response.error(404, """{"message":"Cannot POST /api/v1/vocabulary/lookup"}""".toResponseBody()),
+            )
+
+            val result = repository.lookup(text = "cat")
+
+            assertTrue(result.isFailure)
+            assertEquals(RemoteFailureKind.NOT_FOUND, (result.exceptionOrNull() as RemoteOperationFailureException).kind)
         }
 
     // -------------------------------------------------------------------------
@@ -134,7 +148,7 @@ class VocabularyRepositoryTest {
             val result = repository.lookup(text = "some words")
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("422") == true)
+            assertEquals(422, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------
@@ -150,7 +164,7 @@ class VocabularyRepositoryTest {
             val result = repository.lookup(text = "cat")
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("502") == true)
+            assertEquals(502, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------
@@ -309,7 +323,7 @@ class VocabularyRepositoryTest {
     fun `createUserDefinition 409 throws DefinitionAlreadyExistsException`() =
         runTest {
             whenever(vocabularyApi.createUserDefinition(any()))
-                .thenReturn(Response.error(409, "{}".toResponseBody()))
+                .thenReturn(Response.error(409, """{"message":"DEFINITION_ALREADY_EXISTS"}""".toResponseBody()))
 
             val result =
                 repository.createUserDefinition(
@@ -346,10 +360,10 @@ class VocabularyRepositoryTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `createUserDefinition 400 returns failure with message containing 400`() =
+    fun `createUserDefinition 400 maps verified input error safely`() =
         runTest {
             whenever(vocabularyApi.createUserDefinition(any()))
-                .thenReturn(Response.error(400, "{}".toResponseBody()))
+                .thenReturn(Response.error(400, """{"message":"INPUT_INVALID"}""".toResponseBody()))
 
             val result =
                 repository.createUserDefinition(
@@ -358,7 +372,7 @@ class VocabularyRepositoryTest {
                 )
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("400") == true)
+            assertTrue(result.exceptionOrNull() is LookupInputInvalidException)
         }
 
     // -------------------------------------------------------------------------

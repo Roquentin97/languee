@@ -2,6 +2,7 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.AnkiDroidExportRepository
 import com.example.langueedroid.core.domain.AnkiExportStatus
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AnkiDroidExportApi
@@ -119,7 +120,7 @@ class AnkiDroidExportRepositoryTest {
     fun `createOrGetExportRecord 404 throws StaleReferenceException`() =
         runTest {
             whenever(api.createOrGetExport(any())).thenReturn(
-                Response.error(404, "{}".toResponseBody()),
+                Response.error(404, """{"message":"CARD_NOT_FOUND"}""".toResponseBody()),
             )
 
             val result = repository.createOrGetExportRecord("card-1")
@@ -142,7 +143,7 @@ class AnkiDroidExportRepositoryTest {
             val result = repository.createOrGetExportRecord("card-1")
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("500") == true)
+            assertEquals(500, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------
@@ -273,7 +274,7 @@ class AnkiDroidExportRepositoryTest {
                 )
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("500") == true)
+            assertEquals(500, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------
@@ -383,7 +384,7 @@ class AnkiDroidExportRepositoryTest {
             val result = repository.getCardsWithPendingExport()
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("500") == true)
+            assertEquals(500, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------

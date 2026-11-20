@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.domain.UnauthorizedException
+import com.example.langueedroid.core.domain.remoteFailureKind
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -54,7 +55,7 @@ class DeckDetailViewModel
                         if (error is UnauthorizedException) {
                             _unauthorizedEvent.tryEmit(Unit)
                         } else {
-                            _state.value = DeckDetailState.Error
+                            _state.value = DeckDetailState.Error(error.remoteFailureKind())
                         }
                     },
                 )

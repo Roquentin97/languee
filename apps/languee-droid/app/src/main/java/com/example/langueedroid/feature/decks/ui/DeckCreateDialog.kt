@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.feature.anki.ui.AnkiDroidDeckSelectorContent
 import com.languee.droid.R
 
@@ -37,6 +38,8 @@ fun DeckCreateDialog(
     availableAnkiDecks: List<Pair<Long, String>>? = null,
     isLoadingAnkiDecks: Boolean = false,
     onLoadAnkiDecks: () -> Unit = {},
+    errorMessage: String? = null,
+    isSubmitting: Boolean = false,
 ) {
     var mode by rememberSaveable { mutableStateOf(DeckCreateMode.CreateNew) }
     var subDeckName by rememberSaveable { mutableStateOf("") }
@@ -76,11 +79,12 @@ fun DeckCreateDialog(
                         )
                     }
                 }
+                errorMessage?.let { ErrorMessage(it) }
             }
         },
         confirmButton = {
             if (mode == DeckCreateMode.CreateNew) {
-                TextButton(onClick = { onConfirm(buildDeckName(subDeckName)) }) {
+                TextButton(onClick = { onConfirm(buildDeckName(subDeckName)) }, enabled = !isSubmitting) {
                     Text(stringResource(R.string.deck_create_confirm_button))
                 }
             }

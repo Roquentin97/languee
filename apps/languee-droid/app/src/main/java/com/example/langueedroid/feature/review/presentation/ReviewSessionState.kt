@@ -1,9 +1,12 @@
 package com.example.langueedroid.feature.review.presentation
 
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewItem
 
 enum class ReviewError { LOAD_FAILED, SUBMIT_FAILED, GRADE_FAILED }
+
+enum class ReviewRetryAction { LOAD_QUEUE, SUBMIT_TEXT, SUBMIT_FORMS, REVEAL_DEFINITION }
 
 sealed class QuestionFeedback {
     object None : QuestionFeedback()
@@ -48,5 +51,9 @@ sealed class ReviewSessionState {
 
     data class Error(
         val type: ReviewError,
+        val failureKind: RemoteFailureKind? = null,
+        val retryAction: ReviewRetryAction? = null,
+        val previousQuestion: Question? = null,
+        val retryInProgress: Boolean = false,
     ) : ReviewSessionState()
 }

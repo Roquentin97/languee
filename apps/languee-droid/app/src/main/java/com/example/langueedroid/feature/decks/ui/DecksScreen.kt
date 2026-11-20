@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -55,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.core.ui.theme.AmberContainer
 import com.example.langueedroid.core.ui.theme.AmberWarning
 import com.example.langueedroid.core.ui.theme.GreenContainer
@@ -74,7 +76,7 @@ fun DecksScreen(
     state: DecksScreenState,
     onDeckClick: (Deck) -> Unit,
     onDeckBrowseClick: (Deck) -> Unit,
-    onCreateDeck: (name: String) -> Unit,
+    onCreateDeck: (name: String, onCreated: () -> Unit) -> Unit,
     onLogout: () -> Unit,
     logoutInProgress: Boolean,
     modifier: Modifier = Modifier,
@@ -90,6 +92,9 @@ fun DecksScreen(
     onOfflineStripClick: (() -> Unit)? = null,
     onAddWord: () -> Unit = {},
     onCaptureText: () -> Unit = {},
+    onRetryLoadDecks: () -> Unit = {},
+    createError: DecksError? = null,
+    isCreatingDeck: Boolean = false,
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -116,20 +121,26 @@ fun DecksScreen(
                     onClick = onOfflineStripClick,
                 )
             }
-            DecksScreenBody(state = state, onDeckClick = onDeckClick, onDeckBrowseClick = onDeckBrowseClick)
+            DecksScreenBody(
+                state = state,
+                onDeckClick = onDeckClick,
+                onDeckBrowseClick = onDeckBrowseClick,
+                onRetryLoadDecks = onRetryLoadDecks,
+            )
         }
     }
 
     if (showCreateDialog) {
         DeckCreateDialog(
             onConfirm = { name ->
-                onCreateDeck(name)
-                showCreateDialog = false
+                onCreateDeck(name) { showCreateDialog = false }
             },
             onDismiss = { showCreateDialog = false },
             availableAnkiDecks = availableAnkiDecks,
             isLoadingAnkiDecks = isLoadingAnkiDecks,
             onLoadAnkiDecks = onLoadAnkiDecks,
+            errorMessage = createError?.toErrorMessage()?.let { stringResource(it) },
+            isSubmitting = isCreatingDeck,
         )
     }
 }
@@ -313,6 +324,7 @@ private fun DecksScreenBody(
     state: DecksScreenState,
     onDeckClick: (Deck) -> Unit,
     onDeckBrowseClick: (Deck) -> Unit,
+    onRetryLoadDecks: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -341,13 +353,6 @@ private fun DecksScreenBody(
             }
 
             is DecksScreenState.Error -> {
-                val errorMessage =
-                    stringResource(
-                        when (state.type) {
-                            DecksError.LOAD_FAILED -> R.string.error_load_decks_failed
-                            DecksError.CREATE_FAILED -> R.string.error_create_deck_failed
-                        },
-                    )
                 Column(
                     modifier =
                         Modifier
@@ -356,11 +361,10 @@ private fun DecksScreenBody(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = errorMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    ErrorMessage(stringResource(state.type.toErrorMessage()))
+                    Button(onClick = onRetryLoadDecks) {
+                        Text(stringResource(R.string.card_creation_retry), color = Color.White)
+                    }
                 }
             }
 
@@ -370,6 +374,20 @@ private fun DecksScreenBody(
         }
     }
 }
+
+private fun DecksError.toErrorMessage(): Int =
+    when (this) {
+        DecksError.LOAD_FAILED -> R.string.error_load_decks_failed
+        DecksError.CREATE_FAILED -> R.string.error_create_deck_failed
+        DecksError.NAME_ALREADY_EXISTS -> R.string.error_deck_already_exists
+        DecksError.CONNECTION -> R.string.error_connection
+        DecksError.RATE_LIMITED -> R.string.error_rate_limited
+        DecksError.SERVICE_UNAVAILABLE -> R.string.error_service_unavailable
+        DecksError.REQUEST_REJECTED -> R.string.error_request_rejected
+        DecksError.FORBIDDEN -> R.string.error_forbidden
+        DecksError.NOT_FOUND -> R.string.error_deck_missing
+        DecksError.UNEXPECTED -> R.string.error_generic
+    }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

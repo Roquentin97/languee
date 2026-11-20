@@ -2,8 +2,6 @@ package com.example.langueedroid.core.data
 
 import com.example.langueedroid.core.domain.AnkiDroidExport
 import com.example.langueedroid.core.domain.AnkiExportStatus
-import com.example.langueedroid.core.domain.StaleReferenceException
-import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.dto.AnkiDroidExportResponseDto
 import com.example.langueedroid.core.network.dto.RecordAttemptRequest
@@ -36,25 +34,16 @@ class AnkiDroidExportRepository(
         )
 
     suspend fun createOrGetExportRecord(cardId: String): Result<AnkiDroidExport> =
-        runCatching {
+        runCatchingCancellable {
             val response = ankiDroidExportApi.createOrGetExport(cardId)
-            when {
-                response.isSuccessful -> {
-                    val body =
-                        response.body()
-                            ?: throw Exception("Empty response body from createOrGetExport")
-                    val export = dtoToDomain(body)
-                    val created = export.ankiNoteId == null
-                    logger.info(
-                        "ankidroid.export_record_resolved",
-                        mapOf("status" to export.status::class.simpleName.orEmpty(), "created" to created.toString()),
-                    )
-                    export
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                response.code() == 404 -> throw StaleReferenceException()
-                else -> throw Exception("Failed to create or get export record: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.EXPORT_CREATE)
+            val export = dtoToDomain(response.bodyOrThrow(ApiOperation.EXPORT_CREATE))
+            val created = export.ankiNoteId == null
+            logger.info(
+                "ankidroid.export_record_resolved",
+                mapOf("status" to export.status::class.simpleName.orEmpty(), "created" to created.toString()),
+            )
+            export
         }
 
     suspend fun recordAttemptCompleted(
@@ -66,7 +55,7 @@ class AnkiDroidExportRepository(
         ankiModelNameSnapshot: String,
         templateVersion: String,
     ): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val response =
                 ankiDroidExportApi.recordAttempt(
                     exportId = exportId,
@@ -81,14 +70,8 @@ class AnkiDroidExportRepository(
                             templateVersion = templateVersion,
                         ),
                 )
-            when {
-                response.isSuccessful -> {
-                    logger.info("ankidroid.export_attempt_completed")
-                    Unit
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                else -> throw Exception("Failed to record completed attempt: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.EXPORT_RECORD)
+            logger.info("ankidroid.export_attempt_completed")
         }
 
     suspend fun recordAttemptFailed(
@@ -96,7 +79,7 @@ class AnkiDroidExportRepository(
         failureReason: String,
         failureMessage: String,
     ): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             val response =
                 ankiDroidExportApi.recordAttempt(
                     exportId = exportId,
@@ -107,34 +90,19 @@ class AnkiDroidExportRepository(
                             failureMessage = failureMessage,
                         ),
                 )
-            when {
-                response.isSuccessful -> {
-                    logger.info("ankidroid.export_attempt_failed")
-                    Unit
-                }
-                response.code() == 401 -> throw UnauthorizedException()
-                else -> throw Exception("Failed to record failed attempt: HTTP ${response.code()}")
-            }
+            response.throwIfUnsuccessful(ApiOperation.EXPORT_RECORD)
+            logger.info("ankidroid.export_attempt_failed")
         }
 
     suspend fun getCardsWithPendingExport(): Result<List<String>> =
-        runCatching {
+        runCatchingCancellable {
             val pendingResponse = ankiDroidExportApi.getCardsWithExportStatus(status = "pending")
             val failedResponse = ankiDroidExportApi.getCardsWithExportStatus(status = "failed")
 
-            val pendingIds =
-                when {
-                    pendingResponse.isSuccessful -> pendingResponse.body()?.map { it.id } ?: emptyList()
-                    pendingResponse.code() == 401 -> throw UnauthorizedException()
-                    else -> throw Exception("Failed to get pending exports: HTTP ${pendingResponse.code()}")
-                }
-
-            val failedIds =
-                when {
-                    failedResponse.isSuccessful -> failedResponse.body()?.map { it.id } ?: emptyList()
-                    failedResponse.code() == 401 -> throw UnauthorizedException()
-                    else -> throw Exception("Failed to get failed exports: HTTP ${failedResponse.code()}")
-                }
+            pendingResponse.throwIfUnsuccessful(ApiOperation.EXPORT_STATUS_LIST)
+            failedResponse.throwIfUnsuccessful(ApiOperation.EXPORT_STATUS_LIST)
+            val pendingIds = pendingResponse.body().orEmpty().map { it.id }
+            val failedIds = failedResponse.body().orEmpty().map { it.id }
 
             val result = (pendingIds + failedIds).distinct()
             logger.debug(

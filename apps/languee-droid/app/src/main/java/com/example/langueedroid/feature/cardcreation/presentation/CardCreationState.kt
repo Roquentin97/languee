@@ -15,9 +15,29 @@ enum class CardCreationError {
     EXPORT_RECORD_FAILED,
     EXPRESSION_TOO_LONG,
     LOOKUP_INPUT_INVALID,
+    CONTEXT_TOO_LONG,
     MANUAL_DEFINITION_FAILED,
     DEFINITION_ALREADY_EXISTS,
+    CONNECTION,
+    RATE_LIMITED,
+    SERVICE_UNAVAILABLE,
+    REQUEST_REJECTED,
+    FORBIDDEN,
+    NOT_FOUND,
+    CONFLICT,
+    UNEXPECTED,
 }
+
+val CardCreationError.canRetryLookup: Boolean
+    get() =
+        this in
+            setOf(
+                CardCreationError.LOOKUP_FAILED,
+                CardCreationError.CONNECTION,
+                CardCreationError.RATE_LIMITED,
+                CardCreationError.SERVICE_UNAVAILABLE,
+                CardCreationError.UNEXPECTED,
+            )
 
 sealed class AnkiExportTriggerStatus {
     object NotTriggered : AnkiExportTriggerStatus()

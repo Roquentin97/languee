@@ -38,6 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.example.langueedroid.core.domain.Card
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.GreenPrimary
 import com.example.langueedroid.core.ui.theme.SurfaceWarm
@@ -91,7 +93,7 @@ fun DeckDetailScreen(
                 }
 
                 is DeckDetailState.Error -> {
-                    DeckDetailError(onRetry, Modifier.align(Alignment.Center))
+                    DeckDetailError(state.failureKind, onRetry, Modifier.align(Alignment.Center))
                 }
 
                 is DeckDetailState.Loaded -> {
@@ -108,6 +110,7 @@ fun DeckDetailScreen(
 
 @Composable
 private fun DeckDetailError(
+    failureKind: RemoteFailureKind,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -116,10 +119,9 @@ private fun DeckDetailError(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            text = stringResource(R.string.deck_detail_error),
+        ErrorMessage(
+            text = stringResource(deckDetailErrorMessage(failureKind)),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
         )
         Button(
             onClick = onRetry,
@@ -130,6 +132,16 @@ private fun DeckDetailError(
         }
     }
 }
+
+private fun deckDetailErrorMessage(kind: RemoteFailureKind): Int =
+    when (kind) {
+        RemoteFailureKind.CONNECTION -> R.string.error_connection
+        RemoteFailureKind.RATE_LIMITED -> R.string.error_rate_limited
+        RemoteFailureKind.SERVICE_UNAVAILABLE -> R.string.error_service_unavailable
+        RemoteFailureKind.NOT_FOUND -> R.string.error_deck_missing
+        RemoteFailureKind.FORBIDDEN -> R.string.error_forbidden
+        else -> R.string.deck_detail_error
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

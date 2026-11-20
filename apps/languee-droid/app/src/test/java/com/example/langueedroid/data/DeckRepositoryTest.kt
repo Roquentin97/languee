@@ -2,6 +2,7 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.DeckRepository
 import com.example.langueedroid.core.domain.DeckConflictException
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.DecksApi
 import com.example.langueedroid.core.network.dto.DeckResponseDto
@@ -87,7 +88,7 @@ class DeckRepositoryTest {
             val result = repository.getDecks()
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("500") == true)
+            assertEquals(500, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------
@@ -129,7 +130,9 @@ class DeckRepositoryTest {
     @Test
     fun `createDeck 409 throws DeckConflictException`() =
         runTest {
-            whenever(decksApi.createDeck(any())).thenReturn(Response.error(409, "{}".toResponseBody()))
+            whenever(decksApi.createDeck(any())).thenReturn(
+                Response.error(409, """{"message":"DECK_ALREADY_EXISTS"}""".toResponseBody()),
+            )
 
             val result = repository.createDeck(name = "French")
 

@@ -48,6 +48,28 @@ class AuthSessionStore(
             ?.putString(KEY_SESSION_ID, session.sessionId)
             ?.putString(KEY_USER_ID, session.userId)
             ?.putString(KEY_USER_EMAIL, session.userEmail)
+            ?.remove(KEY_RECOVERY_USER_ID)
+            ?.apply()
+    }
+
+    /** Persists the account identity before expired credentials are removed. */
+    fun requireReauthentication(userId: String): Boolean =
+        prefs
+            ?.edit()
+            ?.putString(KEY_RECOVERY_USER_ID, userId)
+            ?.commit() == true
+
+    fun requiredRecoveryUserId(): String? = prefs?.getString(KEY_RECOVERY_USER_ID, null)
+
+    /** Removes credential material while retaining the noncredential recovery identity. */
+    fun clearCredentials() {
+        prefs
+            ?.edit()
+            ?.remove(KEY_ACCESS_TOKEN)
+            ?.remove(KEY_REFRESH_TOKEN)
+            ?.remove(KEY_SESSION_ID)
+            ?.remove(KEY_USER_ID)
+            ?.remove(KEY_USER_EMAIL)
             ?.apply()
     }
 
@@ -61,6 +83,7 @@ class AuthSessionStore(
             ?.putString(KEY_ACCESS_TOKEN, accessToken)
             ?.putString(KEY_REFRESH_TOKEN, refreshToken)
             ?.putString(KEY_SESSION_ID, sessionId)
+            ?.remove(KEY_RECOVERY_USER_ID)
             ?.apply()
     }
 
@@ -72,6 +95,7 @@ class AuthSessionStore(
             ?.remove(KEY_SESSION_ID)
             ?.remove(KEY_USER_ID)
             ?.remove(KEY_USER_EMAIL)
+            ?.remove(KEY_RECOVERY_USER_ID)
             ?.apply()
     }
 
@@ -82,5 +106,6 @@ class AuthSessionStore(
         const val KEY_SESSION_ID = "session_id"
         const val KEY_USER_ID = "user_id"
         const val KEY_USER_EMAIL = "user_email"
+        const val KEY_RECOVERY_USER_ID = "recovery_user_id"
     }
 }
