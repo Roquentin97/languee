@@ -221,7 +221,18 @@ PY
   container_ids=$(docker compose ps -aq "$service" 2>/dev/null || true)
   volumes=$(docker volume ls -q --filter "label=com.docker.compose.volume=${service}_data" || true)
   if { [ -n "$container_ids" ] || [ -n "$volumes" ]; } && [ -z "$previous_hash" ]; then
-    require_persistent_maintenance "$service" "no verified prior service definition is recorded"
+    # Compose records the rendered service hash on each container it creates.
+    # Bootstrap only when every existing container proves it matches; a volume
+    # without a container cannot establish the applied definition.
+    matching=true
+    [ -n "$container_ids" ] || matching=false
+    for container in $container_ids; do
+      actual_hash=$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.config-hash" }}' "$container")
+      [ "$actual_hash" = "$expected_hash" ] || matching=false
+    done
+    if [ "$matching" != true ]; then
+      require_persistent_maintenance "$service" "no verified prior service definition is recorded"
+    fi
   elif [ -n "$previous_hash" ] && [ "$expected_hash" != "$previous_hash" ]; then
     require_persistent_maintenance "$service" "the rendered service definition changed since its last verified apply"
   fi

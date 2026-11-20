@@ -380,6 +380,15 @@ def test_existing_persistent_volume_without_verified_hash_requires_maintenance(t
     assert "docker compose up -d --no-recreate --wait postgres redis" not in calls
 
 
+def test_existing_matching_containers_bootstrap_without_maintenance(tmp_path, monkeypatch):
+    monkeypatch.setenv("PERSISTENT_ACTUAL_HASH", "desired-hash")
+    result, calls = _deploy_readiness(tmp_path, CURL_SUCCESS_STUB, PERSISTENT_HASH_DOCKER_STUB)
+
+    assert result.returncode == 0, result.stderr
+    assert "docker compose up -d --no-recreate --wait postgres redis" in calls
+    assert "docker compose pull postgres" not in calls
+
+
 def test_vault_rendered_persistent_config_change_requires_maintenance(tmp_path):
     baseline = {
         "phase": "applying",

@@ -666,7 +666,7 @@ def test_vault_apply_preserves_stale_tracked_config_revision_for_deploy(tmp_path
 
 def test_deployment_workflow_records_state_only_after_public_readiness():
     workflow = (Path(__file__).parents[2] / ".github/workflows/deploy.yml").read_text()
-    assert workflow.index("Read last verified deployment state") < workflow.index("build-back:")
+    assert workflow.index("Read last verified deployment state") < workflow.index("Build languee-back image")
     assert workflow.index(".applied-deploy-state.dirty") < workflow.index("cat \"$state\"")
     assert workflow.index("Stage production Compose file") < workflow.index("Mark applied state untrusted before mutation")
     assert workflow.index("Mark applied state untrusted before mutation") < workflow.index("Promote staged deployment assets")
@@ -674,6 +674,7 @@ def test_deployment_workflow_records_state_only_after_public_readiness():
     assert workflow.index("Check public backend readiness") < workflow.index("Record health-verified state")
     assert "runs-on: ubuntu-24.04-arm" in workflow
     assert "cancel-in-progress: false" in workflow
+    assert workflow.count("environment: languee-dev") == 1
 
 
 def test_apply_config_is_vault_only_and_reports_source_drift():

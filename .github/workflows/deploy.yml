@@ -39,22 +39,11 @@ env:
 jobs:
   resolve:
     if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     environment: languee-dev
-    outputs:
-      back: ${{ steps.resolve.outputs.back }}
-      nlp: ${{ steps.resolve.outputs.nlp }}
-      build_back: ${{ steps.resolve.outputs.build_back }}
-      build_nlp: ${{ steps.resolve.outputs.build_nlp }}
-      config: ${{ steps.resolve.outputs.config }}
-      infra: ${{ steps.resolve.outputs.infra }}
-      deploy: ${{ steps.resolve.outputs.deploy }}
-      rollback: ${{ steps.resolve.outputs.rollback }}
-      version: ${{ steps.resolve.outputs.version }}
-      tag: ${{ steps.resolve.outputs.tag }}
-      back_source_revision: ${{ steps.resolve.outputs.back_source_revision }}
-      nlp_source_revision: ${{ steps.resolve.outputs.nlp_source_revision }}
-      config_source_revision: ${{ steps.resolve.outputs.config_source_revision }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -132,105 +121,95 @@ jobs:
         if: steps.resolve.outputs.deploy != 'true'
         run: echo "Last verified source revisions match current develop; no deployment was attempted."
 
-  build-back:
-    needs: resolve
-    if: needs.resolve.outputs.build_back == 'true'
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - name: languee-back
-            target: production
-          - name: languee-back-migrator
-            target: migrator
-    steps:
-      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
+        if: steps.resolve.outputs.build_back == 'true' || steps.resolve.outputs.build_nlp == 'true'
       - uses: docker/login-action@v4
+        if: steps.resolve.outputs.build_back == 'true' || steps.resolve.outputs.build_nlp == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: exists
+      - name: Check languee-back image
+        id: exists_production
+        if: steps.resolve.outputs.build_back == 'true'
         env:
-          IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
+          IMAGE: ${{ env.IMAGE_PREFIX }}/languee-back:${{ steps.resolve.outputs.tag }}
         run: |
           if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then echo "value=true" >> "$GITHUB_OUTPUT"; else echo "value=false" >> "$GITHUB_OUTPUT"; fi
-      - uses: docker/build-push-action@v7
-        if: steps.exists.outputs.value != 'true'
+      - name: Build languee-back image
+        uses: docker/build-push-action@v7
+        if: steps.resolve.outputs.build_back == 'true' && steps.exists_production.outputs.value != 'true'
         with:
           context: apps/languee-back
-          target: ${{ matrix.target }}
+          target: production
           platforms: linux/arm64
           push: true
-          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.resolve.outputs.tag }}
+          tags: ${{ env.IMAGE_PREFIX }}/languee-back:${{ steps.resolve.outputs.tag }}
           build-args: |
-            APP_VERSION=${{ needs.resolve.outputs.version }}
+            APP_VERSION=${{ steps.resolve.outputs.version }}
             GIT_SHA=${{ github.sha }}
             BUILD_ID=${{ github.run_id }}-${{ github.run_attempt }}
           labels: |
-            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.version=${{ steps.resolve.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.build-id=${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+          cache-from: type=gha,scope=languee-back
+          cache-to: type=gha,scope=languee-back,mode=max
 
-  build-nlp:
-    needs: resolve
-    if: needs.resolve.outputs.build_nlp == 'true'
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: exists
+      - name: Check languee-back-migrator image
+        id: exists_migrator
+        if: steps.resolve.outputs.build_back == 'true'
         env:
-          IMAGE: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ needs.resolve.outputs.tag }}
+          IMAGE: ${{ env.IMAGE_PREFIX }}/languee-back-migrator:${{ steps.resolve.outputs.tag }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then echo "value=true" >> "$GITHUB_OUTPUT"; else echo "value=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Build languee-back-migrator image
+        uses: docker/build-push-action@v7
+        if: steps.resolve.outputs.build_back == 'true' && steps.exists_migrator.outputs.value != 'true'
+        with:
+          context: apps/languee-back
+          target: migrator
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/languee-back-migrator:${{ steps.resolve.outputs.tag }}
+          build-args: |
+            APP_VERSION=${{ steps.resolve.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_ID=${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.resolve.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.build-id=${{ github.run_id }}-${{ github.run_attempt }}
+          cache-from: type=gha,scope=languee-back-migrator
+          cache-to: type=gha,scope=languee-back-migrator,mode=max
+
+      - id: exists
+        if: steps.resolve.outputs.build_nlp == 'true'
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ steps.resolve.outputs.tag }}
         run: |
           if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then echo "value=true" >> "$GITHUB_OUTPUT"; else echo "value=false" >> "$GITHUB_OUTPUT"; fi
       - uses: docker/build-push-action@v7
-        if: steps.exists.outputs.value != 'true'
+        if: steps.resolve.outputs.build_nlp == 'true' && steps.exists.outputs.value != 'true'
         with:
           context: apps/languee-nlp
           target: production
           platforms: linux/arm64
           push: true
-          tags: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ needs.resolve.outputs.tag }}
+          tags: ${{ env.IMAGE_PREFIX }}/languee-nlp:${{ steps.resolve.outputs.tag }}
           build-args: |
-            APP_VERSION=${{ needs.resolve.outputs.version }}
+            APP_VERSION=${{ steps.resolve.outputs.version }}
             GIT_SHA=${{ github.sha }}
             BUILD_ID=${{ github.run_id }}-${{ github.run_attempt }}
           labels: |
-            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.version=${{ steps.resolve.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.build-id=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=languee-nlp
           cache-to: type=gha,scope=languee-nlp,mode=max
 
-  deploy:
-    needs: [resolve, build-back, build-nlp]
-    if: >-
-      always() && needs.resolve.result == 'success' && needs.resolve.outputs.deploy == 'true'
-      && (needs.build-back.result == 'success' || needs.build-back.result == 'skipped')
-      && (needs.build-nlp.result == 'success' || needs.build-nlp.result == 'skipped')
-    runs-on: ubuntu-latest
-    environment: languee-dev
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
       - name: Confirm develop is still at this revision
+        if: steps.resolve.outputs.deploy == 'true'
         run: |
           set -euo pipefail
           git fetch --no-tags origin develop
@@ -241,6 +220,7 @@ jobs:
           fi
 
       - name: Prepare per-run deployment staging area
+        if: steps.resolve.outputs.deploy == 'true'
         uses: appleboy/ssh-action@v1.2.5
         env:
           DEPLOY_STAGE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -256,6 +236,7 @@ jobs:
             chmod 700 "/opt/languee/.deploy-staging/$DEPLOY_STAGE_ID"
 
       - name: Stage production Compose file
+        if: steps.resolve.outputs.deploy == 'true'
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -265,6 +246,7 @@ jobs:
           target: /opt/languee/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}/
 
       - name: Stage deployment scripts and proxy configuration
+        if: steps.resolve.outputs.deploy == 'true'
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -275,6 +257,7 @@ jobs:
           strip_components: 1
 
       - name: Stage observability provisioning
+        if: steps.resolve.outputs.deploy == 'true'
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -284,6 +267,7 @@ jobs:
           target: /opt/languee/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}/
 
       - name: Mark applied state untrusted before mutation
+        if: steps.resolve.outputs.deploy == 'true'
         id: mark_dirty
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -296,6 +280,7 @@ jobs:
             python3 "$stage/scripts/deploy-state.py" begin --app-dir /opt/languee
 
       - name: Promote staged deployment assets
+        if: steps.resolve.outputs.deploy == 'true'
         id: promote
         uses: appleboy/ssh-action@v1.2.5
         env:
@@ -312,13 +297,14 @@ jobs:
             chmod +x /opt/languee/scripts/backup-db.sh /opt/languee/scripts/deploy-stack.sh /opt/languee/scripts/deploy-state.py
 
       - name: Apply selected artifacts
+        if: steps.resolve.outputs.deploy == 'true'
         uses: appleboy/ssh-action@v1.2.5
         env:
-          DEPLOY_BACK_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_back_tag || needs.resolve.outputs.back == 'true' && needs.resolve.outputs.tag || '' }}
-          DEPLOY_NLP_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_nlp_tag || needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.tag || '' }}
-          DEPLOY_ROLLBACK: ${{ needs.resolve.outputs.rollback }}
-          DEPLOY_INFRA: ${{ needs.resolve.outputs.infra }}
-          DEPLOY_CONFIG: ${{ needs.resolve.outputs.config }}
+          DEPLOY_BACK_TAG: ${{ steps.resolve.outputs.rollback == 'true' && inputs.rollback_back_tag || steps.resolve.outputs.back == 'true' && steps.resolve.outputs.tag || '' }}
+          DEPLOY_NLP_TAG: ${{ steps.resolve.outputs.rollback == 'true' && inputs.rollback_nlp_tag || steps.resolve.outputs.nlp == 'true' && steps.resolve.outputs.tag || '' }}
+          DEPLOY_ROLLBACK: ${{ steps.resolve.outputs.rollback }}
+          DEPLOY_INFRA: ${{ steps.resolve.outputs.infra }}
+          DEPLOY_CONFIG: ${{ steps.resolve.outputs.config }}
           ALLOW_PERSISTENT_INFRA: ${{ inputs.allow_persistent_infra }}
           VAULT_SECRET_OCID: ${{ vars.VAULT_SECRET_OCID }}
           OCI_REGION: ${{ vars.OCI_REGION }}
@@ -341,6 +327,7 @@ jobs:
             /opt/languee/scripts/deploy-stack.sh "${args[@]}"
 
       - name: Check public backend readiness
+        if: steps.resolve.outputs.deploy == 'true'
         env:
           DEPLOY_HEALTHCHECK_URL: ${{ vars.DEPLOY_HEALTHCHECK_URL }}
         run: |
@@ -360,16 +347,17 @@ jobs:
             --retry-all-errors "$DEPLOY_HEALTHCHECK_URL" > /dev/null
 
       - name: Record health-verified state
+        if: steps.resolve.outputs.deploy == 'true'
         id: record
         uses: appleboy/ssh-action@v1.2.5
         env:
-          RECORD_BACK_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_back_tag || needs.resolve.outputs.back == 'true' && needs.resolve.outputs.tag || '' }}
-          RECORD_NLP_TAG: ${{ needs.resolve.outputs.rollback == 'true' && inputs.rollback_nlp_tag || needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.tag || '' }}
-          RECORD_ROLLBACK: ${{ needs.resolve.outputs.rollback }}
+          RECORD_BACK_TAG: ${{ steps.resolve.outputs.rollback == 'true' && inputs.rollback_back_tag || steps.resolve.outputs.back == 'true' && steps.resolve.outputs.tag || '' }}
+          RECORD_NLP_TAG: ${{ steps.resolve.outputs.rollback == 'true' && inputs.rollback_nlp_tag || steps.resolve.outputs.nlp == 'true' && steps.resolve.outputs.tag || '' }}
+          RECORD_ROLLBACK: ${{ steps.resolve.outputs.rollback }}
           RECORD_IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
-          RECORD_BACK_SOURCE: ${{ needs.resolve.outputs.rollback == 'true' && '' || needs.resolve.outputs.back == 'true' && needs.resolve.outputs.back_source_revision || '' }}
-          RECORD_NLP_SOURCE: ${{ needs.resolve.outputs.rollback == 'true' && '' || needs.resolve.outputs.nlp == 'true' && needs.resolve.outputs.nlp_source_revision || '' }}
-          RECORD_CONFIG_SOURCE: ${{ needs.resolve.outputs.config == 'true' && needs.resolve.outputs.config_source_revision || '' }}
+          RECORD_BACK_SOURCE: ${{ steps.resolve.outputs.rollback == 'true' && '' || steps.resolve.outputs.back == 'true' && steps.resolve.outputs.back_source_revision || '' }}
+          RECORD_NLP_SOURCE: ${{ steps.resolve.outputs.rollback == 'true' && '' || steps.resolve.outputs.nlp == 'true' && steps.resolve.outputs.nlp_source_revision || '' }}
+          RECORD_CONFIG_SOURCE: ${{ steps.resolve.outputs.config == 'true' && steps.resolve.outputs.config_source_revision || '' }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -386,7 +374,7 @@ jobs:
             python3 /opt/languee/scripts/deploy-state.py "${args[@]}"
 
       - name: Summarize verified deployment
-        if: success() && needs.resolve.outputs.deploy == 'true'
+        if: success() && steps.resolve.outputs.deploy == 'true'
         env:
           VERIFIED_STATE_JSON: ${{ steps.record.outputs.stdout }}
         run: |
@@ -411,7 +399,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize failed deployment
-        if: failure() && steps.mark_dirty.outcome == 'success' && steps.record.outcome != 'success'
+        if: failure() && steps.resolve.outputs.deploy == 'true' && steps.mark_dirty.outcome == 'success' && steps.record.outcome != 'success'
         run: |
           {
             echo '## Deployment failed'
@@ -420,7 +408,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report verified state despite summary failure
-        if: failure() && steps.record.outcome == 'success'
+        if: failure() && steps.resolve.outputs.deploy == 'true' && steps.record.outcome == 'success'
         run: |
           {
             echo '## Deployment state verified'
@@ -429,7 +417,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize failure before state invalidation
-        if: failure() && steps.mark_dirty.outcome != 'success'
+        if: failure() && steps.resolve.outputs.deploy == 'true' && steps.mark_dirty.outcome != 'success'
         run: |
           {
             echo '## Deployment failed before stack mutation'
@@ -438,7 +426,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Clean completed deployment staging payloads
-        if: success()
+        if: success() && steps.resolve.outputs.deploy == 'true'
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}

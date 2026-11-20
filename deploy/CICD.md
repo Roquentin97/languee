@@ -28,8 +28,8 @@ control runtime versions or image tags.
 ## Deployment (`deploy.yml`, "Deploy (dev)")
 
 Trigger: every push to `develop` and manual dispatch on `develop`. Before
-building, the `languee-dev` job reads the host's last verified state and compares
-it with the latest develop commit affecting each component. A skipped, failed,
+building, the single approved `languee-dev` job reads the host's last verified
+state and compares it with the latest develop commit affecting each component. A skipped, failed,
 canceled, or superseded run therefore leaves a detectable gap for the next run,
 even when that run changes an unrelated service or configuration file.
 
@@ -83,8 +83,9 @@ including command, environment, healthcheck, mount, and dependency settings,
 plus top-level volume, network, config, secret, and project-name definitions.
 Before `--no-recreate`, the host compares each rendered service hash with the
 last verified hash stored in applied state. A pre-existing host state without
-these hashes is treated as unverifiable and requires the same one-time
-maintenance approval when a persistent container or volume exists. Any hash
+these hashes can be bootstrapped when every existing container has a matching
+Compose configuration hash label. A missing container or mismatched label
+requires the same one-time maintenance approval. Any hash
 mismatch fails visibly unless the manual Deploy (dev) run has
 `allow_persistent_infra` enabled. This requires a verified backup and
 compatibility review; a config-only or ordinary deploy does not implicitly
