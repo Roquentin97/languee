@@ -29,6 +29,7 @@ CONFIG_PATHS = (
     "provision",
 )
 INFRA_SERVICES = ("postgres", "redis", "caddy")
+PERSISTENT_SERVICES = ("postgres", "redis")
 SERVICE_HEADING = re.compile(r"^  ([a-z][a-z0-9-]*):\s*$")
 
 
@@ -48,28 +49,71 @@ def latest_revision(ref: str, paths: tuple[str, ...]) -> str:
     return revision if deploy_state.REVISION.fullmatch(revision) else _git("rev-parse", ref)
 
 
-def _compose_images(source: str) -> dict[str, str]:
-    images: dict[str, str] = {}
-    service = ""
-    for line in source.splitlines():
+def _yaml_top_level_section(source: str, name: str) -> str:
+    """Return one top-level YAML mapping section without needing a YAML parser."""
+    lines = source.splitlines()
+    start = next((index for index, line in enumerate(lines) if line == f"{name}:"), None)
+    if start is None:
+        return ""
+    end = next(
+        (
+            index
+            for index in range(start + 1, len(lines))
+            if lines[index] and not lines[index][0].isspace() and not lines[index].startswith("#")
+        ),
+        len(lines),
+    )
+    return "\n".join(lines[start:end]).rstrip()
+
+
+def _top_level_value(source: str, name: str) -> str:
+    match = re.search(rf"^{re.escape(name)}:\s*(.*?)\s*$", source, flags=re.MULTILINE)
+    return match.group(1) if match else ""
+
+
+def _service_definition(source: str, service: str) -> str:
+    """Return the complete service block, including commands and dependencies."""
+    lines = source.splitlines()
+    in_services = False
+    start: int | None = None
+    for index, line in enumerate(lines):
+        if line == "services:":
+            in_services = True
+            continue
+        if not in_services:
+            continue
         heading = SERVICE_HEADING.fullmatch(line)
         if heading:
-            service = heading.group(1)
-            continue
-        if service in INFRA_SERVICES and line.startswith("    image:"):
-            images[service] = line.split("image:", 1)[1].strip().strip("\"'")
-    return images
+            if heading.group(1) == service:
+                start = index
+                continue
+            if start is not None:
+                return "\n".join(lines[start:index]).rstrip()
+        elif line and not line[0].isspace():
+            break
+    return "\n".join(lines[start:]).rstrip() if start is not None else ""
 
 
 def changed_infra_services(previous_revision: str, ref: str) -> list[str]:
-    """Find pinned infrastructure image changes since the verified config revision."""
+    """Find persistent Compose definition changes since verified configuration."""
     try:
         previous = _git("show", f"{previous_revision}:docker-compose.prod.yml")
         current = _git("show", f"{ref}:docker-compose.prod.yml")
     except RuntimeError:
-        return list(INFRA_SERVICES)
-    before, after = _compose_images(previous), _compose_images(current)
-    return [service for service in INFRA_SERVICES if before.get(service) != after.get(service)]
+        return list(PERSISTENT_SERVICES)
+    changed = [
+        service
+        for service in PERSISTENT_SERVICES
+        if _service_definition(previous, service) != _service_definition(current, service)
+    ]
+    dependent_sections = ("volumes", "networks", "configs", "secrets")
+    if any(
+        _yaml_top_level_section(previous, section)
+        != _yaml_top_level_section(current, section)
+        for section in dependent_sections
+    ) or _top_level_value(previous, "name") != _top_level_value(current, "name"):
+        changed = list(PERSISTENT_SERVICES)
+    return changed
 
 
 def _status(raw: str) -> tuple[dict[str, Any] | None, str]:
@@ -80,8 +124,11 @@ def _status(raw: str) -> tuple[dict[str, Any] | None, str]:
     if isinstance(value, dict) and value.get("known") is False:
         reason = value.get("reason")
         return None, reason if isinstance(reason, str) else "unknown"
-    if deploy_state.state_problem(value) is not None:
-        return None, "missing or corrupt"
+    if isinstance(value, dict) and value.get("known") is True:
+        value = value.get("state")
+    problem = deploy_state.state_problem(value)
+    if problem is not None:
+        return None, problem
     return value, "verified"
 
 
@@ -103,6 +150,12 @@ def decisions(
     state, state_reason = _status(raw_state)
     stale = head != ref
     rollback = bool(rollback_backend or rollback_nlp)
+
+    if rollback and not stale and state is None and not (rollback_backend and rollback_nlp):
+        raise RuntimeError(
+            "cannot apply a partial manual rollback while deployed state is unknown or interrupted; "
+            "run a full Deploy (dev) reconciliation first or select rollback artifacts for both services"
+        )
 
     if stale:
         selected = {"backend": False, "nlp": False, "configuration": False}
