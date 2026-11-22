@@ -2,7 +2,7 @@ ARG APP_VERSION=0.0.0
 ARG GIT_SHA=unknown
 ARG BUILD_ID=unknown
 
-FROM python:3.12-slim AS base
+FROM python:3.15-slim AS base
 RUN pip install uv
 WORKDIR /app
 
