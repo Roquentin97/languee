@@ -15,6 +15,7 @@ import com.example.langueedroid.core.audio.Speaker
 import com.example.langueedroid.core.domain.LookupAlternative
 import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.feature.cardcreation.presentation.AlternativeLookupStatus
+import com.example.langueedroid.feature.cardcreation.presentation.CardCreationError
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationFlowState
 import com.example.langueedroid.feature.cardcreation.presentation.CardCreationState
 import com.example.langueedroid.feature.cardcreation.ui.CardCreationScreen
@@ -57,6 +58,7 @@ class LookupAlternativeScreenTest {
             )
         var requested: LookupAlternative? = null
         var returned = false
+        var retryTapped = false
         val speaker =
             object : Speaker {
                 override fun speak(
@@ -77,7 +79,7 @@ class LookupAlternativeScreenTest {
                     onExampleConfirmed = {},
                     onBackFromExampleSelection = {},
                     onCreateCard = {},
-                    onRetryLookup = {},
+                    onRetryLookup = { retryTapped = true },
                     onNavigateBack = {},
                     onLookupAlternative = { requested = it },
                     onReturnToOriginalLookup = { returned = true },
@@ -109,5 +111,26 @@ class LookupAlternativeScreenTest {
         composeRule.onNodeWithTag("return-to-original-lookup").assertIsNotEnabled()
         state.value = state.value.copy(displayedAlternative = null, alternatives = listOf(alternative))
         composeRule.onNodeWithTag("lookup-alternative").assertIsNotEnabled()
+
+        val targetWord = "state-of-the-art"
+        val context = "She studies state-of-the-art systems."
+        val inputErrorText =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getString(R.string.error_lookup_input_invalid)
+        state.value =
+            state.value.copy(
+                targetWord = targetWord,
+                context = context,
+                flowState = CardCreationFlowState.LookupError(CardCreationError.LOOKUP_INPUT_INVALID),
+            )
+        composeRule.onNodeWithText(inputErrorText).assertIsDisplayed()
+        composeRule.onNodeWithTag("lookup-retry").assertDoesNotExist()
+        assertEquals(targetWord, state.value.targetWord)
+        assertEquals(context, state.value.context)
+
+        state.value = state.value.copy(flowState = CardCreationFlowState.LookupError(CardCreationError.CONNECTION))
+        composeRule.onNodeWithTag("lookup-retry").assertIsDisplayed().performClick()
+        assertTrue(retryTapped)
     }
 }

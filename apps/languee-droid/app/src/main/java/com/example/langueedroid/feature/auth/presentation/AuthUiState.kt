@@ -12,6 +12,20 @@ sealed class AuthUiState {
     ) : AuthUiState()
 
     data class Error(
-        val message: String,
+        val type: AuthUiError,
     ) : AuthUiState()
+}
+
+enum class AuthUiError {
+    REQUIRED_FIELDS,
+    PASSWORDS_DO_NOT_MATCH,
+    INVALID_CREDENTIALS,
+    ACCOUNT_MISMATCH,
+    ACCOUNT_ALREADY_EXISTS,
+    CONNECTION,
+    RATE_LIMITED,
+    SERVICE_UNAVAILABLE,
+    REQUEST_REJECTED,
+    FORBIDDEN,
+    UNEXPECTED,
 }

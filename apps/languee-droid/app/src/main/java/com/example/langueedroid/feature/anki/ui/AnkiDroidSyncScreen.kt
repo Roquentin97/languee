@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -36,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.core.ui.theme.GreenContainer
 import com.example.langueedroid.core.ui.theme.GreenPrimary
 import com.example.langueedroid.core.ui.theme.GreenPrimaryDark
@@ -52,6 +56,7 @@ fun AnkiDroidSyncScreen(
     onSync: () -> Unit,
     onDismissResult: () -> Unit,
     onNavigateBack: () -> Unit,
+    onOpenSetup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -66,6 +71,7 @@ fun AnkiDroidSyncScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
                     .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -75,9 +81,51 @@ fun AnkiDroidSyncScreen(
 
                 is SyncUiState.Result -> SyncResultContent(uiState, onDismissResult)
 
+                is SyncUiState.Failure -> SyncFailureContent(uiState.failureKind, onSync)
+
+                is SyncUiState.SetupRequired -> SyncSetupRequiredContent(onOpenSetup)
+
                 is SyncUiState.Idle -> SyncIdleContent(onSync)
             }
         }
+    }
+}
+
+@Composable
+private fun SyncFailureContent(
+    failureKind: RemoteFailureKind,
+    onRetry: () -> Unit,
+) {
+    val messageRes =
+        when (failureKind) {
+            RemoteFailureKind.CONNECTION -> R.string.error_connection
+            RemoteFailureKind.RATE_LIMITED -> R.string.error_rate_limited
+            RemoteFailureKind.SERVICE_UNAVAILABLE -> R.string.error_service_unavailable
+            RemoteFailureKind.NOT_FOUND -> R.string.error_sync_data_missing
+            RemoteFailureKind.FORBIDDEN -> R.string.error_forbidden
+            else -> R.string.error_sync_failed
+        }
+    ErrorMessage(
+        text = stringResource(messageRes),
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    Spacer(Modifier.height(20.dp))
+    Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.card_creation_retry), color = Color.White)
+    }
+}
+
+@Composable
+private fun SyncSetupRequiredContent(onOpenSetup: () -> Unit) {
+    ErrorMessage(
+        text = stringResource(R.string.ankidroid_sync_setup_required),
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    Spacer(Modifier.height(20.dp))
+    Button(onClick = onOpenSetup, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.ankidroid_status_setup_now), color = Color.White)
     }
 }
 

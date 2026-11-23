@@ -3,11 +3,17 @@ package com.example.langueedroid.data
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.AccountMismatchException
+import com.example.langueedroid.core.domain.InvalidCredentialsException
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
+import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AuthApi
 import com.example.langueedroid.core.network.dto.AuthUserDto
 import com.example.langueedroid.core.network.dto.LoginRegisterResponse
 import com.example.langueedroid.core.network.dto.RefreshResponse
 import com.example.langueedroid.core.telemetry.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
@@ -17,7 +23,6 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import retrofit2.Response
@@ -58,23 +63,61 @@ class AuthRepositoryTest {
             verify(sessionStore).save(session)
         }
 
+    @Test
+    fun `recovery login for original account persists the returned session`() =
+        runTest {
+            whenever(authApi.login(any())).thenReturn(successLoginResponse())
+
+            val result = repository.login("a@b.com", "pw", requiredUserId = "uid1")
+
+            assertTrue(result.isSuccess)
+            assertEquals("uid1", result.getOrThrow().userId)
+            verify(sessionStore).save(result.getOrThrow())
+        }
+
+    @Test
+    fun `recovery login for another account is rejected before replacing stored credentials`() =
+        runTest {
+            whenever(authApi.login(any())).thenReturn(successLoginResponse())
+
+            val result = repository.login("other@b.com", "pw", requiredUserId = "uid-original")
+
+            assertTrue(result.exceptionOrNull() is AccountMismatchException)
+            verify(sessionStore, never()).save(any())
+        }
+
     // -----------------------------------------------------------------------
     // login — HTTP error
     // -----------------------------------------------------------------------
 
     @Test
-    fun `login HTTP error returns failure with code in message`() =
+    fun `login confirmed invalid credentials return typed failure`() =
         runTest {
             whenever(authApi.login(any())).thenReturn(
-                Response.error(401, "{}".toResponseBody()),
+                Response.error(401, """{"message":"Invalid credentials"}""".toResponseBody()),
             )
 
             val result = repository.login("a@b.com", "pw")
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("401") == true)
+            assertTrue(result.exceptionOrNull() is InvalidCredentialsException)
             verify(sessionStore, never()).save(any())
             verify(logger).warn("auth.login_failed", mapOf("http.status_code" to "401"))
+        }
+
+    @Test
+    fun `login unknown 401 is not classified as invalid credentials`() =
+        runTest {
+            whenever(authApi.login(any())).thenReturn(
+                Response.error(401, """{"message":"Unauthorized"}""".toResponseBody()),
+            )
+
+            val result = repository.login("a@b.com", "pw")
+
+            val error = result.exceptionOrNull() as RemoteOperationFailureException
+            assertEquals(RemoteFailureKind.UNEXPECTED, error.kind)
+            assertEquals(401, error.statusCode)
+            verify(sessionStore, never()).save(any())
         }
 
     // -----------------------------------------------------------------------
@@ -95,6 +138,22 @@ class AuthRepositoryTest {
                 org.mockito.kotlin.any(),
                 org.mockito.kotlin.any(),
             )
+        }
+
+    @Test
+    fun `login cancellation propagates instead of becoming a user-facing error`() =
+        runTest {
+            whenever(authApi.login(any())).thenThrow(CancellationException("cancelled"))
+
+            val error =
+                try {
+                    repository.login("a@b.com", "pw")
+                    null
+                } catch (cancelled: CancellationException) {
+                    cancelled
+                }
+            assertTrue(error is CancellationException)
+            verify(sessionStore, never()).save(any())
         }
 
     // -----------------------------------------------------------------------
@@ -129,7 +188,7 @@ class AuthRepositoryTest {
             val result = repository.register("a@b.com", "pw")
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("422") == true)
+            assertEquals(422, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
             verify(sessionStore, never()).save(any())
         }
 
@@ -178,18 +237,19 @@ class AuthRepositoryTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `refreshSession null body clears session and returns failure`() =
+    fun `refreshSession null body clears rotated session once and returns failure`() =
         runTest {
             val stored = storedSession()
             whenever(sessionStore.read()).thenReturn(stored)
+            whenever(sessionStore.requireReauthentication(stored.userId)).thenReturn(true)
             whenever(authApi.refresh(any())).thenReturn(Response.success(null))
 
             val result = repository.refreshSession()
 
             assertTrue(result.isFailure)
-            // clear() is called twice: once in the else-branch of the HTTP check and
-            // once in the onFailure handler (which runs for all failures except "No stored session").
-            verify(sessionStore, times(2)).clear()
+            verify(sessionStore).requireReauthentication(stored.userId)
+            verify(sessionStore).clearCredentials()
+            verify(sessionStore, never()).clear()
         }
 
     // -----------------------------------------------------------------------
@@ -197,20 +257,22 @@ class AuthRepositoryTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `refreshSession HTTP error clears session and returns failure`() =
+    fun `refreshSession unauthorized clears session once and returns typed failure`() =
         runTest {
             val stored = storedSession()
             whenever(sessionStore.read()).thenReturn(stored)
+            whenever(sessionStore.requireReauthentication(stored.userId)).thenReturn(true)
             whenever(authApi.refresh(any())).thenReturn(
-                Response.error(401, "{}".toResponseBody()),
+                Response.error(401, """{"message":"Invalid or expired refresh token"}""".toResponseBody()),
             )
 
             val result = repository.refreshSession()
 
             assertTrue(result.isFailure)
-            // clear() is called twice: once in the else-branch of the HTTP check and
-            // once in the onFailure handler (which runs for all failures except "No stored session").
-            verify(sessionStore, times(2)).clear()
+            assertTrue(result.exceptionOrNull() is UnauthorizedException)
+            verify(sessionStore).requireReauthentication(stored.userId)
+            verify(sessionStore).clearCredentials()
+            verify(sessionStore, never()).clear()
         }
 
     // -----------------------------------------------------------------------
@@ -229,11 +291,11 @@ class AuthRepositoryTest {
         }
 
     // -----------------------------------------------------------------------
-    // refreshSession — network exception clears session (onFailure handler)
+    // refreshSession — network exception preserves the stored session
     // -----------------------------------------------------------------------
 
     @Test
-    fun `refreshSession network exception clears session via onFailure handler`() =
+    fun `refreshSession network exception preserves stored session for retry`() =
         runTest {
             val stored = storedSession()
             whenever(sessionStore.read()).thenReturn(stored)
@@ -242,9 +304,7 @@ class AuthRepositoryTest {
             val result = repository.refreshSession()
 
             assertTrue(result.isFailure)
-            // The onFailure block clears for any exception that isn't
-            // "Token refresh failed" or "No stored session".
-            verify(sessionStore).clear()
+            verify(sessionStore, never()).clear()
         }
 
     // -----------------------------------------------------------------------

@@ -74,6 +74,7 @@ import com.example.langueedroid.core.data.SavedVocabulary
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionSpanSelector
 import com.example.langueedroid.core.domain.Token
+import com.example.langueedroid.core.ui.components.ErrorMessage
 import com.example.langueedroid.core.ui.theme.CardBorder
 import com.example.langueedroid.core.ui.theme.GreenBorder
 import com.example.langueedroid.core.ui.theme.GreenContainer
@@ -674,11 +675,17 @@ private fun SharedContextCaptureBody(
         when (savedStatus) {
             SavedVocabularyStatus.Loading ->
                 Text(
-                    "Checking saved words…",
+                    stringResource(R.string.saved_vocabulary_checking),
                     color = TextSecondary,
                     style = MaterialTheme.typography.bodySmall,
                 )
-            SavedVocabularyStatus.Unavailable -> TextButton(onClick = onRetrySavedVocabulary) { Text("Couldn't check saved words · Retry") }
+            SavedVocabularyStatus.Unavailable -> {
+                ErrorMessage(
+                    stringResource(R.string.saved_vocabulary_check_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(onClick = onRetrySavedVocabulary) { Text(stringResource(R.string.card_creation_retry)) }
+            }
             SavedVocabularyStatus.Available -> Unit
         }
         CaptureWorkspaceScrollAreas(

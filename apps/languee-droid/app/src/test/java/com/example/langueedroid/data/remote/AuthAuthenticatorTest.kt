@@ -3,6 +3,9 @@ package com.example.langueedroid.data.remote
 import com.example.langueedroid.core.data.AuthRepository
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.RemoteFailureKind
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
+import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AuthAuthenticator
 import kotlinx.coroutines.runBlocking
 import okhttp3.Protocol
@@ -115,13 +118,13 @@ class AuthAuthenticatorTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `clears session and returns null when refresh fails`() {
+    fun `returns null when refresh token is rejected`() {
         val stored = storedSession(accessToken = "currentToken")
         whenever(sessionStore.read()).thenReturn(stored)
 
         runBlocking {
             whenever(authRepository.refreshSession()).thenReturn(
-                Result.failure(RuntimeException("Token refresh failed: HTTP 401")),
+                Result.failure(UnauthorizedException()),
             )
         }
 
@@ -129,7 +132,31 @@ class AuthAuthenticatorTest {
         val result = authenticator.authenticate(route = null, response = response)
 
         assertNull(result)
-        verify(sessionStore).clear()
+        verify(sessionStore, never()).clear()
+    }
+
+    @Test
+    fun `throws network failure when token refresh is temporarily unavailable`() {
+        val stored = storedSession(accessToken = "currentToken")
+        whenever(sessionStore.read()).thenReturn(stored)
+
+        runBlocking {
+            whenever(authRepository.refreshSession()).thenReturn(
+                Result.failure(RemoteOperationFailureException(RemoteFailureKind.SERVICE_UNAVAILABLE, 503)),
+            )
+        }
+
+        val response = buildResponse(code = 401, token = "currentToken", prior = null)
+        val error =
+            try {
+                authenticator.authenticate(route = null, response = response)
+                null
+            } catch (failure: java.io.IOException) {
+                failure
+            }
+
+        assertNotNull(error)
+        verify(sessionStore, never()).clear()
     }
 
     // -----------------------------------------------------------------------

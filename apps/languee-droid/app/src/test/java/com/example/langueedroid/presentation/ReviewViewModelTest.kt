@@ -8,6 +8,7 @@ import com.example.langueedroid.core.domain.DefinitionReview
 import com.example.langueedroid.core.domain.GradeAnswerResult
 import com.example.langueedroid.core.domain.GradeOutcome
 import com.example.langueedroid.core.domain.LexicalEntryKind
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewCardType
 import com.example.langueedroid.core.domain.ReviewItem
@@ -16,8 +17,10 @@ import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.feature.review.presentation.QuestionFeedback
 import com.example.langueedroid.feature.review.presentation.ReviewError
+import com.example.langueedroid.feature.review.presentation.ReviewRetryAction
 import com.example.langueedroid.feature.review.presentation.ReviewSessionState
 import com.example.langueedroid.feature.review.presentation.ReviewViewModel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -25,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -34,11 +38,14 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReviewViewModelTest {
@@ -137,10 +144,16 @@ class ReviewViewModelTest {
             whenever(reviewRepository.queue(deckId = eq("deck-1"), limit = any())).thenReturn(
                 Result.failure(RuntimeException("network failure")),
             )
-            vm.retry()
+            vm.loadQueue()
             advanceUntilIdle()
 
             assertTrue(vm.state.value is ReviewSessionState.Error)
+
+            whenever(reviewRepository.queue(deckId = eq("deck-1"), limit = any())).thenReturn(Result.success(listOf(item)))
+            vm.retry()
+            advanceUntilIdle()
+
+            assertTrue(vm.state.value is ReviewSessionState.Question)
         }
 
     // -------------------------------------------------------------------------
@@ -426,6 +439,114 @@ class ReviewViewModelTest {
             advanceUntilIdle()
 
             assertTrue(vm.state.value is ReviewSessionState.Question)
+        }
+
+    @Test
+    fun `answer check failure preserves typed answer and safely retries same request`() =
+        runTest {
+            val item = anItem()
+            whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
+            whenever(reviewRepository.checkAnswer(cardId = any(), typedAnswer = any())).thenReturn(
+                Result.failure(IOException("timeout")),
+                Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
+            )
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.updateInput("come across")
+            vm.submitAnswer()
+            advanceUntilIdle()
+
+            val error = vm.state.value as ReviewSessionState.Error
+            assertEquals(ReviewError.SUBMIT_FAILED, error.type)
+            assertEquals(RemoteFailureKind.CONNECTION, error.failureKind)
+            assertEquals(ReviewRetryAction.SUBMIT_TEXT, error.retryAction)
+            assertEquals("come across", error.previousQuestion?.typedAnswer)
+
+            vm.retry()
+            advanceUntilIdle()
+
+            val state = vm.state.value
+            assertTrue(state is ReviewSessionState.Correct)
+            verify(reviewRepository, org.mockito.kotlin.times(2)).checkAnswer("card-1", "come across")
+        }
+
+    @Test
+    fun `delayed answer retry ignores duplicate taps and stale completion after queue reload`() =
+        runTest {
+            val original = anItem(cardId = "card-1")
+            val reloaded = anItem(cardId = "card-2")
+            whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(
+                Result.success(listOf(original)),
+                Result.success(listOf(reloaded)),
+            )
+            whenever(reviewRepository.checkAnswer(cardId = any(), typedAnswer = any())).thenReturn(
+                Result.failure(IOException("timeout")),
+            )
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.updateInput("come across")
+            vm.submitAnswer()
+            advanceUntilIdle()
+            assertTrue(vm.state.value is ReviewSessionState.Error)
+
+            val delayedResult = CompletableDeferred<Result<AnswerCheck>>()
+            whenever(reviewRepository.checkAnswer(cardId = any(), typedAnswer = any()))
+                .doSuspendableAnswer { delayedResult.await() }
+            vm.retry()
+            runCurrent()
+
+            val retrying = vm.state.value as ReviewSessionState.Error
+            assertTrue(retrying.retryInProgress)
+            vm.retry()
+            runCurrent()
+            verify(reviewRepository, times(2)).checkAnswer("card-1", "come across")
+
+            vm.loadQueue()
+            advanceUntilIdle()
+            val newQuestion = vm.state.value as ReviewSessionState.Question
+            assertEquals("card-2", newQuestion.item.cardId)
+
+            delayedResult.complete(
+                Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
+            )
+            advanceUntilIdle()
+
+            val finalQuestion = vm.state.value as ReviewSessionState.Question
+            assertEquals("card-2", finalQuestion.item.cardId)
+            verify(reviewRepository, times(2)).checkAnswer("card-1", "come across")
+        }
+
+    @Test
+    fun `grade failure is not automatically retryable`() =
+        runTest {
+            val item = anItem()
+            whenever(reviewRepository.queue(deckId = anyOrNull(), limit = any())).thenReturn(Result.success(listOf(item)))
+            whenever(reviewRepository.checkAnswer(cardId = any(), typedAnswer = any())).thenReturn(
+                Result.success(AnswerCheck(result = AnswerResult.CORRECT, matchedForm = "come across")),
+            )
+            whenever(
+                reviewRepository.grade(
+                    cardId = any(),
+                    rating = any(),
+                    typedAnswer = anyOrNull(),
+                    typedForms = anyOrNull(),
+                    answerResult = anyOrNull(),
+                ),
+            ).thenReturn(Result.failure(IOException("timeout")))
+
+            val vm = buildViewModel()
+            advanceUntilIdle()
+            vm.updateInput("come across")
+            vm.submitAnswer()
+            advanceUntilIdle()
+            vm.grade(ReviewRating.GOOD)
+            advanceUntilIdle()
+
+            val error = vm.state.value as ReviewSessionState.Error
+            assertEquals(ReviewError.GRADE_FAILED, error.type)
+            assertEquals(null, error.retryAction)
         }
 
     // -------------------------------------------------------------------------

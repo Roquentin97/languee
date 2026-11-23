@@ -2,6 +2,7 @@ package com.example.langueedroid.data
 
 import com.example.langueedroid.core.data.CardRepository
 import com.example.langueedroid.core.domain.CardAlreadyExistsException
+import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.SelectionRange
 import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.domain.UnauthorizedException
@@ -103,7 +104,9 @@ class CardRepositoryTest {
     @Test
     fun `createCard 404 throws StaleReferenceException`() =
         runTest {
-            whenever(cardsApi.createCard(any())).thenReturn(Response.error(404, "{}".toResponseBody()))
+            whenever(cardsApi.createCard(any())).thenReturn(
+                Response.error(404, """{"message":"DECK_NOT_FOUND"}""".toResponseBody()),
+            )
 
             val result = repository.createCard(deckId = "d1", definitionId = "def1")
 
@@ -118,7 +121,9 @@ class CardRepositoryTest {
     @Test
     fun `createCard 409 throws CardAlreadyExistsException`() =
         runTest {
-            whenever(cardsApi.createCard(any())).thenReturn(Response.error(409, "{}".toResponseBody()))
+            whenever(cardsApi.createCard(any())).thenReturn(
+                Response.error(409, """{"message":"CARD_ALREADY_EXISTS"}""".toResponseBody()),
+            )
 
             val result = repository.createCard(deckId = "d1", definitionId = "def1")
 
@@ -138,7 +143,7 @@ class CardRepositoryTest {
             val result = repository.createCard(deckId = "d1", definitionId = "def1")
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("500") == true)
+            assertEquals(500, (result.exceptionOrNull() as RemoteOperationFailureException).statusCode)
         }
 
     // -------------------------------------------------------------------------

@@ -48,11 +48,21 @@
     <string name="auth_register_button">Register</string>
     <string name="auth_loading">Signing in…</string>
     <string name="auth_error_generic">Something went wrong. Please try again.</string>
+    <string name="auth_error_required_fields">Enter your email and password to continue.</string>
+    <string name="auth_error_invalid_credentials">That email and password combination wasn’t recognized. Check them and try again.</string>
+    <string name="auth_error_account_mismatch">Use the account that was active before the session expired to keep your current work open.</string>
+    <string name="auth_error_account_exists">An account with this email already exists. Sign in instead.</string>
+    <string name="auth_session_expired_notice">Your session expired. Sign in again to continue. Your current screen will stay open.</string>
+    <string name="auth_refresh_unavailable_notice">We couldn’t verify your session. Sign in to continue. Your current screen will stay open.</string>
+    <string name="session_check_title">Can’t verify your session</string>
+    <string name="session_check_retry">Try again</string>
+    <string name="session_check_sign_in">Sign in</string>
 
     <!-- Home screen -->
     <string name="home_greeting">Welcome, %1$s</string>
     <string name="home_logout_button">Log out</string>
     <string name="home_empty_state">No entries yet. Tap + to add one.</string>
+    <string name="card_added_sync_attention">Card added. AnkiDroid export needs attention; check Sync.</string>
 
     <!-- Session check -->
     <string name="checking_session_label">Checking session…</string>
@@ -79,6 +89,7 @@
     <string name="decks_empty_state">No decks yet. Tap + to create one.</string>
     <string name="deck_detail_empty">No cards in this deck yet. Tap + to add a word.</string>
     <string name="deck_detail_error">Couldn\'t load the cards of this deck.</string>
+    <string name="error_deck_already_exists">A deck with this name already exists. Choose another name.</string>
     <string name="deck_detail_add_word">Add a word</string>
     <string name="decks_create_deck_button">Create deck</string>
     <string name="decks_deck_context_menu_browse">Browse</string>
@@ -140,6 +151,9 @@
     <string name="ankidroid_sync_button">Sync now</string>
     <string name="ankidroid_sync_in_progress">Sync in progress…</string>
     <string name="ankidroid_sync_up_to_date">Everything is already up to date</string>
+    <string name="ankidroid_sync_setup_required">Set up AnkiDroid before syncing your cards.</string>
+    <string name="error_sync_failed">Couldn’t load the cards to sync. Check your connection and try again.</string>
+    <string name="error_sync_data_missing">Some saved data is no longer available. Return to decks and refresh before syncing again.</string>
     <string name="ankidroid_sync_result_summary">Synced %1$d card(s), %2$d failed</string>
     <string name="ankidroid_sync_failed_words_header">Failed cards</string>
     <string name="ankidroid_export_status_pending">Pending</string>
@@ -168,13 +182,19 @@
     <string name="offline_queue_online_banner">Back online — tap any word to pick its definition</string>
     <string name="offline_queue_start_reviewing">Start reviewing →</string>
     <string name="offline_queue_reconnect_to_review">Reconnect to start reviewing</string>
+    <string name="offline_queue_save_failed_title">Couldn’t save this word</string>
+    <string name="offline_queue_save_failed_message">Your word could not be saved for offline review. Try again.</string>
+    <string name="saved_vocabulary_checking">Checking saved words…</string>
+    <string name="saved_vocabulary_check_failed">Couldn’t check saved words.</string>
     <string name="navigate_back_description">Navigate back</string>
 
     <!-- Error messages (resolved in UI from typed ViewModel errors) -->
     <string name="error_load_decks_failed">Failed to load decks</string>
     <string name="error_create_deck_failed">Failed to create deck</string>
     <string name="error_load_decks_for_card_failed">Failed to load decks</string>
-    <string name="error_lookup_failed">Failed to look up word</string>
+    <string name="error_lookup_failed">Couldn’t look up this word. Check your connection or try again later.</string>
+    <string name="error_lookup_service_problem">The dictionary service couldn’t find this route. Try again later.</string>
+    <string name="error_context_too_long">This context is too long. Shorten it and try again.</string>
     <string name="error_create_card_failed">Could not add this card. Try again.</string>
     <string name="error_stale_reference">The deck or definition no longer exists. Choose an available deck or definition.</string>
     <string name="error_export_record_failed">Failed to record export</string>
@@ -212,9 +232,12 @@
     <string name="review_finished_summary">You reviewed %1$d card(s).</string>
     <string name="review_done_button">Done</string>
     <string name="review_retry_button">Retry</string>
+    <string name="review_retrying">Retrying…</string>
     <string name="error_review_load_failed">Failed to load review queue</string>
     <string name="error_review_submit_failed">Failed to submit answer</string>
     <string name="error_review_grade_failed">Failed to save your review</string>
+    <string name="error_review_grade_uncertain">We couldn’t confirm whether this review was saved. Return to decks, refresh the queue, and check this card before grading again.</string>
+    <string name="error_review_card_missing">This review card is no longer available. Return to decks and refresh the review queue.</string>
 
     <!-- Inflection form labels (dictionary lookup + review reveal) -->
     <string name="inflection_form_positive">Positive</string>
