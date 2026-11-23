@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_connection">Couldn’t connect. Check your internet connection and try again.</string>
+    <string name="error_rate_limited">Too many requests. Wait a moment, then try again.</string>
+    <string name="error_service_unavailable">The service is temporarily unavailable. Try again shortly.</string>
+    <string name="error_request_rejected">The request couldn’t be accepted. Check your input and try again.</string>
+    <string name="error_forbidden">You don’t have permission to do that.</string>
+    <string name="error_generic">Something went wrong. Try again.</string>
+    <string name="error_deck_missing">This deck is no longer available. Go back and choose another deck.</string>
+</resources>
