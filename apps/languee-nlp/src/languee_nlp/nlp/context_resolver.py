@@ -60,9 +60,9 @@ def resolve_token_in_doc(
                     "event": "nlp.exact_match",
                     "method": resolve_token_from_context.__name__,
                     "data": {
-                        "word": input_text,
+                        "word_length": len(input_text),
                         "matched_index": matched_index,
-                        "token_text": matched_token.text,
+                        "token_length": len(matched_token.text),
                     },
                 },
             )
@@ -96,7 +96,7 @@ def resolve_token_in_doc(
             extra={
                 "event": "nlp.offset_mismatch",
                 "method": resolve_token_from_context.__name__,
-                "data": {"word": input_text, "best_overlap": best_overlap},
+                "data": {"word_length": len(input_text), "best_overlap": best_overlap},
             },
         )
 
@@ -117,8 +117,8 @@ def resolve_token_in_doc(
                 "event": "nlp.phrasal_verb_detected",
                 "method": resolve_token_from_context.__name__,
                 "data": {
-                    "word": input_text,
-                    "detected_expression": detected_expression,
+                    "word_length": len(input_text),
+                    "expression_length": len(detected_expression),
                 },
             },
         )
@@ -129,7 +129,7 @@ def resolve_token_in_doc(
             "event": "nlp.token_resolved",
             "method": resolve_token_from_context.__name__,
             "data": {
-                "word": input_text,
+                "word_length": len(input_text),
                 "confidence": confidence,
                 "warnings": warnings,
             },

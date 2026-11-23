@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { isSpanContextValid, SpanStatusCode, trace } from '@opentelemetry/api';
 import { MS_PER_SECOND } from '../time/time.constants';
 import { AppLogger } from '../logger/app-logger';
+import { requestContextStorage } from '../context/request-context';
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 5 * MS_PER_SECOND;
 
@@ -19,8 +20,6 @@ export class RequestFailure extends Error {
     readonly kind: RequestFailureKind,
     message: string,
     readonly status?: number,
-    /** Response body for a non-ok status; this is where a 4xx explains itself. */
-    readonly body?: string,
     override readonly cause?: unknown,
   ) {
     super(message);
@@ -35,6 +34,7 @@ export interface RequestOptions {
   /** Identifies the remote in logs and spans, e.g. 'wiktionary' or 'nlp'. */
   target: string;
   operation?: string;
+  propagateCorrelation?: boolean;
 }
 
 /**
@@ -59,7 +59,6 @@ export class RequestService {
           'parse',
           `${options.target} returned a body that is not valid JSON`,
           response.status,
-          undefined,
           err,
         ),
         options.target,
@@ -104,10 +103,9 @@ export class RequestService {
               'network',
               `${options.target} could not be reached`,
               undefined,
-              undefined,
               err,
             );
-      throw this.fail(failure, options.target, true);
+      throw this.fail(failure, options.target, options.operation);
     } finally {
       clearTimeout(timeout!);
       clearTimeout(slowTimer);
@@ -143,20 +141,15 @@ export class RequestService {
   ): Promise<T> {
     const response = await fetch(url, {
       method: body === undefined ? 'GET' : 'POST',
-      headers:
-        body === undefined
-          ? options.headers
-          : { ...options.headers, 'Content-Type': 'application/json' },
+      headers: this.requestHeaders(options, body !== undefined),
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });
     if (!response.ok) {
-      const text = await response.text().catch(() => undefined);
       throw new RequestFailure(
         'http',
         `${options.target} responded with HTTP ${response.status}`,
         response.status,
-        text,
       );
     }
     try {
@@ -166,7 +159,6 @@ export class RequestService {
         'parse',
         `${options.target} returned a body that is not valid JSON`,
         response.status,
-        undefined,
         err,
       );
     }
@@ -174,8 +166,7 @@ export class RequestService {
 
   /**
    * Returns the raw response for a 2xx. Any non-ok status, network error or
-   * timeout is raised as a RequestFailure carrying the discriminator, the
-   * status, and the response body when there is one.
+   * timeout is raised as a RequestFailure carrying the failure type and status.
    */
   async send(url: string, options: RequestOptions): Promise<Response> {
     const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
@@ -185,7 +176,7 @@ export class RequestService {
     let response: Response;
     try {
       response = await fetch(url, {
-        headers: options.headers,
+        headers: this.requestHeaders(options, false),
         signal: controller.signal,
       });
     } catch (err: unknown) {
@@ -197,26 +188,24 @@ export class RequestService {
             ? `${options.target} did not respond within ${timeoutMs}ms`
             : `${options.target} could not be reached`,
           undefined,
-          undefined,
           err,
         ),
         options.target,
+        options.operation,
       );
     } finally {
       clearTimeout(timer);
     }
 
     if (!response.ok) {
-      // Read the body before discarding it — a 4xx usually explains itself here.
-      const body = await response.text().catch(() => undefined);
       throw this.fail(
         new RequestFailure(
           'http',
           `${options.target} responded with HTTP ${response.status}`,
           response.status,
-          body,
         ),
         options.target,
+        options.operation,
       );
     }
 
@@ -226,36 +215,92 @@ export class RequestService {
   private fail(
     failure: RequestFailure,
     target: string,
-    safe = false,
+    operation?: string,
   ): RequestFailure {
     const span = trace.getActiveSpan();
-    if (!safe && failure.cause instanceof Error)
-      span?.recordException(failure.cause);
     span?.addEvent('http.request_failed', {
       target,
       kind: failure.kind,
       ...(failure.status !== undefined
         ? { 'http.status_code': failure.status }
         : {}),
+      ...(failure.cause instanceof Error
+        ? { 'error.type': failure.cause.name }
+        : {}),
     });
-    span?.setStatus({ code: SpanStatusCode.ERROR, message: failure.message });
+    span?.setStatus({ code: SpanStatusCode.ERROR, message: failure.kind });
 
     this.logger.warn({
       message: 'outbound request failed',
       event: 'http.request_failed',
-      method: this.send.name,
+      method: 'outbound_http',
       data: {
         target,
+        ...(operation === undefined ? {} : { operation }),
         kind: failure.kind,
         status: failure.status ?? null,
-        body: safe ? null : (failure.body?.slice(0, 500) ?? null),
-        cause:
-          !safe && failure.cause instanceof Error
-            ? failure.cause.message
-            : null,
+        ...(failure.cause instanceof Error
+          ? { cause_type: failure.cause.name }
+          : {}),
       },
     });
 
     return failure;
+  }
+
+  private requestHeaders(
+    options: RequestOptions,
+    hasJsonBody: boolean,
+  ): Record<string, string> | undefined {
+    const headers = { ...options.headers };
+    if (
+      hasJsonBody &&
+      !Object.keys(headers).some((key) => key.toLowerCase() === 'content-type')
+    ) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const requestId = requestContextStorage.getStore()?.requestId;
+    if (
+      options.propagateCorrelation === true &&
+      requestId !== undefined &&
+      !Object.keys(headers).some((key) => key.toLowerCase() === 'x-request-id')
+    ) {
+      headers['X-Request-ID'] = requestId;
+    }
+    if (options.propagateCorrelation === true) {
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === 'traceparent') delete headers[key];
+      }
+      const traceparent = this.traceparentHeader();
+      if (traceparent !== undefined) headers.traceparent = traceparent;
+    }
+    return Object.keys(headers).length > 0 ? headers : undefined;
+  }
+
+  private traceparentHeader(): string | undefined {
+    const spanContext = trace.getActiveSpan()?.spanContext();
+    if (
+      spanContext !== undefined &&
+      isSpanContextValid(spanContext) &&
+      Number.isInteger(spanContext.traceFlags) &&
+      spanContext.traceFlags >= 0 &&
+      spanContext.traceFlags <= 255
+    ) {
+      const traceId = spanContext.traceId.toLowerCase();
+      const spanId = spanContext.spanId.toLowerCase();
+      const flags = spanContext.traceFlags.toString(16).padStart(2, '0');
+      return `00-${traceId}-${spanId}-${flags}`;
+    }
+
+    const context = requestContextStorage.getStore();
+    if (
+      context?.traceId === undefined ||
+      context.parentSpanId === undefined ||
+      context.traceFlags === undefined
+    ) {
+      return undefined;
+    }
+    return `00-${context.traceId}-${context.parentSpanId}-${context.traceFlags}`;
   }
 }

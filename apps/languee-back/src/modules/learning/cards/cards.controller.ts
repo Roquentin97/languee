@@ -1,3 +1,5 @@
+import { LogRequestWith } from '../../system/core/interceptors/http-request-log';
+import { cardsDetails } from './request-log-policy';
 import {
   BadRequestException,
   Body,
@@ -54,6 +56,7 @@ import { rangesCoverCompleteWords } from '../capture/capture-ranges';
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
 
+  @LogRequestWith(cardsDetails)
   @Get()
   @ApiOperation({ summary: 'List cards for the current user' })
   @ApiOkResponse({ type: [CardListItemResponseDto] })

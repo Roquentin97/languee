@@ -4,7 +4,9 @@ import datetime
 import json
 import logging
 import os
+import re
 import sys
+import traceback
 from typing import TYPE_CHECKING
 
 from opentelemetry import trace as _otel_trace
@@ -29,7 +31,43 @@ _EXTRA_FIELDS = (
     "method",
     "event",
     "data",
+    "http",
+    "failure",
+    "error",
 )
+_SENSITIVE_KEY_PARTS = (
+    "authorization",
+    "password",
+    "cookie",
+    "secret",
+    "api_key",
+    "apikey",
+    "access_token",
+    "refresh_token",
+    "jwt",
+)
+_PRIVATE_TEXT_KEYS = frozenset(
+    {
+        "text",
+        "word",
+        "input_text",
+        "raw_text",
+        "expression",
+        "canonical",
+        "lemma",
+        "matched_text",
+        "token_text",
+    }
+)
+_BEARER_PATTERN = re.compile(r"\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*", re.IGNORECASE)
+_SECRET_PATTERN = re.compile(
+    r"\b(authorization|cookie|set-cookie|password|token|secret|api[_-]?key)\s*([=:])\s*(\"[^\"]*\"|'[^']*'|[^\s,;&]+)",
+    re.IGNORECASE,
+)
+_MAX_STRING_LENGTH = 4096
+_MAX_ITEMS = 64
+_MAX_DEPTH = 8
+_TRUNCATED = "...[TRUNCATED]"
 
 
 class JsonFormatter(logging.Formatter):
@@ -44,6 +82,9 @@ class JsonFormatter(logging.Formatter):
             "level": _LEVEL_MAP.get(record.levelno, record.levelname.lower()),
             "message": record.getMessage(),
             "service": self._service,
+            "service_version": os.getenv("APP_VERSION", "0.0.0"),
+            "vcs_revision": os.getenv("GIT_SHA", "unknown"),
+            "build_id": os.getenv("BUILD_ID", "unknown"),
             "context": record.name,
             "pid": os.getpid(),
             "environment": self._environment,
@@ -56,11 +97,10 @@ class JsonFormatter(logging.Formatter):
             payload["span_id"] = f"{ctx.span_id:016x}"
 
         if record.exc_info:
-            exc_type, exc_value, _ = record.exc_info
+            exc_type, exc_value, exc_tb = record.exc_info
             payload["error"] = {
                 "type": exc_type.__name__ if exc_type is not None else "UnknownError",
-                "message": str(exc_value),
-                "stack": self.formatException(record.exc_info),
+                "stack": traceback.format_tb(exc_tb)[-12:] if exc_tb else [],
             }
 
         for field in _EXTRA_FIELDS:
@@ -68,7 +108,53 @@ class JsonFormatter(logging.Formatter):
             if value is not None:
                 payload[field] = value
 
-        return json.dumps(payload, ensure_ascii=False)
+        safe_payload = _sanitize_value(payload, "", False, 0)
+        return json.dumps(safe_payload, ensure_ascii=False)
+
+
+def _sanitize_value(value: object, key: str, private_data: bool, depth: int) -> object:
+    normalized_key = key.lower().replace("-", "_")
+    if any(part in normalized_key for part in _SENSITIVE_KEY_PARTS):
+        return "[REDACTED]"
+    if private_data and normalized_key in _PRIVATE_TEXT_KEYS:
+        return "[OMITTED]"
+    if isinstance(value, str):
+        return _sanitize_string(value, normalized_key)
+    if value is None or isinstance(value, int | float | bool):
+        return value
+    if depth >= _MAX_DEPTH:
+        return _TRUNCATED
+    child_private = private_data or normalized_key == "data"
+    if isinstance(value, dict):
+        entries = list(value.items())[:_MAX_ITEMS]
+        sanitized = {
+            str(child_key): _sanitize_value(
+                child, str(child_key), child_private, depth + 1
+            )
+            for child_key, child in entries
+        }
+        if len(value) > _MAX_ITEMS:
+            sanitized["log_fields_truncated"] = True
+        return sanitized
+    if isinstance(value, list | tuple):
+        sanitized_items = [
+            _sanitize_value(child, key, child_private, depth + 1)
+            for child in value[:_MAX_ITEMS]
+        ]
+        if len(value) > _MAX_ITEMS:
+            sanitized_items.append(_TRUNCATED)
+        return sanitized_items
+    return _sanitize_string(str(value), normalized_key)
+
+
+def _sanitize_string(value: str, key: str) -> str:
+    safe = _BEARER_PATTERN.sub(r"\1 [REDACTED]", value)
+    safe = _SECRET_PATTERN.sub(r"\1\2[REDACTED]", safe)
+    if key.endswith("url") or key.endswith("uri"):
+        safe = re.split(r"[?#]", safe, maxsplit=1)[0]
+    if len(safe) > _MAX_STRING_LENGTH:
+        return f"{safe[: _MAX_STRING_LENGTH - len(_TRUNCATED)]}{_TRUNCATED}"
+    return safe
 
 
 class _StderrFilter(logging.Filter):

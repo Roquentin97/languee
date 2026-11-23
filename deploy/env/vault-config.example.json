@@ -28,6 +28,7 @@
   "SERVICE_NAME": "languee-back",
   "PRINT_DEBUG_LOGS": "false",
   "PRINT_PRETTY_JSON_LOGS": "false",
+  "LOG_LOOKUP_DETAILS": "disabled",
   "TRACING_ENABLED": "true",
   "OTEL_TRACES_SAMPLER": "parentbased_always_on",
   "OTEL_TRACES_SAMPLER_ARG": "1.0",

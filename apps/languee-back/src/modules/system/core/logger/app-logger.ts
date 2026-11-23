@@ -82,6 +82,9 @@ export class AppLogger implements LoggerService {
     payload['timestamp'] = new Date().toISOString();
     payload['level'] = level;
     payload['service'] = process.env['SERVICE_NAME'] ?? 'languee-back';
+    payload['service_version'] = process.env['APP_VERSION'] ?? '0.0.0';
+    payload['vcs_revision'] = process.env['GIT_SHA'] ?? 'unknown';
+    payload['build_id'] = process.env['BUILD_ID'] ?? 'unknown';
     payload['context'] = resolvedContext;
     payload['pid'] = process.pid;
     payload['environment'] = process.env['NODE_ENV'] ?? 'development';
@@ -109,6 +112,11 @@ export class AppLogger implements LoggerService {
     if (spanCtx !== undefined && isSpanContextValid(spanCtx)) {
       payload['trace_id'] = spanCtx.traceId;
       payload['span_id'] = spanCtx.spanId;
+    } else if (reqCtx?.traceId !== undefined) {
+      payload['trace_id'] = reqCtx.traceId;
+      if (reqCtx.parentSpanId !== undefined) {
+        payload['parent_span_id'] = reqCtx.parentSpanId;
+      }
     }
   }
 

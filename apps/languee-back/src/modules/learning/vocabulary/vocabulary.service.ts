@@ -303,7 +303,10 @@ export class VocabularyService {
         message: 'optional expression matching failed',
         event: 'vocabulary.expression_matching_unavailable',
         method: this.contextExpressionAlternative.name,
-        data: { language: input.language, headLemma: selection.headLemma },
+        data: {
+          language: input.language,
+          headLemmaBytes: Buffer.byteLength(selection.headLemma, 'utf8'),
+        },
       });
       return [];
     }
@@ -606,7 +609,7 @@ export class VocabularyService {
       method: this.createUserDefinition.name,
       data: {
         entryId,
-        lemma: canonical,
+        lemmaBytes: Buffer.byteLength(canonical, 'utf8'),
         kind: effectiveKind,
         partOfSpeech,
       },

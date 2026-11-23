@@ -1,3 +1,5 @@
+import { LogRequestWith } from '../../../system/core/interceptors/http-request-log';
+import { dictionaryLookupDetails } from './request-log-policy';
 import { NlpUnavailableError, NlpInputInvalidError } from '../nlp/nlp.errors';
 import {
   BadGatewayException,
@@ -36,6 +38,7 @@ import { LexicalEntryKind } from '@prisma/client';
 export class DictionaryController {
   constructor(private readonly dictionaryService: DictionaryService) {}
 
+  @LogRequestWith(dictionaryLookupDetails)
   @Get('lookup')
   @ApiOperation({ summary: 'Look up dictionary headwords' })
   @ApiQuery({ name: 'word', type: String, required: true, example: 'running' })

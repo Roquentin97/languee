@@ -19,6 +19,7 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
       addEvent: event,
       setStatus: jest.fn(),
       recordException: jest.fn(),
+      spanContext: jest.fn(),
     } as never);
   });
   afterEach(() => {
@@ -101,6 +102,131 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
     await jest.advanceTimersByTimeAsync(10000);
     expect(warn).not.toHaveBeenCalled();
   });
+
+  it('propagates request ids to NLP while keeping them off external provider calls', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    } as Response);
+
+    await requestContextStorage.run(
+      {
+        requestId: 'lookup-request-123',
+        traceId: 'aabbccddeeff00112233445566778899',
+        parentSpanId: '0011223344556677',
+        traceFlags: '01',
+      },
+      async () => {
+        await new RequestService().postJson(
+          'http://languee-nlp:8000/analyze',
+          { text: 'running' },
+          { target: 'nlp', propagateCorrelation: true },
+        );
+        expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+          expect.objectContaining({
+            'X-Request-ID': 'lookup-request-123',
+            traceparent:
+              '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+          }),
+        );
+
+        await new RequestService().getJson('https://dictionary.test/lookup', {
+          target: 'dictionary-provider',
+        });
+        expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeUndefined();
+      },
+    );
+  });
+
+  it('propagates validated W3C context from request context when no span is active', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    } as Response);
+    jest.mocked(trace.getActiveSpan).mockReturnValue(undefined);
+
+    await requestContextStorage.run(
+      {
+        requestId: 'lookup-request-trace',
+        traceId: 'aabbccddeeff00112233445566778899',
+        parentSpanId: '0011223344556677',
+        traceFlags: '01',
+      },
+      async () => {
+        await new RequestService().postJson(
+          'http://languee-nlp:8000/analyze',
+          { text: 'running' },
+          { target: 'nlp', propagateCorrelation: true },
+        );
+      },
+    );
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'X-Request-ID': 'lookup-request-trace',
+        traceparent: '00-aabbccddeeff00112233445566778899-0011223344556677-01',
+      }),
+    );
+  });
+
+  it('uses an active span context when propagating W3C headers to NLP', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    } as Response);
+    jest.mocked(trace.getActiveSpan).mockReturnValue({
+      spanContext: () => ({
+        traceId: '12345678901234567890123456789012',
+        spanId: '1234567890123456',
+        traceFlags: 1,
+      }),
+    } as never);
+
+    await requestContextStorage.run(
+      {
+        requestId: 'lookup-request-active-span',
+        traceId: 'aabbccddeeff00112233445566778899',
+        parentSpanId: '0011223344556677',
+        traceFlags: '00',
+      },
+      async () => {
+        await new RequestService().postJson(
+          'http://languee-nlp:8000/analyze',
+          { text: 'running' },
+          { target: 'nlp', propagateCorrelation: true },
+        );
+      },
+    );
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        'X-Request-ID': 'lookup-request-active-span',
+        traceparent: '00-12345678901234567890123456789012-1234567890123456-01',
+      }),
+    );
+  });
+
+  it('does not read or log a failed upstream response body', async () => {
+    const responseText = jest.fn().mockResolvedValue('secret=must-not-log');
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: responseText,
+    } as unknown as Response);
+
+    await expect(
+      new RequestService().send('http://languee-nlp:8000/missing', {
+        target: 'nlp',
+      }),
+    ).rejects.toMatchObject({ kind: 'http', status: 404 });
+
+    expect(responseText).not.toHaveBeenCalled();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('must-not-log');
+  });
+
   it('enriches the slow warning with request and trace correlation', async () => {
     warn.mockRestore();
     const output = jest

@@ -102,6 +102,7 @@ services:
       LOG_FORMAT: json
       PRINT_PRETTY_JSON_LOGS: "false"
       PRINT_DEBUG_LOGS: "${PRINT_DEBUG_LOGS:-false}"
+      LOG_LOOKUP_DETAILS: "${LOG_LOOKUP_DETAILS:-disabled}"
       SERVICE_NAME: "languee-back"
       TRACING_ENABLED: "${TRACING_ENABLED:-true}"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy:4318"
