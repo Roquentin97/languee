@@ -2,13 +2,17 @@ package com.example.langueedroid.core.data
 
 import com.example.langueedroid.core.data.mapper.toDomain
 import com.example.langueedroid.core.data.mapper.toLookupResult
+import com.example.langueedroid.core.domain.ContextTooLongException
 import com.example.langueedroid.core.domain.CreatedUserDefinition
 import com.example.langueedroid.core.domain.Deck
+import com.example.langueedroid.core.domain.DefinitionAlreadyExistsException
 import com.example.langueedroid.core.domain.EntryValidator
 import com.example.langueedroid.core.domain.ExpressionLimits
 import com.example.langueedroid.core.domain.ExpressionTooLongException
+import com.example.langueedroid.core.domain.LookupInputInvalidException
 import com.example.langueedroid.core.domain.LookupResult
 import com.example.langueedroid.core.domain.SelectionRange
+import com.example.langueedroid.core.domain.VocabularyNotFoundException
 import com.example.langueedroid.core.network.VocabularyApi
 import com.example.langueedroid.core.network.dto.CreateUserDefinitionRequestDto
 import com.example.langueedroid.core.network.dto.LookupVocabularyRequestDto
@@ -35,7 +39,7 @@ class VocabularyRepository(
                         tokens = EntryValidator.distinctSurfaceTokens(text),
                     ),
                 )
-            response.throwIfUnsuccessful(ApiOperation.SAVED_MATCHES)
+            response.throwIfUnsuccessful()
             response.body()?.matches.orEmpty().flatMap { match ->
                 match.headwords.flatMap { headword ->
                     headword.definitions.map { definition ->
@@ -77,8 +81,15 @@ class VocabularyRepository(
                         includeSuggestions = includeSuggestions,
                     ),
                 )
-            response.throwIfUnsuccessful(ApiOperation.VOCABULARY_LOOKUP)
-            val body = response.bodyOrThrow(ApiOperation.VOCABULARY_LOOKUP).toLookupResult()
+            response.throwIfUnsuccessful { status, message ->
+                when {
+                    status == 400 && message == "INPUT_INVALID" -> LookupInputInvalidException()
+                    status == 400 && message == "CONTEXT_TOO_LONG" -> ContextTooLongException()
+                    status == 404 && message == "DEFINITIONS_NOT_FOUND" -> VocabularyNotFoundException()
+                    else -> null
+                }
+            }
+            val body = response.bodyOrThrow().toLookupResult()
             val definitionCount = body.definitions.size
             logger.info("vocabulary.lookup_succeeded", mapOf("definition_count" to definitionCount.toString()))
             body
@@ -105,8 +116,14 @@ class VocabularyRepository(
                         example = example,
                     ),
                 )
-            response.throwIfUnsuccessful(ApiOperation.USER_DEFINITION_CREATE)
-            val body = response.bodyOrThrow(ApiOperation.USER_DEFINITION_CREATE).toDomain()
+            response.throwIfUnsuccessful { status, message ->
+                when {
+                    status == 400 && message == "INPUT_INVALID" -> LookupInputInvalidException()
+                    status == 409 && message == "DEFINITION_ALREADY_EXISTS" -> DefinitionAlreadyExistsException()
+                    else -> null
+                }
+            }
+            val body = response.bodyOrThrow().toDomain()
             logger.info("vocabulary.definition_created", mapOf("definition_kind" to body.kind.name))
             body
         }

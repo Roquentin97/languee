@@ -2,6 +2,7 @@ package com.example.langueedroid.core.data
 
 import com.example.langueedroid.core.domain.AnkiDroidExport
 import com.example.langueedroid.core.domain.AnkiExportStatus
+import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.network.AnkiDroidExportApi
 import com.example.langueedroid.core.network.dto.AnkiDroidExportResponseDto
 import com.example.langueedroid.core.network.dto.RecordAttemptRequest
@@ -36,8 +37,13 @@ class AnkiDroidExportRepository(
     suspend fun createOrGetExportRecord(cardId: String): Result<AnkiDroidExport> =
         runCatchingCancellable {
             val response = ankiDroidExportApi.createOrGetExport(cardId)
-            response.throwIfUnsuccessful(ApiOperation.EXPORT_CREATE)
-            val export = dtoToDomain(response.bodyOrThrow(ApiOperation.EXPORT_CREATE))
+            response.throwIfUnsuccessful { status, message ->
+                when {
+                    status == 404 && message == "CARD_NOT_FOUND" -> StaleReferenceException()
+                    else -> null
+                }
+            }
+            val export = dtoToDomain(response.bodyOrThrow())
             val created = export.ankiNoteId == null
             logger.info(
                 "ankidroid.export_record_resolved",
@@ -70,7 +76,12 @@ class AnkiDroidExportRepository(
                             templateVersion = templateVersion,
                         ),
                 )
-            response.throwIfUnsuccessful(ApiOperation.EXPORT_RECORD)
+            response.throwIfUnsuccessful { status, message ->
+                when {
+                    status == 404 && message == "EXPORT_NOT_FOUND" -> StaleReferenceException()
+                    else -> null
+                }
+            }
             logger.info("ankidroid.export_attempt_completed")
         }
 
@@ -90,7 +101,12 @@ class AnkiDroidExportRepository(
                             failureMessage = failureMessage,
                         ),
                 )
-            response.throwIfUnsuccessful(ApiOperation.EXPORT_RECORD)
+            response.throwIfUnsuccessful { status, message ->
+                when {
+                    status == 404 && message == "EXPORT_NOT_FOUND" -> StaleReferenceException()
+                    else -> null
+                }
+            }
             logger.info("ankidroid.export_attempt_failed")
         }
 
@@ -99,8 +115,8 @@ class AnkiDroidExportRepository(
             val pendingResponse = ankiDroidExportApi.getCardsWithExportStatus(status = "pending")
             val failedResponse = ankiDroidExportApi.getCardsWithExportStatus(status = "failed")
 
-            pendingResponse.throwIfUnsuccessful(ApiOperation.EXPORT_STATUS_LIST)
-            failedResponse.throwIfUnsuccessful(ApiOperation.EXPORT_STATUS_LIST)
+            pendingResponse.throwIfUnsuccessful()
+            failedResponse.throwIfUnsuccessful()
             val pendingIds = pendingResponse.body().orEmpty().map { it.id }
             val failedIds = failedResponse.body().orEmpty().map { it.id }
 

@@ -8,6 +8,7 @@ import com.example.langueedroid.core.domain.RevealedEntry
 import com.example.langueedroid.core.domain.ReviewItem
 import com.example.langueedroid.core.domain.ReviewRating
 import com.example.langueedroid.core.domain.ReviewSummary
+import com.example.langueedroid.core.domain.StaleReferenceException
 import com.example.langueedroid.core.network.ReviewsApi
 import com.example.langueedroid.core.network.dto.CheckAnswerRequest
 import com.example.langueedroid.core.network.dto.CheckFormsRequest
@@ -24,8 +25,8 @@ class ReviewRepository(
     suspend fun summary(): Result<ReviewSummary> =
         runCatchingCancellable {
             val response = reviewsApi.getSummary()
-            response.throwIfUnsuccessful(ApiOperation.REVIEW_SUMMARY)
-            val body = response.bodyOrThrow(ApiOperation.REVIEW_SUMMARY).toDomain()
+            response.throwIfUnsuccessful(::reviewFailure)
+            val body = response.bodyOrThrow().toDomain()
             logger.info(
                 "review.summary_loaded",
                 mapOf(
@@ -42,7 +43,7 @@ class ReviewRepository(
     ): Result<List<ReviewItem>> =
         runCatchingCancellable {
             val response = reviewsApi.getQueue(deckId = deckId, limit = limit)
-            response.throwIfUnsuccessful(ApiOperation.REVIEW_QUEUE)
+            response.throwIfUnsuccessful(::reviewFailure)
             val items =
                 response
                     .body()
@@ -63,8 +64,8 @@ class ReviewRepository(
                     cardId = cardId,
                     body = CheckAnswerRequest(typedAnswer = typedAnswer),
                 )
-            response.throwIfUnsuccessful(ApiOperation.REVIEW_CHECK_ANSWER)
-            val body = response.bodyOrThrow(ApiOperation.REVIEW_CHECK_ANSWER).toDomain()
+            response.throwIfUnsuccessful(::reviewFailure)
+            val body = response.bodyOrThrow().toDomain()
             logger.info("review.answer_checked", mapOf("result" to body.result.toString()))
             body
         }
@@ -75,15 +76,15 @@ class ReviewRepository(
     ): Result<CheckFormsResponseDto> =
         runCatchingCancellable {
             val response = reviewsApi.checkForms(cardId, CheckFormsRequest(typedForms))
-            response.throwIfUnsuccessful(ApiOperation.REVIEW_CHECK_FORMS)
-            response.bodyOrThrow(ApiOperation.REVIEW_CHECK_FORMS)
+            response.throwIfUnsuccessful(::reviewFailure)
+            response.bodyOrThrow()
         }
 
     suspend fun revealDefinition(cardId: String): Result<RevealedEntry> =
         runCatchingCancellable {
             val response = reviewsApi.revealDefinition(cardId)
-            response.throwIfUnsuccessful(ApiOperation.REVIEW_REVEAL)
-            val body = response.bodyOrThrow(ApiOperation.REVIEW_REVEAL)
+            response.throwIfUnsuccessful(::reviewFailure)
+            val body = response.bodyOrThrow()
             RevealedEntry(
                 lemma = body.lemma,
                 ipa = null,
@@ -111,8 +112,8 @@ class ReviewRepository(
                             answerResult = answerResult?.toWireValue(),
                         ),
                 )
-            response.throwIfUnsuccessful(ApiOperation.REVIEW_GRADE)
-            val body = response.bodyOrThrow(ApiOperation.REVIEW_GRADE).toDomain()
+            response.throwIfUnsuccessful(::reviewFailure)
+            val body = response.bodyOrThrow().toDomain()
             logger.info(
                 "review.card_graded",
                 mapOf("rating" to rating.name, "state" to body.state, "interval_days" to body.intervalDays.toString()),
@@ -135,3 +136,13 @@ class ReviewRepository(
             GradeAnswerResult.REVEALED -> "revealed"
         }
 }
+
+private fun reviewFailure(
+    status: Int,
+    message: String?,
+): Exception? =
+    if (status == 404 && message in setOf("CARD_NOT_FOUND", "DECK_NOT_FOUND")) {
+        StaleReferenceException()
+    } else {
+        null
+    }

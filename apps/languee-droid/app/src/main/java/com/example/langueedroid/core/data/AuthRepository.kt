@@ -2,8 +2,10 @@ package com.example.langueedroid.core.data
 
 import com.example.langueedroid.core.data.local.AuthSession
 import com.example.langueedroid.core.data.local.AuthSessionStore
+import com.example.langueedroid.core.domain.AccountAlreadyExistsException
 import com.example.langueedroid.core.domain.AccountMismatchException
 import com.example.langueedroid.core.domain.InvalidCredentialsException
+import com.example.langueedroid.core.domain.RemoteFailureKind
 import com.example.langueedroid.core.domain.RemoteOperationFailureException
 import com.example.langueedroid.core.domain.UnauthorizedException
 import com.example.langueedroid.core.network.AuthApi
@@ -35,8 +37,14 @@ class AuthRepository(
         val result =
             runCatchingCancellable {
                 val response = authApi.login(LoginRequest(email, password))
-                response.throwIfUnsuccessful(ApiOperation.AUTH_LOGIN)
-                val body = response.bodyOrThrow(ApiOperation.AUTH_LOGIN)
+                response.throwIfUnsuccessful { status, message ->
+                    when {
+                        status == 401 && message == "Invalid credentials" -> InvalidCredentialsException()
+                        status == 401 -> RemoteOperationFailureException(RemoteFailureKind.UNEXPECTED, 401)
+                        else -> null
+                    }
+                }
+                val body = response.bodyOrThrow()
                 val session =
                     AuthSession(
                         accessToken = body.accessToken,
@@ -63,8 +71,14 @@ class AuthRepository(
         val result =
             runCatchingCancellable {
                 val response = authApi.register(RegisterRequest(email, password))
-                response.throwIfUnsuccessful(ApiOperation.AUTH_REGISTER)
-                val body = response.bodyOrThrow(ApiOperation.AUTH_REGISTER)
+                response.throwIfUnsuccessful { status, message ->
+                    when {
+                        status == 409 && message == "Email already exists" -> AccountAlreadyExistsException()
+                        status == 401 -> RemoteOperationFailureException(RemoteFailureKind.UNEXPECTED, 401)
+                        else -> null
+                    }
+                }
+                val body = response.bodyOrThrow()
                 val session =
                     AuthSession(
                         accessToken = body.accessToken,
@@ -93,14 +107,14 @@ class AuthRepository(
                         ),
                     )
                 try {
-                    response.throwIfUnsuccessful(ApiOperation.AUTH_REFRESH)
+                    response.throwIfUnsuccessful()
                 } catch (error: UnauthorizedException) {
                     clearCredentialsForRecovery(stored.userId)
                     throw error
                 }
                 val body =
                     try {
-                        response.bodyOrThrow(ApiOperation.AUTH_REFRESH)
+                        response.bodyOrThrow()
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
