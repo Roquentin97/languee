@@ -55,7 +55,7 @@ and NLP records log validated trace IDs; Caddy can be correlated through the req
 ID returned by the backend or its proxy-generated ID for proxy-only responses.
 
 Lookup text and context are excluded from logs by default. Set
-`LOG_LOOKUP_DETAILS=true` only for a temporary incident investigation, then restart
+`LOG_LOOKUP_DETAILS=failed-only` only for a temporary incident investigation, then restart
 the backend. On failed vocabulary lookups the backend can record the explicitly
 allowlisted text, language, context, selection ranges, and lookup options. Text and
 context are capped at 1,024 UTF-8 bytes each and a truncation marker is included.
@@ -65,7 +65,7 @@ bodies, credentials, arbitrary query values, and upstream response bodies are ne
 captured. Anyone with Loki access can read captured lookup content; it remains there
 until the configured Loki retention expires (five days by default in Compose).
 
-For a local failure record, temporarily set `LOG_LOOKUP_DETAILS=true` in `.env`
+For a local failure record, temporarily set `LOG_LOOKUP_DETAILS=failed-only` in `.env`
 and restart the backend. The vocabulary lookup route requires a bearer token. Use
 an access token from a disposable account registered in the local development
 API; if needed, register a throwaway user at `/auth/register`, then sign in at
@@ -100,6 +100,8 @@ Find the records in Grafana Explore with the request ID or trace ID:
 {service=~"languee-back|languee-nlp"} |~ "aabbccddeeff00112233445566778899"
 ```
 
-Return `LOG_LOOKUP_DETAILS` to `false` after the investigation. Existing records
+Return `LOG_LOOKUP_DETAILS` to `disabled` after the investigation. Existing records
 expire according to `LOKI_RETENTION_DAYS`; disabling capture does not remove earlier
 records.
+
+`LOG_LOOKUP_DETAILS` accepts `disabled` (default), `failed-only`, or `allowed` (all routed requests). Unknown values disable content capture. Failures before a controller is selected contain only generic request metadata.

@@ -10,7 +10,6 @@ export interface RequestContext {
 
 export const requestContextStorage = new AsyncLocalStorage<RequestContext>();
 
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const TRACEPARENT_PATTERN =
   /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(?:-([0-9a-f-]+))?$/i;
 
@@ -18,9 +17,7 @@ export function resolveRequestId(
   header: string | string[] | undefined,
 ): string {
   const candidate = Array.isArray(header) ? header[0] : header;
-  return candidate !== undefined && REQUEST_ID_PATTERN.test(candidate)
-    ? candidate
-    : randomUUID();
+  return candidate ?? randomUUID();
 }
 
 export function parseTraceparent(

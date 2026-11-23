@@ -12,7 +12,9 @@ import {
   httpErrorDetails,
   requestPath,
   requestRoute,
-  safeRequestDetails,
+  captureLookupContent,
+  REQUEST_LOG_POLICY,
+  type RequestLogPolicy,
   type HttpLogLocals,
 } from './http-request-log';
 
@@ -26,14 +28,32 @@ export class HttpLoggingInterceptor implements NestInterceptor {
       .switchToHttp()
       .getResponse<Response<unknown, HttpLogLocals>>();
     const start = Date.now();
+    const policy = Reflect.getMetadata(
+      REQUEST_LOG_POLICY,
+      context.getHandler(),
+    ) as RequestLogPolicy | undefined;
 
     return next.handle().pipe(
       tap(() => {
-        this.logCompletion(req, res, res.statusCode, Date.now() - start);
+        this.logCompletion(
+          req,
+          res,
+          res.statusCode,
+          Date.now() - start,
+          undefined,
+          policy,
+        );
       }),
       catchError((err: unknown) => {
         const failure = httpErrorDetails(err, 500);
-        this.logCompletion(req, res, failure.status, Date.now() - start, err);
+        this.logCompletion(
+          req,
+          res,
+          failure.status,
+          Date.now() - start,
+          err,
+          policy,
+        );
         return throwError(() => err);
       }),
     );
@@ -45,6 +65,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     status: number,
     duration: number,
     error?: unknown,
+    policy?: RequestLogPolicy,
   ): void {
     const isFailure = status >= 400;
     const failure = isFailure ? httpErrorDetails(error, status) : undefined;
@@ -67,10 +88,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
               ? {}
               : { 'error.code': failure.code }),
           }),
-      ...safeRequestDetails(
-        req,
-        isFailure && process.env['LOG_LOOKUP_DETAILS'] === 'true',
-      ),
+      ...(policy?.(req, captureLookupContent(isFailure)) ?? {}),
     });
   }
 }

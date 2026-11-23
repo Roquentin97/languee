@@ -1,3 +1,9 @@
+import { LogRequestWith } from '../../system/core/interceptors/http-request-log';
+import {
+  lookupRequestDetails,
+  savedMatchesDetails,
+  userDefinitionDetails,
+} from './request-log-policy';
 import {
   BadGatewayException,
   BadRequestException,
@@ -62,6 +68,7 @@ import {
 export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
 
+  @LogRequestWith(lookupRequestDetails)
   @Post('lookup')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -112,6 +119,7 @@ export class VocabularyController {
     }
   }
 
+  @LogRequestWith(savedMatchesDetails)
   @Post('saved-matches')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -139,6 +147,7 @@ export class VocabularyController {
     return this.vocabularyService.savedMatches(body, user.userId);
   }
 
+  @LogRequestWith(userDefinitionDetails)
   @Post('definitions')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({

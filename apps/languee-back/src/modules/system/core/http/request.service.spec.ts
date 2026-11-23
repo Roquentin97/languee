@@ -121,7 +121,7 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
         await new RequestService().postJson(
           'http://languee-nlp:8000/analyze',
           { text: 'running' },
-          { target: 'nlp' },
+          { target: 'nlp', propagateCorrelation: true },
         );
         expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(
           expect.objectContaining({
@@ -158,7 +158,7 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
         await new RequestService().postJson(
           'http://languee-nlp:8000/analyze',
           { text: 'running' },
-          { target: 'nlp' },
+          { target: 'nlp', propagateCorrelation: true },
         );
       },
     );
@@ -196,7 +196,7 @@ describe('lookup HTTP deadlines and slow telemetry', () => {
         await new RequestService().postJson(
           'http://languee-nlp:8000/analyze',
           { text: 'running' },
-          { target: 'nlp' },
+          { target: 'nlp', propagateCorrelation: true },
         );
       },
     );

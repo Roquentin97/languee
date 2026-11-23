@@ -1,10 +1,11 @@
+import { lookupRequestDetails as safeRequestDetails } from '../../../learning/vocabulary/request-log-policy';
+import { dictionaryLookupDetails } from '../../../lexicon/enrichment/dictionary/request-log-policy';
 import type { Request } from 'express';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   httpErrorDetails,
   requestPath,
   requestRoute,
-  safeRequestDetails,
 } from './http-request-log';
 
 function makeRequest(overrides: Partial<Request>): Request {
@@ -162,7 +163,7 @@ describe('HTTP request logging helpers', () => {
       query: { word: 'running', language: 'en', token: 'secret' },
     });
 
-    const redacted = safeRequestDetails(request, false);
+    const redacted = dictionaryLookupDetails(request, false);
     expect(redacted['query_parameters']).toEqual({
       language: 'en',
       word_bytes: 7,
@@ -170,7 +171,7 @@ describe('HTTP request logging helpers', () => {
     expect(JSON.stringify(redacted)).not.toContain('running');
     expect(JSON.stringify(redacted)).not.toContain('secret');
 
-    const captured = safeRequestDetails(request, true);
+    const captured = dictionaryLookupDetails(request, true);
     expect(captured['query_parameters']).toEqual({
       language: 'en',
       word_bytes: 7,

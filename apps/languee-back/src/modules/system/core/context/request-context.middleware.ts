@@ -4,7 +4,6 @@ import { AppLogger } from '../logger/app-logger';
 import {
   requestPath,
   requestRoute,
-  safeRequestDetails,
   type HttpLogLocals,
 } from '../interceptors/http-request-log';
 import { requestContextStorage } from './request-context';
@@ -55,11 +54,6 @@ export class RequestContextMiddleware implements NestMiddleware {
         : res.statusCode === 429
           ? 'rate_limit'
           : 'request_pipeline';
-    const details = safeRequestDetails(
-      req,
-      process.env['LOG_LOOKUP_DETAILS'] === 'true',
-    );
-
     res.locals.httpFailureLogged = true;
     this.logger.warn({
       message: 'HTTP request failed before controller logging',
@@ -76,7 +70,6 @@ export class RequestContextMiddleware implements NestMiddleware {
       ...(routeNotFound
         ? { 'error.message': 'No backend route matched this path' }
         : {}),
-      ...details,
     });
   }
 }

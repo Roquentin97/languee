@@ -92,6 +92,7 @@ export class NlpService {
 
     await this.request.send(readyUrl, {
       target: 'nlp',
+      propagateCorrelation: true,
       timeoutMs: NLP_READY_TIMEOUT_MS,
     });
   }
@@ -181,6 +182,7 @@ export class NlpService {
     const url = `${base}/${path}${params ? `?${new URLSearchParams(params)}` : ''}`;
     const requestOptions = {
       target: 'nlp' as const,
+      propagateCorrelation: true,
       ...options,
       headers: {
         Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`,

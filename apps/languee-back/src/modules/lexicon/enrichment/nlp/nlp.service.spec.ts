@@ -227,6 +227,7 @@ describe('NlpService', () => {
 
       expect(send).toHaveBeenCalledWith('http://nlp-service:8001/ready', {
         target: 'nlp',
+        propagateCorrelation: true,
         timeoutMs: NLP_READY_TIMEOUT_MS,
       });
     });

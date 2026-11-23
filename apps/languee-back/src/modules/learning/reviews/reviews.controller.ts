@@ -1,3 +1,5 @@
+import { LogRequestWith } from '../../system/core/interceptors/http-request-log';
+import { reviewQueueDetails } from './request-log-policy';
 import {
   BadRequestException,
   Body,
@@ -72,6 +74,7 @@ export class ReviewsController {
     return serializeSummary(summary);
   }
 
+  @LogRequestWith(reviewQueueDetails)
   @Get('queue')
   @ApiOperation({
     summary: 'Get the review queue for the current user',

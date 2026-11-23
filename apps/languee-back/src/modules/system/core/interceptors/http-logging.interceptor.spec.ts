@@ -3,6 +3,8 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { of, throwError } from 'rxjs';
 import { requestContextStorage } from '../context/request-context';
+import { lookupRequestDetails } from '../../../learning/vocabulary/request-log-policy';
+import { REQUEST_LOG_POLICY } from './http-request-log';
 import { HttpLoggingInterceptor } from './http-logging.interceptor';
 import type { HttpLogLocals } from './http-request-log';
 
@@ -10,7 +12,10 @@ function httpContext(
   request: Request,
   response: Response<unknown, HttpLogLocals>,
 ): ExecutionContext {
+  const handler = () => {};
+  Reflect.defineMetadata(REQUEST_LOG_POLICY, lookupRequestDetails, handler);
   return {
+    getHandler: () => handler,
     switchToHttp: () => ({
       getRequest: () => request,
       getResponse: () => response,
@@ -53,7 +58,7 @@ describe('HttpLoggingInterceptor', () => {
   });
 
   it('logs completed request metadata without lookup content', () => {
-    process.env['LOG_LOOKUP_DETAILS'] = 'true';
+    process.env['LOG_LOOKUP_DETAILS'] = 'failed-only';
     const stdout = jest
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true);
@@ -75,11 +80,44 @@ describe('HttpLoggingInterceptor', () => {
       }),
     );
     expect(line).not.toContain('running');
+    expect(line).not.toContain('She is running outside.');
     expect(line).not.toContain('must-not-be-logged');
   });
 
+  it.each([
+    ['allowed', true, true],
+    ['failed-only', false, true],
+    ['disabled', false, false],
+    ['unexpected', false, false],
+  ])(
+    'applies %s content policy for successes and failures',
+    (mode, successContent, failureContent) => {
+      process.env['LOG_LOOKUP_DETAILS'] = mode;
+      const stdout = jest
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(() => true);
+      const interceptor = new HttpLoggingInterceptor();
+      interceptor
+        .intercept(httpContext(makeRequest(), makeResponse()), {
+          handle: () => of({ ok: true }),
+        } as CallHandler)
+        .subscribe();
+      interceptor
+        .intercept(httpContext(makeRequest(), makeResponse()), {
+          handle: () => throwError(() => new NotFoundException()),
+        } as CallHandler)
+        .subscribe({ error: () => {} });
+      expect(
+        String(stdout.mock.calls[0]?.[0]).includes('She is running outside.'),
+      ).toBe(successContent);
+      expect(
+        String(stdout.mock.calls[1]?.[0]).includes('She is running outside.'),
+      ).toBe(failureContent);
+    },
+  );
+
   it('logs an application 404 code and allowlisted lookup details when enabled', (done) => {
-    process.env['LOG_LOOKUP_DETAILS'] = 'true';
+    process.env['LOG_LOOKUP_DETAILS'] = 'failed-only';
     const stdout = jest
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true);
@@ -122,7 +160,7 @@ describe('HttpLoggingInterceptor', () => {
   });
 
   it('omits arbitrary exception messages from failure records', (done) => {
-    process.env['LOG_LOOKUP_DETAILS'] = 'false';
+    process.env['LOG_LOOKUP_DETAILS'] = 'disabled';
     const stdout = jest
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true);

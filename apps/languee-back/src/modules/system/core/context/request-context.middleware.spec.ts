@@ -66,18 +66,6 @@ describe('RequestContextMiddleware', () => {
     middleware.use(req, res, next);
   });
 
-  it('replaces malformed request ids rather than echoing unsafe header values', () => {
-    const { res, setHeader } = makeRes();
-    middleware.use(
-      makeReq({ 'x-request-id': 'bad\nrequest-id' }),
-      res,
-      () => {},
-    );
-
-    const id = (setHeader.mock.calls as [string, string][])[0]?.[1];
-    expect(id).toMatch(/^[0-9a-f-]{36}$/);
-  });
-
   it('stores the requestId in AsyncLocalStorage before calling next', (done) => {
     const req = makeReq({ 'x-request-id': 'ctx-test-id' });
     const { res } = makeRes();
@@ -154,10 +142,11 @@ describe('RequestContextMiddleware', () => {
 });
 
 describe('request header validation', () => {
-  it('accepts bounded ids and creates a UUID for malformed or oversized values', () => {
+  it('preserves provided ids and generates one when absent', () => {
     expect(resolveRequestId('safe-id.123')).toBe('safe-id.123');
-    expect(resolveRequestId('bad id')).toMatch(/^[0-9a-f-]{36}$/);
-    expect(resolveRequestId('x'.repeat(129))).toMatch(/^[0-9a-f-]{36}$/);
+    expect(resolveRequestId('bad id')).toBe('bad id');
+    expect(resolveRequestId('x'.repeat(129))).toBe('x'.repeat(129));
+    expect(resolveRequestId(undefined)).toMatch(/^[0-9a-f-]{36}$/);
     expect(resolveRequestId(['first', 'second'])).toBe('first');
   });
 

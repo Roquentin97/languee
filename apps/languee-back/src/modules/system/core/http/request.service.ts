@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { isSpanContextValid, SpanStatusCode, trace } from '@opentelemetry/api';
 import { MS_PER_SECOND } from '../time/time.constants';
 import { AppLogger } from '../logger/app-logger';
 import { requestContextStorage } from '../context/request-context';
@@ -20,8 +20,6 @@ export class RequestFailure extends Error {
     readonly kind: RequestFailureKind,
     message: string,
     readonly status?: number,
-    /** Response body for a non-ok status; this is where a 4xx explains itself. */
-    readonly body?: string,
     override readonly cause?: unknown,
   ) {
     super(message);
@@ -36,6 +34,7 @@ export interface RequestOptions {
   /** Identifies the remote in logs and spans, e.g. 'wiktionary' or 'nlp'. */
   target: string;
   operation?: string;
+  propagateCorrelation?: boolean;
 }
 
 /**
@@ -60,7 +59,6 @@ export class RequestService {
           'parse',
           `${options.target} returned a body that is not valid JSON`,
           response.status,
-          undefined,
           err,
         ),
         options.target,
@@ -104,7 +102,6 @@ export class RequestService {
           : new RequestFailure(
               'network',
               `${options.target} could not be reached`,
-              undefined,
               undefined,
               err,
             );
@@ -162,7 +159,6 @@ export class RequestService {
         'parse',
         `${options.target} returned a body that is not valid JSON`,
         response.status,
-        undefined,
         err,
       );
     }
@@ -191,7 +187,6 @@ export class RequestService {
           aborted
             ? `${options.target} did not respond within ${timeoutMs}ms`
             : `${options.target} could not be reached`,
-          undefined,
           undefined,
           err,
         ),
@@ -267,13 +262,13 @@ export class RequestService {
 
     const requestId = requestContextStorage.getStore()?.requestId;
     if (
-      options.target === 'nlp' &&
+      options.propagateCorrelation === true &&
       requestId !== undefined &&
       !Object.keys(headers).some((key) => key.toLowerCase() === 'x-request-id')
     ) {
       headers['X-Request-ID'] = requestId;
     }
-    if (options.target === 'nlp') {
+    if (options.propagateCorrelation === true) {
       for (const key of Object.keys(headers)) {
         if (key.toLowerCase() === 'traceparent') delete headers[key];
       }
@@ -287,10 +282,7 @@ export class RequestService {
     const spanContext = trace.getActiveSpan()?.spanContext();
     if (
       spanContext !== undefined &&
-      /^[0-9a-f]{32}$/i.test(spanContext.traceId) &&
-      /^[0-9a-f]{16}$/i.test(spanContext.spanId) &&
-      spanContext.traceId !== '00000000000000000000000000000000' &&
-      spanContext.spanId !== '0000000000000000' &&
+      isSpanContextValid(spanContext) &&
       Number.isInteger(spanContext.traceFlags) &&
       spanContext.traceFlags >= 0 &&
       spanContext.traceFlags <= 255
