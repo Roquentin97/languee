@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read and atomically record verified development deployment identities."""
+"""Invalidate, inspect, and atomically record verified deployment identities."""
 
 from __future__ import annotations
 
@@ -15,9 +15,12 @@ from pathlib import Path
 from typing import Any
 
 STATE_FILE = ".applied-deploy-state.json"
+DIRTY_FILE = ".applied-deploy-state.dirty"
 REVISION = re.compile(r"[0-9a-f]{40}")
 IMAGE_TAG = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
+CONFIG_HASH = re.compile(r"[A-Za-z0-9_-]{1,128}")
 IMAGE_PREFIX = "ghcr.io/roquentin97/languee"
+PERSISTENT_SERVICES = ("postgres", "redis")
 
 
 class StateError(Exception):
@@ -53,19 +56,49 @@ def state_problem(value: Any) -> str | None:
         or REVISION.fullmatch(configuration["source_revision"]) is None
     ):
         return "configuration state is missing or malformed"
+    persistent = value.get("persistent_config_hashes")
+    if persistent is not None and (
+        not isinstance(persistent, dict)
+        or any(
+            not isinstance(persistent.get(name), str)
+            or CONFIG_HASH.fullmatch(persistent[name]) is None
+            for name in PERSISTENT_SERVICES
+        )
+    ):
+        return "persistent infrastructure state is missing or malformed"
+    if value.get("phase", "verified") == "applying":
+        return "a previous deployment did not reach verification"
+    if value.get("phase", "verified") != "verified":
+        return "deployment state has an unsupported phase"
     return None
 
 
-def load_state(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+def load_state(
+    path: Path, *, allow_applying: bool = False
+) -> tuple[dict[str, Any] | None, str | None]:
     """Read trusted state; missing and corrupt files request conservative repair."""
+    dirty_path = path.parent / DIRTY_FILE
+    dirty = dirty_path.exists()
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None, "missing"
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None, "corrupt"
+    if allow_applying and isinstance(state, dict) and state.get("phase") == "applying":
+        return state, None
+    if dirty and not (
+        allow_applying and isinstance(state, dict) and state.get("phase") == "applying"
+    ):
+        return None, "a previous deployment did not reach verification"
     problem = state_problem(state)
-    return (state, None) if problem is None else (None, "corrupt")
+    if allow_applying and problem == "a previous deployment did not reach verification":
+        return state, None
+    if problem is None:
+        return state, None
+    if problem == "a previous deployment did not reach verification":
+        return None, problem
+    return None, "corrupt"
 
 
 def status(app_dir: Path) -> dict[str, Any]:
@@ -74,6 +107,39 @@ def status(app_dir: Path) -> dict[str, Any]:
     if state is None:
         return {"known": False, "reason": reason or "corrupt"}
     return {"known": True, "state": state}
+
+
+def begin(app_dir: Path) -> dict[str, Any]:
+    """Mark state untrusted before a workflow mutates the running stack."""
+    state_path = app_dir / STATE_FILE
+    current, _reason = load_state(state_path, allow_applying=True)
+    had_verified_baseline = (
+        current is not None and current.get("phase", "verified") == "verified"
+    )
+    if current is None:
+        current = {
+            "schema_version": 1,
+            "components": {},
+            "configuration": {},
+        }
+    elif not isinstance(current.get("components"), dict) or not isinstance(
+        current.get("configuration"), dict
+    ):
+        current = {
+            "schema_version": 1,
+            "components": {},
+            "configuration": {},
+        }
+    current = json.loads(json.dumps(current))
+    current["phase"] = "applying"
+    current["baseline_verified"] = had_verified_baseline
+    current["started_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    _atomic_write(
+        app_dir / DIRTY_FILE,
+        {"started_at": current["started_at"]},
+    )
+    _atomic_write(state_path, current)
+    return {"known": False, "reason": "deployment in progress"}
 
 
 def _artifact_revision(service: str, tag: str, prefix: str) -> str:
@@ -97,6 +163,33 @@ def _artifact_revision(service: str, tag: str, prefix: str) -> str:
     return revision
 
 
+def _persistent_config_hashes(app_dir: Path) -> dict[str, str]:
+    """Capture the resolved protected-service definitions after a healthy apply."""
+    hashes: dict[str, str] = {}
+    for service in PERSISTENT_SERVICES:
+        try:
+            result = subprocess.run(
+                ["docker", "compose", "config", "--hash", service],
+                cwd=app_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise StateError(f"could not inspect the applied {service} Compose definition") from None
+        if result.returncode != 0:
+            raise StateError(f"could not inspect the applied {service} Compose definition")
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == service and CONFIG_HASH.fullmatch(parts[1]):
+                hashes[service] = parts[1]
+                break
+        if service not in hashes:
+            raise StateError(f"the applied {service} Compose definition has no valid hash")
+    return hashes
+
+
 def _atomic_write(path: Path, state: dict[str, Any]) -> None:
     fd, name = tempfile.mkstemp(prefix=".applied-deploy-state-", dir=path.parent)
     temporary = Path(name)
@@ -118,14 +211,56 @@ def _atomic_write(path: Path, state: dict[str, Any]) -> None:
         raise
 
 
+def _clear_dirty_marker(path: Path) -> None:
+    marker = path.parent / DIRTY_FILE
+    marker.unlink(missing_ok=True)
+    directory_fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def finish_vault_apply(app_dir: Path) -> None:
+    """Close a successful Vault-only apply without advancing source identity."""
+    state_path = app_dir / STATE_FILE
+    current, _reason = load_state(state_path, allow_applying=True)
+    if current is None or current.get("phase") != "applying":
+        raise StateError("Vault apply has no active deployment marker")
+    if current.get("baseline_verified") is not True:
+        result = status(app_dir)
+        print(json.dumps(result, sort_keys=True))
+        return
+
+    candidate = json.loads(json.dumps(current))
+    candidate["phase"] = "verified"
+    candidate.pop("baseline_verified", None)
+    candidate.pop("started_at", None)
+    candidate["verified_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    problem = state_problem(candidate)
+    if problem is not None:
+        raise StateError(f"cannot preserve incomplete applied source state: {problem}")
+    _atomic_write(state_path, candidate)
+    _clear_dirty_marker(state_path)
+    print(json.dumps(status(app_dir), sort_keys=True))
+
+
 def record(args: argparse.Namespace) -> None:
     """Record only artifacts verified by the caller after readiness succeeds."""
     state_path = args.app_dir / STATE_FILE
-    current, _reason = load_state(state_path)
-    if current is None:
-        current = {"schema_version": 1, "components": {}, "configuration": {}}
-    else:
-        current = json.loads(json.dumps(current))
+    current, _reason = load_state(state_path, allow_applying=True)
+    if current is None or current.get("phase") != "applying":
+        raise StateError("deployment state must be marked applying before it can be recorded")
+    baseline_verified = current.get("baseline_verified") is True
+    current = json.loads(json.dumps(current))
+    if not baseline_verified and not (
+        args.backend_tag
+        and args.nlp_tag
+        and args.configuration_source_revision
+    ):
+        raise StateError(
+            "cannot record a partial deployment from unknown or interrupted state; verify both services and configuration"
+        )
 
     updates = 0
     for name, tag, source_revision in (
@@ -157,9 +292,17 @@ def record(args: argparse.Namespace) -> None:
 
     if updates == 0:
         raise StateError("no verified deployment component was supplied")
+    current["persistent_config_hashes"] = _persistent_config_hashes(args.app_dir)
     current["schema_version"] = 1
+    current["phase"] = "verified"
+    current.pop("baseline_verified", None)
+    current.pop("started_at", None)
     current["verified_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    problem = state_problem(current)
+    if problem is not None:
+        raise StateError(f"verified state would be incomplete: {problem}")
     _atomic_write(state_path, current)
+    _clear_dirty_marker(state_path)
     result = status(args.app_dir)
     if not result["known"]:
         raise StateError(
@@ -170,7 +313,7 @@ def record(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("status", "record"))
+    parser.add_argument("action", choices=("status", "begin", "finish-vault", "record"))
     parser.add_argument("--app-dir", type=Path, default=Path("/opt/languee"))
     parser.add_argument("--image-prefix", default=os.environ.get("IMAGE_PREFIX", IMAGE_PREFIX))
     parser.add_argument("--backend-tag", default="")
@@ -187,6 +330,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.action == "status":
             print(json.dumps(status(args.app_dir), sort_keys=True))
+        elif args.action == "begin":
+            print(json.dumps(begin(args.app_dir), sort_keys=True))
+        elif args.action == "finish-vault":
+            finish_vault_apply(args.app_dir)
         else:
             record(args)
     except (OSError, StateError) as exc:

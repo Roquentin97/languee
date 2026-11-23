@@ -30,6 +30,7 @@ Hetzner CX23 (~€6/mo) if Oracle friction bites or when beta users arrive.
   languee-nlp.env           # generated from OCI Vault on deploy
   .deploy-state.json        # image tags + Vault secret version
   .applied-deploy-state.json # last health-verified source and artifact revisions
+  .applied-deploy-state.dirty # transaction sentinel until verification completes
   backups/                  # local dump retention (7 days)
 ```
 
@@ -156,8 +157,27 @@ deployment configuration with `.applied-deploy-state.json` on the VM. A failed,
 canceled, skipped, or superseded run leaves its component revision unadvanced,
 so a later unrelated push still selects that component. Missing or corrupt
 state causes both application images and configuration to be reconciled
-conservatively. The workflow summary shows desired and last verified revisions;
-it writes new state atomically only after host and public readiness pass.
+conservatively. Before changing the stack, Deploy (dev) marks the state
+untrusted; only successful host and public readiness checks allow it to write
+new verified source and artifact revisions atomically. A durable dirty marker
+survives state-write failures, so an earlier valid JSON record cannot make an
+interrupted deployment look current. The next run rebuilds both services and
+reapplies configuration. The workflow summary shows desired and last verified
+revisions. Deployment assets first land in a per-run staging directory; the
+workflow marks state before promoting them into live paths. If promotion is
+interrupted, the next run uses a fresh full payload.
+
+App tags, Vault-rendered env files, and tracked app service definitions are
+reconciled independently. Compose applies the new image or service configuration
+only for services whose rendered config changed. The persistent Postgres and
+Redis containers remain protected by `--no-recreate` unless an explicit
+maintenance approval is supplied. This applies to changes across their full
+Compose definitions, including commands, environment, healthchecks, mounts,
+dependencies, and top-level Compose resources. Rendered hashes are compared
+with the last verified hashes stored in applied state before the no-recreate
+path. A pre-existing host state without hashes, or a changed definition, fails
+visibly until a backup and compatibility review are confirmed. Successful
+Deploy (dev) runs store hashes for later comparisons.
 
 - **Rollback:** run Deploy (dev) manually on `develop`, setting
   `rollback_back_tag` and/or `rollback_nlp_tag` to select an immutable artifact
@@ -166,12 +186,18 @@ it writes new state atomically only after host and public readiness pass.
   before rolling code back across a schema change.
   The state records the selected artifact's source revision, leaving the next
   ordinary run able to detect and reconcile a rollback behind current develop.
-  Historical `0.1.<PATCH>` images remain valid rollback targets.
+  Historical `0.1.<PATCH>` images remain valid rollback targets. A manual
+  partial rollback is rejected before mutation when applied state is unknown or
+  interrupted; run a normal reconciliation first. A rollback from unknown state
+  must select both service artifacts and apply current configuration so it can
+  verify every component.
 - **Config-only change:** edit the Vault secret and run **Apply config (dev)**;
   deployed image artifacts and tags are preserved and no migrations run.
-  Its green result confirms the Vault-backed configuration apply only; the
-  workflow summary separately reports whether application or deployment source
-  revisions still need a Deploy (dev) run.
+  State is marked before the Vault mutation and cleared only after readiness.
+  When the old source state was verified, it remains unchanged; an unknown
+  state stays unknown. Its green result confirms the Vault-backed apply only.
+  It does not apply tracked Compose or deployment-script changes from develop;
+  the summary reports whether a Deploy (dev) run is still needed.
 - **Verify deployed identity:** check the backend's public `/version` response,
   perform the internal NLP `/version` check, then compare each full commit SHA
   with the `org.opencontainers.image.revision` label, verify version and

@@ -39,6 +39,13 @@ patch as `github.run_number * 1000 + github.run_attempt`; stale develop heads
 fail visibly before apply. A final head check runs after image builds and before
 the server is changed.
 
+Deployment files are uploaded to a per-run directory under
+`/opt/languee/.deploy-staging/`. The host is marked untrusted before the staged
+scripts, Compose file, Caddyfile, or provisioning tree replace live files. The
+promotion replaces tracked directories as a unit; an interrupted promotion
+cannot be used to run the stack script, and the next run stages and promotes a
+fresh complete payload.
+
 Backend and NLP are reconciled independently. Only stale or explicitly forced
 service images are built; missing or corrupt applied state selects both. The
 backend runtime and migrator images are checked and built separately so a
@@ -51,10 +58,38 @@ The deployment applies selected artifacts and configuration
 ([details](VAULT.md#what-the-deploy-does)): Vault fetch/validate, pinned image
 verification, migrations when backend code changes, service recreation, local
 readiness checks, and public backend readiness from the runner. The NLP image
-is also checked internally over the Compose network. Only after these checks
-pass does a separate atomic state write record each applied source revision,
-image tag, artifact revision, and configuration revision. A failed state write
-fails the workflow; the next run retries the still-unrecorded source state.
+is also checked internally over the Compose network. App service updates use
+Compose's rendered image and service configuration, so a tag-only backend
+change leaves NLP alone, while Vault env-file or tracked Compose changes update
+the affected services. Persistent Postgres and Redis services still use
+`--no-recreate` unless an explicitly approved infrastructure update is selected.
+
+Before applying stack changes, the workflow marks applied state as in progress.
+Only after host and public readiness pass does a separate atomic state write
+record each applied source revision, image tag, artifact revision, and
+configuration revision. A separate durable dirty marker remains until the
+verified write and directory sync both complete, so a failed state write cannot
+make an earlier JSON record trusted again. The next run rebuilds both
+application services and reapplies configuration conservatively, including
+after force deploys and rollbacks. A manual partial rollback is rejected before
+build or mutation if host state is missing, corrupt, or interrupted; first run a
+normal Deploy (dev) reconciliation. A full rollback from unknown state must
+select artifacts for both services and apply current configuration so the run
+can verify every recorded component.
+
+Postgres and Redis use `--no-recreate` unless maintenance is explicitly
+approved. Reconciliation detects changes to their full Compose service blocks,
+including command, environment, healthcheck, mount, and dependency settings,
+plus top-level volume, network, config, secret, and project-name definitions.
+Before `--no-recreate`, the host compares each rendered service hash with the
+last verified hash stored in applied state. A pre-existing host state without
+these hashes is treated as unverifiable and requires the same one-time
+maintenance approval when a persistent container or volume exists. Any hash
+mismatch fails visibly unless the manual Deploy (dev) run has
+`allow_persistent_infra` enabled. This requires a verified backup and
+compatibility review; a config-only or ordinary deploy does not implicitly
+recreate persistent services. Successful Deploy (dev) runs record the new
+hashes for later comparisons.
 
 Every run's summary lists desired versus last verified source revisions and
 whether backend, NLP, or deployment configuration will be applied. A run with
@@ -72,9 +107,13 @@ Manual runs (`workflow_dispatch`, branch `develop` only):
   Check application compatibility before rolling code back across a schema
   change.
 - **Apply config (dev)**: Vault config-only apply, both service tags preserved, no migrations,
-  no new code (see [VAULT.md](VAULT.md)). Its summary compares current source
-  revisions with the verified host state and calls out any code/config drift; a
-  successful Vault apply does not certify source convergence.
+  no new code (see [VAULT.md](VAULT.md)). It marks state before changing Vault
+  values and checks public readiness. If state was verified beforehand, it
+  preserves those exact source revisions; if state was already unknown, it
+  stays unknown. Its summary compares current develop revisions with the last
+  verified host state and calls out any source drift. In particular, a green
+  manual Vault apply does not apply tracked Compose or deployment-script
+  changes from a develop commit, and does not certify code convergence.
 
 After a deploy, compare each `GET /version` response with its image's
 `org.opencontainers.image.revision` label and the image digest reported by
@@ -117,6 +156,7 @@ secrets across, then delete `production` if unused).
   scripts/{backup-db.sh,deploy-stack.sh,deploy-state.py,sync-vault-config.py} # synced
   .env languee-back.env languee-nlp.env           # generated from Vault, 0600
   .deploy-state.json  .applied-deploy-state.json  # bookkeeping, 0600
+  .applied-deploy-state.dirty                    # transaction sentinel, 0600
   .config-previous/                               # snapshots, 0700
   backups/
 ```
@@ -145,14 +185,13 @@ stack reconciled. Merging this change does not run recovery on the current
 server.
 
 Migrations run before backend recreation and remain forward-only. If migration
-or readiness fails, the deployment workflow fails and the verified source
-state is not advanced. A failure during the deployment script restores the
-previous image/config references and attempts to recreate affected services;
-it never resets the database or reverses a migration. A public readiness
-failure after the host-side apply leaves the candidate services in place but
-still leaves applied source state unchanged, so the next reconciliation retries
-the desired artifacts. Inspect migration/readiness logs and verify schema/code
-compatibility before any rollback.
+or readiness fails, the deployment workflow fails and the state remains
+untrusted. A failure during the deployment script restores the previous
+image/config references and attempts to recreate affected services; it never
+resets the database or reverses a migration. Any failure after the in-progress
+marker leaves source state untrusted, so the next reconciliation rebuilds both
+application artifacts and reapplies configuration. Inspect migration/readiness
+logs and verify schema/code compatibility before any rollback.
 
 ## Build identity and releases
 

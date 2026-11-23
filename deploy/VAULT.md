@@ -82,9 +82,9 @@ then use the stdin-based `grafana cli admin reset-admin-password` command in
 
 1. Edit the secret in the OCI console (Identity & Security → Vault →
    `languee-dev-config` → Create new version). Each save is a new version.
-2. Run the **Apply config (dev)** workflow (Actions tab, branch `develop`), or
-   on the server:
-   `OCI_REGION=eu-frankfurt-1 VAULT_SECRET_OCID=<ocid> /opt/languee/scripts/deploy-stack.sh --preserve-tags`.
+2. Run the **Apply config (dev)** workflow (Actions tab, branch `develop`). It
+   marks applied state before the Vault mutation, checks public readiness, and
+   preserves the previous source revisions only when they were already trusted.
    The selected backend and NLP image tags are preserved and no migrations run.
 3. Inspect what is applied: `python3 /opt/languee/scripts/sync-vault-config.py --status`
    (secret version, both image tags, previous state, timestamp — no values).
@@ -92,6 +92,23 @@ then use the stdin-based `grafana cli admin reset-admin-password` command in
 `Apply config (dev)` changes configuration only. It reuses the existing
 immutable backend and NLP artifacts, does not build or select new images, and
 does not run migrations.
+
+For a manual server-side apply, use the same transaction and readiness sequence
+after confirming the host has the current state helper:
+
+```bash
+cd /opt/languee
+python3 scripts/deploy-state.py begin --app-dir /opt/languee
+OCI_REGION=eu-frankfurt-1 VAULT_SECRET_OCID=<ocid> \
+  scripts/deploy-stack.sh --preserve-tags
+curl --fail --show-error "$DEPLOY_HEALTHCHECK_URL" > /dev/null
+python3 scripts/deploy-state.py finish-vault --app-dir /opt/languee
+```
+
+Set `DEPLOY_HEALTHCHECK_URL` to the public `/health/ready` URL. If any step
+fails or the shell is interrupted, leave the dirty marker in place; a later
+Deploy (dev) run reconciles both application services and tracked configuration.
+Do not call `finish-vault` to promote a state that was already unknown.
 
 Dry-run a new version without touching the server's files:
 `OCI_REGION=eu-frankfurt-1 python3 scripts/sync-vault-config.py --check --secret-version <n>`.
